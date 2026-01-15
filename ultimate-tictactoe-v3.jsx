@@ -634,9 +634,11 @@ const UltimateTicTacToe = () => {
           };
         }
         const chosen = previousGimmicks[Math.floor(Math.random() * previousGimmicks.length)];
+        // Flatten subData into main data object so components can read it
+        const subGimmickData = generateGimmickData(chosen, boards);
         return {
           subType: chosen,
-          subData: generateGimmickData(chosen, boards),
+          ...subGimmickData,
         };
 
       default:
@@ -666,13 +668,24 @@ const UltimateTicTacToe = () => {
     if (!gimmick || gimmick.passive) return false;
 
     if (gimmick.type === 'interval') {
+      // Special case: piece_swap needs at least 2 player pieces
+      if (gimmick.id === 'piece_swap') {
+        let playerPieceCount = 0;
+        smallBoards.forEach(board => {
+          board.forEach(cell => {
+            if (cell === 'X') playerPieceCount++;
+          });
+        });
+        if (playerPieceCount < 2) return false;
+      }
       return turnNum > 0 && turnNum % gimmick.interval === 0;
     }
     if (gimmick.type === 'before_move') {
-      return true;
+      // Don't trigger on first 2 turns to let player get started
+      return turnNum >= 2;
     }
     return false;
-  }, []);
+  }, [smallBoards]);
 
   // Apply gimmick penalty
   const applyGimmickPenalty = useCallback((penaltyType) => {
@@ -1343,7 +1356,17 @@ const UltimateTicTacToe = () => {
 
   const handleGameEnd = (result) => {
     setGameState(result);
-    
+
+    // Clean up any active gimmick
+    if (gimmickTimerRef.current) {
+      clearInterval(gimmickTimerRef.current);
+      gimmickTimerRef.current = null;
+    }
+    setGimmickActive(false);
+    setGimmickType(null);
+    setGimmickData({});
+    setPendingMove(null);
+
     if (result === 'won') {
       setWins(w => w + 1);
       setShowVictoryEffect(true);
@@ -1355,7 +1378,7 @@ const UltimateTicTacToe = () => {
     } else {
       setDraws(d => d + 1);
     }
-    
+
     learnFromGame(result, moveHistory);
   };
 
