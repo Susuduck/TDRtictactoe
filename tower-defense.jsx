@@ -1,0 +1,845 @@
+const TowerDefenseGame = () => {
+  const { useState, useEffect, useCallback, useRef } = React;
+
+  // Game constants
+  const GRID_SIZE = 15;
+  const CELL_SIZE = 40;
+  const TICK_RATE = 50;
+
+  // Game state
+  const [gameState, setGameState] = useState('menu'); // menu, playing, paused, won, lost
+  const [grid, setGrid] = useState(() => Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null)));
+  const [towers, setTowers] = useState([]);
+  const [enemies, setEnemies] = useState([]);
+  const [projectiles, setProjectiles] = useState([]);
+  const [wave, setWave] = useState(1);
+  const [lives, setLives] = useState(20);
+  const [gold, setGold] = useState(100);
+  const [selectedTower, setSelectedTower] = useState(null);
+  const [hoveredCell, setHoveredCell] = useState(null);
+  const [path, setPath] = useState([]);
+  const [waveInProgress, setWaveInProgress] = useState(false);
+  const [enemiesSpawned, setEnemiesSpawned] = useState(0);
+  const [totalScore, setTotalScore] = useState(0);
+
+  const gameLoopRef = useRef(null);
+  const spawnTimerRef = useRef(null);
+
+  // Theme (matching tic-tac-toe)
+  const theme = {
+    bg: '#1a1625',
+    bgPanel: '#252136',
+    bgDark: '#13111a',
+    accent: '#8b7acc',
+    accentBright: '#a594e0',
+    gold: '#f4c542',
+    goldGlow: 'rgba(244, 197, 66, 0.4)',
+    error: '#e85a50',
+    success: '#50c878',
+    text: '#e8e6f0',
+    textSecondary: '#a0a0b0',
+    textMuted: '#606070',
+    border: '#3a3550',
+  };
+
+  // Tower definitions
+  const towerTypes = {
+    basic: {
+      id: 'basic',
+      name: 'Arrow Tower',
+      emoji: '🏹',
+      cost: 25,
+      damage: 10,
+      range: 3,
+      fireRate: 1000,
+      color: '#60a060',
+      description: 'Basic tower, balanced stats',
+    },
+    cannon: {
+      id: 'cannon',
+      name: 'Cannon Tower',
+      emoji: '💣',
+      cost: 50,
+      damage: 30,
+      range: 2.5,
+      fireRate: 2000,
+      color: '#a06060',
+      splash: 1,
+      description: 'Slow but powerful, splash damage',
+    },
+    sniper: {
+      id: 'sniper',
+      name: 'Sniper Tower',
+      emoji: '🎯',
+      cost: 75,
+      damage: 50,
+      range: 5,
+      fireRate: 2500,
+      color: '#6060a0',
+      description: 'Long range, high damage',
+    },
+    frost: {
+      id: 'frost',
+      name: 'Frost Tower',
+      emoji: '❄️',
+      cost: 40,
+      damage: 5,
+      range: 2.5,
+      fireRate: 800,
+      slow: 0.5,
+      slowDuration: 2000,
+      color: '#60a0c0',
+      description: 'Slows enemies down',
+    },
+    lightning: {
+      id: 'lightning',
+      name: 'Lightning Tower',
+      emoji: '⚡',
+      cost: 100,
+      damage: 15,
+      range: 3,
+      fireRate: 500,
+      chain: 3,
+      color: '#c0c060',
+      description: 'Fast attack, chains to nearby enemies',
+    },
+  };
+
+  // Enemy definitions
+  const enemyTypes = {
+    basic: { id: 'basic', name: 'Slime', emoji: '🟢', health: 30, speed: 1, reward: 5, color: '#50c878' },
+    fast: { id: 'fast', name: 'Scout', emoji: '🔵', health: 20, speed: 2, reward: 8, color: '#5080c0' },
+    tank: { id: 'tank', name: 'Golem', emoji: '🟤', health: 100, speed: 0.5, reward: 15, color: '#806040' },
+    swarm: { id: 'swarm', name: 'Bug', emoji: '🐛', health: 10, speed: 1.5, reward: 3, color: '#80c050' },
+    boss: { id: 'boss', name: 'Dragon', emoji: '🐉', health: 500, speed: 0.3, reward: 100, color: '#c05050' },
+  };
+
+  // Start/end points
+  const START = { row: 0, col: Math.floor(GRID_SIZE / 2) };
+  const END = { row: GRID_SIZE - 1, col: Math.floor(GRID_SIZE / 2) };
+
+  // Pathfinding (BFS)
+  const findPath = useCallback((gridState) => {
+    const queue = [[START.row, START.col]];
+    const visited = new Set();
+    const parent = new Map();
+
+    visited.add(`${START.row},${START.col}`);
+
+    const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+    while (queue.length > 0) {
+      const [row, col] = queue.shift();
+
+      if (row === END.row && col === END.col) {
+        // Reconstruct path
+        const pathResult = [];
+        let current = `${END.row},${END.col}`;
+        while (current) {
+          const [r, c] = current.split(',').map(Number);
+          pathResult.unshift({ row: r, col: c });
+          current = parent.get(current);
+        }
+        return pathResult;
+      }
+
+      for (const [dr, dc] of directions) {
+        const newRow = row + dr;
+        const newCol = col + dc;
+        const key = `${newRow},${newCol}`;
+
+        if (
+          newRow >= 0 && newRow < GRID_SIZE &&
+          newCol >= 0 && newCol < GRID_SIZE &&
+          !visited.has(key) &&
+          gridState[newRow][newCol] === null
+        ) {
+          visited.add(key);
+          parent.set(key, `${row},${col}`);
+          queue.push([newRow, newCol]);
+        }
+      }
+    }
+
+    return null; // No path found
+  }, []);
+
+  // Check if placing tower would block path
+  const canPlaceTower = useCallback((row, col) => {
+    if (grid[row][col] !== null) return false;
+    if (row === START.row && col === START.col) return false;
+    if (row === END.row && col === END.col) return false;
+
+    // Test if path still exists with tower placed
+    const testGrid = grid.map(r => [...r]);
+    testGrid[row][col] = 'tower';
+    const testPath = findPath(testGrid);
+
+    return testPath !== null;
+  }, [grid, findPath]);
+
+  // Place tower
+  const placeTower = useCallback((row, col, towerType) => {
+    if (!canPlaceTower(row, col)) return false;
+    if (gold < towerTypes[towerType].cost) return false;
+
+    const newTower = {
+      id: Date.now(),
+      row,
+      col,
+      type: towerType,
+      ...towerTypes[towerType],
+      lastFired: 0,
+    };
+
+    setTowers(prev => [...prev, newTower]);
+    setGrid(prev => {
+      const newGrid = prev.map(r => [...r]);
+      newGrid[row][col] = 'tower';
+      return newGrid;
+    });
+    setGold(prev => prev - towerTypes[towerType].cost);
+    setSelectedTower(null);
+
+    // Recalculate path
+    const newGrid = grid.map(r => [...r]);
+    newGrid[row][col] = 'tower';
+    setPath(findPath(newGrid) || []);
+
+    return true;
+  }, [canPlaceTower, gold, grid, findPath]);
+
+  // Sell tower
+  const sellTower = useCallback((towerId) => {
+    const tower = towers.find(t => t.id === towerId);
+    if (!tower) return;
+
+    setTowers(prev => prev.filter(t => t.id !== towerId));
+    setGrid(prev => {
+      const newGrid = prev.map(r => [...r]);
+      newGrid[tower.row][tower.col] = null;
+      return newGrid;
+    });
+    setGold(prev => prev + Math.floor(tower.cost * 0.5));
+
+    // Recalculate path
+    const newGrid = grid.map(r => [...r]);
+    newGrid[tower.row][tower.col] = null;
+    setPath(findPath(newGrid) || []);
+  }, [towers, grid, findPath]);
+
+  // Spawn enemy
+  const spawnEnemy = useCallback((type) => {
+    const enemyDef = enemyTypes[type];
+    const newEnemy = {
+      id: Date.now() + Math.random(),
+      type,
+      ...enemyDef,
+      currentHealth: enemyDef.health,
+      pathIndex: 0,
+      x: START.col * CELL_SIZE + CELL_SIZE / 2,
+      y: START.row * CELL_SIZE + CELL_SIZE / 2,
+      slowedUntil: 0,
+    };
+    setEnemies(prev => [...prev, newEnemy]);
+  }, []);
+
+  // Start wave
+  const startWave = useCallback(() => {
+    if (waveInProgress) return;
+
+    setWaveInProgress(true);
+    setEnemiesSpawned(0);
+
+    // Wave composition
+    const waveEnemies = [];
+    const baseCount = 5 + wave * 2;
+
+    // Add basic enemies
+    for (let i = 0; i < baseCount; i++) {
+      waveEnemies.push('basic');
+    }
+
+    // Add fast enemies after wave 2
+    if (wave >= 2) {
+      for (let i = 0; i < Math.floor(wave / 2); i++) {
+        waveEnemies.push('fast');
+      }
+    }
+
+    // Add tanks after wave 3
+    if (wave >= 3) {
+      for (let i = 0; i < Math.floor(wave / 3); i++) {
+        waveEnemies.push('tank');
+      }
+    }
+
+    // Add swarm after wave 4
+    if (wave >= 4) {
+      for (let i = 0; i < wave; i++) {
+        waveEnemies.push('swarm');
+      }
+    }
+
+    // Add boss every 5 waves
+    if (wave % 5 === 0) {
+      waveEnemies.push('boss');
+    }
+
+    // Shuffle enemies
+    for (let i = waveEnemies.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [waveEnemies[i], waveEnemies[j]] = [waveEnemies[j], waveEnemies[i]];
+    }
+
+    // Spawn enemies over time
+    let spawnIndex = 0;
+    spawnTimerRef.current = setInterval(() => {
+      if (spawnIndex < waveEnemies.length) {
+        spawnEnemy(waveEnemies[spawnIndex]);
+        spawnIndex++;
+        setEnemiesSpawned(spawnIndex);
+      } else {
+        clearInterval(spawnTimerRef.current);
+      }
+    }, 800 - Math.min(wave * 20, 400));
+  }, [wave, waveInProgress, spawnEnemy]);
+
+  // Game loop
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    const tick = () => {
+      const now = Date.now();
+
+      // Move enemies
+      setEnemies(prev => {
+        const newEnemies = [];
+
+        for (const enemy of prev) {
+          if (enemy.pathIndex >= path.length) {
+            // Enemy reached end
+            setLives(l => {
+              const newLives = l - 1;
+              if (newLives <= 0) {
+                setGameState('lost');
+              }
+              return newLives;
+            });
+            continue;
+          }
+
+          const target = path[enemy.pathIndex];
+          const targetX = target.col * CELL_SIZE + CELL_SIZE / 2;
+          const targetY = target.row * CELL_SIZE + CELL_SIZE / 2;
+
+          const dx = targetX - enemy.x;
+          const dy = targetY - enemy.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          let speed = enemy.speed;
+          if (enemy.slowedUntil > now) {
+            speed *= 0.5;
+          }
+
+          if (dist < speed * 2) {
+            enemy.pathIndex++;
+          } else {
+            enemy.x += (dx / dist) * speed * 2;
+            enemy.y += (dy / dist) * speed * 2;
+          }
+
+          newEnemies.push(enemy);
+        }
+
+        return newEnemies;
+      });
+
+      // Tower attacks
+      setTowers(prev => {
+        return prev.map(tower => {
+          if (now - tower.lastFired < tower.fireRate) return tower;
+
+          // Find target
+          let target = null;
+          let maxProgress = -1;
+
+          for (const enemy of enemies) {
+            const dx = enemy.x - (tower.col * CELL_SIZE + CELL_SIZE / 2);
+            const dy = enemy.y - (tower.row * CELL_SIZE + CELL_SIZE / 2);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= tower.range * CELL_SIZE && enemy.pathIndex > maxProgress) {
+              target = enemy;
+              maxProgress = enemy.pathIndex;
+            }
+          }
+
+          if (target) {
+            // Create projectile
+            setProjectiles(p => [...p, {
+              id: Date.now() + Math.random(),
+              fromX: tower.col * CELL_SIZE + CELL_SIZE / 2,
+              fromY: tower.row * CELL_SIZE + CELL_SIZE / 2,
+              toX: target.x,
+              toY: target.y,
+              targetId: target.id,
+              damage: tower.damage,
+              color: tower.color,
+              splash: tower.splash,
+              slow: tower.slow,
+              slowDuration: tower.slowDuration,
+              chain: tower.chain,
+              progress: 0,
+            }]);
+
+            return { ...tower, lastFired: now };
+          }
+
+          return tower;
+        });
+      });
+
+      // Move projectiles
+      setProjectiles(prev => {
+        const newProjectiles = [];
+
+        for (const proj of prev) {
+          proj.progress += 0.15;
+
+          if (proj.progress >= 1) {
+            // Hit target
+            setEnemies(enemies => {
+              return enemies.map(enemy => {
+                if (enemy.id === proj.targetId) {
+                  const newHealth = enemy.currentHealth - proj.damage;
+
+                  if (proj.slow) {
+                    enemy.slowedUntil = now + proj.slowDuration;
+                  }
+
+                  if (newHealth <= 0) {
+                    setGold(g => g + enemy.reward);
+                    setTotalScore(s => s + enemy.reward * 10);
+                    return null;
+                  }
+
+                  return { ...enemy, currentHealth: newHealth };
+                }
+
+                // Splash damage
+                if (proj.splash) {
+                  const dx = enemy.x - proj.toX;
+                  const dy = enemy.y - proj.toY;
+                  const dist = Math.sqrt(dx * dx + dy * dy);
+
+                  if (dist <= proj.splash * CELL_SIZE && enemy.id !== proj.targetId) {
+                    const newHealth = enemy.currentHealth - proj.damage * 0.5;
+                    if (newHealth <= 0) {
+                      setGold(g => g + enemy.reward);
+                      setTotalScore(s => s + enemy.reward * 10);
+                      return null;
+                    }
+                    return { ...enemy, currentHealth: newHealth };
+                  }
+                }
+
+                return enemy;
+              }).filter(Boolean);
+            });
+          } else {
+            newProjectiles.push(proj);
+          }
+        }
+
+        return newProjectiles;
+      });
+
+      // Check wave complete
+      if (waveInProgress && enemies.length === 0 && enemiesSpawned > 0) {
+        const checkComplete = setTimeout(() => {
+          if (enemies.length === 0) {
+            setWaveInProgress(false);
+            setWave(w => w + 1);
+            setGold(g => g + 20 + wave * 5);
+          }
+        }, 500);
+        return () => clearTimeout(checkComplete);
+      }
+    };
+
+    gameLoopRef.current = setInterval(tick, TICK_RATE);
+    return () => clearInterval(gameLoopRef.current);
+  }, [gameState, path, enemies, towers, waveInProgress, enemiesSpawned, wave]);
+
+  // Initialize path
+  useEffect(() => {
+    setPath(findPath(grid) || []);
+  }, []);
+
+  // Start game
+  const startGame = () => {
+    setGrid(Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null)));
+    setTowers([]);
+    setEnemies([]);
+    setProjectiles([]);
+    setWave(1);
+    setLives(20);
+    setGold(100);
+    setWaveInProgress(false);
+    setEnemiesSpawned(0);
+    setTotalScore(0);
+    setPath(findPath(Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null))) || []);
+    setGameState('playing');
+  };
+
+  const styles = `
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    @keyframes slideIn {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+
+    * { box-sizing: border-box; }
+  `;
+
+  return (
+    <div style={{
+      width: '100%', minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1a1625 0%, #2d2640 50%, #1a1625 100%)',
+      fontFamily: "'Nunito', sans-serif",
+      color: theme.text,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <style>{styles}</style>
+
+      {/* Main Content */}
+      <div style={{ position: 'relative', zIndex: 5, minHeight: '100vh', padding: '20px' }}>
+
+        {/* MENU */}
+        {gameState === 'menu' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 40px)' }}>
+            <div style={{ textAlign: 'center', animation: 'slideIn 0.5s ease-out' }}>
+              <div style={{ marginBottom: '20px', animation: 'float 3s ease-in-out infinite' }}>
+                <div style={{
+                  width: 120, height: 120,
+                  background: `linear-gradient(135deg, ${theme.accent}40 0%, ${theme.accent}20 100%)`,
+                  borderRadius: '20px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 60,
+                  boxShadow: '0 4px 30px rgba(0,0,0,0.4)',
+                  border: `4px solid ${theme.accent}`,
+                  margin: '0 auto',
+                }}>🏰</div>
+              </div>
+              <h1 style={{
+                fontSize: '42px', fontWeight: 900, marginBottom: '8px',
+                background: `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accentBright} 100%)`,
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+              }}>TOWER DEFENSE</h1>
+              <p style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '32px' }}>
+                Build towers. Create mazes. Defend your base!
+              </p>
+
+              <button
+                onClick={startGame}
+                style={{
+                  padding: '16px 48px', fontSize: '18px', fontWeight: 800, fontFamily: 'inherit',
+                  background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
+                  border: 'none', borderRadius: '12px', color: '#fff', cursor: 'pointer',
+                  boxShadow: `0 4px 20px ${theme.accent}50`,
+                }}
+              >
+                START GAME
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* GAME */}
+        {(gameState === 'playing' || gameState === 'lost') && (
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+
+            {/* Tower Selection Panel */}
+            <div style={{
+              background: theme.bgPanel,
+              borderRadius: '16px',
+              padding: '16px',
+              border: `1px solid ${theme.border}`,
+              width: '200px',
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '12px', color: theme.gold }}>TOWERS</h3>
+              {Object.values(towerTypes).map(tower => (
+                <div
+                  key={tower.id}
+                  onClick={() => gold >= tower.cost && setSelectedTower(tower.id)}
+                  style={{
+                    background: selectedTower === tower.id ? `${tower.color}30` : theme.bgDark,
+                    borderRadius: '10px',
+                    padding: '10px',
+                    marginBottom: '8px',
+                    cursor: gold >= tower.cost ? 'pointer' : 'not-allowed',
+                    opacity: gold >= tower.cost ? 1 : 0.5,
+                    border: selectedTower === tower.id ? `2px solid ${tower.color}` : `1px solid ${theme.border}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '20px' }}>{tower.emoji}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: tower.color }}>{tower.name}</span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: theme.textMuted, marginBottom: '4px' }}>{tower.description}</div>
+                  <div style={{ fontSize: '11px', color: theme.gold, fontWeight: 700 }}>💰 {tower.cost}</div>
+                </div>
+              ))}
+
+              <div style={{ marginTop: '16px', padding: '10px', background: theme.bgDark, borderRadius: '10px' }}>
+                <div style={{ fontSize: '10px', color: theme.textMuted, marginBottom: '4px' }}>CONTROLS</div>
+                <div style={{ fontSize: '10px', color: theme.textSecondary }}>
+                  • Click tower, then grid<br/>
+                  • Right-click tower to sell<br/>
+                  • Don't block the path!
+                </div>
+              </div>
+            </div>
+
+            {/* Game Board */}
+            <div style={{ position: 'relative' }}>
+              {/* Stats Bar */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: '12px', padding: '12px 16px',
+                background: theme.bgPanel, borderRadius: '12px',
+                border: `1px solid ${theme.border}`,
+              }}>
+                <div style={{ display: 'flex', gap: '24px' }}>
+                  <div>
+                    <span style={{ fontSize: '10px', color: theme.textMuted }}>WAVE</span>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: theme.accent }}>{wave}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10px', color: theme.textMuted }}>LIVES</span>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: lives <= 5 ? theme.error : theme.success }}>❤️ {lives}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10px', color: theme.textMuted }}>GOLD</span>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: theme.gold }}>💰 {gold}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10px', color: theme.textMuted }}>SCORE</span>
+                    <div style={{ fontSize: '20px', fontWeight: 900, color: theme.text }}>{totalScore}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={startWave}
+                  disabled={waveInProgress}
+                  style={{
+                    padding: '10px 24px', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit',
+                    background: waveInProgress ? theme.bgDark : theme.success,
+                    border: 'none', borderRadius: '10px',
+                    color: waveInProgress ? theme.textMuted : '#fff',
+                    cursor: waveInProgress ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {waveInProgress ? `WAVE IN PROGRESS...` : `START WAVE ${wave}`}
+                </button>
+              </div>
+
+              {/* Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
+                gap: '1px',
+                background: theme.bgDark,
+                padding: '8px',
+                borderRadius: '16px',
+                border: `2px solid ${theme.border}`,
+                position: 'relative',
+              }}>
+                {grid.map((row, rowIdx) =>
+                  row.map((cell, colIdx) => {
+                    const isStart = rowIdx === START.row && colIdx === START.col;
+                    const isEnd = rowIdx === END.row && colIdx === END.col;
+                    const isPath = path.some(p => p.row === rowIdx && p.col === colIdx);
+                    const isHovered = hoveredCell?.row === rowIdx && hoveredCell?.col === colIdx;
+                    const tower = towers.find(t => t.row === rowIdx && t.col === colIdx);
+                    const canPlace = selectedTower && canPlaceTower(rowIdx, colIdx) && gold >= towerTypes[selectedTower].cost;
+
+                    return (
+                      <div
+                        key={`${rowIdx}-${colIdx}`}
+                        onClick={() => {
+                          if (selectedTower && canPlace) {
+                            placeTower(rowIdx, colIdx, selectedTower);
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (tower) {
+                            sellTower(tower.id);
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredCell({ row: rowIdx, col: colIdx })}
+                        onMouseLeave={() => setHoveredCell(null)}
+                        style={{
+                          width: CELL_SIZE, height: CELL_SIZE,
+                          background: isStart ? `${theme.success}40` :
+                                     isEnd ? `${theme.error}40` :
+                                     tower ? `${tower.color}30` :
+                                     isHovered && canPlace ? `${towerTypes[selectedTower].color}30` :
+                                     isPath ? `${theme.accent}15` : theme.bg,
+                          borderRadius: '4px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: canPlace ? 'pointer' : 'default',
+                          position: 'relative',
+                          transition: 'background 0.1s ease',
+                        }}
+                      >
+                        {isStart && <span style={{ fontSize: '16px' }}>🚪</span>}
+                        {isEnd && <span style={{ fontSize: '16px' }}>🏠</span>}
+                        {tower && <span style={{ fontSize: '20px' }}>{tower.emoji}</span>}
+                        {isHovered && canPlace && !tower && (
+                          <span style={{ fontSize: '20px', opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* Enemies */}
+                {enemies.map(enemy => (
+                  <div
+                    key={enemy.id}
+                    style={{
+                      position: 'absolute',
+                      left: enemy.x - 12,
+                      top: enemy.y - 12,
+                      width: 24, height: 24,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexDirection: 'column',
+                      pointerEvents: 'none',
+                      zIndex: 10,
+                    }}
+                  >
+                    <span style={{ fontSize: enemy.type === 'boss' ? '24px' : '16px' }}>{enemy.emoji}</span>
+                    {/* Health bar */}
+                    <div style={{
+                      position: 'absolute', bottom: -6,
+                      width: 20, height: 3,
+                      background: '#333',
+                      borderRadius: '2px',
+                    }}>
+                      <div style={{
+                        width: `${(enemy.currentHealth / enemy.health) * 100}%`,
+                        height: '100%',
+                        background: enemy.currentHealth > enemy.health * 0.5 ? theme.success :
+                                   enemy.currentHealth > enemy.health * 0.25 ? theme.gold : theme.error,
+                        borderRadius: '2px',
+                      }} />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Projectiles */}
+                {projectiles.map(proj => {
+                  const x = proj.fromX + (proj.toX - proj.fromX) * proj.progress;
+                  const y = proj.fromY + (proj.toY - proj.fromY) * proj.progress;
+                  return (
+                    <div
+                      key={proj.id}
+                      style={{
+                        position: 'absolute',
+                        left: x - 4,
+                        top: y - 4,
+                        width: 8, height: 8,
+                        background: proj.color,
+                        borderRadius: '50%',
+                        boxShadow: `0 0 6px ${proj.color}`,
+                        pointerEvents: 'none',
+                        zIndex: 20,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Game Over Overlay */}
+              {gameState === 'lost' && (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'rgba(26, 22, 37, 0.95)',
+                  borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 100,
+                }}>
+                  <div style={{ fontSize: '64px', marginBottom: '16px' }}>💀</div>
+                  <div style={{ fontSize: '32px', fontWeight: 900, color: theme.error, marginBottom: '8px' }}>GAME OVER</div>
+                  <div style={{ fontSize: '16px', color: theme.textSecondary, marginBottom: '8px' }}>Wave {wave} | Score: {totalScore}</div>
+                  <button
+                    onClick={startGame}
+                    style={{
+                      marginTop: '16px',
+                      padding: '12px 32px', fontSize: '16px', fontWeight: 800, fontFamily: 'inherit',
+                      background: theme.accent, border: 'none', borderRadius: '10px', color: '#fff', cursor: 'pointer',
+                    }}
+                  >
+                    TRY AGAIN
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Info Panel */}
+            <div style={{
+              background: theme.bgPanel,
+              borderRadius: '16px',
+              padding: '16px',
+              border: `1px solid ${theme.border}`,
+              width: '180px',
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '12px', color: theme.accent }}>ENEMIES</h3>
+              {Object.values(enemyTypes).map(enemy => (
+                <div
+                  key={enemy.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '6px', marginBottom: '6px',
+                    background: theme.bgDark, borderRadius: '8px',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>{enemy.emoji}</span>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: enemy.color }}>{enemy.name}</div>
+                    <div style={{ fontSize: '9px', color: theme.textMuted }}>HP: {enemy.health} | 💰{enemy.reward}</div>
+                  </div>
+                </div>
+              ))}
+
+              <div style={{ marginTop: '16px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '8px', color: theme.accent }}>PATH</h3>
+                <div style={{ fontSize: '10px', color: theme.textSecondary }}>
+                  Enemies follow the shortest path from 🚪 to 🏠. Place towers to make them walk longer!
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Export for use
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = TowerDefenseGame;
+}
