@@ -62,7 +62,7 @@ const UltimateTicTacToe = () => {
 
   // Twist definitions
   const twistDefs = {
-    none: { id: 'none', name: null, icon: null, chance: 55 },
+    none: { id: 'none', name: null, icon: null, chance: 53 },
     speed_round: { id: 'speed_round', name: 'SPEED ROUND', icon: '⚡', chance: 10, color: '#f4c542' },
     fog_of_war: { id: 'fog_of_war', name: 'FOG OF WAR', icon: '👁', chance: 7, color: '#8080a0' },
     sudden_death: { id: 'sudden_death', name: 'SUDDEN DEATH', icon: '💀', chance: 6, color: '#e85a50' },
@@ -71,7 +71,12 @@ const UltimateTicTacToe = () => {
     shrinking_board: { id: 'shrinking_board', name: 'SHRINKING BOARD', icon: '📉', chance: 5, color: '#60a080' },
     double_down: { id: 'double_down', name: 'DOUBLE DOWN', icon: '✌️', chance: 3, color: '#c060a0' },
     blackout: { id: 'blackout', name: 'BLACKOUT', icon: '🌑', chance: 3, color: '#404060' },
+    gomoku: { id: 'gomoku', name: 'GOMOKU MODE', icon: '⭐', chance: 2, color: '#ffd700' },
   };
+
+  // Gomoku state (15x15 board)
+  const [gomokuBoard, setGomokuBoard] = useState(Array(15).fill(null).map(() => Array(15).fill(null)));
+  const [gomokuLastMove, setGomokuLastMove] = useState(null);
 
   // Enemy definitions
   const enemyDefs = [
@@ -523,6 +528,183 @@ const UltimateTicTacToe = () => {
     }
     return null;
   }, [isBoardFull, wouldWinBoard]);
+
+  // ==================== GOMOKU SYSTEM ====================
+
+  const checkGomokuWinner = useCallback((board) => {
+    const size = 15;
+    const directions = [
+      [0, 1],   // horizontal
+      [1, 0],   // vertical
+      [1, 1],   // diagonal down-right
+      [1, -1],  // diagonal down-left
+    ];
+
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const player = board[row][col];
+        if (!player) continue;
+
+        for (const [dr, dc] of directions) {
+          let count = 1;
+          const winningCells = [[row, col]];
+
+          // Check in positive direction
+          for (let i = 1; i < 5; i++) {
+            const newRow = row + dr * i;
+            const newCol = col + dc * i;
+            if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+            if (board[newRow][newCol] !== player) break;
+            count++;
+            winningCells.push([newRow, newCol]);
+          }
+
+          if (count >= 5) {
+            return { winner: player, cells: winningCells };
+          }
+        }
+      }
+    }
+    return null;
+  }, []);
+
+  const getGomokuAIMove = useCallback((board) => {
+    const size = 15;
+    const emptyCells = [];
+
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (board[r][c] === null) {
+          emptyCells.push({ row: r, col: c });
+        }
+      }
+    }
+
+    if (emptyCells.length === 0) return null;
+
+    // Simple heuristic: score each empty cell
+    const scoreCell = (row, col, player) => {
+      let score = 0;
+      const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+      for (const [dr, dc] of directions) {
+        let count = 1;
+        let openEnds = 0;
+
+        // Count in positive direction
+        for (let i = 1; i < 5; i++) {
+          const newRow = row + dr * i;
+          const newCol = col + dc * i;
+          if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+          if (board[newRow][newCol] === player) count++;
+          else if (board[newRow][newCol] === null) { openEnds++; break; }
+          else break;
+        }
+
+        // Count in negative direction
+        for (let i = 1; i < 5; i++) {
+          const newRow = row - dr * i;
+          const newCol = col - dc * i;
+          if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+          if (board[newRow][newCol] === player) count++;
+          else if (board[newRow][newCol] === null) { openEnds++; break; }
+          else break;
+        }
+
+        // Score based on count and open ends
+        if (count >= 5) score += 100000;
+        else if (count === 4 && openEnds >= 1) score += 10000;
+        else if (count === 3 && openEnds >= 2) score += 1000;
+        else if (count === 3 && openEnds >= 1) score += 500;
+        else if (count === 2 && openEnds >= 2) score += 100;
+        else score += count * 10;
+      }
+
+      return score;
+    };
+
+    // Find best move - check both offense and defense
+    let bestMove = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    let bestScore = -1;
+
+    for (const cell of emptyCells) {
+      // Score for AI winning
+      const offenseScore = scoreCell(cell.row, cell.col, 'O');
+      // Score for blocking player
+      const defenseScore = scoreCell(cell.row, cell.col, 'X');
+      // Prefer center area slightly
+      const centerBonus = Math.max(0, 7 - Math.abs(cell.row - 7)) + Math.max(0, 7 - Math.abs(cell.col - 7));
+
+      const totalScore = offenseScore * 1.1 + defenseScore + centerBonus;
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMove = cell;
+      }
+    }
+
+    return bestMove;
+  }, []);
+
+  const handleGomokuClick = useCallback((row, col) => {
+    if (currentTwist?.id !== 'gomoku') return;
+    if (gameState !== 'playing' || !isPlayerTurn) return;
+    if (gomokuBoard[row][col] !== null) return;
+
+    // Player move
+    const newBoard = gomokuBoard.map(r => [...r]);
+    newBoard[row][col] = 'X';
+    setGomokuBoard(newBoard);
+    setGomokuLastMove({ row, col });
+
+    // Check for win
+    const result = checkGomokuWinner(newBoard);
+    if (result) {
+      handleGameEnd('won');
+      return;
+    }
+
+    // Check for draw
+    const hasEmpty = newBoard.some(r => r.some(c => c === null));
+    if (!hasEmpty) {
+      handleGameEnd('draw');
+      return;
+    }
+
+    setIsPlayerTurn(false);
+  }, [currentTwist, gameState, isPlayerTurn, gomokuBoard, checkGomokuWinner]);
+
+  // Gomoku AI turn
+  useEffect(() => {
+    if (currentTwist?.id !== 'gomoku') return;
+    if (gameState !== 'playing' || isPlayerTurn) return;
+
+    const timer = setTimeout(() => {
+      const aiMove = getGomokuAIMove(gomokuBoard);
+      if (aiMove) {
+        const newBoard = gomokuBoard.map(r => [...r]);
+        newBoard[aiMove.row][aiMove.col] = 'O';
+        setGomokuBoard(newBoard);
+        setGomokuLastMove(aiMove);
+
+        const result = checkGomokuWinner(newBoard);
+        if (result) {
+          handleGameEnd('lost');
+          return;
+        }
+
+        const hasEmpty = newBoard.some(r => r.some(c => c === null));
+        if (!hasEmpty) {
+          handleGameEnd('draw');
+          return;
+        }
+
+        setIsPlayerTurn(true);
+      }
+    }, 400 + Math.random() * 300);
+
+    return () => clearTimeout(timer);
+  }, [currentTwist, gameState, isPlayerTurn, gomokuBoard, getGomokuAIMove, checkGomokuWinner]);
 
   // ==================== GIMMICK SYSTEM ====================
 
@@ -1412,6 +1594,10 @@ const UltimateTicTacToe = () => {
       clearInterval(gimmickTimerRef.current);
       gimmickTimerRef.current = null;
     }
+
+    // Reset Gomoku state
+    setGomokuBoard(Array(15).fill(null).map(() => Array(15).fill(null)));
+    setGomokuLastMove(null);
 
     // Roll for twist
     const twist = rollTwist();
@@ -2801,40 +2987,105 @@ const UltimateTicTacToe = () => {
             {/* Game board - centered and bigger */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div ref={boardContainerRef} style={{ position: 'relative' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '10px',
-                  background: theme.bgDark,
-                  padding: '14px',
-                  borderRadius: '20px',
-                  border: `3px solid ${theme.border}`,
-                }}>
-                  {smallBoards.map((board, boardIdx) => (
-                    <SmallBoard
-                      key={boardIdx}
-                      boardIdx={boardIdx}
-                      board={board}
-                      isActive={activeBoard === null ? bigBoard[boardIdx] === null : activeBoard === boardIdx}
-                      isWon={bigBoard[boardIdx] !== null}
-                      wonBy={bigBoard[boardIdx]}
-                      bigBoardWinLine={winningLine}
-                    />
-                  ))}
-                </div>
-                
-                {/* Hint */}
-                {gameState === 'playing' && (
-                  <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>
-                    {activeBoard !== null ? (
-                      <span>Play in the <span style={{ color: theme.accent, fontWeight: 700 }}>highlighted board</span></span>
-                    ) : (
-                      <span>Play in <span style={{ color: theme.accent, fontWeight: 700 }}>any available board</span></span>
+
+                {/* GOMOKU BOARD */}
+                {currentTwist?.id === 'gomoku' ? (
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(15, 1fr)',
+                      gap: '1px',
+                      background: theme.bgDark,
+                      padding: '10px',
+                      borderRadius: '16px',
+                      border: `3px solid ${theme.gold}`,
+                    }}>
+                      {gomokuBoard.map((row, rowIdx) =>
+                        row.map((cell, colIdx) => {
+                          const isLast = gomokuLastMove?.row === rowIdx && gomokuLastMove?.col === colIdx;
+                          const canClick = gameState === 'playing' && isPlayerTurn && cell === null;
+                          return (
+                            <div
+                              key={`${rowIdx}-${colIdx}`}
+                              onClick={() => handleGomokuClick(rowIdx, colIdx)}
+                              style={{
+                                width: '24px', height: '24px',
+                                background: isLast ? 'rgba(255,215,0,0.3)' : 'rgba(26, 22, 37, 0.8)',
+                                borderRadius: '4px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: canClick ? 'pointer' : 'default',
+                                transition: 'background 0.1s ease',
+                              }}
+                              onMouseEnter={e => { if (canClick) e.target.style.background = 'rgba(255,255,255,0.15)'; }}
+                              onMouseLeave={e => { if (!isLast) e.target.style.background = 'rgba(26, 22, 37, 0.8)'; }}
+                            >
+                              {cell === 'X' && (
+                                <div style={{
+                                  width: '18px', height: '18px',
+                                  borderRadius: '50%',
+                                  background: theme.accent,
+                                  boxShadow: isLast ? `0 0 8px ${theme.accent}` : 'none',
+                                }} />
+                              )}
+                              {cell === 'O' && (
+                                <div style={{
+                                  width: '18px', height: '18px',
+                                  borderRadius: '50%',
+                                  background: currentEnemy?.color || '#e85a50',
+                                  boxShadow: isLast ? `0 0 8px ${currentEnemy?.color}` : 'none',
+                                }} />
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    {/* Gomoku Hint */}
+                    {gameState === 'playing' && (
+                      <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>
+                        <span style={{ color: theme.gold, fontWeight: 700 }}>Get 5 in a row to win!</span>
+                      </div>
                     )}
-                    {isDoubleDown && doubleDownFirst && (
-                      <span style={{ color: theme.gold, marginLeft: '12px' }}>• Place your second piece!</span>
+                  </>
+                ) : (
+                  /* ULTIMATE TTT BOARD */
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '10px',
+                      background: theme.bgDark,
+                      padding: '14px',
+                      borderRadius: '20px',
+                      border: `3px solid ${theme.border}`,
+                    }}>
+                      {smallBoards.map((board, boardIdx) => (
+                        <SmallBoard
+                          key={boardIdx}
+                          boardIdx={boardIdx}
+                          board={board}
+                          isActive={activeBoard === null ? bigBoard[boardIdx] === null : activeBoard === boardIdx}
+                          isWon={bigBoard[boardIdx] !== null}
+                          wonBy={bigBoard[boardIdx]}
+                          bigBoardWinLine={winningLine}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Hint */}
+                    {gameState === 'playing' && (
+                      <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>
+                        {activeBoard !== null ? (
+                          <span>Play in the <span style={{ color: theme.accent, fontWeight: 700 }}>highlighted board</span></span>
+                        ) : (
+                          <span>Play in <span style={{ color: theme.accent, fontWeight: 700 }}>any available board</span></span>
+                        )}
+                        {isDoubleDown && doubleDownFirst && (
+                          <span style={{ color: theme.gold, marginLeft: '12px' }}>• Place your second piece!</span>
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {/* Result Overlay */}
