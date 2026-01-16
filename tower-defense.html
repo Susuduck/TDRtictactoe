@@ -1297,7 +1297,7 @@ const TowerDefenseGame = () => {
                   const isHovered = hoveredCell?.row === rowIdx && hoveredCell?.col === colIdx;
                   const tower = towers.find(t => t.row === rowIdx && t.col === colIdx);
                   const canPlace = selectedTower && canPlaceTower(rowIdx, colIdx) && gold >= towerTypes[selectedTower].cost;
-                  const isSelected = selectedTowerForUpgrade?.id === tower?.id;
+                  const isSelected = tower && selectedTowerForUpgrade?.id === tower.id;
 
                   return (
                     <div
