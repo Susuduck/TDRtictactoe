@@ -63,41 +63,59 @@ Each opponent has a unique mini-game that triggers during battle:
 
 ### Tower Defense
 
-A classic mazing tower defense game where you build towers to stop waves of enemies.
+A feature-rich mazing tower defense game with particle effects, upgrades, and combo system.
 
 **How to Play:**
-1. Click a tower type in the shop to select it
-2. Click on the grid to place the tower (green = valid, red = blocks path)
-3. Press "Start Wave" to begin enemy spawns
-4. Survive all waves!
+1. Click a tower type in the left panel to select it
+2. Click on the grid to place (range indicator shows on hover)
+3. Click a placed tower to view stats and upgrade it
+4. Right-click a tower to sell it (60% return)
+5. Press "Start Wave" to begin - use the speed button (1x/2x/3x) to control pace
+6. Build mazes to make enemies walk longer paths!
 
-**Important:** You can build mazes to make enemies take longer paths, but you cannot completely block the path from start to end.
+**Tower Types (with 3 upgrade tiers each):**
 
-**Tower Types:**
-
-| Tower | Cost | Damage | Range | Special |
-|-------|------|--------|-------|---------|
-| Arrow | 25g | 10 | 3 | Fast attack speed |
-| Cannon | 50g | 25 | 2.5 | Splash damage |
-| Sniper | 75g | 50 | 5 | Long range |
-| Frost | 40g | 5 | 2.5 | Slows enemies by 50% |
-| Lightning | 100g | 30 | 3.5 | Chains to 3 nearby enemies |
+| Tower | Cost | Damage | Special | Upgrades To |
+|-------|------|--------|---------|-------------|
+| Arrow | 30g | 12 | 15% crit chance (2x damage) | Marksman (35% crit, fast) |
+| Cannon | 60g | 45 | Splash damage (1.2 radius) | Devastator (2.0 splash) |
+| Sniper | 80g | 75 | Long range (6 tiles) | Railgun (250 dmg, 8 range) |
+| Frost | 50g | 8 | Slows 40% for 2.5s | Absolute Zero (70% slow) |
+| Tesla | 100g | 20 | Chain lightning (4 targets) | Storm Caller (8 chains) |
+| Plague | 70g | 5 | Poison DoT + splash poison | Blight (35 poison/sec) |
+| Laser | 120g | 3/tick | Continuous beam | Death Ray (12 dmg/tick) |
 
 **Enemy Types:**
 
-| Enemy | Health | Speed | Reward | Special |
-|-------|--------|-------|--------|---------|
-| Slime | 50 | 0.8 | 10g | Basic enemy |
-| Scout | 30 | 1.5 | 15g | Fast but fragile |
-| Golem | 150 | 0.4 | 25g | Slow but tanky |
-| Bug | 40 | 1.2 | 12g | Slightly fast |
-| Dragon | 500+ | 0.6 | 100g | Boss (waves 5, 10, 15...) |
+| Enemy | Health | Speed | Special |
+|-------|--------|-------|---------|
+| Slime | 40 | 0.9 | Basic enemy |
+| Scout | 25 | 1.8 | Fast but fragile |
+| Golem | 180 | 0.45 | Slow and tanky |
+| Bug | 15 | 1.4 | Weak swarm unit |
+| Medic | 60 | 0.7 | Heals nearby enemies |
+| Knight | 100 | 0.6 | Has 50 shield (absorbs damage first) |
+| Amoeba | 80 | 0.8 | Splits into 2 bugs on death |
+| Dragon | 800 | 0.35 | Boss every 5 waves |
+| Titan | 2000 | 0.25 | Mega boss every 10 waves |
 
-**Tips:**
-- Build mazes early to maximize tower damage
-- Frost towers are great for slowing enemies into kill zones
-- Save gold for lightning towers against grouped enemies
-- Dragons get stronger each time they appear
+**Game Features:**
+- **60 FPS** smooth animations with particle effects
+- **Combo System** - Kill enemies quickly for bonus gold (up to 50x combo)
+- **Critical Hits** - Arrow towers can crit for double damage
+- **Upgrade System** - 3 tiers per tower, click to upgrade
+- **Tower Stats** - Track damage dealt and kills per tower
+- **Visual Effects** - Projectile trails, explosions, floating damage numbers, screen shake
+- **Status Effects** - Slow (snowflake icon) and Poison (skull icon) visible on enemies
+
+**Strategy Tips:**
+- Create long mazes early - path length is key
+- Frost + high-damage towers = deadly combo
+- Tesla towers melt grouped enemies
+- Plague towers are great for damage-over-time on tanky enemies
+- Laser towers ramp up damage the longer they fire
+- Upgrade existing towers before building new ones
+- Watch for Medics - they heal other enemies!
 
 ---
 
