@@ -102,6 +102,7 @@ const TowerDefenseGame = () => {
   const towersRef = useRef(towers);
   const pathRef = useRef(path);
   const goldRef = useRef(gold);
+  const beamDamageRef = useRef([]); // PERF: Collect beam damage to apply in batch
 
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
   useEffect(() => { towersRef.current = towers; }, [towers]);
@@ -405,6 +406,47 @@ const TowerDefenseGame = () => {
     return findPath(testGrid) !== null;
   }, [grid, findPath]);
 
+  // PERF: Pre-compute placeable cells once when grid changes (avoids 225 BFS calls per render)
+  const placeableCells = useMemo(() => {
+    const placeable = new Set();
+    for (let row = 0; row < GRID_SIZE; row++) {
+      for (let col = 0; col < GRID_SIZE; col++) {
+        if (grid[row][col] !== null) continue;
+        if (row === START.row && col === START.col) continue;
+        if (row === END.row && col === END.col) continue;
+        const testGrid = grid.map(r => [...r]);
+        testGrid[row][col] = 'tower';
+        if (findPath(testGrid) !== null) {
+          placeable.add(`${row},${col}`);
+        }
+      }
+    }
+    return placeable;
+  }, [grid, findPath]);
+
+  // Fast check using pre-computed cache
+  const canPlaceTowerFast = useCallback((row, col) => {
+    return placeableCells.has(`${row},${col}`);
+  }, [placeableCells]);
+
+  // PERF: Pre-compute path cells Set for O(1) lookup instead of O(n) path.some() per cell
+  const pathCellsSet = useMemo(() => {
+    const pathSet = new Set();
+    for (const p of path) {
+      pathSet.add(`${p.row},${p.col}`);
+    }
+    return pathSet;
+  }, [path]);
+
+  // PERF: Pre-compute tower positions Map for O(1) lookup instead of O(n) towers.find() per cell
+  const towersByPosition = useMemo(() => {
+    const towerMap = new Map();
+    for (const tower of towers) {
+      towerMap.set(`${tower.row},${tower.col}`, tower);
+    }
+    return towerMap;
+  }, [towers]);
+
   const placeTower = useCallback((row, col, towerType) => {
     if (!canPlaceTower(row, col)) return false;
     const towerDef = towerTypes[towerType];
@@ -658,14 +700,17 @@ const TowerDefenseGame = () => {
             }
           }
 
-          // Healer
+          // Healer - PERF: Use squared distance and early exit
           if (enemy.heals && now - enemy.lastHealTime > 2000) {
+            const healRangeSq = (CELL_SIZE * 2) * (CELL_SIZE * 2); // Pre-compute squared range
             for (const other of prevEnemies) {
               if (other.id !== enemy.id) {
                 const dx = other.x - enemy.x;
+                // PERF: Early exit if X distance alone exceeds range
+                if (dx * dx > healRangeSq) continue;
                 const dy = other.y - enemy.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < CELL_SIZE * 2) {
+                const distSq = dx * dx + dy * dy;
+                if (distSq < healRangeSq) {
                   other.currentHealth = Math.min(other.maxHealth, other.currentHealth + 10);
                   spawnParticles(other.x, other.y, theme.success, 3, { speed: 2, size: 3, life: 400 });
                 }
@@ -797,18 +842,19 @@ const TowerDefenseGame = () => {
           const towerY = tower.row * CELL_SIZE + CELL_SIZE / 2;
           tower.pulsePhase = (tower.pulsePhase || 0) + deltaTime * 0.005;
 
-          // Beam tower
+          // Beam tower - PERF: Use squared distance to avoid sqrt
           if (tower.beam) {
             let target = null;
-            let minDist = Infinity;
+            let minDistSq = Infinity;
+            const rangeSq = (tower.range * CELL_SIZE) * (tower.range * CELL_SIZE);
 
             for (const enemy of enemiesRef.current) {
               const dx = enemy.x - towerX;
               const dy = enemy.y - towerY;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist <= tower.range * CELL_SIZE && dist < minDist) {
+              const distSq = dx * dx + dy * dy;
+              if (distSq <= rangeSq && distSq < minDistSq) {
                 target = enemy;
-                minDist = dist;
+                minDistSq = distSq;
               }
             }
 
@@ -820,21 +866,13 @@ const TowerDefenseGame = () => {
                 const damage = Math.floor(tower.beamDamageAccum);
                 tower.beamDamageAccum -= damage;
 
-                setEnemies(enemies => enemies.map(e => {
-                  if (e.id === target.id) {
-                    e.hitFlash = 1;
-                    // Apply resistance to beam damage (laser is fire type)
-                    const beamResist = e.resist?.[tower.damageType] || 0;
-                    const resistedDamage = Math.floor(damage * (1 - beamResist));
-                    const newHealth = e.currentHealth - resistedDamage;
-                    if (newHealth <= 0) {
-                      tower.kills++;
-                      tower.totalDamage += resistedDamage;
-                    }
-                    return { ...e, currentHealth: newHealth };
-                  }
-                  return e;
-                }));
+                // PERF: Collect beam damage to apply in batch instead of calling setEnemies per tower
+                beamDamageRef.current.push({
+                  targetId: target.id,
+                  damage,
+                  damageType: tower.damageType,
+                  towerId: tower.id,
+                });
               }
 
               if (Math.random() < 0.2) {
@@ -853,30 +891,36 @@ const TowerDefenseGame = () => {
           const xpLevel = Math.min(10, Math.floor(tower.kills / 10));
           tower.xpLevel = xpLevel;
 
-          // Targeting mode logic
+          // Targeting mode logic - PERF: Use squared distance for range check
           let target = null;
           let bestValue = tower.targetingMode === 'first' || tower.targetingMode === 'strongest' ? -Infinity : Infinity;
           const enemiesInRange = [];
+          const rangeSq = (tower.range * CELL_SIZE) * (tower.range * CELL_SIZE);
 
           for (const enemy of enemiesRef.current) {
             const dx = enemy.x - towerX;
             const dy = enemy.y - towerY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist <= tower.range * CELL_SIZE) {
-              enemiesInRange.push({ enemy, dist });
+            const distSq = dx * dx + dy * dy;
+            if (distSq <= rangeSq) {
+              // Only compute sqrt for 'closest' mode, otherwise store squared
+              const dist = tower.targetingMode === 'closest' ? Math.sqrt(distSq) : distSq;
+              enemiesInRange.push({ enemy, dist, distSq });
             }
           }
 
-          for (const { enemy, dist } of enemiesInRange) {
+          let targetDistSq = 0;
+          for (const { enemy, dist, distSq } of enemiesInRange) {
             let value;
+            let selected = false;
             switch (tower.targetingMode) {
-              case 'first': value = enemy.pathIndex; if (value > bestValue) { bestValue = value; target = enemy; } break;
-              case 'last': value = enemy.pathIndex; if (value < bestValue) { bestValue = value; target = enemy; } break;
-              case 'strongest': value = enemy.currentHealth; if (value > bestValue) { bestValue = value; target = enemy; } break;
-              case 'weakest': value = enemy.currentHealth; if (value < bestValue) { bestValue = value; target = enemy; } break;
-              case 'closest': if (dist < bestValue) { bestValue = dist; target = enemy; } break;
-              default: value = enemy.pathIndex; if (value > bestValue) { bestValue = value; target = enemy; }
+              case 'first': value = enemy.pathIndex; if (value > bestValue) { bestValue = value; target = enemy; selected = true; } break;
+              case 'last': value = enemy.pathIndex; if (value < bestValue) { bestValue = value; target = enemy; selected = true; } break;
+              case 'strongest': value = enemy.currentHealth; if (value > bestValue) { bestValue = value; target = enemy; selected = true; } break;
+              case 'weakest': value = enemy.currentHealth; if (value < bestValue) { bestValue = value; target = enemy; selected = true; } break;
+              case 'closest': if (dist < bestValue) { bestValue = dist; target = enemy; selected = true; } break;
+              default: value = enemy.pathIndex; if (value > bestValue) { bestValue = value; target = enemy; selected = true; }
             }
+            if (selected) targetDistSq = distSq;
           }
 
           // Update tower rotation toward target
@@ -893,7 +937,8 @@ const TowerDefenseGame = () => {
             const damage = Math.floor(baseDamage * xpBonus);
 
             // Predictive targeting: lead the target based on speed
-            const dist = Math.sqrt((target.x - towerX) ** 2 + (target.y - towerY) ** 2);
+            // PERF: Use cached squared distance, compute sqrt only when needed
+            const dist = Math.sqrt(targetDistSq);
             const projectileSpeed = tower.projectileSpeed || 15;
             const timeToTarget = dist / (projectileSpeed * 2); // Approximate time in frames
 
@@ -951,6 +996,29 @@ const TowerDefenseGame = () => {
           return tower;
         });
       });
+
+      // PERF: Apply batched beam damage in single setEnemies call
+      if (beamDamageRef.current.length > 0) {
+        const pendingDamage = beamDamageRef.current;
+        beamDamageRef.current = [];
+
+        setEnemies(enemies => enemies.map(e => {
+          const damageEntry = pendingDamage.find(d => d.targetId === e.id);
+          if (damageEntry) {
+            const beamResist = e.resist?.[damageEntry.damageType] || 0;
+            const resistedDamage = Math.floor(damageEntry.damage * (1 - beamResist));
+            const newHealth = e.currentHealth - resistedDamage;
+            // Update tower stats via ref (towers already updated in this tick)
+            const tower = towersRef.current.find(t => t.id === damageEntry.towerId);
+            if (tower && newHealth <= 0) {
+              tower.kills++;
+              tower.totalDamage += resistedDamage;
+            }
+            return { ...e, currentHealth: newHealth, hitFlash: 1 };
+          }
+          return e;
+        }));
+      }
 
       // Update projectiles
       setProjectiles(prevProjectiles => {
@@ -1287,6 +1355,9 @@ const TowerDefenseGame = () => {
     }
   `;
 
+  // PERF: Cache current time for render to avoid multiple Date.now() calls
+  const renderTime = Date.now();
+
   return (
     <div style={{
       width: '100%',
@@ -1572,10 +1643,11 @@ const TowerDefenseGame = () => {
                 {grid.map((row, rowIdx) => row.map((cell, colIdx) => {
                   const isStart = rowIdx === START.row && colIdx === START.col;
                   const isEnd = rowIdx === END.row && colIdx === END.col;
-                  const isPath = path.some(p => p.row === rowIdx && p.col === colIdx);
+                  const cellKey = `${rowIdx},${colIdx}`;
+                  const isPath = pathCellsSet.has(cellKey);
                   const isHovered = hoveredCell?.row === rowIdx && hoveredCell?.col === colIdx;
-                  const tower = towers.find(t => t.row === rowIdx && t.col === colIdx);
-                  const canPlace = selectedTower && canPlaceTower(rowIdx, colIdx) && gold >= towerTypes[selectedTower].cost;
+                  const tower = towersByPosition.get(cellKey);
+                  const canPlace = selectedTower && canPlaceTowerFast(rowIdx, colIdx) && gold >= towerTypes[selectedTower].cost;
                   const isSelected = tower && selectedTowerForUpgrade?.id === tower.id;
 
                   return (
@@ -1702,7 +1774,7 @@ const TowerDefenseGame = () => {
                 })}
 
                 {/* Range indicator */}
-                {(hoveredCell && selectedTower && canPlaceTower(hoveredCell.row, hoveredCell.col)) && (
+                {(hoveredCell && selectedTower && canPlaceTowerFast(hoveredCell.row, hoveredCell.col)) && (
                   <div style={{
                     position: 'absolute',
                     left: hoveredCell.col * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
@@ -1798,8 +1870,8 @@ const TowerDefenseGame = () => {
                         pointerEvents: 'none',
                         zIndex: 10,
                         filter: enemy.hitFlash > 0 ? `brightness(${1 + enemy.hitFlash * 1.5}) drop-shadow(0 0 8px #fff)`
-                          : enemy.poisonedUntil > Date.now() ? `drop-shadow(0 0 6px ${theme.poison}) drop-shadow(0 0 2px ${theme.poison})`
-                          : enemy.slowedUntil > Date.now() ? `drop-shadow(0 0 6px ${theme.frost}) drop-shadow(0 0 2px ${theme.frost})`
+                          : enemy.poisonedUntil > renderTime ? `drop-shadow(0 0 6px ${theme.poison}) drop-shadow(0 0 2px ${theme.poison})`
+                          : enemy.slowedUntil > renderTime ? `drop-shadow(0 0 6px ${theme.frost}) drop-shadow(0 0 2px ${theme.frost})`
                           : `drop-shadow(0 0 4px ${enemy.color})`,
                         transition: 'filter 0.1s ease',
                         transform: `scale(${scaleEffect})`,
@@ -1844,8 +1916,8 @@ const TowerDefenseGame = () => {
                         }} />
                       </div>
 
-                      {enemy.slowedUntil > Date.now() && <div style={{ position: 'absolute', top: -8, fontSize: '8px' }}>❄️</div>}
-                      {enemy.poisonedUntil > Date.now() && <div style={{ position: 'absolute', top: -8, left: enemy.slowedUntil > Date.now() ? 10 : 0, fontSize: '8px' }}>☠️</div>}
+                      {enemy.slowedUntil > renderTime && <div style={{ position: 'absolute', top: -8, fontSize: '8px' }}>❄️</div>}
+                      {enemy.poisonedUntil > renderTime && <div style={{ position: 'absolute', top: -8, left: enemy.slowedUntil > renderTime ? 10 : 0, fontSize: '8px' }}>☠️</div>}
                     </div>
                   );
                 })}
