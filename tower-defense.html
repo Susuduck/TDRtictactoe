@@ -106,7 +106,8 @@ const TowerDefenseGame = () => {
     textSecondary: '#9090b0',
     textMuted: '#505068',
     border: '#252540',
-    pathColor: 'rgba(124, 106, 237, 0.15)',
+    pathColor: 'rgba(124, 106, 237, 0.25)',
+    pathGlow: 'rgba(124, 106, 237, 0.4)',
   };
 
   const towerTypes = {
@@ -433,6 +434,9 @@ const TowerDefenseGame = () => {
   const spawnEnemy = useCallback((type, pathOffset = 0) => {
     const enemyDef = enemyTypes[type];
     const waveMultiplier = 1 + (wave - 1) * 0.15;
+    // Small random offset to prevent stacking, but keep enemies centered on path
+    const offsetX = (Math.random() - 0.5) * CELL_SIZE * 0.2;
+    const offsetY = -pathOffset * CELL_SIZE * 0.3; // Stagger spawns slightly above the start
     const newEnemy = {
       id: Date.now() + Math.random(),
       type,
@@ -443,8 +447,8 @@ const TowerDefenseGame = () => {
       currentShield: enemyDef.shield ? Math.floor(enemyDef.shield * waveMultiplier) : 0,
       maxShield: enemyDef.shield ? Math.floor(enemyDef.shield * waveMultiplier) : 0,
       pathIndex: 0,
-      x: START.col * CELL_SIZE + CELL_SIZE / 2,
-      y: START.row * CELL_SIZE + CELL_SIZE / 2 - pathOffset * 15,
+      x: START.col * CELL_SIZE + CELL_SIZE / 2 + offsetX,
+      y: START.row * CELL_SIZE + CELL_SIZE / 2 + offsetY,
       slowedUntil: 0,
       slowAmount: 1,
       poisonedUntil: 0,
@@ -526,7 +530,14 @@ const TowerDefenseGame = () => {
         const enemiesToSpawn = [];
 
         for (const enemy of prevEnemies) {
-          if (enemy.pathIndex >= pathRef.current.length) {
+          // Check if enemy has completed the path
+          const pathLength = pathRef.current.length;
+          const endX = END.col * CELL_SIZE + CELL_SIZE / 2;
+          const endY = END.row * CELL_SIZE + CELL_SIZE / 2;
+          const distToEnd = Math.sqrt((enemy.x - endX) ** 2 + (enemy.y - endY) ** 2);
+
+          // Remove enemy if they reached the end (either by pathIndex or by position)
+          if (enemy.pathIndex >= pathLength || (pathLength > 0 && enemy.pathIndex >= pathLength - 1 && distToEnd < CELL_SIZE * 0.5)) {
             setLives(l => {
               const damage = enemy.isBoss ? 5 : 1;
               const newLives = l - damage;
@@ -624,8 +635,13 @@ const TowerDefenseGame = () => {
 
             enemy.rotation = Math.atan2(dy, dx);
 
-            if (dist < speed * 2) {
+            // Use a reasonable threshold based on cell size for path advancement
+            const advanceThreshold = Math.max(speed * 2, CELL_SIZE * 0.15);
+            if (dist < advanceThreshold) {
               enemy.pathIndex++;
+              // Snap to center when advancing to prevent drift
+              enemy.x = targetX;
+              enemy.y = targetY;
             } else {
               enemy.x += (dx / dist) * speed * 2;
               enemy.y += (dy / dist) * speed * 2;
@@ -1012,6 +1028,8 @@ const TowerDefenseGame = () => {
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
     @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+    @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    @keyframes towerPulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.1); } }
 
     * { box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
 
@@ -1283,12 +1301,12 @@ const TowerDefenseGame = () => {
                 display: 'grid',
                 gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
                 gap: '2px',
-                background: theme.bgDark,
+                background: `linear-gradient(145deg, ${theme.bgDark} 0%, #080810 100%)`,
                 padding: `${GRID_OFFSET}px`,
-                borderRadius: '12px',
+                borderRadius: '16px',
                 border: `2px solid ${theme.border}`,
                 position: 'relative',
-                boxShadow: `0 8px 32px rgba(0,0,0,0.4), inset 0 0 40px rgba(0,0,0,0.2)`,
+                boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 60px ${theme.accent}08, inset 0 0 60px rgba(0,0,0,0.3)`,
               }}>
                 {grid.map((row, rowIdx) => row.map((cell, colIdx) => {
                   const isStart = rowIdx === START.row && colIdx === START.col;
@@ -1314,25 +1332,26 @@ const TowerDefenseGame = () => {
                       style={{
                         width: CELL_SIZE,
                         height: CELL_SIZE,
-                        background: isStart ? `radial-gradient(circle, ${theme.success}40 0%, ${theme.success}15 70%)`
-                          : isEnd ? `radial-gradient(circle, ${theme.error}40 0%, ${theme.error}15 70%)`
-                          : tower ? `radial-gradient(circle, ${tower.color}30 0%, ${tower.color}10 70%)`
-                          : isHovered && canPlace ? `${towerTypes[selectedTower].color}25`
-                          : isHovered && selectedTower && !canPlace ? `${theme.error}25`
-                          : isPath ? theme.pathColor
+                        background: isStart ? `radial-gradient(circle, ${theme.success}50 0%, ${theme.success}20 70%)`
+                          : isEnd ? `radial-gradient(circle, ${theme.error}50 0%, ${theme.error}20 70%)`
+                          : tower ? `radial-gradient(circle, ${tower.color}35 0%, ${tower.color}15 70%)`
+                          : isHovered && canPlace ? `${towerTypes[selectedTower].color}30`
+                          : isHovered && selectedTower && !canPlace ? `${theme.error}30`
+                          : isPath ? `linear-gradient(135deg, ${theme.pathColor} 0%, ${theme.pathGlow} 100%)`
                           : theme.bgCell,
-                        borderRadius: '4px',
+                        borderRadius: '6px',
+                        boxShadow: isPath ? `inset 0 0 ${CELL_SIZE * 0.4}px ${theme.accent}15` : 'none',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: canPlace || tower ? 'pointer' : 'default',
                         position: 'relative',
-                        border: isSelected ? `2px solid ${tower.color}` : 'none',
-                        boxShadow: tower ? `inset 0 0 ${CELL_SIZE/3}px ${tower.color}20` : 'none',
+                        border: isSelected ? `2px solid ${tower.color}` : isPath ? `1px solid ${theme.accent}20` : 'none',
+                        boxShadow: tower ? `inset 0 0 ${CELL_SIZE/3}px ${tower.color}30, 0 0 8px ${tower.color}20` : 'none',
                       }}
                     >
-                      {isStart && <span style={{ fontSize: CELL_SIZE * 0.5 }}>🚪</span>}
-                      {isEnd && <span style={{ fontSize: CELL_SIZE * 0.5 }}>🏠</span>}
+                      {isStart && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.success})`, animation: 'pulse 2s ease-in-out infinite' }}>🚪</span>}
+                      {isEnd && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.error})`, animation: 'pulse 2s ease-in-out infinite' }}>🏠</span>}
                       {tower && (
                         <span style={{
                           fontSize: CELL_SIZE * 0.55,
@@ -1399,26 +1418,45 @@ const TowerDefenseGame = () => {
                   const length = Math.sqrt((toX - fromX) ** 2 + (toY - fromY) ** 2);
 
                   return (
-                    <div key={`beam-${tower.id}`} style={{
-                      position: 'absolute',
-                      left: fromX,
-                      top: fromY,
-                      width: length,
-                      height: '3px',
-                      background: `linear-gradient(90deg, ${tower.color} 0%, ${tower.color}80 100%)`,
-                      transform: `rotate(${angle}deg)`,
-                      transformOrigin: '0 50%',
-                      pointerEvents: 'none',
-                      boxShadow: `0 0 8px ${tower.color}, 0 0 16px ${tower.color}80`,
-                      zIndex: 15,
-                    }} />
+                    <React.Fragment key={`beam-${tower.id}`}>
+                      {/* Outer glow */}
+                      <div style={{
+                        position: 'absolute',
+                        left: fromX,
+                        top: fromY - 3,
+                        width: length,
+                        height: '10px',
+                        background: `linear-gradient(90deg, ${tower.color}60 0%, ${tower.color}20 100%)`,
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: '0 50%',
+                        pointerEvents: 'none',
+                        filter: 'blur(4px)',
+                        zIndex: 14,
+                      }} />
+                      {/* Core beam */}
+                      <div style={{
+                        position: 'absolute',
+                        left: fromX,
+                        top: fromY - 1,
+                        width: length,
+                        height: '4px',
+                        background: `linear-gradient(90deg, #fff 0%, ${tower.color} 20%, ${tower.color} 80%, #fff 100%)`,
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: '0 50%',
+                        pointerEvents: 'none',
+                        boxShadow: `0 0 12px ${tower.color}, 0 0 24px ${tower.color}80, 0 0 4px #fff`,
+                        zIndex: 15,
+                        borderRadius: '2px',
+                      }} />
+                    </React.Fragment>
                   );
                 })}
 
                 {/* Enemies */}
                 {enemies.map(enemy => {
-                  const size = (CELL_SIZE * 0.5) * (enemy.size || 1);
+                  const size = (CELL_SIZE * 0.55) * (enemy.size || 1);
                   const bobOffset = Math.sin(enemy.animPhase * 4) * 2;
+                  const scaleEffect = 1 + Math.sin(enemy.animPhase * 2) * 0.03;
 
                   return (
                     <div
@@ -1434,11 +1472,12 @@ const TowerDefenseGame = () => {
                         justifyContent: 'center',
                         pointerEvents: 'none',
                         zIndex: 10,
-                        filter: enemy.hitFlash > 0 ? `brightness(${1 + enemy.hitFlash})`
-                          : enemy.poisonedUntil > Date.now() ? `drop-shadow(0 0 4px ${theme.poison})`
-                          : enemy.slowedUntil > Date.now() ? `drop-shadow(0 0 4px ${theme.frost})`
-                          : `drop-shadow(0 0 3px ${enemy.color})`,
+                        filter: enemy.hitFlash > 0 ? `brightness(${1 + enemy.hitFlash * 1.5}) drop-shadow(0 0 8px #fff)`
+                          : enemy.poisonedUntil > Date.now() ? `drop-shadow(0 0 6px ${theme.poison}) drop-shadow(0 0 2px ${theme.poison})`
+                          : enemy.slowedUntil > Date.now() ? `drop-shadow(0 0 6px ${theme.frost}) drop-shadow(0 0 2px ${theme.frost})`
+                          : `drop-shadow(0 0 4px ${enemy.color})`,
                         transition: 'filter 0.1s ease',
+                        transform: `scale(${scaleEffect})`,
                       }}
                     >
                       <span style={{
@@ -1449,29 +1488,34 @@ const TowerDefenseGame = () => {
                       {/* Health bar */}
                       <div style={{
                         position: 'absolute',
-                        bottom: -6,
-                        width: size + 4,
-                        height: enemy.isBoss ? 5 : 3,
-                        background: 'rgba(0,0,0,0.6)',
-                        borderRadius: '2px',
+                        bottom: -8,
+                        width: size + 6,
+                        height: enemy.isBoss ? 6 : 4,
+                        background: 'rgba(0,0,0,0.7)',
+                        borderRadius: '3px',
                         overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
                       }}>
                         {enemy.maxShield > 0 && (
                           <div style={{
                             position: 'absolute',
                             width: `${(enemy.currentShield / enemy.maxShield) * 100}%`,
                             height: '100%',
-                            background: '#778ca3',
+                            background: 'linear-gradient(180deg, #9db3c9 0%, #778ca3 100%)',
                             transition: 'width 0.1s ease',
                           }} />
                         )}
                         <div style={{
                           width: `${(enemy.currentHealth / enemy.maxHealth) * 100}%`,
                           height: '100%',
-                          background: enemy.currentHealth > enemy.maxHealth * 0.5 ? theme.success
-                            : enemy.currentHealth > enemy.maxHealth * 0.25 ? theme.gold
-                            : theme.error,
-                          transition: 'width 0.1s ease',
+                          background: enemy.currentHealth > enemy.maxHealth * 0.5
+                            ? `linear-gradient(180deg, ${theme.success} 0%, #1fab54 100%)`
+                            : enemy.currentHealth > enemy.maxHealth * 0.25
+                            ? `linear-gradient(180deg, ${theme.gold} 0%, #e6c200 100%)`
+                            : `linear-gradient(180deg, ${theme.error} 0%, #cc3847 100%)`,
+                          transition: 'width 0.15s ease',
+                          boxShadow: enemy.currentHealth <= enemy.maxHealth * 0.25 ? `0 0 4px ${theme.error}` : 'none',
                         }} />
                       </div>
 
@@ -1489,15 +1533,15 @@ const TowerDefenseGame = () => {
                   return (
                     <React.Fragment key={proj.id}>
                       {proj.trail.map((point, i) => (
-                        <div key={i} style={{
+                        <div key={`trail-${proj.id}-${i}`} style={{
                           position: 'absolute',
-                          left: point.x - proj.size * 0.25 + GRID_OFFSET,
-                          top: point.y - proj.size * 0.25 + GRID_OFFSET,
-                          width: proj.size * 0.5,
-                          height: proj.size * 0.5,
-                          background: proj.color,
+                          left: point.x - proj.size * 0.3 + GRID_OFFSET,
+                          top: point.y - proj.size * 0.3 + GRID_OFFSET,
+                          width: proj.size * 0.6,
+                          height: proj.size * 0.6,
+                          background: `radial-gradient(circle, ${proj.color} 0%, transparent 70%)`,
                           borderRadius: '50%',
-                          opacity: (i / proj.trail.length) * 0.4,
+                          opacity: (i / proj.trail.length) * 0.5,
                           pointerEvents: 'none',
                           zIndex: 18,
                         }} />
@@ -1508,9 +1552,9 @@ const TowerDefenseGame = () => {
                         top: y - proj.size / 2 + GRID_OFFSET,
                         width: proj.size,
                         height: proj.size,
-                        background: `radial-gradient(circle, #fff 0%, ${proj.color} 60%)`,
+                        background: `radial-gradient(circle, #fff 0%, ${proj.color} 50%, transparent 100%)`,
                         borderRadius: '50%',
-                        boxShadow: `0 0 ${proj.size}px ${proj.color}`,
+                        boxShadow: `0 0 ${proj.size * 1.5}px ${proj.color}, 0 0 ${proj.size * 0.5}px #fff`,
                         pointerEvents: 'none',
                         zIndex: 20,
                       }} />
@@ -1526,13 +1570,13 @@ const TowerDefenseGame = () => {
                     top: p.y - p.size / 2 + GRID_OFFSET,
                     width: p.size,
                     height: p.size,
-                    background: p.color,
+                    background: `radial-gradient(circle, ${p.color} 0%, ${p.color}80 50%, transparent 100%)`,
                     borderRadius: '50%',
-                    opacity: p.life / p.maxLife,
+                    opacity: Math.pow(p.life / p.maxLife, 0.7),
                     pointerEvents: 'none',
                     zIndex: 25,
-                    transform: `scale(${p.life / p.maxLife})`,
-                    boxShadow: `0 0 ${p.size}px ${p.color}80`,
+                    transform: `scale(${0.5 + (p.life / p.maxLife) * 0.5}) rotate(${p.rotation}deg)`,
+                    boxShadow: `0 0 ${p.size * 1.2}px ${p.color}`,
                   }} />
                 ))}
 
@@ -1624,7 +1668,7 @@ const TowerDefenseGame = () => {
                 }}>
                   <span style={{ color: theme.textMuted }}>Next:</span>
                   {Object.entries(wavePreview).map(([type, count]) => (
-                    <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <span key={`preview-${type}`} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                       <span>{enemyTypes[type].emoji}</span>
                       <span style={{ color: enemyTypes[type].color, fontWeight: 600 }}>×{count}</span>
                     </span>
@@ -1714,7 +1758,7 @@ const TowerDefenseGame = () => {
                 <>
                   <div style={{ fontSize: '10px', fontWeight: 700, color: theme.accent, letterSpacing: '1px', marginBottom: '10px' }}>ENEMIES</div>
                   {Object.values(enemyTypes).slice(0, 6).map(enemy => (
-                    <div key={enemy.id} style={{
+                    <div key={`info-${enemy.id}`} style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
