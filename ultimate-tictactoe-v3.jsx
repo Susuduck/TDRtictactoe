@@ -27,6 +27,23 @@ const UltimateTicTacToe = () => {
   const [isBlackout, setIsBlackout] = useState(false);
   const [isDoubleDown, setIsDoubleDown] = useState(false);
   const [doubleDownFirst, setDoubleDownFirst] = useState(null);
+
+  // Character gimmick state
+  const [gimmickActive, setGimmickActive] = useState(false);
+  const [gimmickType, setGimmickType] = useState(null);
+  const [gimmickData, setGimmickData] = useState({});
+  const [gimmickTimeRemaining, setGimmickTimeRemaining] = useState(0);
+  const [pendingMove, setPendingMove] = useState(null);
+
+  // Passive gimmick state
+  const [eggSplats, setEggSplats] = useState([]);
+  const [shockedCells, setShockedCells] = useState([]);
+  const [spotlightPos, setSpotlightPos] = useState({ x: 50, y: 50 });
+  const [aiHintCell, setAiHintCell] = useState(null);
+
+  // Refs for gimmick timing
+  const gimmickTimerRef = useRef(null);
+  const boardContainerRef = useRef(null);
   
   // Animation state
   const [placingTile, setPlacingTile] = useState(null);
@@ -45,7 +62,7 @@ const UltimateTicTacToe = () => {
 
   // Twist definitions
   const twistDefs = {
-    none: { id: 'none', name: null, icon: null, chance: 55 },
+    none: { id: 'none', name: null, icon: null, chance: 53 },
     speed_round: { id: 'speed_round', name: 'SPEED ROUND', icon: '⚡', chance: 10, color: '#f4c542' },
     fog_of_war: { id: 'fog_of_war', name: 'FOG OF WAR', icon: '👁', chance: 7, color: '#8080a0' },
     sudden_death: { id: 'sudden_death', name: 'SUDDEN DEATH', icon: '💀', chance: 6, color: '#e85a50' },
@@ -54,7 +71,12 @@ const UltimateTicTacToe = () => {
     shrinking_board: { id: 'shrinking_board', name: 'SHRINKING BOARD', icon: '📉', chance: 5, color: '#60a080' },
     double_down: { id: 'double_down', name: 'DOUBLE DOWN', icon: '✌️', chance: 3, color: '#c060a0' },
     blackout: { id: 'blackout', name: 'BLACKOUT', icon: '🌑', chance: 3, color: '#404060' },
+    gomoku: { id: 'gomoku', name: 'GOMOKU MODE', icon: '⭐', chance: 2, color: '#ffd700' },
   };
+
+  // Gomoku state (15x15 board)
+  const [gomokuBoard, setGomokuBoard] = useState(Array(15).fill(null).map(() => Array(15).fill(null)));
+  const [gomokuLastMove, setGomokuLastMove] = useState(null);
 
   // Enemy definitions
   const enemyDefs = [
@@ -69,6 +91,93 @@ const UltimateTicTacToe = () => {
     { id: 'wolf_warrior', name: 'Wolf Warrior', title: 'The Pack Leader', emoji: '🐺', color: '#606080', accentColor: '#8080a0', taunt: "The pack hunts together!", winQuote: "AWOOOO! Victory howl!", loseQuote: "The pack will return stronger..." },
     { id: 'grand_master_grizzly', name: 'Grand Master Grizzly', title: 'The Ultimate Challenge', emoji: '👑', color: '#d4a840', accentColor: '#f4c860', taunt: "You dare face the Grand Master?", winQuote: "Undefeated. As expected.", loseQuote: "Impossible! The council will hear of this!" },
   ];
+
+  // Character gimmick definitions
+  const characterGimmicks = {
+    funky_frog: {
+      id: 'fly_swat',
+      name: 'Fly Swat',
+      icon: '🪰',
+      type: 'interval',
+      interval: 3,
+      duration: 3000,
+      penalty: 'skip_turn',
+    },
+    cheeky_chicken: {
+      id: 'egg_splat',
+      name: 'Egg Splat',
+      icon: '🥚',
+      type: 'constant',
+      passive: true,
+    },
+    disco_dinosaur: {
+      id: 'dance_sequence',
+      name: 'Dance Sequence',
+      icon: '🕺',
+      type: 'interval',
+      interval: 4,
+      duration: 5000,
+      penalty: 'skip_turn',
+    },
+    radical_raccoon: {
+      id: 'trash_drag',
+      name: 'Trash Cleanup',
+      icon: '🗑️',
+      type: 'before_move',
+      duration: 4000,
+      penalty: 'skip_turn',
+    },
+    electric_eel: {
+      id: 'shock_zones',
+      name: 'Shock Zones',
+      icon: '⚡',
+      type: 'constant',
+      passive: true,
+    },
+    mysterious_moth: {
+      id: 'spotlight',
+      name: 'Lights Out',
+      icon: '🔦',
+      type: 'constant',
+      passive: true,
+    },
+    professor_penguin: {
+      id: 'pop_quiz',
+      name: 'Pop Quiz',
+      icon: '📝',
+      type: 'interval',
+      interval: 3,
+      duration: 5000,
+      penalty: 'ai_hint',
+    },
+    sly_snake: {
+      id: 'piece_swap',
+      name: 'Piece Swap',
+      icon: '🐍',
+      type: 'interval',
+      interval: 5,
+      duration: 3000,
+      penalty: 'swap_pieces',
+    },
+    wolf_warrior: {
+      id: 'wolf_rush',
+      name: 'Wolf Rush',
+      icon: '🐺',
+      type: 'interval',
+      interval: 3,
+      duration: 3000,
+      penalty: 'lose_piece',
+    },
+    grand_master_grizzly: {
+      id: 'chaos_master',
+      name: 'Chaos Master',
+      icon: '👑',
+      type: 'interval',
+      interval: 2,
+      duration: 3000,
+      penalty: 'random',
+    },
+  };
 
   // AI Memory System
   const [aiMemory, setAiMemory] = useState(() => {
@@ -405,9 +514,9 @@ const UltimateTicTacToe = () => {
   }, [isBoardFull, wouldWinBoard]);
 
   const findWin = useCallback((boards, bigB, active, player) => {
-    const relevantBoards = active !== null ? [active] : 
+    const relevantBoards = active !== null ? [active] :
       boards.map((_, i) => i).filter(i => bigB[i] === null && !isBoardFull(boards[i]));
-    
+
     for (let boardIdx of relevantBoards) {
       for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
         if (boards[boardIdx][cellIdx] === null) {
@@ -419,6 +528,564 @@ const UltimateTicTacToe = () => {
     }
     return null;
   }, [isBoardFull, wouldWinBoard]);
+
+  // ==================== GOMOKU SYSTEM ====================
+
+  const checkGomokuWinner = useCallback((board) => {
+    const size = 15;
+    const directions = [
+      [0, 1],   // horizontal
+      [1, 0],   // vertical
+      [1, 1],   // diagonal down-right
+      [1, -1],  // diagonal down-left
+    ];
+
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const player = board[row][col];
+        if (!player) continue;
+
+        for (const [dr, dc] of directions) {
+          let count = 1;
+          const winningCells = [[row, col]];
+
+          // Check in positive direction
+          for (let i = 1; i < 5; i++) {
+            const newRow = row + dr * i;
+            const newCol = col + dc * i;
+            if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+            if (board[newRow][newCol] !== player) break;
+            count++;
+            winningCells.push([newRow, newCol]);
+          }
+
+          if (count >= 5) {
+            return { winner: player, cells: winningCells };
+          }
+        }
+      }
+    }
+    return null;
+  }, []);
+
+  const getGomokuAIMove = useCallback((board) => {
+    const size = 15;
+    const emptyCells = [];
+
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (board[r][c] === null) {
+          emptyCells.push({ row: r, col: c });
+        }
+      }
+    }
+
+    if (emptyCells.length === 0) return null;
+
+    // Simple heuristic: score each empty cell
+    const scoreCell = (row, col, player) => {
+      let score = 0;
+      const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+      for (const [dr, dc] of directions) {
+        let count = 1;
+        let openEnds = 0;
+
+        // Count in positive direction
+        for (let i = 1; i < 5; i++) {
+          const newRow = row + dr * i;
+          const newCol = col + dc * i;
+          if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+          if (board[newRow][newCol] === player) count++;
+          else if (board[newRow][newCol] === null) { openEnds++; break; }
+          else break;
+        }
+
+        // Count in negative direction
+        for (let i = 1; i < 5; i++) {
+          const newRow = row - dr * i;
+          const newCol = col - dc * i;
+          if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+          if (board[newRow][newCol] === player) count++;
+          else if (board[newRow][newCol] === null) { openEnds++; break; }
+          else break;
+        }
+
+        // Score based on count and open ends
+        if (count >= 5) score += 100000;
+        else if (count === 4 && openEnds >= 1) score += 10000;
+        else if (count === 3 && openEnds >= 2) score += 1000;
+        else if (count === 3 && openEnds >= 1) score += 500;
+        else if (count === 2 && openEnds >= 2) score += 100;
+        else score += count * 10;
+      }
+
+      return score;
+    };
+
+    // Find best move - check both offense and defense
+    let bestMove = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    let bestScore = -1;
+
+    for (const cell of emptyCells) {
+      // Score for AI winning
+      const offenseScore = scoreCell(cell.row, cell.col, 'O');
+      // Score for blocking player
+      const defenseScore = scoreCell(cell.row, cell.col, 'X');
+      // Prefer center area slightly
+      const centerBonus = Math.max(0, 7 - Math.abs(cell.row - 7)) + Math.max(0, 7 - Math.abs(cell.col - 7));
+
+      const totalScore = offenseScore * 1.1 + defenseScore + centerBonus;
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMove = cell;
+      }
+    }
+
+    return bestMove;
+  }, []);
+
+  const handleGomokuClick = useCallback((row, col) => {
+    if (currentTwist?.id !== 'gomoku') return;
+    if (gameState !== 'playing' || !isPlayerTurn) return;
+    if (gomokuBoard[row][col] !== null) return;
+
+    // Player move
+    const newBoard = gomokuBoard.map(r => [...r]);
+    newBoard[row][col] = 'X';
+    setGomokuBoard(newBoard);
+    setGomokuLastMove({ row, col });
+
+    // Check for win
+    const result = checkGomokuWinner(newBoard);
+    if (result) {
+      handleGameEnd('won');
+      return;
+    }
+
+    // Check for draw
+    const hasEmpty = newBoard.some(r => r.some(c => c === null));
+    if (!hasEmpty) {
+      handleGameEnd('draw');
+      return;
+    }
+
+    setIsPlayerTurn(false);
+  }, [currentTwist, gameState, isPlayerTurn, gomokuBoard, checkGomokuWinner]);
+
+  // Gomoku AI turn
+  useEffect(() => {
+    if (currentTwist?.id !== 'gomoku') return;
+    if (gameState !== 'playing' || isPlayerTurn) return;
+
+    const timer = setTimeout(() => {
+      const aiMove = getGomokuAIMove(gomokuBoard);
+      if (aiMove) {
+        const newBoard = gomokuBoard.map(r => [...r]);
+        newBoard[aiMove.row][aiMove.col] = 'O';
+        setGomokuBoard(newBoard);
+        setGomokuLastMove(aiMove);
+
+        const result = checkGomokuWinner(newBoard);
+        if (result) {
+          handleGameEnd('lost');
+          return;
+        }
+
+        const hasEmpty = newBoard.some(r => r.some(c => c === null));
+        if (!hasEmpty) {
+          handleGameEnd('draw');
+          return;
+        }
+
+        setIsPlayerTurn(true);
+      }
+    }, 400 + Math.random() * 300);
+
+    return () => clearTimeout(timer);
+  }, [currentTwist, gameState, isPlayerTurn, gomokuBoard, getGomokuAIMove, checkGomokuWinner]);
+
+  // ==================== GIMMICK SYSTEM ====================
+
+  const shuffleArray = (arr) => {
+    const newArr = [...arr];
+    for (let i = newArr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+  };
+
+  // Generate gimmick data based on type
+  const generateGimmickData = useCallback((gimmickId, boards) => {
+    switch (gimmickId) {
+      case 'fly_swat':
+        const flyCount = 5 + Math.floor(Math.random() * 4);
+        return {
+          flies: Array(flyCount).fill(null).map((_, i) => ({
+            id: i,
+            x: 10 + Math.random() * 80,
+            y: 10 + Math.random() * 80,
+            alive: true,
+          }))
+        };
+
+      case 'dance_sequence':
+        return {
+          sequence: Array(4).fill(null).map(() => Math.floor(Math.random() * 9)),
+          playerInput: [],
+          phase: 'showing',
+          showingIndex: 0,
+        };
+
+      case 'trash_drag':
+        const trashTypes = ['banana', 'can', 'paper', 'apple'];
+        return {
+          trashItems: Array(3).fill(null).map((_, i) => ({
+            id: i,
+            x: 15 + Math.random() * 30,
+            y: 15 + Math.random() * 70,
+            type: trashTypes[Math.floor(Math.random() * trashTypes.length)],
+            binned: false,
+          })),
+          binPosition: { x: 80, y: 50 },
+          dragging: null,
+        };
+
+      case 'pop_quiz':
+        const a = Math.floor(Math.random() * 12) + 1;
+        const b = Math.floor(Math.random() * 12) + 1;
+        const ops = [
+          { symbol: '+', fn: (x, y) => x + y },
+          { symbol: '-', fn: (x, y) => x - y },
+          { symbol: '×', fn: (x, y) => x * y },
+        ];
+        const op = ops[Math.floor(Math.random() * 3)];
+        const answer = op.fn(a, b);
+        const wrongAnswers = [answer + 2, answer - 3, answer + 5, answer - 1]
+          .filter(n => n !== answer && n > 0)
+          .slice(0, 3);
+        return {
+          question: `${a} ${op.symbol} ${b} = ?`,
+          answer,
+          options: shuffleArray([answer, ...wrongAnswers]),
+          playerAnswer: null,
+        };
+
+      case 'piece_swap':
+        const playerPieces = [];
+        const enemyPieces = [];
+        boards.forEach((board, bIdx) => {
+          board.forEach((cell, cIdx) => {
+            if (cell === 'X') playerPieces.push({ board: bIdx, cell: cIdx });
+            if (cell === 'O') enemyPieces.push({ board: bIdx, cell: cIdx });
+          });
+        });
+        return {
+          playerPieces: playerPieces.slice(0, 2),
+          enemyPieces: enemyPieces.slice(0, 2),
+          protected: [],
+        };
+
+      case 'wolf_rush':
+        const edges = ['top', 'bottom', 'left', 'right'];
+        return {
+          wolves: Array(5).fill(null).map((_, i) => {
+            const edge = edges[Math.floor(Math.random() * 4)];
+            let x, y;
+            switch (edge) {
+              case 'top': x = 10 + Math.random() * 80; y = 0; break;
+              case 'bottom': x = 10 + Math.random() * 80; y = 100; break;
+              case 'left': x = 0; y = 10 + Math.random() * 80; break;
+              case 'right': x = 100; y = 10 + Math.random() * 80; break;
+            }
+            return { id: i, x, y, edge, alive: true, progress: 0 };
+          })
+        };
+
+      case 'chaos_master':
+        // Pick a random gimmick from previous enemies
+        const previousGimmicks = ['fly_swat', 'dance_sequence', 'trash_drag', 'pop_quiz', 'wolf_rush'];
+        // 30% chance of bear roar
+        if (Math.random() < 0.3) {
+          return {
+            subType: 'bear_roar',
+            shuffleMap: shuffleArray([0, 1, 2, 3, 4, 5, 6, 7, 8]),
+            phase: 'shuffling',
+          };
+        }
+        const chosen = previousGimmicks[Math.floor(Math.random() * previousGimmicks.length)];
+        // Flatten subData into main data object so components can read it
+        const subGimmickData = generateGimmickData(chosen, boards);
+        return {
+          subType: chosen,
+          ...subGimmickData,
+        };
+
+      default:
+        return {};
+    }
+  }, []);
+
+  // Generate passive gimmick effects
+  const generateEggSplats = useCallback(() => {
+    return Array(3).fill(null).map(() => ({
+      board: Math.floor(Math.random() * 9),
+      cell: Math.floor(Math.random() * 9),
+      fadeProgress: 0,
+    }));
+  }, []);
+
+  const generateShockedCells = useCallback(() => {
+    return Array(4).fill(null).map(() => ({
+      board: Math.floor(Math.random() * 9),
+      cell: Math.floor(Math.random() * 9),
+    }));
+  }, []);
+
+  // Check if gimmick should trigger
+  const shouldTriggerGimmick = useCallback((enemyId, turnNum) => {
+    const gimmick = characterGimmicks[enemyId];
+    if (!gimmick || gimmick.passive) return false;
+
+    if (gimmick.type === 'interval') {
+      // Special case: piece_swap needs at least 2 player pieces
+      if (gimmick.id === 'piece_swap') {
+        let playerPieceCount = 0;
+        smallBoards.forEach(board => {
+          board.forEach(cell => {
+            if (cell === 'X') playerPieceCount++;
+          });
+        });
+        if (playerPieceCount < 2) return false;
+      }
+      return turnNum > 0 && turnNum % gimmick.interval === 0;
+    }
+    if (gimmick.type === 'before_move') {
+      // Don't trigger on first 2 turns to let player get started
+      return turnNum >= 2;
+    }
+    return false;
+  }, [smallBoards]);
+
+  // Apply gimmick penalty
+  const applyGimmickPenalty = useCallback((penaltyType) => {
+    switch (penaltyType) {
+      case 'skip_turn':
+        setIsPlayerTurn(false);
+        break;
+      case 'lose_piece':
+        // Find and remove a random player piece
+        const playerPieces = [];
+        smallBoards.forEach((board, bIdx) => {
+          board.forEach((cell, cIdx) => {
+            if (cell === 'X') playerPieces.push({ board: bIdx, cell: cIdx });
+          });
+        });
+        if (playerPieces.length > 0) {
+          const toRemove = playerPieces[Math.floor(Math.random() * playerPieces.length)];
+          setSmallBoards(prev => {
+            const newBoards = prev.map(b => [...b]);
+            newBoards[toRemove.board][toRemove.cell] = null;
+            return newBoards;
+          });
+        }
+        break;
+      case 'ai_hint':
+        // Highlight the best AI move (visual indicator)
+        const bestMove = findWin(smallBoards, bigBoard, activeBoard, 'O') ||
+                        findThreat(smallBoards, bigBoard, activeBoard, 'O');
+        if (bestMove) {
+          setAiHintCell(bestMove);
+          setTimeout(() => setAiHintCell(null), 2000);
+        }
+        break;
+      case 'swap_pieces':
+        // Execute piece swap from gimmick data
+        if (gimmickData.playerPieces && gimmickData.enemyPieces) {
+          const toSwap = gimmickData.playerPieces.filter(
+            p => !gimmickData.protected?.some(pr => pr.board === p.board && pr.cell === p.cell)
+          );
+          setSmallBoards(prev => {
+            const newBoards = prev.map(b => [...b]);
+            toSwap.forEach((player, i) => {
+              if (gimmickData.enemyPieces[i]) {
+                newBoards[player.board][player.cell] = 'O';
+                newBoards[gimmickData.enemyPieces[i].board][gimmickData.enemyPieces[i].cell] = 'X';
+              }
+            });
+            return newBoards;
+          });
+        }
+        break;
+      case 'random':
+        const penalties = ['skip_turn', 'lose_piece'];
+        applyGimmickPenalty(penalties[Math.floor(Math.random() * penalties.length)]);
+        break;
+    }
+  }, [smallBoards, bigBoard, activeBoard, findWin, findThreat, gimmickData]);
+
+  // Gimmick completion handler
+  const onGimmickComplete = useCallback(() => {
+    if (gimmickTimerRef.current) {
+      clearInterval(gimmickTimerRef.current);
+      gimmickTimerRef.current = null;
+    }
+    setGimmickActive(false);
+    setGimmickType(null);
+    setGimmickData({});
+
+    // Execute pending move
+    if (pendingMove) {
+      const { boardIdx, cellIdx } = pendingMove;
+      setPendingMove(null);
+      executeMoveAfterGimmick(boardIdx, cellIdx);
+    }
+  }, [pendingMove]);
+
+  // Gimmick failure handler
+  const onGimmickFail = useCallback((gimmickId) => {
+    if (gimmickTimerRef.current) {
+      clearInterval(gimmickTimerRef.current);
+      gimmickTimerRef.current = null;
+    }
+
+    const gimmick = characterGimmicks[enemyDefs[selectedEnemy]?.id];
+    const penalty = gimmick?.penalty || 'skip_turn';
+
+    setGimmickActive(false);
+    setGimmickType(null);
+    setGimmickData({});
+    setPendingMove(null);
+
+    applyGimmickPenalty(penalty);
+  }, [selectedEnemy, applyGimmickPenalty]);
+
+  // Execute move after successful gimmick
+  const executeMoveAfterGimmick = useCallback((boardIdx, cellIdx) => {
+    const result = applyMove(smallBoards, bigBoard, { board: boardIdx, cell: cellIdx }, 'X');
+
+    const boardEl = document.getElementById(`board-${boardIdx}`);
+    if (boardEl) {
+      const rect = boardEl.getBoundingClientRect();
+      const cellX = rect.left + (cellIdx % 3) * (rect.width / 3) + (rect.width / 6);
+      const cellY = rect.top + Math.floor(cellIdx / 3) * (rect.height / 3) + (rect.height / 6);
+      spawnParticles(cellX, cellY, theme.accent, 8);
+    }
+
+    setSmallBoards(result.boards);
+    setBigBoard(result.bigBoard);
+    setLastMove({ board: boardIdx, cell: cellIdx });
+
+    if (result.bigBoard[boardIdx] !== null && bigBoard[boardIdx] === null) {
+      setBoardClaimEffect({ board: boardIdx, player: 'X' });
+      setScreenShake(true);
+      setTimeout(() => {
+        setBoardClaimEffect(null);
+        setScreenShake(false);
+      }, 400);
+    }
+
+    setActiveBoard(result.activeBoard);
+    setMoveHistory(prev => [...prev, { board: boardIdx, cell: cellIdx, player: 'X' }]);
+    setTurnCount(prev => prev + 1);
+
+    // Check for game end
+    const winner = checkWinner(result.bigBoard);
+
+    if (currentTwist?.id === 'sudden_death' && result.bigBoard[boardIdx] === 'X') {
+      handleGameEnd('won');
+      return;
+    }
+
+    if (winner) {
+      setWinningLine(winner.line);
+      handleGameEnd('won');
+    } else if (result.bigBoard.filter(b => b !== null).length === 9) {
+      handleGameEnd('draw');
+    } else {
+      if (isDoubleDown && !doubleDownFirst) {
+        setDoubleDownFirst({ board: boardIdx, cell: cellIdx });
+        return;
+      }
+      setDoubleDownFirst(null);
+      setIsPlayerTurn(false);
+    }
+  }, [smallBoards, bigBoard, applyMove, checkWinner, currentTwist, isDoubleDown, doubleDownFirst, spawnParticles, theme.accent]);
+
+  // Start a gimmick
+  const startGimmick = useCallback((gimmickId, boardIdx, cellIdx) => {
+    const gimmick = characterGimmicks[enemyDefs[selectedEnemy]?.id];
+    if (!gimmick) return false;
+
+    setPendingMove({ boardIdx, cellIdx });
+    setGimmickType(gimmickId);
+    setGimmickData(generateGimmickData(gimmickId, smallBoards));
+    setGimmickTimeRemaining(gimmick.duration);
+    setGimmickActive(true);
+
+    // Start timer
+    gimmickTimerRef.current = setInterval(() => {
+      setGimmickTimeRemaining(prev => {
+        if (prev <= 100) {
+          onGimmickFail(gimmickId);
+          return 0;
+        }
+        return prev - 100;
+      });
+    }, 100);
+
+    return true;
+  }, [selectedEnemy, smallBoards, generateGimmickData, onGimmickFail]);
+
+  // Egg splat fade effect
+  useEffect(() => {
+    if (eggSplats.length === 0) return;
+
+    const interval = setInterval(() => {
+      setEggSplats(prev => prev.map(e => ({
+        ...e,
+        fadeProgress: e.fadeProgress + 0.05
+      })).filter(e => e.fadeProgress < 1));
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [eggSplats.length]);
+
+  // Spotlight mouse tracking
+  useEffect(() => {
+    if (selectedEnemy === null) return;
+    const enemyId = enemyDefs[selectedEnemy]?.id;
+    if (enemyId !== 'mysterious_moth' || gameState !== 'playing') return;
+
+    const handleMove = (e) => {
+      const container = boardContainerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setSpotlightPos({
+          x: ((e.clientX - rect.left) / rect.width) * 100,
+          y: ((e.clientY - rect.top) / rect.height) * 100,
+        });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
+  }, [selectedEnemy, gameState]);
+
+  // Update passive effects on turn change
+  useEffect(() => {
+    if (selectedEnemy === null || gameState !== 'playing') return;
+    const enemyId = enemyDefs[selectedEnemy]?.id;
+
+    if (enemyId === 'cheeky_chicken') {
+      setEggSplats(generateEggSplats());
+    }
+    if (enemyId === 'electric_eel') {
+      setShockedCells(generateShockedCells());
+    }
+  }, [turnCount, selectedEnemy, gameState, generateEggSplats, generateShockedCells]);
 
   // ==================== AI SYSTEM ====================
 
@@ -714,13 +1381,33 @@ const UltimateTicTacToe = () => {
   // ==================== GAME ACTIONS ====================
 
   const handleCellClick = (boardIdx, cellIdx) => {
-    if (gameState !== 'playing' || !isPlayerTurn) return;
+    if (gameState !== 'playing' || !isPlayerTurn || gimmickActive) return;
     if (smallBoards[boardIdx][cellIdx] !== null) return;
     if (bigBoard[boardIdx] !== null) return;
     if (activeBoard !== null && activeBoard !== boardIdx) return;
     if (blockedCells.some(b => b.board === boardIdx && b.cell === cellIdx)) return;
     if (bombCell && bombCell.board === boardIdx && bombCell.cell === cellIdx) return;
-    
+
+    // Check for shocked cell (Electric Eel)
+    const enemyId = enemyDefs[selectedEnemy]?.id;
+    if (enemyId === 'electric_eel' && shockedCells.some(s => s.board === boardIdx && s.cell === cellIdx)) {
+      // ZAP! Skip turn
+      setScreenShake(true);
+      setTimeout(() => setScreenShake(false), 300);
+      setIsPlayerTurn(false);
+      return;
+    }
+
+    // Check if gimmick should trigger
+    const gimmick = characterGimmicks[enemyId];
+    if (gimmick && !gimmick.passive) {
+      const shouldTrigger = shouldTriggerGimmick(enemyId, turnCount);
+      if (shouldTrigger) {
+        startGimmick(gimmick.id, boardIdx, cellIdx);
+        return;
+      }
+    }
+
     const result = applyMove(smallBoards, bigBoard, { board: boardIdx, cell: cellIdx }, 'X');
     
     const boardEl = document.getElementById(`board-${boardIdx}`);
@@ -851,7 +1538,17 @@ const UltimateTicTacToe = () => {
 
   const handleGameEnd = (result) => {
     setGameState(result);
-    
+
+    // Clean up any active gimmick
+    if (gimmickTimerRef.current) {
+      clearInterval(gimmickTimerRef.current);
+      gimmickTimerRef.current = null;
+    }
+    setGimmickActive(false);
+    setGimmickType(null);
+    setGimmickData({});
+    setPendingMove(null);
+
     if (result === 'won') {
       setWins(w => w + 1);
       setShowVictoryEffect(true);
@@ -863,7 +1560,7 @@ const UltimateTicTacToe = () => {
     } else {
       setDraws(d => d + 1);
     }
-    
+
     learnFromGame(result, moveHistory);
   };
 
@@ -883,7 +1580,25 @@ const UltimateTicTacToe = () => {
     setIsBlackout(false);
     setIsDoubleDown(false);
     setDoubleDownFirst(null);
-    
+
+    // Reset gimmick state
+    setGimmickActive(false);
+    setGimmickType(null);
+    setGimmickData({});
+    setGimmickTimeRemaining(0);
+    setPendingMove(null);
+    setEggSplats([]);
+    setShockedCells([]);
+    setAiHintCell(null);
+    if (gimmickTimerRef.current) {
+      clearInterval(gimmickTimerRef.current);
+      gimmickTimerRef.current = null;
+    }
+
+    // Reset Gomoku state
+    setGomokuBoard(Array(15).fill(null).map(() => Array(15).fill(null)));
+    setGomokuLastMove(null);
+
     // Roll for twist
     const twist = rollTwist();
     setCurrentTwist(twist);
@@ -1011,9 +1726,16 @@ const UltimateTicTacToe = () => {
             const isHovered = hoverCell?.board === boardIdx && hoverCell?.cell === cellIdx;
             const isBlocked = blockedCells.some(b => b.board === boardIdx && b.cell === cellIdx);
             const isBomb = bombCell?.board === boardIdx && bombCell?.cell === cellIdx;
-            const canClick = gameState === 'playing' && isPlayerTurn && !isWon && cell === null && 
-                           (activeBoard === null || activeBoard === boardIdx) && !isBlocked && !isBomb && isVisible;
-            
+
+            // Passive gimmick effects
+            const isEggSplatted = eggSplats.some(e => e.board === boardIdx && e.cell === cellIdx);
+            const eggSplat = eggSplats.find(e => e.board === boardIdx && e.cell === cellIdx);
+            const isShocked = shockedCells.some(s => s.board === boardIdx && s.cell === cellIdx);
+            const isAiHint = aiHintCell?.board === boardIdx && aiHintCell?.cell === cellIdx;
+
+            const canClick = gameState === 'playing' && isPlayerTurn && !isWon && cell === null &&
+                           (activeBoard === null || activeBoard === boardIdx) && !isBlocked && !isBomb && isVisible && !gimmickActive;
+
             return (
               <div
                 key={cellIdx}
@@ -1022,16 +1744,27 @@ const UltimateTicTacToe = () => {
                 onMouseLeave={() => setHoverCell(null)}
                 style={{
                   width: '32px', height: '32px',
-                  background: isBlocked ? '#40303080' : isBomb ? '#e8504030' : isLastMove ? 'rgba(255,255,255,0.12)' : isHovered ? 'rgba(255,255,255,0.08)' : 'rgba(26, 22, 37, 0.8)',
+                  background: isBlocked ? '#40303080' :
+                             isBomb ? '#e8504030' :
+                             isShocked ? 'rgba(80, 168, 232, 0.2)' :
+                             isAiHint ? 'rgba(232, 90, 80, 0.3)' :
+                             isLastMove ? 'rgba(255,255,255,0.12)' :
+                             isHovered ? 'rgba(255,255,255,0.08)' : 'rgba(26, 22, 37, 0.8)',
                   borderRadius: '6px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: canClick ? 'pointer' : 'default',
                   transition: 'background 0.15s ease',
                   position: 'relative',
+                  boxShadow: isShocked ? '0 0 8px #50a8e8, inset 0 0 4px #50a8e8' :
+                            isAiHint ? '0 0 12px #e85a50' : 'none',
+                  animation: isShocked ? 'pulse 0.4s ease-in-out infinite' : 'none',
                 }}
               >
                 {isBlocked && <span style={{ fontSize: '16px', opacity: 0.5 }}>✕</span>}
                 {isBomb && <span style={{ fontSize: '18px', animation: 'pulse 0.5s ease-in-out infinite' }}>💣</span>}
+                {isShocked && cell === null && !isBlocked && (
+                  <span style={{ fontSize: '14px', position: 'absolute', animation: 'pulse 0.3s ease-in-out infinite' }}>⚡</span>
+                )}
                 {cell === 'X' && (
                   <svg viewBox="0 0 100 100" style={{ width: '70%', height: '70%' }}>
                     <path d="M20 15 L50 45 L80 15 L85 20 L55 50 L85 80 L80 85 L50 55 L20 85 L15 80 L45 50 L15 20 Z" fill={theme.accentBright} />
@@ -1042,10 +1775,34 @@ const UltimateTicTacToe = () => {
                     <circle cx="50" cy="50" r="30" fill="none" stroke={enemy?.color || '#e85a50'} strokeWidth="14" />
                   </svg>
                 )}
-                {cell === null && !isBlocked && !isBomb && isHovered && canClick && (
+                {cell === null && !isBlocked && !isBomb && !isShocked && isHovered && canClick && (
                   <svg viewBox="0 0 100 100" style={{ width: '70%', height: '70%', opacity: 0.4 }}>
                     <path d="M20 15 L50 45 L80 15 L85 20 L55 50 L85 80 L80 85 L50 55 L20 85 L15 80 L45 50 L15 20 Z" fill={theme.accent} />
                   </svg>
+                )}
+                {/* Egg splat overlay */}
+                {isEggSplatted && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `rgba(232, 168, 64, ${0.9 - (eggSplat?.fadeProgress || 0) * 0.9})`,
+                    borderRadius: '6px',
+                    fontSize: '20px',
+                    opacity: 1 - (eggSplat?.fadeProgress || 0),
+                    pointerEvents: 'none',
+                  }}>
+                    🥚
+                  </div>
+                )}
+                {/* AI hint indicator */}
+                {isAiHint && (
+                  <div style={{
+                    position: 'absolute', inset: -2,
+                    border: '2px solid #e85a50',
+                    borderRadius: '8px',
+                    animation: 'pulse 0.5s ease-in-out infinite',
+                    pointerEvents: 'none',
+                  }} />
                 )}
               </div>
             );
@@ -1162,6 +1919,666 @@ const UltimateTicTacToe = () => {
     </div>
   );
 
+  // ==================== GIMMICK OVERLAY COMPONENTS ====================
+
+  // Fly Swat Gimmick (Funky Frog)
+  const FlySwatGimmick = () => {
+    const [flies, setFlies] = useState(gimmickData.flies || []);
+
+    // Flies buzz around
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setFlies(prev => prev.map(f => f.alive ? {
+          ...f,
+          x: Math.max(5, Math.min(95, f.x + (Math.random() - 0.5) * 10)),
+          y: Math.max(5, Math.min(95, f.y + (Math.random() - 0.5) * 10)),
+        } : f));
+      }, 150);
+      return () => clearInterval(interval);
+    }, []);
+
+    const swatFly = (id) => {
+      setFlies(prev => {
+        const newFlies = prev.map(f => f.id === id ? { ...f, alive: false } : f);
+        if (newFlies.every(f => !f.alive)) {
+          setTimeout(() => onGimmickComplete(), 100);
+        }
+        return newFlies;
+      });
+    };
+
+    const aliveCount = flies.filter(f => f.alive).length;
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(80, 200, 120, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div style={{
+          position: 'relative',
+          width: '400px', height: '400px',
+          background: 'rgba(26, 22, 37, 0.95)',
+          borderRadius: '20px',
+          border: '3px solid #50c878',
+          overflow: 'hidden',
+        }}>
+          <div style={{ textAlign: 'center', padding: '16px' }}>
+            <div style={{ fontSize: '24px', marginBottom: '4px' }}>🐸 FLY SWAT!</div>
+            <div style={{ fontSize: '14px', color: theme.textSecondary }}>Click all the flies! ({aliveCount} remaining)</div>
+            <div style={{
+              marginTop: '8px',
+              height: '6px',
+              background: theme.bgDark,
+              borderRadius: '3px',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${(gimmickTimeRemaining / 3000) * 100}%`,
+                height: '100%',
+                background: gimmickTimeRemaining < 1000 ? theme.error : '#50c878',
+                transition: 'width 0.1s linear',
+              }} />
+            </div>
+          </div>
+          {flies.filter(f => f.alive).map(fly => (
+            <div
+              key={fly.id}
+              onClick={() => swatFly(fly.id)}
+              style={{
+                position: 'absolute',
+                left: `${fly.x}%`,
+                top: `${fly.y}%`,
+                fontSize: '28px',
+                cursor: 'pointer',
+                transform: 'translate(-50%, -50%)',
+                transition: 'left 0.15s ease, top 0.15s ease',
+                userSelect: 'none',
+              }}
+            >
+              🪰
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Dance Sequence Gimmick (Disco Dinosaur)
+  const DanceSequenceGimmick = () => {
+    const [phase, setPhase] = useState('showing');
+    const [showingIndex, setShowingIndex] = useState(-1);
+    const [playerInput, setPlayerInput] = useState([]);
+    const sequence = gimmickData.sequence || [];
+
+    // Show sequence phase
+    useEffect(() => {
+      if (phase !== 'showing') return;
+
+      const showNext = (idx) => {
+        if (idx >= sequence.length) {
+          setTimeout(() => {
+            setPhase('input');
+            setShowingIndex(-1);
+          }, 500);
+          return;
+        }
+        setShowingIndex(sequence[idx]);
+        setTimeout(() => {
+          setShowingIndex(-1);
+          setTimeout(() => showNext(idx + 1), 200);
+        }, 500);
+      };
+
+      setTimeout(() => showNext(0), 500);
+    }, [phase, sequence]);
+
+    const handleInput = (idx) => {
+      if (phase !== 'input') return;
+
+      const newInput = [...playerInput, idx];
+      setPlayerInput(newInput);
+
+      // Check if wrong
+      if (newInput[newInput.length - 1] !== sequence[newInput.length - 1]) {
+        onGimmickFail('dance_sequence');
+        return;
+      }
+
+      // Check if complete
+      if (newInput.length === sequence.length) {
+        onGimmickComplete();
+      }
+    };
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(160, 128, 192, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div style={{
+          textAlign: 'center',
+          background: 'rgba(26, 22, 37, 0.95)',
+          borderRadius: '20px',
+          border: '3px solid #a080c0',
+          padding: '24px',
+        }}>
+          <div style={{ fontSize: '24px', marginBottom: '4px' }}>🦕 DANCE SEQUENCE!</div>
+          <div style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '16px' }}>
+            {phase === 'showing' ? 'Watch the pattern...' : `Repeat it! (${playerInput.length}/${sequence.length})`}
+          </div>
+          <div style={{
+            marginBottom: '16px',
+            height: '6px',
+            background: theme.bgDark,
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${(gimmickTimeRemaining / 5000) * 100}%`,
+              height: '100%',
+              background: gimmickTimeRemaining < 1500 ? theme.error : '#a080c0',
+              transition: 'width 0.1s linear',
+            }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', width: '180px', margin: '0 auto' }}>
+            {[0,1,2,3,4,5,6,7,8].map(idx => (
+              <div
+                key={idx}
+                onClick={() => handleInput(idx)}
+                style={{
+                  width: '52px', height: '52px',
+                  background: showingIndex === idx ? '#f4c542' :
+                             playerInput.includes(idx) ? '#a080c0' : theme.bgPanel,
+                  borderRadius: '10px',
+                  cursor: phase === 'input' ? 'pointer' : 'default',
+                  transition: 'background 0.15s ease, transform 0.15s ease',
+                  transform: showingIndex === idx ? 'scale(1.1)' : 'scale(1)',
+                  border: `2px solid ${showingIndex === idx ? '#f4c542' : theme.border}`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Trash Drag Gimmick (Radical Raccoon)
+  const TrashDragGimmick = () => {
+    const [trashItems, setTrashItems] = useState(gimmickData.trashItems || []);
+    const [dragging, setDragging] = useState(null);
+    const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
+    const binPos = gimmickData.binPosition || { x: 80, y: 50 };
+    const containerRef = useRef(null);
+
+    const trashEmojis = { banana: '🍌', can: '🥫', paper: '📄', apple: '🍎' };
+
+    const handleMouseMove = (e) => {
+      if (dragging === null || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      setDragPos({
+        x: ((e.clientX - rect.left) / rect.width) * 100,
+        y: ((e.clientY - rect.top) / rect.height) * 100,
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (dragging === null) return;
+
+      const dist = Math.hypot(dragPos.x - binPos.x, dragPos.y - binPos.y);
+      if (dist < 15) {
+        setTrashItems(prev => {
+          const newItems = prev.map(t => t.id === dragging ? { ...t, binned: true } : t);
+          if (newItems.filter(t => !t.binned).length === 0) {
+            setTimeout(() => onGimmickComplete(), 100);
+          }
+          return newItems;
+        });
+      }
+      setDragging(null);
+    };
+
+    const unbinnedCount = trashItems.filter(t => !t.binned).length;
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(128, 128, 144, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div
+          ref={containerRef}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{
+            position: 'relative',
+            width: '400px', height: '400px',
+            background: 'rgba(26, 22, 37, 0.95)',
+            borderRadius: '20px',
+            border: '3px solid #808090',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ textAlign: 'center', padding: '16px' }}>
+            <div style={{ fontSize: '24px', marginBottom: '4px' }}>🦝 TRASH CLEANUP!</div>
+            <div style={{ fontSize: '14px', color: theme.textSecondary }}>Drag all trash to the bin! ({unbinnedCount} remaining)</div>
+            <div style={{
+              marginTop: '8px',
+              height: '6px',
+              background: theme.bgDark,
+              borderRadius: '3px',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${(gimmickTimeRemaining / 4000) * 100}%`,
+                height: '100%',
+                background: gimmickTimeRemaining < 1000 ? theme.error : '#808090',
+                transition: 'width 0.1s linear',
+              }} />
+            </div>
+          </div>
+
+          {/* Trash bin */}
+          <div style={{
+            position: 'absolute',
+            left: `${binPos.x}%`,
+            top: `${binPos.y}%`,
+            transform: 'translate(-50%, -50%)',
+            fontSize: '48px',
+          }}>
+            🗑️
+          </div>
+
+          {/* Trash items */}
+          {trashItems.filter(t => !t.binned).map(trash => (
+            <div
+              key={trash.id}
+              onMouseDown={() => { setDragging(trash.id); setDragPos({ x: trash.x, y: trash.y }); }}
+              style={{
+                position: 'absolute',
+                left: `${dragging === trash.id ? dragPos.x : trash.x}%`,
+                top: `${dragging === trash.id ? dragPos.y : trash.y}%`,
+                transform: 'translate(-50%, -50%)',
+                fontSize: '32px',
+                cursor: 'grab',
+                userSelect: 'none',
+                transition: dragging === trash.id ? 'none' : 'all 0.2s ease',
+              }}
+            >
+              {trashEmojis[trash.type]}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Pop Quiz Gimmick (Professor Penguin)
+  const PopQuizGimmick = () => {
+    const quiz = gimmickData;
+
+    const handleAnswer = (answer) => {
+      if (answer === quiz.answer) {
+        onGimmickComplete();
+      } else {
+        onGimmickFail('pop_quiz');
+      }
+    };
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(64, 128, 160, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div style={{
+          textAlign: 'center',
+          background: 'rgba(26, 22, 37, 0.95)',
+          borderRadius: '20px',
+          border: '3px solid #4080a0',
+          padding: '24px',
+          minWidth: '300px',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '8px' }}>🐧</div>
+          <div style={{ fontSize: '24px', marginBottom: '4px' }}>POP QUIZ!</div>
+          <div style={{
+            marginBottom: '16px',
+            height: '6px',
+            background: theme.bgDark,
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${(gimmickTimeRemaining / 5000) * 100}%`,
+              height: '100%',
+              background: gimmickTimeRemaining < 1500 ? theme.error : '#4080a0',
+              transition: 'width 0.1s linear',
+            }} />
+          </div>
+          <div style={{
+            fontSize: '36px',
+            fontWeight: 900,
+            marginBottom: '20px',
+            color: theme.gold,
+          }}>
+            {quiz.question}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+            {quiz.options?.map((opt, i) => (
+              <button
+                key={i}
+                onClick={() => handleAnswer(opt)}
+                style={{
+                  padding: '16px 24px',
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                  background: theme.bgPanel,
+                  border: `2px solid ${theme.border}`,
+                  borderRadius: '10px',
+                  color: theme.text,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={e => { e.target.style.background = '#4080a0'; e.target.style.borderColor = '#4080a0'; }}
+                onMouseLeave={e => { e.target.style.background = theme.bgPanel; e.target.style.borderColor = theme.border; }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Piece Swap Gimmick (Sly Snake)
+  const PieceSwapGimmick = () => {
+    const [protectedPieces, setProtectedPieces] = useState([]);
+    const playerPieces = gimmickData.playerPieces || [];
+
+    const handleProtect = (piece) => {
+      if (protectedPieces.length >= 2) return;
+      if (protectedPieces.some(p => p.board === piece.board && p.cell === piece.cell)) return;
+
+      const newProtected = [...protectedPieces, piece];
+      setProtectedPieces(newProtected);
+
+      if (newProtected.length >= 2) {
+        setGimmickData(prev => ({ ...prev, protected: newProtected }));
+        setTimeout(() => onGimmickComplete(), 200);
+      }
+    };
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(96, 160, 96, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div style={{
+          textAlign: 'center',
+          background: 'rgba(26, 22, 37, 0.95)',
+          borderRadius: '20px',
+          border: '3px solid #60a060',
+          padding: '24px',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '8px' }}>🐍</div>
+          <div style={{ fontSize: '24px', marginBottom: '4px' }}>PIECE SWAP!</div>
+          <div style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '8px' }}>
+            Click 2 of your pieces to protect them!
+          </div>
+          <div style={{
+            marginBottom: '16px',
+            height: '6px',
+            background: theme.bgDark,
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${(gimmickTimeRemaining / 3000) * 100}%`,
+              height: '100%',
+              background: gimmickTimeRemaining < 1000 ? theme.error : '#60a060',
+              transition: 'width 0.1s linear',
+            }} />
+          </div>
+          <div style={{ fontSize: '16px', color: theme.gold, marginBottom: '16px' }}>
+            Protected: {protectedPieces.length}/2
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {playerPieces.map((piece, i) => {
+              const isProtected = protectedPieces.some(p => p.board === piece.board && p.cell === piece.cell);
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleProtect(piece)}
+                  style={{
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    fontFamily: 'inherit',
+                    background: isProtected ? '#60a060' : theme.bgPanel,
+                    border: `2px solid ${isProtected ? '#60a060' : theme.border}`,
+                    borderRadius: '10px',
+                    color: theme.text,
+                    cursor: isProtected ? 'default' : 'pointer',
+                  }}
+                >
+                  Board {piece.board + 1}, Cell {piece.cell + 1}
+                  {isProtected && ' ✓'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Wolf Rush Gimmick (Wolf Warrior)
+  const WolfRushGimmick = () => {
+    const [wolves, setWolves] = useState(gimmickData.wolves || []);
+
+    // Wolves move toward center
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setWolves(prev => {
+          const updated = prev.map(w => {
+            if (!w.alive) return w;
+            const speed = 1.5;
+            let newX = w.x, newY = w.y;
+
+            if (w.x < 50) newX = Math.min(50, w.x + speed);
+            if (w.x > 50) newX = Math.max(50, w.x - speed);
+            if (w.y < 50) newY = Math.min(50, w.y + speed);
+            if (w.y > 50) newY = Math.max(50, w.y - speed);
+
+            const progress = 1 - (Math.hypot(newX - 50, newY - 50) / 70);
+            return { ...w, x: newX, y: newY, progress };
+          });
+
+          // Check if any wolf reached center
+          if (updated.some(w => w.alive && w.progress >= 0.95)) {
+            onGimmickFail('wolf_rush');
+          }
+
+          return updated;
+        });
+      }, 50);
+      return () => clearInterval(interval);
+    }, []);
+
+    const killWolf = (id) => {
+      setWolves(prev => {
+        const newWolves = prev.map(w => w.id === id ? { ...w, alive: false } : w);
+        if (newWolves.every(w => !w.alive)) {
+          setTimeout(() => onGimmickComplete(), 100);
+        }
+        return newWolves;
+      });
+    };
+
+    const aliveCount = wolves.filter(w => w.alive).length;
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(96, 96, 128, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div style={{
+          position: 'relative',
+          width: '400px', height: '400px',
+          background: 'rgba(26, 22, 37, 0.95)',
+          borderRadius: '20px',
+          border: '3px solid #606080',
+          overflow: 'hidden',
+        }}>
+          <div style={{ textAlign: 'center', padding: '16px' }}>
+            <div style={{ fontSize: '24px', marginBottom: '4px' }}>🐺 WOLF RUSH!</div>
+            <div style={{ fontSize: '14px', color: theme.textSecondary }}>Click the wolves before they reach the center! ({aliveCount} remaining)</div>
+            <div style={{
+              marginTop: '8px',
+              height: '6px',
+              background: theme.bgDark,
+              borderRadius: '3px',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${(gimmickTimeRemaining / 3000) * 100}%`,
+                height: '100%',
+                background: gimmickTimeRemaining < 1000 ? theme.error : '#606080',
+                transition: 'width 0.1s linear',
+              }} />
+            </div>
+          </div>
+
+          {/* Target center */}
+          <div style={{
+            position: 'absolute',
+            left: '50%', top: '50%',
+            transform: 'translate(-50%, -50%)',
+            fontSize: '36px',
+          }}>
+            🎯
+          </div>
+
+          {/* Wolves */}
+          {wolves.filter(w => w.alive).map(wolf => (
+            <div
+              key={wolf.id}
+              onClick={() => killWolf(wolf.id)}
+              style={{
+                position: 'absolute',
+                left: `${wolf.x}%`,
+                top: `${wolf.y}%`,
+                transform: 'translate(-50%, -50%)',
+                fontSize: '32px',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+            >
+              🐺
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Bear Roar sub-gimmick (Grand Master Grizzly)
+  const BearRoarGimmick = () => {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(212, 168, 64, 0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 600,
+      }}>
+        <div style={{
+          textAlign: 'center',
+          background: 'rgba(26, 22, 37, 0.95)',
+          borderRadius: '20px',
+          border: '3px solid #d4a840',
+          padding: '24px',
+        }}>
+          <div style={{ fontSize: '72px', marginBottom: '8px', animation: 'pulse 0.3s ease-in-out infinite' }}>🐻</div>
+          <div style={{ fontSize: '32px', fontWeight: 900, color: '#d4a840', marginBottom: '8px' }}>BEAR ROAR!</div>
+          <div style={{ fontSize: '16px', color: theme.textSecondary, marginBottom: '16px' }}>
+            The board positions are shuffled!
+          </div>
+          <div style={{
+            marginBottom: '16px',
+            height: '6px',
+            background: theme.bgDark,
+            borderRadius: '3px',
+            overflow: 'hidden',
+            width: '200px',
+            margin: '0 auto',
+          }}>
+            <div style={{
+              width: `${(gimmickTimeRemaining / 3000) * 100}%`,
+              height: '100%',
+              background: '#d4a840',
+              transition: 'width 0.1s linear',
+            }} />
+          </div>
+          <button
+            onClick={() => onGimmickComplete()}
+            style={{
+              padding: '12px 32px',
+              fontSize: '16px',
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              background: '#d4a840',
+              border: 'none',
+              borderRadius: '10px',
+              color: '#1a1625',
+              cursor: 'pointer',
+            }}
+          >
+            I UNDERSTAND
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Master Gimmick Overlay
+  const GimmickOverlay = () => {
+    if (!gimmickActive || !gimmickType) return null;
+
+    // Handle chaos master's sub-gimmicks
+    if (gimmickType === 'chaos_master') {
+      const subType = gimmickData.subType;
+      if (subType === 'bear_roar') return <BearRoarGimmick />;
+      if (subType === 'fly_swat') return <FlySwatGimmick />;
+      if (subType === 'dance_sequence') return <DanceSequenceGimmick />;
+      if (subType === 'trash_drag') return <TrashDragGimmick />;
+      if (subType === 'pop_quiz') return <PopQuizGimmick />;
+      if (subType === 'wolf_rush') return <WolfRushGimmick />;
+    }
+
+    switch (gimmickType) {
+      case 'fly_swat': return <FlySwatGimmick />;
+      case 'dance_sequence': return <DanceSequenceGimmick />;
+      case 'trash_drag': return <TrashDragGimmick />;
+      case 'pop_quiz': return <PopQuizGimmick />;
+      case 'piece_swap': return <PieceSwapGimmick />;
+      case 'wolf_rush': return <WolfRushGimmick />;
+      default: return null;
+    }
+  };
+
   const styles = `
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
     
@@ -1220,7 +2637,20 @@ const UltimateTicTacToe = () => {
       {showVictoryEffect && <VictoryOverlay />}
       {showDefeatEffect && <DefeatOverlay />}
       {showTwistIntro && <TwistIntro twist={currentTwist} />}
-      
+
+      {/* Gimmick overlay */}
+      <GimmickOverlay />
+
+      {/* Spotlight overlay for Mysterious Moth */}
+      {selectedEnemy !== null && enemyDefs[selectedEnemy]?.id === 'mysterious_moth' && gameState === 'playing' && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: `radial-gradient(circle 100px at ${spotlightPos.x}% ${spotlightPos.y}%, transparent 0%, rgba(0,0,0,0.92) 100%)`,
+          pointerEvents: 'none',
+          zIndex: 50,
+        }} />
+      )}
+
       {/* Blackout overlay */}
       {isBlackout && (
         <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 500 }} />
@@ -1293,9 +2723,45 @@ const UltimateTicTacToe = () => {
             <div style={{ width: '100%', maxWidth: '800px', animation: 'slideIn 0.5s ease-out' }}>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>CHOOSE YOUR OPPONENT</h2>
-                <p style={{ color: theme.textSecondary, fontSize: '13px' }}>
+                <p style={{ color: theme.textSecondary, fontSize: '13px', marginBottom: '16px' }}>
                   Each opponent spans 10 stars. Earn stars by winning!
                 </p>
+
+                {/* AI Learning Indicator */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 20px',
+                  background: `linear-gradient(135deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                  borderRadius: '12px',
+                  border: `1px solid ${theme.accent}40`,
+                }}>
+                  <div style={{ fontSize: '24px' }}>🧠</div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '10px', color: theme.textMuted, letterSpacing: '1px' }}>AI EXPERIENCE</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{
+                        width: '120px',
+                        height: '8px',
+                        background: theme.bgDark,
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: `${Math.min(100, (aiMemory.playerProfile.gamesPlayed / 100) * 100)}%`,
+                          height: '100%',
+                          background: `linear-gradient(90deg, ${theme.accent} 0%, ${theme.gold} 100%)`,
+                          borderRadius: '4px',
+                          transition: 'width 0.5s ease',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: theme.accent }}>
+                        {aiMemory.playerProfile.gamesPlayed} games
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
@@ -1342,7 +2808,26 @@ const UltimateTicTacToe = () => {
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
                           <StarBar points={enemyPoints} size={11} color={enemy.color} />
                         </div>
-                        
+
+                        {/* Gimmick indicator */}
+                        {characterGimmicks[enemy.id] && (
+                          <div style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            background: `${enemy.color}15`,
+                            borderRadius: '6px',
+                            fontSize: '9px',
+                            color: enemy.color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                          }}>
+                            <span>{characterGimmicks[enemy.id].icon}</span>
+                            <span style={{ fontWeight: 600 }}>{characterGimmicks[enemy.id].name}</span>
+                          </div>
+                        )}
+
                         {isComplete && (
                           <div style={{ marginTop: '6px', fontSize: '9px', color: theme.gold, fontWeight: 700 }}>
                             ✓ MASTERED
@@ -1478,46 +2963,129 @@ const UltimateTicTacToe = () => {
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
                   <StarBar points={progress.getEnemyPoints(selectedEnemy)} size={11} color={currentEnemy?.color} />
                 </div>
+                {/* Character gimmick indicator */}
+                {selectedEnemy !== null && characterGimmicks[enemyDefs[selectedEnemy]?.id] && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '6px 10px',
+                    background: `${currentEnemy?.color}20`,
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '6px',
+                    fontSize: '11px',
+                    color: currentEnemy?.color,
+                  }}>
+                    <span>{characterGimmicks[enemyDefs[selectedEnemy]?.id]?.icon}</span>
+                    <span style={{ fontWeight: 700 }}>{characterGimmicks[enemyDefs[selectedEnemy]?.id]?.name}</span>
+                  </div>
+                )}
               </div>
             </div>
-            
+
             {/* Game board - centered and bigger */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ position: 'relative' }}>
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(3, 1fr)', 
-                  gap: '10px',
-                  background: theme.bgDark,
-                  padding: '14px',
-                  borderRadius: '20px',
-                  border: `3px solid ${theme.border}`,
-                }}>
-                  {smallBoards.map((board, boardIdx) => (
-                    <SmallBoard
-                      key={boardIdx}
-                      boardIdx={boardIdx}
-                      board={board}
-                      isActive={activeBoard === null ? bigBoard[boardIdx] === null : activeBoard === boardIdx}
-                      isWon={bigBoard[boardIdx] !== null}
-                      wonBy={bigBoard[boardIdx]}
-                      bigBoardWinLine={winningLine}
-                    />
-                  ))}
-                </div>
-                
-                {/* Hint */}
-                {gameState === 'playing' && (
-                  <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>
-                    {activeBoard !== null ? (
-                      <span>Play in the <span style={{ color: theme.accent, fontWeight: 700 }}>highlighted board</span></span>
-                    ) : (
-                      <span>Play in <span style={{ color: theme.accent, fontWeight: 700 }}>any available board</span></span>
+              <div ref={boardContainerRef} style={{ position: 'relative' }}>
+
+                {/* GOMOKU BOARD */}
+                {currentTwist?.id === 'gomoku' ? (
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(15, 1fr)',
+                      gap: '1px',
+                      background: theme.bgDark,
+                      padding: '10px',
+                      borderRadius: '16px',
+                      border: `3px solid ${theme.gold}`,
+                    }}>
+                      {gomokuBoard.map((row, rowIdx) =>
+                        row.map((cell, colIdx) => {
+                          const isLast = gomokuLastMove?.row === rowIdx && gomokuLastMove?.col === colIdx;
+                          const canClick = gameState === 'playing' && isPlayerTurn && cell === null;
+                          return (
+                            <div
+                              key={`${rowIdx}-${colIdx}`}
+                              onClick={() => handleGomokuClick(rowIdx, colIdx)}
+                              style={{
+                                width: '24px', height: '24px',
+                                background: isLast ? 'rgba(255,215,0,0.3)' : 'rgba(26, 22, 37, 0.8)',
+                                borderRadius: '4px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: canClick ? 'pointer' : 'default',
+                                transition: 'background 0.1s ease',
+                              }}
+                              onMouseEnter={e => { if (canClick) e.target.style.background = 'rgba(255,255,255,0.15)'; }}
+                              onMouseLeave={e => { if (!isLast) e.target.style.background = 'rgba(26, 22, 37, 0.8)'; }}
+                            >
+                              {cell === 'X' && (
+                                <div style={{
+                                  width: '18px', height: '18px',
+                                  borderRadius: '50%',
+                                  background: theme.accent,
+                                  boxShadow: isLast ? `0 0 8px ${theme.accent}` : 'none',
+                                }} />
+                              )}
+                              {cell === 'O' && (
+                                <div style={{
+                                  width: '18px', height: '18px',
+                                  borderRadius: '50%',
+                                  background: currentEnemy?.color || '#e85a50',
+                                  boxShadow: isLast ? `0 0 8px ${currentEnemy?.color}` : 'none',
+                                }} />
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    {/* Gomoku Hint */}
+                    {gameState === 'playing' && (
+                      <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>
+                        <span style={{ color: theme.gold, fontWeight: 700 }}>Get 5 in a row to win!</span>
+                      </div>
                     )}
-                    {isDoubleDown && doubleDownFirst && (
-                      <span style={{ color: theme.gold, marginLeft: '12px' }}>• Place your second piece!</span>
+                  </>
+                ) : (
+                  /* ULTIMATE TTT BOARD */
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '10px',
+                      background: theme.bgDark,
+                      padding: '14px',
+                      borderRadius: '20px',
+                      border: `3px solid ${theme.border}`,
+                    }}>
+                      {smallBoards.map((board, boardIdx) => (
+                        <SmallBoard
+                          key={boardIdx}
+                          boardIdx={boardIdx}
+                          board={board}
+                          isActive={activeBoard === null ? bigBoard[boardIdx] === null : activeBoard === boardIdx}
+                          isWon={bigBoard[boardIdx] !== null}
+                          wonBy={bigBoard[boardIdx]}
+                          bigBoardWinLine={winningLine}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Hint */}
+                    {gameState === 'playing' && (
+                      <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>
+                        {activeBoard !== null ? (
+                          <span>Play in the <span style={{ color: theme.accent, fontWeight: 700 }}>highlighted board</span></span>
+                        ) : (
+                          <span>Play in <span style={{ color: theme.accent, fontWeight: 700 }}>any available board</span></span>
+                        )}
+                        {isDoubleDown && doubleDownFirst && (
+                          <span style={{ color: theme.gold, marginLeft: '12px' }}>• Place your second piece!</span>
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {/* Result Overlay */}
