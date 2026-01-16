@@ -2,11 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tower Defense</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a12; overflow: hidden; }
+    html, body {
+      background: #0a0a12;
+      overflow: hidden;
+      height: 100%;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #root { height: 100%; }
   </style>
 </head>
 <body>
@@ -18,9 +25,20 @@
 const TowerDefenseGame = () => {
   const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-  // Constants
+  // Responsive scaling
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Calculate responsive cell size
   const GRID_SIZE = 15;
-  const CELL_SIZE = 42;
+  const maxGridHeight = windowSize.height - 180;
+  const maxGridWidth = windowSize.width - 450;
+  const CELL_SIZE = Math.max(24, Math.min(42, Math.floor(Math.min(maxGridHeight, maxGridWidth) / GRID_SIZE) - 2));
   const GRID_OFFSET = 8;
 
   // Game state
@@ -31,44 +49,46 @@ const TowerDefenseGame = () => {
   const [projectiles, setProjectiles] = useState([]);
   const [particles, setParticles] = useState([]);
   const [floatingTexts, setFloatingTexts] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [wave, setWave] = useState(1);
   const [lives, setLives] = useState(20);
   const [gold, setGold] = useState(150);
   const [selectedTower, setSelectedTower] = useState(null);
   const [hoveredCell, setHoveredCell] = useState(null);
-  const [hoveredTower, setHoveredTower] = useState(null);
   const [path, setPath] = useState([]);
   const [waveInProgress, setWaveInProgress] = useState(false);
   const [enemiesSpawned, setEnemiesSpawned] = useState(0);
   const [totalEnemiesInWave, setTotalEnemiesInWave] = useState(0);
   const [totalScore, setTotalScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
   const [comboTimer, setComboTimer] = useState(0);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const [selectedTowerForUpgrade, setSelectedTowerForUpgrade] = useState(null);
   const [killCount, setKillCount] = useState(0);
-  const [waveEnemies, setWaveEnemies] = useState([]);
-  const [isPaused, setIsPaused] = useState(false);
+  const [waveEnemyList, setWaveEnemyList] = useState([]);
   const [gameSpeed, setGameSpeed] = useState(1);
+  const [showHotkeys, setShowHotkeys] = useState(true);
+  const [lastDamageTime, setLastDamageTime] = useState(0);
+  const [totalDamageDealt, setTotalDamageDealt] = useState(0);
 
   // Refs
-  const gameLoopRef = useRef(null);
-  const lastTimeRef = useRef(0);
   const spawnTimerRef = useRef(null);
   const enemiesRef = useRef(enemies);
   const towersRef = useRef(towers);
   const pathRef = useRef(path);
+  const goldRef = useRef(gold);
 
-  // Keep refs in sync
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
   useEffect(() => { towersRef.current = towers; }, [towers]);
   useEffect(() => { pathRef.current = path; }, [path]);
+  useEffect(() => { goldRef.current = gold; }, [gold]);
 
   const theme = {
     bg: '#0a0a12',
-    bgPanel: '#12121f',
-    bgDark: '#08080d',
-    bgCell: '#0d0d18',
+    bgPanel: '#14141f',
+    bgDark: '#0a0a10',
+    bgCell: '#0e0e16',
     accent: '#7c6aed',
     accentBright: '#9d8cff',
     accentGlow: 'rgba(124, 106, 237, 0.6)',
@@ -79,98 +99,93 @@ const TowerDefenseGame = () => {
     success: '#2ed573',
     successGlow: 'rgba(46, 213, 115, 0.5)',
     frost: '#70c9ff',
-    frostGlow: 'rgba(112, 201, 255, 0.6)',
     fire: '#ff6b35',
-    fireGlow: 'rgba(255, 107, 53, 0.6)',
     lightning: '#fff200',
-    lightningGlow: 'rgba(255, 242, 0, 0.7)',
     poison: '#a55eea',
-    poisonGlow: 'rgba(165, 94, 234, 0.6)',
     text: '#f0f0ff',
-    textSecondary: '#a0a0c0',
-    textMuted: '#505070',
+    textSecondary: '#9090b0',
+    textMuted: '#505068',
     border: '#252540',
-    pathColor: 'rgba(124, 106, 237, 0.12)',
-    critColor: '#ff0',
+    pathColor: 'rgba(124, 106, 237, 0.15)',
   };
 
   const towerTypes = {
     arrow: {
-      id: 'arrow', name: 'Arrow Tower', emoji: '🏹', cost: 30,
+      id: 'arrow', name: 'Arrow', emoji: '🏹', cost: 30, hotkey: '1',
       damage: 12, range: 3.5, fireRate: 700, color: '#2ed573',
       projectileSpeed: 18, projectileSize: 4, critChance: 0.15,
-      description: 'Fast attacks, can crit for 2x damage',
+      desc: 'Fast • 15% crit',
       upgrades: [
-        { cost: 40, damage: 18, fireRate: 600, name: 'Sharp Arrows' },
-        { cost: 80, damage: 28, fireRate: 500, critChance: 0.25, name: 'Precision' },
-        { cost: 150, damage: 40, fireRate: 400, critChance: 0.35, range: 4, name: 'Marksman' },
+        { cost: 40, damage: 18, fireRate: 600, name: 'Sharp' },
+        { cost: 80, damage: 28, fireRate: 500, critChance: 0.25, name: 'Precise' },
+        { cost: 150, damage: 40, fireRate: 400, critChance: 0.35, range: 4, name: 'Master' },
       ]
     },
     cannon: {
-      id: 'cannon', name: 'Cannon', emoji: '💣', cost: 60,
+      id: 'cannon', name: 'Cannon', emoji: '💣', cost: 60, hotkey: '2',
       damage: 45, range: 2.8, fireRate: 1800, color: '#ff6b35',
       splash: 1.2, projectileSpeed: 10, projectileSize: 8,
-      description: 'Slow but powerful splash damage',
+      desc: 'Splash damage',
       upgrades: [
-        { cost: 50, damage: 65, splash: 1.4, name: 'Bigger Bombs' },
-        { cost: 100, damage: 90, splash: 1.6, fireRate: 1600, name: 'Heavy Artillery' },
-        { cost: 180, damage: 130, splash: 2, fireRate: 1400, name: 'Devastator' },
+        { cost: 50, damage: 65, splash: 1.4, name: 'Big' },
+        { cost: 100, damage: 90, splash: 1.6, fireRate: 1600, name: 'Heavy' },
+        { cost: 180, damage: 130, splash: 2, fireRate: 1400, name: 'Mega' },
       ]
     },
     sniper: {
-      id: 'sniper', name: 'Sniper', emoji: '🎯', cost: 80,
+      id: 'sniper', name: 'Sniper', emoji: '🎯', cost: 80, hotkey: '3',
       damage: 75, range: 6, fireRate: 2200, color: '#5352ed',
-      projectileSpeed: 30, projectileSize: 3, piercing: false,
-      description: 'Extreme range, high single-target damage',
+      projectileSpeed: 30, projectileSize: 3,
+      desc: 'Long range',
       upgrades: [
-        { cost: 60, damage: 110, range: 7, name: 'Scope Upgrade' },
-        { cost: 120, damage: 160, piercing: true, name: 'Armor Piercing' },
-        { cost: 200, damage: 250, range: 8, fireRate: 1800, name: 'Railgun' },
+        { cost: 60, damage: 110, range: 7, name: 'Scope' },
+        { cost: 120, damage: 160, name: 'Pierce' },
+        { cost: 200, damage: 250, range: 8, fireRate: 1800, name: 'Rail' },
       ]
     },
     frost: {
-      id: 'frost', name: 'Frost Tower', emoji: '❄️', cost: 50,
+      id: 'frost', name: 'Frost', emoji: '❄️', cost: 50, hotkey: '4',
       damage: 8, range: 3, fireRate: 500, color: '#70c9ff',
       slow: 0.4, slowDuration: 2500, projectileSpeed: 14, projectileSize: 6,
-      description: 'Slows enemies significantly',
+      desc: 'Slows 40%',
       upgrades: [
-        { cost: 45, slow: 0.5, slowDuration: 3000, name: 'Deep Freeze' },
-        { cost: 90, slow: 0.6, slowDuration: 3500, damage: 15, name: 'Permafrost' },
-        { cost: 160, slow: 0.7, slowDuration: 4000, damage: 25, range: 3.5, name: 'Absolute Zero' },
+        { cost: 45, slow: 0.5, slowDuration: 3000, name: 'Deep' },
+        { cost: 90, slow: 0.6, slowDuration: 3500, damage: 15, name: 'Perma' },
+        { cost: 160, slow: 0.7, slowDuration: 4000, damage: 25, range: 3.5, name: 'Zero' },
       ]
     },
     lightning: {
-      id: 'lightning', name: 'Tesla Tower', emoji: '⚡', cost: 100,
+      id: 'lightning', name: 'Tesla', emoji: '⚡', cost: 100, hotkey: '5',
       damage: 20, range: 3.2, fireRate: 350, color: '#fff200',
       chain: 4, chainDamageDecay: 0.7, projectileSpeed: 50, projectileSize: 2,
-      description: 'Fast chain lightning jumps between enemies',
+      desc: 'Chain ×4',
       upgrades: [
-        { cost: 70, damage: 30, chain: 5, name: 'Arc Extension' },
-        { cost: 140, damage: 45, chain: 6, chainDamageDecay: 0.8, name: 'Overcharge' },
-        { cost: 220, damage: 65, chain: 8, fireRate: 280, name: 'Storm Caller' },
+        { cost: 70, damage: 30, chain: 5, name: 'Arc' },
+        { cost: 140, damage: 45, chain: 6, chainDamageDecay: 0.8, name: 'Over' },
+        { cost: 220, damage: 65, chain: 8, fireRate: 280, name: 'Storm' },
       ]
     },
     poison: {
-      id: 'poison', name: 'Plague Tower', emoji: '☠️', cost: 70,
+      id: 'poison', name: 'Plague', emoji: '☠️', cost: 70, hotkey: '6',
       damage: 5, range: 2.5, fireRate: 1200, color: '#a55eea',
       poisonDamage: 8, poisonDuration: 4000, splashPoison: 0.8,
       projectileSpeed: 12, projectileSize: 7,
-      description: 'Applies damage over time to groups',
+      desc: 'DoT + AoE',
       upgrades: [
-        { cost: 55, poisonDamage: 14, poisonDuration: 5000, name: 'Virulent' },
-        { cost: 110, poisonDamage: 22, splashPoison: 1.2, name: 'Pandemic' },
+        { cost: 55, poisonDamage: 14, poisonDuration: 5000, name: 'Viral' },
+        { cost: 110, poisonDamage: 22, splashPoison: 1.2, name: 'Plague' },
         { cost: 190, poisonDamage: 35, poisonDuration: 6000, damage: 15, name: 'Blight' },
       ]
     },
     laser: {
-      id: 'laser', name: 'Laser Tower', emoji: '🔴', cost: 120,
+      id: 'laser', name: 'Laser', emoji: '🔴', cost: 120, hotkey: '7',
       damage: 3, range: 4, fireRate: 50, color: '#ff4757',
       beam: true, projectileSpeed: 999, projectileSize: 3,
-      description: 'Continuous beam, damage ramps up over time',
+      desc: 'Continuous',
       upgrades: [
-        { cost: 80, damage: 5, range: 4.5, name: 'Focused Beam' },
-        { cost: 150, damage: 8, range: 5, name: 'High Intensity' },
-        { cost: 250, damage: 12, range: 5.5, name: 'Death Ray' },
+        { cost: 80, damage: 5, range: 4.5, name: 'Focus' },
+        { cost: 150, damage: 8, range: 5, name: 'High' },
+        { cost: 250, damage: 12, range: 5.5, name: 'Death' },
       ]
     },
   };
@@ -189,6 +204,38 @@ const TowerDefenseGame = () => {
 
   const START = { row: 0, col: Math.floor(GRID_SIZE / 2) };
   const END = { row: GRID_SIZE - 1, col: Math.floor(GRID_SIZE / 2) };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (gameState !== 'playing') return;
+
+      const key = e.key;
+      const towerKeys = { '1': 'arrow', '2': 'cannon', '3': 'sniper', '4': 'frost', '5': 'lightning', '6': 'poison', '7': 'laser' };
+
+      if (towerKeys[key] && goldRef.current >= towerTypes[towerKeys[key]].cost) {
+        setSelectedTower(towerKeys[key]);
+        setSelectedTowerForUpgrade(null);
+      }
+      if (key === 'Escape') {
+        setSelectedTower(null);
+        setSelectedTowerForUpgrade(null);
+      }
+      if (key === ' ' && !waveInProgress) {
+        e.preventDefault();
+        startWave();
+      }
+      if (key === 'u' && selectedTowerForUpgrade) {
+        upgradeTower(selectedTowerForUpgrade.id);
+      }
+      if (key === 's' && selectedTowerForUpgrade) {
+        sellTower(selectedTowerForUpgrade.id);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, waveInProgress, selectedTowerForUpgrade]);
 
   // Pathfinding
   const findPath = useCallback((gridState) => {
@@ -227,16 +274,7 @@ const TowerDefenseGame = () => {
 
   // Spawn particles
   const spawnParticles = useCallback((x, y, color, count = 8, config = {}) => {
-    const {
-      speed = 3,
-      size = 4,
-      life = 500,
-      spread = Math.PI * 2,
-      direction = 0,
-      gravity = 0,
-      type = 'circle'
-    } = config;
-
+    const { speed = 3, size = 4, life = 500, spread = Math.PI * 2, direction = 0, gravity = 0 } = config;
     const newParticles = Array(count).fill(null).map(() => {
       const angle = direction + (Math.random() - 0.5) * spread;
       const vel = (0.5 + Math.random() * 0.5) * speed;
@@ -250,7 +288,6 @@ const TowerDefenseGame = () => {
         life,
         maxLife: life,
         gravity,
-        type,
         rotation: Math.random() * 360,
         rotationSpeed: (Math.random() - 0.5) * 10,
       };
@@ -266,26 +303,35 @@ const TowerDefenseGame = () => {
       text,
       color,
       size,
-      life: 1000,
-      maxLife: 1000,
+      life: 800,
+      maxLife: 800,
       isCrit,
-      vx: (Math.random() - 0.5) * 2,
-      vy: -2,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: -2.5,
     }]);
   }, []);
 
-  // Trigger screen shake
+  // Spawn announcement
+  const announce = useCallback((text, color = theme.gold, duration = 2000) => {
+    const id = Math.random();
+    setAnnouncements(prev => [...prev, { id, text, color, life: duration, maxLife: duration }]);
+  }, []);
+
+  // Screen shake
   const triggerShake = useCallback((intensity = 5) => {
+    let count = 0;
     const shake = () => {
-      setScreenShake({
-        x: (Math.random() - 0.5) * intensity,
-        y: (Math.random() - 0.5) * intensity,
-      });
+      if (count++ < 4) {
+        setScreenShake({
+          x: (Math.random() - 0.5) * intensity * (1 - count * 0.2),
+          y: (Math.random() - 0.5) * intensity * (1 - count * 0.2),
+        });
+        setTimeout(shake, 40);
+      } else {
+        setScreenShake({ x: 0, y: 0 });
+      }
     };
     shake();
-    setTimeout(shake, 50);
-    setTimeout(shake, 100);
-    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 150);
   }, []);
 
   // Tower placement
@@ -305,8 +351,7 @@ const TowerDefenseGame = () => {
 
     const newTower = {
       id: Date.now(),
-      row,
-      col,
+      row, col,
       type: towerType,
       ...towerDef,
       lastFired: 0,
@@ -315,6 +360,7 @@ const TowerDefenseGame = () => {
       kills: 0,
       beamTarget: null,
       beamDamageAccum: 0,
+      pulsePhase: 0,
     };
 
     setTowers(prev => [...prev, newTower]);
@@ -326,7 +372,6 @@ const TowerDefenseGame = () => {
     setGold(prev => prev - towerDef.cost);
     setSelectedTower(null);
 
-    // Placement particles
     const cx = col * CELL_SIZE + CELL_SIZE / 2;
     const cy = row * CELL_SIZE + CELL_SIZE / 2;
     spawnParticles(cx, cy, towerDef.color, 12, { speed: 4, size: 5, life: 400 });
@@ -335,16 +380,14 @@ const TowerDefenseGame = () => {
     newGrid[row][col] = 'tower';
     setPath(findPath(newGrid) || []);
     return true;
-  }, [canPlaceTower, gold, grid, findPath, spawnParticles]);
+  }, [canPlaceTower, gold, grid, findPath, spawnParticles, CELL_SIZE]);
 
   const sellTower = useCallback((towerId) => {
     const tower = towers.find(t => t.id === towerId);
     if (!tower) return;
 
     const baseCost = towerTypes[tower.type].cost;
-    const upgradeCost = towerTypes[tower.type].upgrades
-      .slice(0, tower.level)
-      .reduce((sum, u) => sum + u.cost, 0);
+    const upgradeCost = towerTypes[tower.type].upgrades.slice(0, tower.level).reduce((sum, u) => sum + u.cost, 0);
     const sellValue = Math.floor((baseCost + upgradeCost) * 0.6);
 
     setTowers(prev => prev.filter(t => t.id !== towerId));
@@ -364,7 +407,7 @@ const TowerDefenseGame = () => {
     const newGrid = grid.map(r => [...r]);
     newGrid[tower.row][tower.col] = null;
     setPath(findPath(newGrid) || []);
-  }, [towers, grid, findPath, spawnParticles, spawnFloatingText]);
+  }, [towers, grid, findPath, spawnParticles, spawnFloatingText, CELL_SIZE]);
 
   const upgradeTower = useCallback((towerId) => {
     setTowers(prev => prev.map(tower => {
@@ -380,10 +423,11 @@ const TowerDefenseGame = () => {
       const cx = tower.col * CELL_SIZE + CELL_SIZE / 2;
       const cy = tower.row * CELL_SIZE + CELL_SIZE / 2;
       spawnParticles(cx, cy, theme.gold, 15, { speed: 5, size: 6, life: 500 });
+      announce(`${tower.name} → ${upgrade.name}!`, tower.color, 1500);
 
       return { ...tower, ...upgrade, level: tower.level + 1 };
     }));
-  }, [gold, spawnParticles]);
+  }, [gold, spawnParticles, announce, CELL_SIZE]);
 
   // Enemy spawning
   const spawnEnemy = useCallback((type, pathOffset = 0) => {
@@ -399,74 +443,39 @@ const TowerDefenseGame = () => {
       currentShield: enemyDef.shield ? Math.floor(enemyDef.shield * waveMultiplier) : 0,
       maxShield: enemyDef.shield ? Math.floor(enemyDef.shield * waveMultiplier) : 0,
       pathIndex: 0,
-      pathProgress: 0,
       x: START.col * CELL_SIZE + CELL_SIZE / 2,
-      y: START.row * CELL_SIZE + CELL_SIZE / 2 - pathOffset * 20,
+      y: START.row * CELL_SIZE + CELL_SIZE / 2 - pathOffset * 15,
       slowedUntil: 0,
       slowAmount: 1,
       poisonedUntil: 0,
       poisonDamage: 0,
       animPhase: Math.random() * Math.PI * 2,
+      hitFlash: 0,
       rotation: 0,
       lastHealTime: 0,
     };
     setEnemies(prev => [...prev, newEnemy]);
-  }, [wave]);
+  }, [wave, CELL_SIZE]);
 
-  // Generate wave composition
+  // Generate wave
   const generateWaveEnemies = useCallback((waveNum) => {
     const enemies = [];
     const baseCount = 8 + waveNum * 2;
 
-    // Basic enemies
     for (let i = 0; i < baseCount; i++) enemies.push('slime');
+    if (waveNum >= 2) for (let i = 0; i < Math.floor(waveNum * 0.8); i++) enemies.push('scout');
+    if (waveNum >= 3) for (let i = 0; i < Math.floor(waveNum / 2); i++) enemies.push('tank');
+    if (waveNum >= 4) for (let i = 0; i < waveNum; i++) enemies.push('swarm');
+    if (waveNum >= 5) for (let i = 0; i < Math.floor(waveNum / 4); i++) enemies.push('healer');
+    if (waveNum >= 6) for (let i = 0; i < Math.floor(waveNum / 3); i++) enemies.push('shielded');
+    if (waveNum >= 7) for (let i = 0; i < Math.floor(waveNum / 4); i++) enemies.push('splitter');
+    if (waveNum % 5 === 0) enemies.push('boss');
+    if (waveNum % 10 === 0) enemies.push('megaBoss');
 
-    // Fast enemies start wave 2
-    if (waveNum >= 2) {
-      for (let i = 0; i < Math.floor(waveNum * 0.8); i++) enemies.push('scout');
-    }
-
-    // Tanks start wave 3
-    if (waveNum >= 3) {
-      for (let i = 0; i < Math.floor(waveNum / 2); i++) enemies.push('tank');
-    }
-
-    // Swarms start wave 4
-    if (waveNum >= 4) {
-      for (let i = 0; i < waveNum; i++) enemies.push('swarm');
-    }
-
-    // Healers start wave 5
-    if (waveNum >= 5) {
-      for (let i = 0; i < Math.floor(waveNum / 4); i++) enemies.push('healer');
-    }
-
-    // Shielded enemies start wave 6
-    if (waveNum >= 6) {
-      for (let i = 0; i < Math.floor(waveNum / 3); i++) enemies.push('shielded');
-    }
-
-    // Splitters start wave 7
-    if (waveNum >= 7) {
-      for (let i = 0; i < Math.floor(waveNum / 4); i++) enemies.push('splitter');
-    }
-
-    // Boss every 5 waves
-    if (waveNum % 5 === 0) {
-      enemies.push('boss');
-    }
-
-    // Mega boss every 10 waves
-    if (waveNum % 10 === 0) {
-      enemies.push('megaBoss');
-    }
-
-    // Shuffle
     for (let i = enemies.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [enemies[i], enemies[j]] = [enemies[j], enemies[i]];
     }
-
     return enemies;
   }, []);
 
@@ -475,27 +484,33 @@ const TowerDefenseGame = () => {
     setWaveInProgress(true);
     setEnemiesSpawned(0);
 
-    const waveEnemyList = generateWaveEnemies(wave);
-    setWaveEnemies(waveEnemyList);
-    setTotalEnemiesInWave(waveEnemyList.length);
+    const waveEnemies = generateWaveEnemies(wave);
+    setWaveEnemyList(waveEnemies);
+    setTotalEnemiesInWave(waveEnemies.length);
+
+    // Boss warning
+    if (wave % 5 === 0) {
+      announce(wave % 10 === 0 ? '⚠️ TITAN INCOMING!' : '⚠️ BOSS WAVE!', theme.error, 2500);
+      triggerShake(8);
+    }
 
     let spawnIndex = 0;
-    const spawnDelay = Math.max(300, 700 - wave * 20);
+    const spawnDelay = Math.max(250, 600 - wave * 15);
 
     spawnTimerRef.current = setInterval(() => {
-      if (spawnIndex < waveEnemyList.length) {
-        spawnEnemy(waveEnemyList[spawnIndex], spawnIndex % 3);
+      if (spawnIndex < waveEnemies.length) {
+        spawnEnemy(waveEnemies[spawnIndex], spawnIndex % 3);
         spawnIndex++;
         setEnemiesSpawned(spawnIndex);
       } else {
         clearInterval(spawnTimerRef.current);
       }
     }, spawnDelay);
-  }, [wave, waveInProgress, spawnEnemy, generateWaveEnemies]);
+  }, [wave, waveInProgress, spawnEnemy, generateWaveEnemies, announce, triggerShake]);
 
-  // Main game loop using requestAnimationFrame
+  // Main game loop
   useEffect(() => {
-    if (gameState !== 'playing' || isPaused) return;
+    if (gameState !== 'playing') return;
 
     let animationId;
     let lastTime = performance.now();
@@ -511,7 +526,6 @@ const TowerDefenseGame = () => {
         const enemiesToSpawn = [];
 
         for (const enemy of prevEnemies) {
-          // Check if reached end
           if (enemy.pathIndex >= pathRef.current.length) {
             setLives(l => {
               const damage = enemy.isBoss ? 5 : 1;
@@ -519,20 +533,22 @@ const TowerDefenseGame = () => {
               if (newLives <= 0) setGameState('lost');
               return Math.max(0, newLives);
             });
-            triggerShake(10);
+            setLastDamageTime(now);
+            triggerShake(12);
+            announce(`-${enemy.isBoss ? 5 : 1} ❤️`, theme.error, 1000);
             continue;
           }
 
-          // Poison damage
+          // Poison tick
           if (enemy.poisonedUntil > now && enemy.poisonDamage > 0) {
             const poisonTick = enemy.poisonDamage * deltaTime / 1000;
             enemy.currentHealth -= poisonTick;
-            if (Math.random() < 0.1) {
+            if (Math.random() < 0.08) {
               spawnParticles(enemy.x, enemy.y, theme.poison, 2, { speed: 1, size: 3, life: 300 });
             }
           }
 
-          // Healer ability
+          // Healer
           if (enemy.heals && now - enemy.lastHealTime > 2000) {
             for (const other of prevEnemies) {
               if (other.id !== enemy.id) {
@@ -541,40 +557,47 @@ const TowerDefenseGame = () => {
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < CELL_SIZE * 2) {
                   other.currentHealth = Math.min(other.maxHealth, other.currentHealth + 10);
-                  spawnParticles(other.x, other.y, theme.success, 4, { speed: 2, size: 3, life: 400 });
+                  spawnParticles(other.x, other.y, theme.success, 3, { speed: 2, size: 3, life: 400 });
                 }
               }
             }
             enemy.lastHealTime = now;
-            spawnParticles(enemy.x, enemy.y, theme.success, 6, { speed: 2, size: 4, life: 500 });
           }
 
-          // Check death
+          // Hit flash decay
+          if (enemy.hitFlash > 0) enemy.hitFlash -= deltaTime * 0.01;
+
+          // Death
           if (enemy.currentHealth <= 0) {
-            // Reward
             const comboBonus = Math.floor(enemy.reward * combo * 0.1);
             const totalReward = enemy.reward + comboBonus;
             setGold(g => g + totalReward);
             setTotalScore(s => s + totalReward * 10);
             setKillCount(k => k + 1);
+            setTotalDamageDealt(d => d + enemy.maxHealth);
 
-            // Combo
-            setCombo(c => Math.min(c + 1, 50));
+            const newCombo = Math.min(combo + 1, 50);
+            setCombo(newCombo);
+            setMaxCombo(m => Math.max(m, newCombo));
             setComboTimer(3000);
 
-            // Death particles
+            // Kill streak announcements
+            if (newCombo === 5) announce('🔥 KILLING SPREE!', '#ff9500', 1500);
+            else if (newCombo === 10) announce('⚡ RAMPAGE!', '#ff6b00', 1500);
+            else if (newCombo === 20) announce('💀 UNSTOPPABLE!', '#ff0000', 2000);
+            else if (newCombo === 50) announce('👑 GODLIKE!', theme.gold, 3000);
+
             spawnParticles(enemy.x, enemy.y, enemy.color, 15, { speed: 4, size: 6, life: 600 });
             if (enemy.isBoss) {
               spawnParticles(enemy.x, enemy.y, theme.gold, 25, { speed: 6, size: 8, life: 800 });
               triggerShake(15);
+              announce(enemy.type === 'megaBoss' ? '👹 TITAN SLAIN!' : '🐉 BOSS DEFEATED!', theme.gold, 2500);
             }
 
-            // Floating text
             const textColor = comboBonus > 0 ? theme.gold : theme.success;
             spawnFloatingText(enemy.x, enemy.y - 10, `+${totalReward}`, textColor, comboBonus > 0 ? 18 : 14);
 
-            // Splitter spawns mini enemies
-            if (enemy.splits && enemy.splits > 0) {
+            if (enemy.splits) {
               for (let i = 0; i < enemy.splits; i++) {
                 enemiesToSpawn.push({
                   type: 'swarm',
@@ -584,7 +607,6 @@ const TowerDefenseGame = () => {
                 });
               }
             }
-
             continue;
           }
 
@@ -600,7 +622,6 @@ const TowerDefenseGame = () => {
             let speed = enemy.speed * (deltaTime / 16);
             if (enemy.slowedUntil > now) speed *= enemy.slowAmount;
 
-            // Calculate rotation towards movement direction
             enemy.rotation = Math.atan2(dy, dx);
 
             if (dist < speed * 2) {
@@ -611,9 +632,7 @@ const TowerDefenseGame = () => {
             }
           }
 
-          // Animation phase
-          enemy.animPhase += deltaTime * 0.01;
-
+          enemy.animPhase += deltaTime * 0.008;
           newEnemies.push(enemy);
         }
 
@@ -630,7 +649,6 @@ const TowerDefenseGame = () => {
             currentShield: 0,
             maxShield: 0,
             pathIndex: spawn.pathIndex,
-            pathProgress: 0,
             x: spawn.x,
             y: spawn.y,
             slowedUntil: 0,
@@ -638,6 +656,7 @@ const TowerDefenseGame = () => {
             poisonedUntil: 0,
             poisonDamage: 0,
             animPhase: Math.random() * Math.PI * 2,
+            hitFlash: 0,
             rotation: 0,
             lastHealTime: 0,
           });
@@ -646,13 +665,14 @@ const TowerDefenseGame = () => {
         return newEnemies;
       });
 
-      // Update towers and fire
+      // Update towers
       setTowers(prevTowers => {
         return prevTowers.map(tower => {
           const towerX = tower.col * CELL_SIZE + CELL_SIZE / 2;
           const towerY = tower.row * CELL_SIZE + CELL_SIZE / 2;
+          tower.pulsePhase = (tower.pulsePhase || 0) + deltaTime * 0.005;
 
-          // Beam tower continuous damage
+          // Beam tower
           if (tower.beam) {
             let target = null;
             let minDist = Infinity;
@@ -677,6 +697,7 @@ const TowerDefenseGame = () => {
 
                 setEnemies(enemies => enemies.map(e => {
                   if (e.id === target.id) {
+                    e.hitFlash = 1;
                     const newHealth = e.currentHealth - damage;
                     if (newHealth <= 0) {
                       tower.kills++;
@@ -688,18 +709,16 @@ const TowerDefenseGame = () => {
                 }));
               }
 
-              // Beam particles
-              if (Math.random() < 0.3) {
+              if (Math.random() < 0.2) {
                 spawnParticles(target.x, target.y, tower.color, 1, { speed: 1, size: 3, life: 200 });
               }
             } else {
               tower.beamTarget = null;
             }
-
             return tower;
           }
 
-          // Regular tower firing
+          // Regular tower
           if (now - tower.lastFired < tower.fireRate) return tower;
 
           let target = null;
@@ -716,11 +735,9 @@ const TowerDefenseGame = () => {
           }
 
           if (target) {
-            // Check for crit
             const isCrit = tower.critChance && Math.random() < tower.critChance;
             const damage = isCrit ? tower.damage * 2 : tower.damage;
 
-            // Create projectile
             setProjectiles(p => [...p, {
               id: Date.now() + Math.random(),
               fromX: towerX,
@@ -747,11 +764,8 @@ const TowerDefenseGame = () => {
               towerId: tower.id,
             }]);
 
-            // Muzzle flash particles
             const angle = Math.atan2(target.y - towerY, target.x - towerX);
-            spawnParticles(towerX, towerY, tower.color, 4, {
-              speed: 3, size: 4, life: 150, spread: 0.5, direction: angle
-            });
+            spawnParticles(towerX, towerY, tower.color, 3, { speed: 3, size: 3, life: 120, spread: 0.5, direction: angle });
 
             return { ...tower, lastFired: now };
           }
@@ -765,37 +779,28 @@ const TowerDefenseGame = () => {
         const newProjectiles = [];
 
         for (const proj of prevProjectiles) {
-          // Add trail
           proj.trail.push({ x: proj.fromX + (proj.toX - proj.fromX) * proj.progress, y: proj.fromY + (proj.toY - proj.fromY) * proj.progress });
-          if (proj.trail.length > 8) proj.trail.shift();
+          if (proj.trail.length > 6) proj.trail.shift();
 
           proj.progress += (proj.speed / 100) * (deltaTime / 16);
 
           if (proj.progress >= 1) {
-            // Hit!
-            let hitSomething = false;
-
             setEnemies(enemies => {
-              const newEnemies = enemies.map(enemy => {
-                if (enemy.id === proj.targetId || proj.chainedEnemies.includes(enemy.id)) {
-                  return enemy; // Already hit by chain
-                }
+              return enemies.map(enemy => {
+                if (proj.chainedEnemies.includes(enemy.id)) return enemy;
 
                 if (enemy.id === proj.targetId) {
-                  hitSomething = true;
-
-                  // Shield absorbs damage first
                   let remainingDamage = proj.damage;
                   if (enemy.currentShield > 0) {
                     const shieldDamage = Math.min(enemy.currentShield, remainingDamage);
                     enemy.currentShield -= shieldDamage;
                     remainingDamage -= shieldDamage;
-                    spawnParticles(enemy.x, enemy.y, '#778ca3', 6, { speed: 3, size: 4, life: 300 });
+                    spawnParticles(enemy.x, enemy.y, '#778ca3', 5, { speed: 3, size: 4, life: 300 });
                   }
 
                   const newHealth = enemy.currentHealth - remainingDamage;
+                  enemy.hitFlash = 1;
 
-                  // Apply effects
                   if (proj.slow) {
                     enemy.slowedUntil = now + proj.slowDuration;
                     enemy.slowAmount = proj.slow;
@@ -805,22 +810,15 @@ const TowerDefenseGame = () => {
                     enemy.poisonDamage = proj.poisonDamage;
                   }
 
-                  // Hit particles
-                  spawnParticles(enemy.x, enemy.y, proj.color, 6, { speed: 3, size: 4, life: 300 });
+                  spawnParticles(enemy.x, enemy.y, proj.color, 5, { speed: 3, size: 4, life: 300 });
 
-                  // Crit text
                   if (proj.isCrit) {
-                    spawnFloatingText(enemy.x, enemy.y - 15, 'CRIT!', theme.critColor, 16, true);
+                    spawnFloatingText(enemy.x, enemy.y - 15, 'CRIT!', '#ff0', 16, true);
                   }
 
-                  // Update tower stats
                   setTowers(towers => towers.map(t => {
                     if (t.id === proj.towerId) {
-                      return {
-                        ...t,
-                        totalDamage: t.totalDamage + proj.damage,
-                        kills: newHealth <= 0 ? t.kills + 1 : t.kills,
-                      };
+                      return { ...t, totalDamage: t.totalDamage + proj.damage, kills: newHealth <= 0 ? t.kills + 1 : t.kills };
                     }
                     return t;
                   }));
@@ -828,7 +826,6 @@ const TowerDefenseGame = () => {
                   return { ...enemy, currentHealth: newHealth };
                 }
 
-                // Splash damage
                 if (proj.splash) {
                   const dx = enemy.x - proj.toX;
                   const dy = enemy.y - proj.toY;
@@ -836,27 +833,25 @@ const TowerDefenseGame = () => {
                   if (dist <= proj.splash * CELL_SIZE) {
                     const splashDamage = proj.damage * 0.5;
                     const newHealth = enemy.currentHealth - splashDamage;
+                    enemy.hitFlash = 0.5;
 
                     if (proj.splashPoison) {
                       enemy.poisonedUntil = now + (proj.poisonDuration || 3000);
                       enemy.poisonDamage = proj.poisonDamage * 0.5;
                     }
 
-                    spawnParticles(enemy.x, enemy.y, proj.color, 3, { speed: 2, size: 3, life: 200 });
+                    spawnParticles(enemy.x, enemy.y, proj.color, 2, { speed: 2, size: 3, life: 200 });
                     return { ...enemy, currentHealth: newHealth };
                   }
                 }
 
                 return enemy;
-              }).filter(e => e !== null);
-
-              return newEnemies;
+              }).filter(Boolean);
             });
 
-            // Splash explosion particles
             if (proj.splash) {
               spawnParticles(proj.toX, proj.toY, proj.color, 12, { speed: 5, size: 6, life: 400 });
-              spawnParticles(proj.toX, proj.toY, '#fff', 8, { speed: 3, size: 3, life: 300 });
+              spawnParticles(proj.toX, proj.toY, '#fff', 6, { speed: 3, size: 3, life: 300 });
               triggerShake(3);
             }
 
@@ -909,13 +904,10 @@ const TowerDefenseGame = () => {
                 }
               }
             }
-
             continue;
           }
-
           newProjectiles.push(proj);
         }
-
         return newProjectiles;
       });
 
@@ -934,11 +926,14 @@ const TowerDefenseGame = () => {
         ...t,
         x: t.x + t.vx * (deltaTime / 16),
         y: t.y + t.vy * (deltaTime / 16),
-        vy: t.vy - 0.05,
+        vy: t.vy - 0.03,
         life: t.life - deltaTime,
       })).filter(t => t.life > 0));
 
-      // Update combo timer
+      // Update announcements
+      setAnnouncements(prev => prev.map(a => ({ ...a, life: a.life - deltaTime })).filter(a => a.life > 0));
+
+      // Combo decay
       setComboTimer(prev => {
         const newTimer = prev - deltaTime;
         if (newTimer <= 0) {
@@ -948,12 +943,12 @@ const TowerDefenseGame = () => {
         return newTimer;
       });
 
-      // Check wave end
+      // Wave complete
       if (waveInProgress && enemiesRef.current.length === 0 && enemiesSpawned >= totalEnemiesInWave && totalEnemiesInWave > 0) {
         setWaveInProgress(false);
         const waveBonus = 30 + wave * 10;
         setGold(g => g + waveBonus);
-        spawnFloatingText(GRID_SIZE * CELL_SIZE / 2, GRID_SIZE * CELL_SIZE / 2, `Wave ${wave} Complete! +${waveBonus}`, theme.gold, 24);
+        announce(`Wave ${wave} Complete! +${waveBonus}💰`, theme.success, 2000);
         setWave(w => w + 1);
       }
 
@@ -962,14 +957,12 @@ const TowerDefenseGame = () => {
 
     animationId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationId);
-  }, [gameState, isPaused, gameSpeed, waveInProgress, enemiesSpawned, totalEnemiesInWave, wave, triggerShake, spawnParticles, spawnFloatingText]);
+  }, [gameState, gameSpeed, waveInProgress, enemiesSpawned, totalEnemiesInWave, wave, triggerShake, spawnParticles, spawnFloatingText, announce, CELL_SIZE]);
 
-  // Initialize path
   useEffect(() => {
     setPath(findPath(grid) || []);
   }, []);
 
-  // Start game
   const startGame = () => {
     const emptyGrid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
     setGrid(emptyGrid);
@@ -978,6 +971,7 @@ const TowerDefenseGame = () => {
     setProjectiles([]);
     setParticles([]);
     setFloatingTexts([]);
+    setAnnouncements([]);
     setWave(1);
     setLives(20);
     setGold(150);
@@ -986,132 +980,140 @@ const TowerDefenseGame = () => {
     setTotalEnemiesInWave(0);
     setTotalScore(0);
     setCombo(0);
+    setMaxCombo(0);
     setComboTimer(0);
     setKillCount(0);
+    setTotalDamageDealt(0);
     setSelectedTowerForUpgrade(null);
     setPath(findPath(emptyGrid) || []);
     setGameState('playing');
   };
 
+  const gridWidth = GRID_SIZE * CELL_SIZE + GRID_OFFSET * 2 + 4;
+  const gridHeight = GRID_SIZE * CELL_SIZE + GRID_OFFSET * 2 + 4;
+
+  // Wave preview
+  const wavePreview = useMemo(() => {
+    if (waveInProgress) return null;
+    const enemies = generateWaveEnemies(wave);
+    const counts = {};
+    enemies.forEach(e => { counts[e] = (counts[e] || 0) + 1; });
+    return counts;
+  }, [wave, waveInProgress, generateWaveEnemies]);
+
   const styles = `
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-    @keyframes glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
-    @keyframes slideIn { 0% { transform: translateY(30px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-    @keyframes rainbow {
-      0% { filter: hue-rotate(0deg); }
-      100% { filter: hue-rotate(360deg); }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+    @keyframes glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.4); } }
+    @keyframes slideIn { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    @keyframes slideDown { 0% { transform: translateY(-30px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+    @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+
+    * { box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+
+    .btn {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      -webkit-user-select: none;
     }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0) scale(0.98); }
 
-    * { box-sizing: border-box; }
+    .tower-card {
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .tower-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .tower-card:active { transform: translateY(0) scale(0.98); }
 
-    .tower-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .start-btn:hover { transform: scale(1.05); }
-    .cell:hover { background: rgba(255,255,255,0.05) !important; }
+    .cell { transition: all 0.1s ease; }
+    .cell:hover { filter: brightness(1.2); }
   `;
-
-  const gridWidth = GRID_SIZE * CELL_SIZE + GRID_OFFSET * 2;
 
   return (
     <div style={{
       width: '100%',
+      height: '100%',
       minHeight: '100vh',
-      background: `radial-gradient(ellipse at center, #15152a 0%, #0a0a12 70%)`,
-      fontFamily: "'Nunito', sans-serif",
+      background: `radial-gradient(ellipse at 50% 30%, #181828 0%, #0a0a12 70%)`,
       color: theme.text,
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
       <style>{styles}</style>
 
-      {/* Background grid effect */}
+      {/* Background pattern */}
       <div style={{
         position: 'fixed',
         inset: 0,
-        backgroundImage: `
-          linear-gradient(rgba(124,106,237,0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(124,106,237,0.03) 1px, transparent 1px)
-        `,
-        backgroundSize: '50px 50px',
+        backgroundImage: `linear-gradient(rgba(124,106,237,0.02) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(124,106,237,0.02) 1px, transparent 1px)`,
+        backgroundSize: '40px 40px',
         pointerEvents: 'none',
       }} />
 
       <div style={{
         position: 'relative',
         zIndex: 5,
-        minHeight: '100vh',
-        padding: '20px',
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '12px',
         transform: `translate(${screenShake.x}px, ${screenShake.y}px)`,
       }}>
 
         {/* MENU */}
         {gameState === 'menu' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 40px)' }}>
-            <div style={{ textAlign: 'center', animation: 'slideIn 0.6s ease-out' }}>
-              <div style={{ marginBottom: '30px', animation: 'float 3s ease-in-out infinite' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+            <div style={{ textAlign: 'center', animation: 'slideIn 0.5s ease-out' }}>
+              <div style={{ marginBottom: '24px', animation: 'float 3s ease-in-out infinite' }}>
                 <div style={{
-                  width: 140, height: 140,
+                  width: 100, height: 100,
                   background: `linear-gradient(135deg, ${theme.accent}30 0%, ${theme.accent}10 100%)`,
-                  borderRadius: '28px',
+                  borderRadius: '24px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 70,
-                  boxShadow: `0 0 60px ${theme.accentGlow}, inset 0 0 30px rgba(255,255,255,0.1)`,
-                  border: `3px solid ${theme.accent}`,
+                  fontSize: 50,
+                  boxShadow: `0 0 40px ${theme.accentGlow}`,
+                  border: `2px solid ${theme.accent}`,
                   margin: '0 auto',
                 }}>🏰</div>
               </div>
               <h1 style={{
-                fontSize: '52px',
+                fontSize: 'clamp(28px, 5vw, 42px)',
                 fontWeight: 900,
-                marginBottom: '12px',
-                background: `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 50%, ${theme.accentBright} 100%)`,
+                marginBottom: '8px',
+                background: `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accentBright} 100%)`,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                textShadow: `0 0 60px ${theme.goldGlow}`,
               }}>TOWER DEFENSE</h1>
-              <p style={{ fontSize: '16px', color: theme.textSecondary, marginBottom: '40px', maxWidth: '400px', margin: '0 auto 40px' }}>
-                Build towers. Create mazes. Survive the onslaught!
+              <p style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '32px' }}>
+                Build towers • Create mazes • Survive
               </p>
               <button
                 onClick={startGame}
-                className="start-btn"
+                className="btn"
                 style={{
-                  padding: '18px 60px',
-                  fontSize: '20px',
-                  fontWeight: 800,
-                  fontFamily: 'inherit',
+                  padding: '14px 48px',
+                  fontSize: '16px',
+                  fontWeight: 700,
                   background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
                   border: 'none',
-                  borderRadius: '16px',
+                  borderRadius: '12px',
                   color: '#fff',
-                  cursor: 'pointer',
-                  boxShadow: `0 4px 30px ${theme.accentGlow}`,
-                  transition: 'all 0.2s ease',
+                  boxShadow: `0 4px 20px ${theme.accentGlow}`,
                 }}
               >
                 START GAME
               </button>
-
-              <div style={{ marginTop: '40px', display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '500px', margin: '40px auto 0' }}>
-                {Object.values(towerTypes).slice(0, 4).map(tower => (
-                  <div key={tower.id} style={{
-                    background: theme.bgPanel,
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    border: `1px solid ${theme.border}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}>
-                    <span style={{ fontSize: '24px' }}>{tower.emoji}</span>
-                    <span style={{ fontSize: '12px', color: tower.color, fontWeight: 700 }}>{tower.name}</span>
-                  </div>
-                ))}
+              <div style={{ marginTop: '24px', fontSize: '12px', color: theme.textMuted }}>
+                Press 1-7 to select towers • Space to start wave
               </div>
             </div>
           </div>
@@ -1119,185 +1121,174 @@ const TowerDefenseGame = () => {
 
         {/* PLAYING */}
         {(gameState === 'playing' || gameState === 'lost') && (
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'flex-start', flex: 1 }}>
 
-            {/* Left Panel - Towers */}
+            {/* Left Panel */}
             <div style={{
-              background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
-              borderRadius: '16px',
-              padding: '16px',
+              background: theme.bgPanel,
+              borderRadius: '12px',
+              padding: '12px',
               border: `1px solid ${theme.border}`,
-              width: '200px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              width: '170px',
+              flexShrink: 0,
             }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '12px', color: theme.gold, letterSpacing: '2px' }}>TOWERS</h3>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: theme.gold, letterSpacing: '1px', marginBottom: '10px' }}>
+                TOWERS
+              </div>
 
-              {Object.values(towerTypes).map(tower => (
-                <div
-                  key={tower.id}
-                  onClick={() => gold >= tower.cost && setSelectedTower(tower.id)}
-                  className="tower-btn"
-                  style={{
-                    background: selectedTower === tower.id ? `${tower.color}25` : theme.bgDark,
-                    borderRadius: '10px',
-                    padding: '10px',
-                    marginBottom: '8px',
-                    cursor: gold >= tower.cost ? 'pointer' : 'not-allowed',
-                    opacity: gold >= tower.cost ? 1 : 0.4,
-                    border: selectedTower === tower.id ? `2px solid ${tower.color}` : `1px solid ${theme.border}`,
-                    transition: 'all 0.2s ease',
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {selectedTower === tower.id && (
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `radial-gradient(circle at center, ${tower.color}20 0%, transparent 70%)`,
-                      animation: 'pulse 1s ease-in-out infinite',
-                    }} />
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', position: 'relative' }}>
-                    <span style={{ fontSize: '22px' }}>{tower.emoji}</span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: tower.color }}>{tower.name}</span>
+              {Object.values(towerTypes).map((tower, idx) => {
+                const canAfford = gold >= tower.cost;
+                const isSelected = selectedTower === tower.id;
+
+                return (
+                  <div
+                    key={tower.id}
+                    onClick={() => canAfford && (setSelectedTower(tower.id), setSelectedTowerForUpgrade(null))}
+                    className="tower-card"
+                    style={{
+                      background: isSelected ? `${tower.color}20` : theme.bgDark,
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      marginBottom: '6px',
+                      opacity: canAfford ? 1 : 0.4,
+                      border: isSelected ? `2px solid ${tower.color}` : `1px solid ${theme.border}`,
+                      cursor: canAfford ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px' }}>{tower.emoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: tower.color }}>{tower.name}</span>
+                          {showHotkeys && <span style={{ fontSize: '9px', color: theme.textMuted, background: theme.bgDark, padding: '1px 4px', borderRadius: '3px' }}>{tower.hotkey}</span>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+                          <span style={{ fontSize: '9px', color: theme.textMuted }}>{tower.desc}</span>
+                          <span style={{ fontSize: '10px', color: theme.gold, fontWeight: 600 }}>{tower.cost}💰</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '9px', color: theme.textMuted, marginBottom: '4px', position: 'relative' }}>{tower.description}</div>
-                  <div style={{ fontSize: '11px', color: theme.gold, fontWeight: 700, position: 'relative' }}>💰 {tower.cost}</div>
-                </div>
-              ))}
+                );
+              })}
 
-              <div style={{ marginTop: '12px', padding: '10px', background: theme.bgDark, borderRadius: '10px', fontSize: '10px', color: theme.textMuted }}>
-                <div style={{ fontWeight: 700, marginBottom: '4px', color: theme.textSecondary }}>CONTROLS</div>
-                • Click tower, then grid<br/>
-                • Click placed tower to upgrade<br/>
-                • Right-click to sell<br/>
-                • Don't block the path!
+              <div style={{ marginTop: '10px', padding: '8px', background: theme.bgDark, borderRadius: '8px', fontSize: '9px', color: theme.textMuted }}>
+                <div style={{ fontWeight: 600, color: theme.textSecondary, marginBottom: '4px' }}>Controls</div>
+                <div>1-7: Select tower</div>
+                <div>U: Upgrade • S: Sell</div>
+                <div>Space: Start wave</div>
+                <div>Esc: Deselect</div>
               </div>
             </div>
 
-            {/* Center - Game Grid */}
-            <div style={{ position: 'relative' }}>
-              {/* Top Stats Bar */}
+            {/* Center - Game */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* Top bar */}
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '12px',
-                padding: '12px 16px',
-                background: `linear-gradient(90deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
-                borderRadius: '12px',
+                marginBottom: '8px',
+                padding: '8px 12px',
+                background: theme.bgPanel,
+                borderRadius: '10px',
                 border: `1px solid ${theme.border}`,
-                boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                width: gridWidth,
               }}>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: theme.textMuted, letterSpacing: '1px' }}>WAVE</span>
-                    <div style={{ fontSize: '22px', fontWeight: 900, color: theme.accent }}>{wave}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: theme.textMuted, letterSpacing: '1px' }}>LIVES</span>
-                    <div style={{
-                      fontSize: '22px',
-                      fontWeight: 900,
-                      color: lives <= 5 ? theme.error : theme.success,
-                      animation: lives <= 5 ? 'blink 0.5s ease-in-out infinite' : 'none',
-                    }}>❤️ {lives}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: theme.textMuted, letterSpacing: '1px' }}>GOLD</span>
-                    <div style={{ fontSize: '22px', fontWeight: 900, color: theme.gold }}>💰 {gold}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: theme.textMuted, letterSpacing: '1px' }}>SCORE</span>
-                    <div style={{ fontSize: '22px', fontWeight: 900, color: theme.text }}>{totalScore.toLocaleString()}</div>
-                  </div>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  {[
+                    { label: 'WAVE', value: wave, color: theme.accent },
+                    { label: 'LIVES', value: `❤️${lives}`, color: lives <= 5 ? theme.error : theme.success, blink: lives <= 5 },
+                    { label: 'GOLD', value: `💰${gold}`, color: theme.gold },
+                  ].map((stat, i) => (
+                    <div key={i} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '8px', color: theme.textMuted, letterSpacing: '0.5px' }}>{stat.label}</div>
+                      <div style={{
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        color: stat.color,
+                        animation: stat.blink ? 'pulse 0.5s ease-in-out infinite' : 'none',
+                      }}>{stat.value}</div>
+                    </div>
+                  ))}
                   {combo > 0 && (
                     <div style={{ textAlign: 'center' }}>
-                      <span style={{ fontSize: '9px', color: theme.textMuted, letterSpacing: '1px' }}>COMBO</span>
+                      <div style={{ fontSize: '8px', color: theme.textMuted }}>COMBO</div>
                       <div style={{
-                        fontSize: '22px',
-                        fontWeight: 900,
-                        color: combo >= 10 ? theme.gold : theme.accent,
-                        animation: combo >= 10 ? 'rainbow 2s linear infinite' : 'none',
-                      }}>🔥 x{combo}</div>
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        color: combo >= 20 ? theme.gold : combo >= 10 ? '#ff6b00' : theme.accent,
+                        animation: combo >= 20 ? 'rainbow 2s linear infinite' : 'none',
+                      }}>🔥{combo}</div>
                     </div>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <button
-                    onClick={() => setGameSpeed(gameSpeed === 1 ? 2 : gameSpeed === 2 ? 3 : 1)}
+                    onClick={() => setGameSpeed(s => s === 1 ? 2 : s === 2 ? 3 : 1)}
+                    className="btn"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      background: theme.bgDark,
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: '6px',
+                      color: theme.textSecondary,
+                    }}
+                  >{gameSpeed}×</button>
+                  <button
+                    onClick={startWave}
+                    disabled={waveInProgress}
+                    className="btn"
                     style={{
                       padding: '8px 16px',
                       fontSize: '12px',
                       fontWeight: 700,
-                      fontFamily: 'inherit',
-                      background: theme.bgDark,
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: '8px',
-                      color: theme.textSecondary,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {gameSpeed}x
-                  </button>
-                  <button
-                    onClick={startWave}
-                    disabled={waveInProgress}
-                    style={{
-                      padding: '10px 24px',
-                      fontSize: '14px',
-                      fontWeight: 800,
-                      fontFamily: 'inherit',
                       background: waveInProgress ? theme.bgDark : `linear-gradient(135deg, ${theme.success} 0%, #1fab54 100%)`,
                       border: 'none',
-                      borderRadius: '10px',
+                      borderRadius: '8px',
                       color: waveInProgress ? theme.textMuted : '#fff',
                       cursor: waveInProgress ? 'not-allowed' : 'pointer',
-                      boxShadow: waveInProgress ? 'none' : `0 4px 15px ${theme.successGlow}`,
-                      transition: 'all 0.2s ease',
+                      boxShadow: waveInProgress ? 'none' : `0 4px 12px ${theme.successGlow}`,
                     }}
                   >
-                    {waveInProgress ? `${enemiesSpawned}/${totalEnemiesInWave}` : `START WAVE ${wave}`}
+                    {waveInProgress ? `${enemiesSpawned}/${totalEnemiesInWave}` : `▶ WAVE ${wave}`}
                   </button>
                 </div>
               </div>
 
-              {/* Wave Progress Bar */}
+              {/* Wave progress */}
               {waveInProgress && (
                 <div style={{
-                  position: 'absolute',
-                  top: '70px',
-                  left: 0,
-                  right: 0,
-                  height: '4px',
+                  width: gridWidth,
+                  height: '3px',
                   background: theme.bgDark,
                   borderRadius: '2px',
+                  marginBottom: '8px',
                   overflow: 'hidden',
-                  zIndex: 50,
                 }}>
                   <div style={{
                     width: `${(enemiesSpawned / totalEnemiesInWave) * 100}%`,
                     height: '100%',
                     background: `linear-gradient(90deg, ${theme.accent} 0%, ${theme.success} 100%)`,
-                    transition: 'width 0.3s ease',
-                    boxShadow: `0 0 10px ${theme.accentGlow}`,
+                    transition: 'width 0.2s ease',
                   }} />
                 </div>
               )}
 
-              {/* Game Grid */}
+              {/* Grid */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
                 gap: '2px',
                 background: theme.bgDark,
                 padding: `${GRID_OFFSET}px`,
-                borderRadius: '16px',
+                borderRadius: '12px',
                 border: `2px solid ${theme.border}`,
                 position: 'relative',
-                boxShadow: `0 8px 40px rgba(0,0,0,0.4), inset 0 0 60px rgba(0,0,0,0.3)`,
+                boxShadow: `0 8px 32px rgba(0,0,0,0.4), inset 0 0 40px rgba(0,0,0,0.2)`,
               }}>
                 {grid.map((row, rowIdx) => row.map((cell, colIdx) => {
                   const isStart = rowIdx === START.row && colIdx === START.col;
@@ -1313,66 +1304,60 @@ const TowerDefenseGame = () => {
                       key={`${rowIdx}-${colIdx}`}
                       className="cell"
                       onClick={() => {
-                        if (selectedTower && canPlace) {
-                          placeTower(rowIdx, colIdx, selectedTower);
-                        } else if (tower && !selectedTower) {
-                          setSelectedTowerForUpgrade(isSelected ? null : tower);
-                        }
+                        if (selectedTower && canPlace) placeTower(rowIdx, colIdx, selectedTower);
+                        else if (tower && !selectedTower) setSelectedTowerForUpgrade(isSelected ? null : tower);
                       }}
                       onContextMenu={(e) => { e.preventDefault(); if (tower) sellTower(tower.id); }}
                       onMouseEnter={() => setHoveredCell({ row: rowIdx, col: colIdx })}
                       onMouseLeave={() => setHoveredCell(null)}
+                      onTouchStart={() => setHoveredCell({ row: rowIdx, col: colIdx })}
                       style={{
                         width: CELL_SIZE,
                         height: CELL_SIZE,
-                        background: isStart ? `radial-gradient(circle, ${theme.success}50 0%, ${theme.success}20 70%)`
-                          : isEnd ? `radial-gradient(circle, ${theme.error}50 0%, ${theme.error}20 70%)`
-                          : tower ? `radial-gradient(circle, ${tower.color}40 0%, ${tower.color}15 70%)`
-                          : isHovered && canPlace ? `${towerTypes[selectedTower].color}30`
-                          : isHovered && selectedTower && !canPlace ? `${theme.error}30`
+                        background: isStart ? `radial-gradient(circle, ${theme.success}40 0%, ${theme.success}15 70%)`
+                          : isEnd ? `radial-gradient(circle, ${theme.error}40 0%, ${theme.error}15 70%)`
+                          : tower ? `radial-gradient(circle, ${tower.color}30 0%, ${tower.color}10 70%)`
+                          : isHovered && canPlace ? `${towerTypes[selectedTower].color}25`
+                          : isHovered && selectedTower && !canPlace ? `${theme.error}25`
                           : isPath ? theme.pathColor
                           : theme.bgCell,
-                        borderRadius: '6px',
+                        borderRadius: '4px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: canPlace || tower ? 'pointer' : 'default',
                         position: 'relative',
-                        transition: 'background 0.15s ease',
-                        border: isSelected ? `2px solid ${tower.color}` : isStart || isEnd ? `1px solid ${isStart ? theme.success : theme.error}40` : 'none',
-                        boxShadow: tower ? `inset 0 0 15px ${tower.color}30` : 'none',
+                        border: isSelected ? `2px solid ${tower.color}` : 'none',
+                        boxShadow: tower ? `inset 0 0 ${CELL_SIZE/3}px ${tower.color}20` : 'none',
                       }}
                     >
-                      {isStart && <span style={{ fontSize: '20px', filter: 'drop-shadow(0 0 8px rgba(46,213,115,0.8))' }}>🚪</span>}
-                      {isEnd && <span style={{ fontSize: '20px', filter: 'drop-shadow(0 0 8px rgba(255,71,87,0.8))' }}>🏠</span>}
+                      {isStart && <span style={{ fontSize: CELL_SIZE * 0.5 }}>🚪</span>}
+                      {isEnd && <span style={{ fontSize: CELL_SIZE * 0.5 }}>🏠</span>}
                       {tower && (
-                        <>
-                          <span style={{
-                            fontSize: '24px',
-                            filter: `drop-shadow(0 0 8px ${tower.color})`,
-                            animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                          }}>{tower.emoji}</span>
-                          {tower.level > 0 && (
-                            <div style={{
-                              position: 'absolute',
-                              bottom: '2px',
-                              right: '2px',
-                              fontSize: '8px',
-                              fontWeight: 900,
-                              color: theme.gold,
-                              textShadow: `0 0 4px ${theme.goldGlow}`,
-                            }}>★{tower.level}</div>
-                          )}
-                        </>
+                        <span style={{
+                          fontSize: CELL_SIZE * 0.55,
+                          filter: `drop-shadow(0 0 4px ${tower.color})`,
+                          animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                        }}>{tower.emoji}</span>
+                      )}
+                      {tower && tower.level > 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '1px',
+                          right: '2px',
+                          fontSize: '8px',
+                          fontWeight: 900,
+                          color: theme.gold,
+                        }}>★{tower.level}</div>
                       )}
                       {isHovered && canPlace && !tower && (
-                        <span style={{ fontSize: '24px', opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
+                        <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
                       )}
                     </div>
                   );
                 }))}
 
-                {/* Tower Range Indicator */}
+                {/* Range indicator */}
                 {(hoveredCell && selectedTower && canPlaceTower(hoveredCell.row, hoveredCell.col)) && (
                   <div style={{
                     position: 'absolute',
@@ -1381,14 +1366,14 @@ const TowerDefenseGame = () => {
                     width: towerTypes[selectedTower].range * CELL_SIZE * 2,
                     height: towerTypes[selectedTower].range * CELL_SIZE * 2,
                     transform: 'translate(-50%, -50%)',
-                    border: `2px dashed ${towerTypes[selectedTower].color}50`,
+                    border: `2px dashed ${towerTypes[selectedTower].color}40`,
                     borderRadius: '50%',
                     pointerEvents: 'none',
-                    background: `radial-gradient(circle, ${towerTypes[selectedTower].color}10 0%, transparent 70%)`,
+                    background: `radial-gradient(circle, ${towerTypes[selectedTower].color}08 0%, transparent 70%)`,
                   }} />
                 )}
 
-                {/* Selected Tower Range */}
+                {/* Selected tower range */}
                 {selectedTowerForUpgrade && (
                   <div style={{
                     position: 'absolute',
@@ -1397,15 +1382,14 @@ const TowerDefenseGame = () => {
                     width: selectedTowerForUpgrade.range * CELL_SIZE * 2,
                     height: selectedTowerForUpgrade.range * CELL_SIZE * 2,
                     transform: 'translate(-50%, -50%)',
-                    border: `2px solid ${selectedTowerForUpgrade.color}80`,
+                    border: `2px solid ${selectedTowerForUpgrade.color}60`,
                     borderRadius: '50%',
                     pointerEvents: 'none',
-                    background: `radial-gradient(circle, ${selectedTowerForUpgrade.color}15 0%, transparent 70%)`,
-                    animation: 'pulse 2s ease-in-out infinite',
+                    background: `radial-gradient(circle, ${selectedTowerForUpgrade.color}10 0%, transparent 70%)`,
                   }} />
                 )}
 
-                {/* Laser Beams */}
+                {/* Beams */}
                 {towers.filter(t => t.beam && t.beamTarget).map(tower => {
                   const fromX = tower.col * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET;
                   const fromY = tower.row * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET;
@@ -1420,12 +1404,12 @@ const TowerDefenseGame = () => {
                       left: fromX,
                       top: fromY,
                       width: length,
-                      height: '4px',
+                      height: '3px',
                       background: `linear-gradient(90deg, ${tower.color} 0%, ${tower.color}80 100%)`,
                       transform: `rotate(${angle}deg)`,
                       transformOrigin: '0 50%',
                       pointerEvents: 'none',
-                      boxShadow: `0 0 10px ${tower.color}, 0 0 20px ${tower.color}80`,
+                      boxShadow: `0 0 8px ${tower.color}, 0 0 16px ${tower.color}80`,
                       zIndex: 15,
                     }} />
                   );
@@ -1433,8 +1417,8 @@ const TowerDefenseGame = () => {
 
                 {/* Enemies */}
                 {enemies.map(enemy => {
-                  const size = 20 * (enemy.size || 1);
-                  const bobOffset = Math.sin(enemy.animPhase * 3) * 2;
+                  const size = (CELL_SIZE * 0.5) * (enemy.size || 1);
+                  const bobOffset = Math.sin(enemy.animPhase * 4) * 2;
 
                   return (
                     <div
@@ -1448,73 +1432,51 @@ const TowerDefenseGame = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        flexDirection: 'column',
                         pointerEvents: 'none',
                         zIndex: 10,
-                        filter: enemy.poisonedUntil > Date.now() ? `drop-shadow(0 0 6px ${theme.poison})`
-                          : enemy.slowedUntil > Date.now() ? `drop-shadow(0 0 6px ${theme.frost})`
-                          : `drop-shadow(0 0 4px ${enemy.color})`,
-                        transition: 'filter 0.2s ease',
+                        filter: enemy.hitFlash > 0 ? `brightness(${1 + enemy.hitFlash})`
+                          : enemy.poisonedUntil > Date.now() ? `drop-shadow(0 0 4px ${theme.poison})`
+                          : enemy.slowedUntil > Date.now() ? `drop-shadow(0 0 4px ${theme.frost})`
+                          : `drop-shadow(0 0 3px ${enemy.color})`,
+                        transition: 'filter 0.1s ease',
                       }}
                     >
                       <span style={{
-                        fontSize: enemy.isBoss ? '32px' : `${14 * (enemy.size || 1)}px`,
+                        fontSize: enemy.isBoss ? CELL_SIZE * 0.8 : size * 0.8,
                         transform: `scaleX(${enemy.rotation > -Math.PI / 2 && enemy.rotation < Math.PI / 2 ? 1 : -1})`,
                       }}>{enemy.emoji}</span>
 
                       {/* Health bar */}
                       <div style={{
                         position: 'absolute',
-                        bottom: -8,
+                        bottom: -6,
                         width: size + 4,
-                        height: enemy.isBoss ? 6 : 4,
-                        background: 'rgba(0,0,0,0.7)',
-                        borderRadius: '3px',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        height: enemy.isBoss ? 5 : 3,
+                        background: 'rgba(0,0,0,0.6)',
+                        borderRadius: '2px',
                         overflow: 'hidden',
                       }}>
-                        {/* Shield bar */}
                         {enemy.maxShield > 0 && (
                           <div style={{
                             position: 'absolute',
                             width: `${(enemy.currentShield / enemy.maxShield) * 100}%`,
                             height: '100%',
                             background: '#778ca3',
-                            borderRadius: '2px',
                             transition: 'width 0.1s ease',
                           }} />
                         )}
-                        {/* Health bar */}
                         <div style={{
                           width: `${(enemy.currentHealth / enemy.maxHealth) * 100}%`,
                           height: '100%',
                           background: enemy.currentHealth > enemy.maxHealth * 0.5 ? theme.success
                             : enemy.currentHealth > enemy.maxHealth * 0.25 ? theme.gold
                             : theme.error,
-                          borderRadius: '2px',
                           transition: 'width 0.1s ease',
-                          boxShadow: enemy.currentHealth <= enemy.maxHealth * 0.25 ? `0 0 6px ${theme.error}` : 'none',
                         }} />
                       </div>
 
-                      {/* Slow indicator */}
-                      {enemy.slowedUntil > Date.now() && (
-                        <div style={{
-                          position: 'absolute',
-                          top: -6,
-                          fontSize: '10px',
-                        }}>❄️</div>
-                      )}
-
-                      {/* Poison indicator */}
-                      {enemy.poisonedUntil > Date.now() && (
-                        <div style={{
-                          position: 'absolute',
-                          top: -6,
-                          left: enemy.slowedUntil > Date.now() ? 12 : 0,
-                          fontSize: '10px',
-                        }}>☠️</div>
-                      )}
+                      {enemy.slowedUntil > Date.now() && <div style={{ position: 'absolute', top: -8, fontSize: '8px' }}>❄️</div>}
+                      {enemy.poisonedUntil > Date.now() && <div style={{ position: 'absolute', top: -8, left: enemy.slowedUntil > Date.now() ? 10 : 0, fontSize: '8px' }}>☠️</div>}
                     </div>
                   );
                 })}
@@ -1523,41 +1485,34 @@ const TowerDefenseGame = () => {
                 {projectiles.map(proj => {
                   const x = proj.fromX + (proj.toX - proj.fromX) * proj.progress;
                   const y = proj.fromY + (proj.toY - proj.fromY) * proj.progress;
-                  const angle = Math.atan2(proj.toY - proj.fromY, proj.toX - proj.fromX);
 
                   return (
                     <React.Fragment key={proj.id}>
-                      {/* Trail */}
                       {proj.trail.map((point, i) => (
                         <div key={i} style={{
                           position: 'absolute',
-                          left: point.x - proj.size * 0.3 + GRID_OFFSET,
-                          top: point.y - proj.size * 0.3 + GRID_OFFSET,
-                          width: proj.size * 0.6,
-                          height: proj.size * 0.6,
+                          left: point.x - proj.size * 0.25 + GRID_OFFSET,
+                          top: point.y - proj.size * 0.25 + GRID_OFFSET,
+                          width: proj.size * 0.5,
+                          height: proj.size * 0.5,
                           background: proj.color,
                           borderRadius: '50%',
-                          opacity: (i / proj.trail.length) * 0.5,
+                          opacity: (i / proj.trail.length) * 0.4,
                           pointerEvents: 'none',
                           zIndex: 18,
                         }} />
                       ))}
-
-                      {/* Projectile */}
                       <div style={{
                         position: 'absolute',
                         left: x - proj.size / 2 + GRID_OFFSET,
                         top: y - proj.size / 2 + GRID_OFFSET,
-                        width: proj.size * (proj.isChain ? 1.5 : 1),
-                        height: proj.size * (proj.isChain ? 1.5 : 1),
-                        background: proj.isChain
-                          ? `radial-gradient(circle, #fff 0%, ${proj.color} 50%, transparent 100%)`
-                          : `radial-gradient(circle, #fff 0%, ${proj.color} 70%)`,
+                        width: proj.size,
+                        height: proj.size,
+                        background: `radial-gradient(circle, #fff 0%, ${proj.color} 60%)`,
                         borderRadius: '50%',
-                        boxShadow: `0 0 ${proj.size * 2}px ${proj.color}, 0 0 ${proj.size * 4}px ${proj.color}80`,
+                        boxShadow: `0 0 ${proj.size}px ${proj.color}`,
                         pointerEvents: 'none',
                         zIndex: 20,
-                        transform: proj.isChain ? 'none' : `rotate(${angle}rad)`,
                       }} />
                     </React.Fragment>
                   );
@@ -1565,228 +1520,221 @@ const TowerDefenseGame = () => {
 
                 {/* Particles */}
                 {particles.map(p => (
-                  <div
-                    key={p.id}
-                    style={{
-                      position: 'absolute',
-                      left: p.x - p.size / 2 + GRID_OFFSET,
-                      top: p.y - p.size / 2 + GRID_OFFSET,
-                      width: p.size,
-                      height: p.size,
-                      background: p.color,
-                      borderRadius: p.type === 'square' ? '2px' : '50%',
-                      opacity: p.life / p.maxLife,
-                      pointerEvents: 'none',
-                      zIndex: 25,
-                      transform: `rotate(${p.rotation}deg) scale(${p.life / p.maxLife})`,
-                      boxShadow: `0 0 ${p.size}px ${p.color}`,
-                    }}
-                  />
+                  <div key={p.id} style={{
+                    position: 'absolute',
+                    left: p.x - p.size / 2 + GRID_OFFSET,
+                    top: p.y - p.size / 2 + GRID_OFFSET,
+                    width: p.size,
+                    height: p.size,
+                    background: p.color,
+                    borderRadius: '50%',
+                    opacity: p.life / p.maxLife,
+                    pointerEvents: 'none',
+                    zIndex: 25,
+                    transform: `scale(${p.life / p.maxLife})`,
+                    boxShadow: `0 0 ${p.size}px ${p.color}80`,
+                  }} />
                 ))}
 
-                {/* Floating Texts */}
+                {/* Floating texts */}
                 {floatingTexts.map(t => (
-                  <div
-                    key={t.id}
-                    style={{
-                      position: 'absolute',
-                      left: t.x + GRID_OFFSET,
-                      top: t.y + GRID_OFFSET,
-                      fontSize: `${t.size}px`,
-                      fontWeight: 900,
-                      color: t.color,
-                      pointerEvents: 'none',
-                      zIndex: 30,
-                      opacity: t.life / t.maxLife,
-                      transform: `translate(-50%, -50%) scale(${t.isCrit ? 1.2 : 1})`,
-                      textShadow: `0 0 10px ${t.color}, 0 2px 4px rgba(0,0,0,0.5)`,
-                      animation: t.isCrit ? 'shake 0.3s ease-out' : 'none',
-                    }}
-                  >
-                    {t.text}
-                  </div>
+                  <div key={t.id} style={{
+                    position: 'absolute',
+                    left: t.x + GRID_OFFSET,
+                    top: t.y + GRID_OFFSET,
+                    fontSize: `${t.size}px`,
+                    fontWeight: 800,
+                    color: t.color,
+                    pointerEvents: 'none',
+                    zIndex: 30,
+                    opacity: t.life / t.maxLife,
+                    transform: `translate(-50%, -50%) scale(${t.isCrit ? 1.2 : 1})`,
+                    textShadow: `0 0 8px ${t.color}, 0 2px 3px rgba(0,0,0,0.5)`,
+                    animation: t.isCrit ? 'shake 0.2s ease-out' : 'none',
+                  }}>{t.text}</div>
                 ))}
 
-                {/* Game Over Overlay */}
+                {/* Announcements */}
+                {announcements.map((a, i) => (
+                  <div key={a.id} style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 60 + i * 40,
+                    transform: 'translateX(-50%)',
+                    fontSize: '18px',
+                    fontWeight: 900,
+                    color: a.color,
+                    textShadow: `0 0 20px ${a.color}, 0 2px 4px rgba(0,0,0,0.5)`,
+                    pointerEvents: 'none',
+                    zIndex: 50,
+                    opacity: Math.min(1, a.life / 500),
+                    animation: 'popIn 0.2s ease-out',
+                  }}>{a.text}</div>
+                ))}
+
+                {/* Game Over */}
                 {gameState === 'lost' && (
                   <div style={{
                     position: 'absolute',
                     inset: 0,
                     background: 'rgba(10, 10, 18, 0.95)',
-                    borderRadius: '14px',
+                    borderRadius: '10px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     zIndex: 100,
-                    animation: 'slideIn 0.5s ease-out',
+                    animation: 'slideIn 0.4s ease-out',
                   }}>
-                    <div style={{ fontSize: '80px', marginBottom: '20px' }}>💀</div>
-                    <div style={{ fontSize: '40px', fontWeight: 900, color: theme.error, marginBottom: '12px' }}>GAME OVER</div>
-                    <div style={{ fontSize: '18px', color: theme.textSecondary, marginBottom: '24px' }}>
-                      Wave {wave} • Score: {totalScore.toLocaleString()} • Kills: {killCount}
+                    <div style={{ fontSize: '60px', marginBottom: '16px' }}>💀</div>
+                    <div style={{ fontSize: '28px', fontWeight: 900, color: theme.error, marginBottom: '8px' }}>GAME OVER</div>
+                    <div style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '16px' }}>
+                      Wave {wave} • Score {totalScore.toLocaleString()}
                     </div>
-                    <button
-                      onClick={startGame}
-                      style={{
-                        padding: '14px 40px',
-                        fontSize: '18px',
-                        fontWeight: 800,
-                        fontFamily: 'inherit',
-                        background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
-                        border: 'none',
-                        borderRadius: '12px',
-                        color: '#fff',
-                        cursor: 'pointer',
-                        boxShadow: `0 4px 20px ${theme.accentGlow}`,
-                      }}
-                    >
-                      TRY AGAIN
-                    </button>
+                    <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: theme.textMuted, marginBottom: '20px' }}>
+                      <span>🎯 {killCount} kills</span>
+                      <span>🔥 {maxCombo} max combo</span>
+                    </div>
+                    <button onClick={startGame} className="btn" style={{
+                      padding: '12px 32px',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
+                      border: 'none',
+                      borderRadius: '10px',
+                      color: '#fff',
+                      boxShadow: `0 4px 16px ${theme.accentGlow}`,
+                    }}>PLAY AGAIN</button>
                   </div>
                 )}
               </div>
+
+              {/* Wave preview */}
+              {!waveInProgress && wavePreview && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: theme.bgPanel,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '11px',
+                }}>
+                  <span style={{ color: theme.textMuted }}>Next:</span>
+                  {Object.entries(wavePreview).map(([type, count]) => (
+                    <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <span>{enemyTypes[type].emoji}</span>
+                      <span style={{ color: enemyTypes[type].color, fontWeight: 600 }}>×{count}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Right Panel - Info & Upgrades */}
+            {/* Right Panel */}
             <div style={{
-              background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
-              borderRadius: '16px',
-              padding: '16px',
+              background: theme.bgPanel,
+              borderRadius: '12px',
+              padding: '12px',
               border: `1px solid ${theme.border}`,
-              width: '200px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              width: '170px',
+              flexShrink: 0,
             }}>
-              {/* Tower Upgrade Panel */}
               {selectedTowerForUpgrade ? (
                 <>
-                  <h3 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '12px', color: selectedTowerForUpgrade.color, letterSpacing: '2px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: selectedTowerForUpgrade.color, letterSpacing: '1px', marginBottom: '8px' }}>
                     {selectedTowerForUpgrade.name.toUpperCase()}
-                  </h3>
-
-                  <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '40px' }}>{selectedTowerForUpgrade.emoji}</span>
-                    <div style={{ fontSize: '11px', color: theme.gold, fontWeight: 700 }}>
-                      Level {selectedTowerForUpgrade.level + 1}
-                    </div>
                   </div>
-
-                  <div style={{ fontSize: '10px', color: theme.textSecondary, marginBottom: '12px', background: theme.bgDark, padding: '8px', borderRadius: '8px' }}>
-                    <div>Damage: <span style={{ color: theme.text, fontWeight: 700 }}>{selectedTowerForUpgrade.damage}</span></div>
-                    <div>Range: <span style={{ color: theme.text, fontWeight: 700 }}>{selectedTowerForUpgrade.range}</span></div>
-                    <div>Fire Rate: <span style={{ color: theme.text, fontWeight: 700 }}>{(1000 / selectedTowerForUpgrade.fireRate).toFixed(1)}/s</span></div>
-                    <div style={{ marginTop: '6px', borderTop: `1px solid ${theme.border}`, paddingTop: '6px' }}>
-                      Total Damage: <span style={{ color: theme.gold, fontWeight: 700 }}>{Math.floor(selectedTowerForUpgrade.totalDamage)}</span>
+                  <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '36px' }}>{selectedTowerForUpgrade.emoji}</span>
+                    <div style={{ fontSize: '10px', color: theme.gold, fontWeight: 600 }}>Level {selectedTowerForUpgrade.level + 1}</div>
+                  </div>
+                  <div style={{ fontSize: '9px', color: theme.textSecondary, marginBottom: '10px', background: theme.bgDark, padding: '8px', borderRadius: '6px' }}>
+                    <div>DMG: <span style={{ color: theme.text, fontWeight: 600 }}>{selectedTowerForUpgrade.damage}</span></div>
+                    <div>RNG: <span style={{ color: theme.text, fontWeight: 600 }}>{selectedTowerForUpgrade.range}</span></div>
+                    <div>DPS: <span style={{ color: theme.gold, fontWeight: 600 }}>{(selectedTowerForUpgrade.damage * 1000 / selectedTowerForUpgrade.fireRate).toFixed(1)}</span></div>
+                    <div style={{ marginTop: '4px', borderTop: `1px solid ${theme.border}`, paddingTop: '4px' }}>
+                      Kills: <span style={{ color: theme.error, fontWeight: 600 }}>{selectedTowerForUpgrade.kills}</span>
                     </div>
-                    <div>Kills: <span style={{ color: theme.error, fontWeight: 700 }}>{selectedTowerForUpgrade.kills}</span></div>
                   </div>
 
                   {selectedTowerForUpgrade.level < towerTypes[selectedTowerForUpgrade.type].upgrades.length ? (
                     <>
-                      <div style={{ fontSize: '10px', color: theme.textMuted, marginBottom: '6px' }}>NEXT UPGRADE:</div>
-                      <div style={{
-                        background: theme.bgDark,
-                        padding: '10px',
-                        borderRadius: '8px',
-                        marginBottom: '10px',
-                        border: `1px solid ${theme.border}`,
-                      }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: theme.gold, marginBottom: '4px' }}>
+                      <div style={{ fontSize: '9px', color: theme.textMuted, marginBottom: '4px' }}>UPGRADE:</div>
+                      <div style={{ background: theme.bgDark, padding: '8px', borderRadius: '6px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: theme.gold }}>
                           {towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].name}
                         </div>
                         <div style={{ fontSize: '10px', color: theme.textSecondary }}>
-                          Cost: <span style={{ color: theme.gold, fontWeight: 700 }}>
-                            💰 {towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].cost}
-                          </span>
+                          💰 {towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].cost}
                         </div>
                       </div>
                       <button
                         onClick={() => upgradeTower(selectedTowerForUpgrade.id)}
                         disabled={gold < towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].cost}
+                        className="btn"
                         style={{
                           width: '100%',
-                          padding: '10px',
-                          fontSize: '12px',
+                          padding: '8px',
+                          fontSize: '11px',
                           fontWeight: 700,
-                          fontFamily: 'inherit',
                           background: gold >= towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].cost
                             ? `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`
                             : theme.bgDark,
                           border: 'none',
-                          borderRadius: '8px',
+                          borderRadius: '6px',
                           color: gold >= towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].cost ? '#fff' : theme.textMuted,
-                          cursor: gold >= towerTypes[selectedTowerForUpgrade.type].upgrades[selectedTowerForUpgrade.level].cost ? 'pointer' : 'not-allowed',
-                          marginBottom: '8px',
+                          marginBottom: '6px',
                         }}
-                      >
-                        UPGRADE
-                      </button>
+                      >UPGRADE [U]</button>
                     </>
                   ) : (
-                    <div style={{
-                      fontSize: '11px',
-                      color: theme.gold,
-                      textAlign: 'center',
-                      padding: '10px',
-                      background: `${theme.gold}15`,
-                      borderRadius: '8px',
-                      marginBottom: '8px',
-                    }}>
-                      ✨ MAX LEVEL ✨
+                    <div style={{ fontSize: '10px', color: theme.gold, textAlign: 'center', padding: '8px', background: `${theme.gold}10`, borderRadius: '6px', marginBottom: '8px' }}>
+                      ✨ MAX LEVEL
                     </div>
                   )}
-
                   <button
                     onClick={() => sellTower(selectedTowerForUpgrade.id)}
+                    className="btn"
                     style={{
                       width: '100%',
-                      padding: '10px',
-                      fontSize: '12px',
+                      padding: '8px',
+                      fontSize: '11px',
                       fontWeight: 700,
-                      fontFamily: 'inherit',
                       background: 'transparent',
                       border: `1px solid ${theme.error}`,
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       color: theme.error,
-                      cursor: 'pointer',
                     }}
-                  >
-                    SELL (60%)
-                  </button>
+                  >SELL [S]</button>
                 </>
               ) : (
                 <>
-                  <h3 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '12px', color: theme.accent, letterSpacing: '2px' }}>ENEMIES</h3>
-
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: theme.accent, letterSpacing: '1px', marginBottom: '10px' }}>ENEMIES</div>
                   {Object.values(enemyTypes).slice(0, 6).map(enemy => (
                     <div key={enemy.id} style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 8px',
-                      marginBottom: '6px',
+                      gap: '6px',
+                      padding: '4px 6px',
+                      marginBottom: '4px',
                       background: theme.bgDark,
-                      borderRadius: '8px',
-                      border: `1px solid ${theme.border}`,
+                      borderRadius: '6px',
                     }}>
-                      <span style={{ fontSize: '16px' }}>{enemy.emoji}</span>
+                      <span style={{ fontSize: '14px' }}>{enemy.emoji}</span>
                       <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: enemy.color }}>{enemy.name}</div>
-                        <div style={{ fontSize: '9px', color: theme.textMuted }}>
-                          HP: {enemy.health} • 💰{enemy.reward}
-                        </div>
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: enemy.color }}>{enemy.name}</div>
+                        <div style={{ fontSize: '8px', color: theme.textMuted }}>HP:{enemy.health} 💰{enemy.reward}</div>
                       </div>
                     </div>
                   ))}
-
-                  <div style={{ marginTop: '16px' }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 800, marginBottom: '8px', color: theme.accent, letterSpacing: '2px' }}>TIPS</h3>
-                    <div style={{ fontSize: '10px', color: theme.textSecondary, lineHeight: 1.5 }}>
-                      • Create mazes for longer paths<br/>
-                      • Frost + Damage = deadly combo<br/>
-                      • Click towers to upgrade<br/>
-                      • Combos give bonus gold!
-                    </div>
+                  <div style={{ marginTop: '12px', fontSize: '10px', fontWeight: 700, color: theme.accent, letterSpacing: '1px', marginBottom: '6px' }}>STATS</div>
+                  <div style={{ fontSize: '9px', color: theme.textSecondary, background: theme.bgDark, padding: '8px', borderRadius: '6px' }}>
+                    <div>Score: <span style={{ color: theme.gold, fontWeight: 600 }}>{totalScore.toLocaleString()}</span></div>
+                    <div>Kills: <span style={{ color: theme.error, fontWeight: 600 }}>{killCount}</span></div>
+                    <div>Best Combo: <span style={{ color: theme.accent, fontWeight: 600 }}>{maxCombo}</span></div>
                   </div>
                 </>
               )}
