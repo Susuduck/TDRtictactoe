@@ -1002,22 +1002,57 @@ const TowerDefenseGame = () => {
         const pendingDamage = beamDamageRef.current;
         beamDamageRef.current = [];
 
-        setEnemies(enemies => enemies.map(e => {
-          const damageEntry = pendingDamage.find(d => d.targetId === e.id);
-          if (damageEntry) {
-            const beamResist = e.resist?.[damageEntry.damageType] || 0;
-            const resistedDamage = Math.floor(damageEntry.damage * (1 - beamResist));
-            const newHealth = e.currentHealth - resistedDamage;
-            // Update tower stats via ref (towers already updated in this tick)
-            const tower = towersRef.current.find(t => t.id === damageEntry.towerId);
-            if (tower && newHealth <= 0) {
-              tower.kills++;
-              tower.totalDamage += resistedDamage;
+        // Pre-calculate damage per enemy and track tower stats (using ref for current enemy state)
+        const damageByEnemy = new Map();
+        const towerStats = new Map();
+
+        for (const entry of pendingDamage) {
+          const enemy = enemiesRef.current.find(e => e.id === entry.targetId);
+          if (!enemy) continue;
+
+          const beamResist = enemy.resist?.[entry.damageType] || 0;
+          const resistedDamage = Math.floor(entry.damage * (1 - beamResist));
+
+          // Accumulate damage for this enemy
+          const current = damageByEnemy.get(entry.targetId) || { damage: 0, entries: [] };
+          current.damage += resistedDamage;
+          current.entries.push({ towerId: entry.towerId, damage: resistedDamage });
+          damageByEnemy.set(entry.targetId, current);
+        }
+
+        // Check for kills and track tower stats
+        for (const [enemyId, data] of damageByEnemy) {
+          const enemy = enemiesRef.current.find(e => e.id === enemyId);
+          if (enemy && enemy.currentHealth - data.damage <= 0) {
+            // Enemy will die - credit all contributing towers
+            for (const { towerId, damage } of data.entries) {
+              const stats = towerStats.get(towerId) || { kills: 0, damage: 0 };
+              stats.kills++;
+              stats.damage += damage;
+              towerStats.set(towerId, stats);
             }
-            return { ...e, currentHealth: newHealth, hitFlash: 1 };
+          }
+        }
+
+        // Apply damage to enemies
+        setEnemies(enemies => enemies.map(e => {
+          const data = damageByEnemy.get(e.id);
+          if (data) {
+            return { ...e, currentHealth: e.currentHealth - data.damage, hitFlash: 1 };
           }
           return e;
         }));
+
+        // Update tower stats
+        if (towerStats.size > 0) {
+          setTowers(prevTowers => prevTowers.map(t => {
+            const stats = towerStats.get(t.id);
+            if (stats) {
+              return { ...t, kills: t.kills + stats.kills, totalDamage: t.totalDamage + stats.damage };
+            }
+            return t;
+          }));
+        }
       }
 
       // Update projectiles
