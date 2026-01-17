@@ -247,6 +247,8 @@ const SnakeGame = () => {
         gamesPlayed: parsed.gamesPlayed || 0,
         enemiesDefeated: parsed.enemiesDefeated || {},
         highScores: parsed.highScores || {},
+        // Enemy progression - stars earned per enemy (0-10, need 10 to unlock next)
+        enemyStars: parsed.enemyStars || {},
         // New RPG stats
         xp: parsed.xp || 0,
         level: parsed.level || 1,
@@ -271,6 +273,8 @@ const SnakeGame = () => {
       gamesPlayed: 0,
       enemiesDefeated: {},
       highScores: {},
+      // Enemy progression - stars earned per enemy (0-10, need 10 to unlock next)
+      enemyStars: {},
       xp: 0,
       level: 1,
       totalXpEarned: 0,
@@ -483,6 +487,20 @@ const SnakeGame = () => {
       shopPurchases: { ...s.shopPurchases, [itemId]: (s.shopPurchases[itemId] || 0) + 1 }
     }));
   };
+
+  // Enemy progression helpers - sequential unlocking
+  const STARS_TO_UNLOCK = 10; // Stars needed to unlock next enemy
+  const POINTS_PER_STAR = 50; // Score needed per star (500 total to fully complete an enemy)
+
+  const getEnemyStars = (enemyId) => stats.enemyStars[enemyId] || 0;
+
+  const isEnemyUnlocked = (enemyIndex) => {
+    if (enemyIndex === 0) return true; // First enemy always unlocked
+    const prevEnemy = enemyDefs[enemyIndex - 1];
+    return getEnemyStars(prevEnemy.id) >= STARS_TO_UNLOCK;
+  };
+
+  const isEnemyComplete = (enemyId) => getEnemyStars(enemyId) >= STARS_TO_UNLOCK;
 
   // Check and award achievements
   const checkAchievements = useCallback((gameData, updatedStats) => {
@@ -1491,6 +1509,17 @@ const SnakeGame = () => {
 
       setLevelUps(newLevelUps);
 
+      // Calculate enemy stars earned this game (1 star per 50 points, max 10)
+      const currentEnemyStars = s.enemyStars[selectedEnemy?.id] || 0;
+      const starsFromScore = Math.min(STARS_TO_UNLOCK, Math.floor(score / POINTS_PER_STAR));
+      const newEnemyStars = Math.max(currentEnemyStars, starsFromScore);
+
+      // Check if enemy was defeated (reached 10 stars)
+      const wasDefeated = newEnemyStars >= STARS_TO_UNLOCK && currentEnemyStars < STARS_TO_UNLOCK;
+      const newEnemiesDefeated = wasDefeated
+        ? { ...s.enemiesDefeated, [selectedEnemy?.id]: true }
+        : s.enemiesDefeated;
+
       // Build updated stats for achievement checking
       const updatedStats = {
         ...s,
@@ -1500,6 +1529,11 @@ const SnakeGame = () => {
           ...s.highScores,
           [selectedEnemy?.id]: Math.max(s.highScores[selectedEnemy?.id] || 0, score)
         },
+        enemyStars: {
+          ...s.enemyStars,
+          [selectedEnemy?.id]: newEnemyStars
+        },
+        enemiesDefeated: newEnemiesDefeated,
         xp: newXp,
         level: newLevel,
         totalXpEarned: s.totalXpEarned + totalXpGained,
@@ -1863,29 +1897,68 @@ const SnakeGame = () => {
       }}>
         {enemyDefs.map((enemy, idx) => {
           const bestScore = stats.highScores[enemy.id] || 0;
+          const isUnlocked = isEnemyUnlocked(idx);
+          const stars = getEnemyStars(enemy.id);
+          const isComplete = isEnemyComplete(enemy.id);
           return (
             <div
               key={enemy.id}
-              onClick={() => startGame(enemy)}
+              onClick={() => isUnlocked && startGame(enemy)}
               style={{
-                background: `linear-gradient(135deg, ${enemy.color}22, ${enemy.accentColor}11)`,
-                border: `2px solid ${enemy.color}44`,
+                background: !isUnlocked
+                  ? 'rgba(40, 40, 40, 0.5)'
+                  : isComplete
+                    ? `linear-gradient(135deg, ${enemy.color}33, ${enemy.accentColor}22)`
+                    : `linear-gradient(135deg, ${enemy.color}22, ${enemy.accentColor}11)`,
+                border: `2px solid ${isUnlocked ? enemy.color : '#444'}44`,
                 borderRadius: '12px',
                 padding: '20px',
-                cursor: 'pointer',
+                cursor: isUnlocked ? 'pointer' : 'not-allowed',
                 transition: 'all 0.2s',
+                opacity: isUnlocked ? 1 : 0.5,
+                position: 'relative',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.borderColor = enemy.color;
-                e.currentTarget.style.boxShadow = `0 8px 30px ${enemy.color}33`;
+                if (isUnlocked) {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.borderColor = enemy.color;
+                  e.currentTarget.style.boxShadow = `0 8px 30px ${enemy.color}33`;
+                }
               }}
               onMouseOut={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = `${enemy.color}44`;
+                e.currentTarget.style.borderColor = `${isUnlocked ? enemy.color : '#444'}44`;
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
+              {!isUnlocked && (
+                <div style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  fontSize: '18px',
+                  background: 'rgba(0,0,0,0.5)',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>🔒</div>
+              )}
+              {isComplete && (
+                <div style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  fontSize: '12px',
+                  background: `${enemy.color}40`,
+                  color: enemy.color,
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontWeight: '700',
+                }}>✓ MASTERED</div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{
                   fontSize: '40px',
@@ -1894,21 +1967,37 @@ const SnakeGame = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: `${enemy.color}33`,
+                  background: isUnlocked ? `${enemy.color}33` : 'rgba(60,60,60,0.5)',
                   borderRadius: '12px',
-                }}>{enemy.emoji}</div>
+                }}>{isUnlocked ? enemy.emoji : '🔒'}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700', fontSize: '18px', color: enemy.color }}>{enemy.name}</div>
-                  <div style={{ fontSize: '12px', color: '#888' }}>{enemy.title}</div>
-                  <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{enemy.gimmickDesc}</div>
+                  <div style={{ fontWeight: '700', fontSize: '18px', color: isUnlocked ? enemy.color : '#666' }}>{enemy.name}</div>
+                  <div style={{ fontSize: '12px', color: isUnlocked ? '#888' : '#555' }}>{enemy.title}</div>
+                  <div style={{ fontSize: '11px', color: isUnlocked ? '#666' : '#444', marginTop: '4px' }}>{enemy.gimmickDesc}</div>
                   <div style={{ fontSize: '10px', color: '#555', marginTop: '4px' }}>
                     {levelConfigs[enemy.id]?.name || 'Unknown'} • {levelConfigs[enemy.id]?.gridSize || 16}x{levelConfigs[enemy.id]?.gridSize || 16} grid
                   </div>
                 </div>
               </div>
-              {bestScore > 0 && (
-                <div style={{ marginTop: '10px', fontSize: '12px', color: '#ffd700' }}>
-                  Best: {bestScore} pts
+              {/* Star progress bar */}
+              {isUnlocked && (
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '10px', color: '#888' }}>Progress:</span>
+                    <span style={{ fontSize: '10px', color: enemy.color }}>
+                      {'★'.repeat(stars)}{'☆'.repeat(STARS_TO_UNLOCK - stars)}
+                    </span>
+                  </div>
+                  {bestScore > 0 && (
+                    <div style={{ fontSize: '12px', color: '#ffd700' }}>
+                      Best: {bestScore} pts
+                    </div>
+                  )}
+                </div>
+              )}
+              {!isUnlocked && idx > 0 && (
+                <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                  Defeat {enemyDefs[idx - 1].name} to unlock
                 </div>
               )}
             </div>
