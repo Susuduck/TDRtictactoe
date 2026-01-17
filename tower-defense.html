@@ -367,6 +367,7 @@ const TowerDefenseGame = () => {
   const beamDamageRef = useRef([]); // PERF: Collect beam damage to apply in batch
   const gimmickTimerRef = useRef(0); // Timer for gimmick cycles
   const gimmickActiveRef = useRef(false); // Whether gimmick effect is currently active
+  const chaosGimmickRef = useRef(null); // For World 10 chaos - random gimmick per wave
 
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
   useEffect(() => { towersRef.current = towers; }, [towers]);
@@ -985,7 +986,9 @@ const TowerDefenseGame = () => {
       lastHealTime: 0,
       // Special boss properties
       resurrects: enemyDef.resurrects || 0,
-      invisible: enemyDef.invisible || false,
+      // Invisible gimmick (World 6 or Chaos): Some enemies start invisible
+      invisible: enemyDef.invisible ||
+        ((world.gimmick === 'invisible' || (world.gimmick === 'chaos' && chaosGimmickRef.current === 'invisible')) && Math.random() < 0.4),
     };
     setEnemies(prev => [...prev, newEnemy]);
   }, [wave, currentWorld, CELL_SIZE]);
@@ -1082,6 +1085,17 @@ const TowerDefenseGame = () => {
 
     const world = worldDefs[currentWorld];
 
+    // Chaos gimmick (World 10): Pick random gimmick each wave
+    if (world.gimmick === 'chaos') {
+      const possibleGimmicks = ['sandstorm', 'blizzard', 'fog', 'lava', 'invisible', 'lightning', 'resurrect', 'timewarp'];
+      chaosGimmickRef.current = possibleGimmicks[Math.floor(Math.random() * possibleGimmicks.length)];
+      const gimmickEmojis = {
+        sandstorm: '🌪️', blizzard: '❄️', fog: '🌫️', lava: '🌋',
+        invisible: '👻', lightning: '⚡', resurrect: '💀', timewarp: '⏰'
+      };
+      announce(`🎲 CHAOS: ${gimmickEmojis[chaosGimmickRef.current]} ${chaosGimmickRef.current.toUpperCase()}!`, '#9400d3', 2500);
+    }
+
     // Wave 10 is BOSS WAVE
     if (wave === 10) {
       const boss = bossDefs[world.bossType];
@@ -1136,6 +1150,9 @@ const TowerDefenseGame = () => {
 
       // Gimmick cycle logic (sandstorm, blizzard, etc.)
       const world = worldDefs[currentWorld];
+      // For chaos world, use the randomly selected gimmick for this wave
+      const effectiveGimmick = world.gimmick === 'chaos' ? chaosGimmickRef.current : world.gimmick;
+
       const GIMMICK_CYCLE = 20000; // 20 seconds full cycle
       const GIMMICK_ACTIVE_DURATION = 5000; // Active for 5 seconds
       gimmickTimerRef.current = (gimmickTimerRef.current + deltaTime) % GIMMICK_CYCLE;
@@ -1143,21 +1160,21 @@ const TowerDefenseGame = () => {
       gimmickActiveRef.current = gimmickTimerRef.current < GIMMICK_ACTIVE_DURATION;
 
       // Announce when gimmick activates
-      if (!wasActive && gimmickActiveRef.current && world.gimmick) {
-        if (world.gimmick === 'sandstorm') {
+      if (!wasActive && gimmickActiveRef.current && effectiveGimmick) {
+        if (effectiveGimmick === 'sandstorm') {
           announce('🌪️ SANDSTORM!', '#d4a574', 2000);
           playSound(SFX.freeze); // Use existing sound
-        } else if (world.gimmick === 'blizzard') {
+        } else if (effectiveGimmick === 'blizzard') {
           announce('❄️ BLIZZARD!', '#70c9ff', 2000);
           playSound(SFX.freeze);
         }
-        setActiveGimmick(world.gimmick);
-      } else if (wasActive && !gimmickActiveRef.current && world.gimmick) {
+        setActiveGimmick(effectiveGimmick);
+      } else if (wasActive && !gimmickActiveRef.current && effectiveGimmick) {
         setActiveGimmick(null);
       }
 
       // Lightning gimmick (World 7): Random strikes every 3-5 seconds
-      if (world.gimmick === 'lightning' && Math.random() < deltaTime / 4000) {
+      if (effectiveGimmick === 'lightning' && Math.random() < deltaTime / 4000) {
         const strikeCol = Math.floor(Math.random() * GRID_COLS);
         const strikeRow = Math.floor(Math.random() * GRID_ROWS);
         const strikeX = strikeCol * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
@@ -1188,7 +1205,7 @@ const TowerDefenseGame = () => {
       }
 
       // Lava Eruption gimmick (World 5): Random tile erupts periodically
-      if (world.gimmick === 'lava' && Math.random() < deltaTime / 5000) {
+      if (effectiveGimmick === 'lava' && Math.random() < deltaTime / 5000) {
         const eruptCol = Math.floor(Math.random() * GRID_COLS);
         const eruptRow = Math.floor(Math.random() * GRID_ROWS);
         const eruptX = eruptCol * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
@@ -1295,9 +1312,8 @@ const TowerDefenseGame = () => {
 
           // Death (or Resurrect for World 8)
           if (enemy.currentHealth <= 0) {
-            // Check for resurrect (World 8 gimmick or boss ability)
-            const world = worldDefs[currentWorld];
-            const canResurrect = (world.gimmick === 'resurrect' || enemy.resurrects > 0) && !enemy.hasResurrected;
+            // Check for resurrect (World 8 gimmick, chaos, or boss ability)
+            const canResurrect = (effectiveGimmick === 'resurrect' || enemy.resurrects > 0) && !enemy.hasResurrected;
 
             if (canResurrect) {
               // Resurrect at 50% HP
@@ -1386,7 +1402,7 @@ const TowerDefenseGame = () => {
             if (enemy.slowedUntil > now) speed *= enemy.slowAmount;
 
             // Time Warp gimmick (World 9): Speed zones on path - every 3rd tile is a speed zone
-            if (world.gimmick === 'timewarp' && enemy.pathIndex % 3 === 0) {
+            if (effectiveGimmick === 'timewarp' && enemy.pathIndex % 3 === 0) {
               speed *= 2; // Double speed in warp zones
               enemy.inSpeedZone = true;
             } else {
@@ -1394,7 +1410,7 @@ const TowerDefenseGame = () => {
             }
 
             // Fog Zones gimmick (World 4): Every 4th tile heals enemies
-            if (world.gimmick === 'fog' && enemy.pathIndex % 4 === 1) {
+            if (effectiveGimmick === 'fog' && enemy.pathIndex % 4 === 1) {
               const healAmount = enemy.maxHealth * 0.005 * (deltaTime / 16); // 0.5% max HP per frame
               enemy.currentHealth = Math.min(enemy.maxHealth, enemy.currentHealth + healAmount);
               enemy.inFogZone = true;
@@ -1455,9 +1471,9 @@ const TowerDefenseGame = () => {
 
       // Update towers
       setTowers(prevTowers => {
-        // Gimmick modifiers for towers
-        const rangeMultiplier = (gimmickActiveRef.current && world.gimmick === 'sandstorm') ? 0.6 : 1;
-        const attackSpeedMultiplier = (gimmickActiveRef.current && world.gimmick === 'blizzard') ? 1.6 : 1;
+        // Gimmick modifiers for towers (use effectiveGimmick for chaos world support)
+        const rangeMultiplier = (gimmickActiveRef.current && effectiveGimmick === 'sandstorm') ? 0.6 : 1;
+        const attackSpeedMultiplier = (gimmickActiveRef.current && effectiveGimmick === 'blizzard') ? 1.6 : 1;
 
         return prevTowers.map(tower => {
           const towerX = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
@@ -1484,6 +1500,13 @@ const TowerDefenseGame = () => {
               const dy = enemy.y - towerY;
               const distSq = dx * dx + dy * dy;
               if (distSq <= rangeSq && distSq < minDistSq) {
+                // Invisible enemies: beam can reveal them at close range
+                const revealRangeSq = CELL_SIZE * CELL_SIZE * 1.5;
+                if (enemy.invisible && distSq > revealRangeSq) continue;
+                if (enemy.invisible && distSq <= revealRangeSq) {
+                  enemy.invisible = false;
+                  spawnFloatingText(enemy.x, enemy.y - 15, '👁️ REVEALED!', '#ff69b4', 12);
+                }
                 target = enemy;
                 minDistSq = distSq;
               }
@@ -1536,6 +1559,13 @@ const TowerDefenseGame = () => {
             const dy = enemy.y - towerY;
             const distSq = dx * dx + dy * dy;
             if (distSq <= rangeSq) {
+              // Invisible enemies: reveal when very close (1 cell), skip otherwise
+              const revealRangeSq = CELL_SIZE * CELL_SIZE * 1.5;
+              if (enemy.invisible && distSq > revealRangeSq) continue;
+              if (enemy.invisible && distSq <= revealRangeSq) {
+                enemy.invisible = false; // Revealed!
+                spawnFloatingText(enemy.x, enemy.y - 15, '👁️ REVEALED!', '#ff69b4', 12);
+              }
               // Only compute sqrt for 'closest' mode, otherwise store squared
               const dist = tower.targetingMode === 'closest' ? Math.sqrt(distSq) : distSq;
               enemiesInRange.push({ enemy, dist, distSq });
