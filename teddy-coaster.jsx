@@ -6,9 +6,11 @@ const TeddyCoaster = () => {
   const CANVAS_HEIGHT = 500;
   const CROSSHAIR_SIZE = 30;
   const SHOOT_COOLDOWN = 150;
+  const STARS_PER_CHARACTER = 10;
+  const TOTAL_CHARACTERS = 10;
 
   // Game state
-  const [gameState, setGameState] = useState('menu'); // menu, playing, paused, victory, gameover
+  const [gameState, setGameState] = useState('menu'); // menu, levelSelect, playing, paused, victory, gameover
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
@@ -22,15 +24,15 @@ const TeddyCoaster = () => {
   const [effects, setEffects] = useState([]);
   const [bossHealth, setBossHealth] = useState(0);
   const [bossMaxHealth, setBossMaxHealth] = useState(0);
-  const [currentWave, setCurrentWave] = useState(1);
-  const [waveProgress, setWaveProgress] = useState(0);
-  const [selectedEnemy, setSelectedEnemy] = useState(null);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [levelProgress, setLevelProgress] = useState(0);
+  const [levelTarget, setLevelTarget] = useState(20);
   const [trackOffset, setTrackOffset] = useState(0);
   const [screenShake, setScreenShake] = useState(0);
   const [powerUp, setPowerUp] = useState(null);
   const [powerUpTimer, setPowerUpTimer] = useState(0);
   const [showHitMarker, setShowHitMarker] = useState(false);
-  const [defeatedBosses, setDefeatedBosses] = useState([]);
 
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
@@ -39,132 +41,231 @@ const TeddyCoaster = () => {
   const bossActiveRef = useRef(false);
   const currentBossRef = useRef(null);
 
-  // Stats persistence
-  const [stats, setStats] = useState(() => {
-    const saved = localStorage.getItem('teddy_coaster_stats');
-    return saved ? JSON.parse(saved) : {
-      totalScore: 0,
-      gamesPlayed: 0,
-      highScore: 0,
-      bossesDefeated: 0,
+  // Progression system - similar to Ultimate TTT
+  const [progression, setProgression] = useState(() => {
+    const saved = localStorage.getItem('teddy_coaster_progression');
+    if (saved) return JSON.parse(saved);
+    return {
+      starPoints: 0, // 1 star per level completed, 100 total
+      characterStars: Array(10).fill(0), // Stars earned per character (0-10 each)
+      highScores: Array(10).fill(null).map(() => Array(10).fill(0)), // High score per level
       totalShots: 0,
-      totalHits: 0
+      totalHits: 0,
+      gamesPlayed: 0,
     };
   });
 
   useEffect(() => {
-    localStorage.setItem('teddy_coaster_stats', JSON.stringify(stats));
-  }, [stats]);
+    localStorage.setItem('teddy_coaster_progression', JSON.stringify(progression));
+  }, [progression]);
 
-  // Enemy/Boss definitions with gimmicks
-  const enemyDefs = [
+  // Calculate progression helpers
+  const getProgressInfo = useCallback(() => {
+    const totalStars = progression.starPoints;
+    const currentCharIndex = Math.min(9, Math.floor(totalStars / STARS_PER_CHARACTER));
+    const starsOnCurrentChar = totalStars - (currentCharIndex * STARS_PER_CHARACTER);
+
+    const getCharacterStars = (charIdx) => {
+      const charStart = charIdx * STARS_PER_CHARACTER;
+      const charEnd = charStart + STARS_PER_CHARACTER;
+      if (totalStars >= charEnd) return STARS_PER_CHARACTER;
+      if (totalStars <= charStart) return 0;
+      return totalStars - charStart;
+    };
+
+    const isCharacterUnlocked = (charIdx) => {
+      if (charIdx === 0) return true;
+      return getCharacterStars(charIdx - 1) >= STARS_PER_CHARACTER;
+    };
+
+    const isLevelUnlocked = (charIdx, levelIdx) => {
+      if (!isCharacterUnlocked(charIdx)) return false;
+      if (levelIdx === 0) return true;
+      const charStars = getCharacterStars(charIdx);
+      return charStars >= levelIdx;
+    };
+
+    const isLevelCompleted = (charIdx, levelIdx) => {
+      const charStars = getCharacterStars(charIdx);
+      return charStars > levelIdx;
+    };
+
+    return {
+      totalStars,
+      currentCharIndex,
+      starsOnCurrentChar,
+      getCharacterStars,
+      isCharacterUnlocked,
+      isLevelUnlocked,
+      isLevelCompleted,
+    };
+  }, [progression.starPoints]);
+
+  // 10 Character/World definitions
+  const characterDefs = [
     {
-      id: 'balloon_bandit',
-      name: 'Balloon Bandit',
+      id: 'balloon_bay',
+      name: 'Balloon Bay',
+      boss: 'Balloon Bandit',
       emoji: '🎈',
+      bossEmoji: '🤡',
       color: '#ff6b6b',
-      health: 100,
-      gimmick: 'balloon_shield',
-      gimmickDesc: 'Surrounded by balloon shields that must be popped first',
-      taunt: "Pop quiz time! Can you get through my balloons?",
-      winQuote: "You're full of hot air!",
-      loseQuote: "My beautiful balloons... POP!",
-      spawnPattern: 'balloons'
+      accentColor: '#ff8a8a',
+      description: 'Pop the colorful balloons!',
+      bossHealth: 100,
+      gimmick: 'floating_targets',
+      gimmickDesc: 'Targets float upward',
+      taunt: "Pop quiz time! Can you burst my balloons?",
+      winQuote: "My balloons... POP!",
+      loseQuote: "You're full of hot air!"
     },
     {
-      id: 'cotton_candy_witch',
-      name: 'Cotton Candy Witch',
-      emoji: '🧙‍♀️',
+      id: 'candy_canyon',
+      name: 'Candy Canyon',
+      boss: 'Cotton Candy Witch',
+      emoji: '🍭',
+      bossEmoji: '🧙‍♀️',
       color: '#ff9ff3',
-      health: 120,
-      gimmick: 'sticky_shots',
-      gimmickDesc: 'Shoots sticky cotton candy that slows your aim',
+      accentColor: '#ffb8f8',
+      description: 'Sweet treats await!',
+      bossHealth: 120,
+      gimmick: 'sticky_slow',
+      gimmickDesc: 'Cotton candy slows your aim',
       taunt: "Sweet dreams, little bear! Hehehehe!",
-      winQuote: "You're stuck in my sweet trap!",
-      loseQuote: "Too... much... sugar crash...",
-      spawnPattern: 'spiral'
+      winQuote: "Too... much... sugar crash...",
+      loseQuote: "You're stuck in my sweet trap!"
     },
     {
-      id: 'ferris_phantom',
-      name: 'Ferris Phantom',
+      id: 'ghost_gallery',
+      name: 'Ghost Gallery',
+      boss: 'Ferris Phantom',
       emoji: '👻',
+      bossEmoji: '👻',
       color: '#a29bfe',
-      health: 150,
-      gimmick: 'phase_shift',
-      gimmickDesc: 'Phases in and out - only hittable when visible',
-      taunt: "Round and round we go! Now you see me...",
-      winQuote: "You missed your stop! Wooooo!",
-      loseQuote: "I'm... fading... awaaaaay...",
-      spawnPattern: 'circle'
+      accentColor: '#b8b3ff',
+      description: 'Spooky spectral targets!',
+      bossHealth: 150,
+      gimmick: 'phasing',
+      gimmickDesc: 'Ghosts phase in and out',
+      taunt: "Round and round we go! Wooooo!",
+      winQuote: "I'm... fading... awaaaaay...",
+      loseQuote: "You missed your stop!"
     },
     {
-      id: 'popcorn_poltergeist',
-      name: 'Popcorn Poltergeist',
+      id: 'popcorn_plaza',
+      name: 'Popcorn Plaza',
+      boss: 'Popcorn Poltergeist',
       emoji: '🍿',
+      bossEmoji: '🍿',
       color: '#ffeaa7',
-      health: 130,
-      gimmick: 'explosive_kernels',
-      gimmickDesc: 'Spawns popcorn kernels that explode if not shot',
+      accentColor: '#fff3c4',
+      description: 'Kernels everywhere!',
+      bossHealth: 130,
+      gimmick: 'explosive',
+      gimmickDesc: 'Some kernels explode!',
       taunt: "Let's get this party POPPING!",
-      winQuote: "Kernel panic! Ha!",
-      loseQuote: "I'm all... popped out...",
-      spawnPattern: 'scatter'
+      winQuote: "I'm all... popped out...",
+      loseQuote: "Kernel panic! Ha!"
     },
     {
-      id: 'carousel_knight',
-      name: 'Carousel Knight',
-      emoji: '🐴',
+      id: 'carousel_castle',
+      name: 'Carousel Castle',
+      boss: 'Carousel Knight',
+      emoji: '🎠',
+      bossEmoji: '🐴',
       color: '#74b9ff',
-      health: 180,
-      gimmick: 'rotating_guard',
-      gimmickDesc: 'Shield rotates - hit from the exposed side',
-      taunt: "On guard! This knight never falls off his horse!",
-      winQuote: "You've been jousted!",
-      loseQuote: "My noble steed... we ride no more...",
-      spawnPattern: 'joust'
+      accentColor: '#93c9ff',
+      description: 'Round and round!',
+      bossHealth: 180,
+      gimmick: 'circular',
+      gimmickDesc: 'Targets move in circles',
+      taunt: "On guard! This knight never falls!",
+      winQuote: "My noble steed... we ride no more...",
+      loseQuote: "You've been jousted!"
     },
     {
-      id: 'funhouse_mirror',
-      name: 'Funhouse Mirror Master',
+      id: 'mirror_maze',
+      name: 'Mirror Maze',
+      boss: 'Funhouse Mirror Master',
       emoji: '🪞',
+      bossEmoji: '🎭',
       color: '#00cec9',
-      health: 200,
-      gimmick: 'mirror_clones',
-      gimmickDesc: 'Creates mirror copies - find the real one!',
-      taunt: "Which one is real? Even I forget sometimes!",
-      winQuote: "Bad luck! 7 years of it!",
-      loseQuote: "I'm shattered... literally...",
-      spawnPattern: 'mirrors'
+      accentColor: '#33e0db',
+      description: 'Which one is real?',
+      bossHealth: 200,
+      gimmick: 'decoys',
+      gimmickDesc: 'Fake targets appear',
+      taunt: "Which one is real? Even I forget!",
+      winQuote: "I'm shattered... literally...",
+      loseQuote: "Bad luck! 7 years of it!"
     },
     {
-      id: 'roller_coaster_rex',
-      name: 'Roller Coaster Rex',
+      id: 'dino_den',
+      name: 'Dino Den',
+      boss: 'Roller Coaster Rex',
       emoji: '🦖',
+      bossEmoji: '🦖',
       color: '#00b894',
-      health: 250,
-      gimmick: 'track_charge',
-      gimmickDesc: 'Charges along the track - dodge and shoot!',
+      accentColor: '#33d1a8',
+      description: 'Prehistoric panic!',
+      bossHealth: 250,
+      gimmick: 'charging',
+      gimmickDesc: 'Dinos charge at you!',
       taunt: "ROOOOAR! This ride has NO brakes!",
-      winQuote: "You're going OFF the rails!",
-      loseQuote: "Extinct... again... how unfair...",
-      spawnPattern: 'charge'
+      winQuote: "Extinct... again... how unfair...",
+      loseQuote: "You're going OFF the rails!"
     },
     {
-      id: 'ringmaster_teddy',
-      name: 'Ringmaster Teddy',
+      id: 'rocket_runway',
+      name: 'Rocket Runway',
+      boss: 'Captain Cosmos',
+      emoji: '🚀',
+      bossEmoji: '👨‍🚀',
+      color: '#6c5ce7',
+      accentColor: '#8b7cf0',
+      description: 'Blast off to space!',
+      bossHealth: 280,
+      gimmick: 'fast_targets',
+      gimmickDesc: 'Super fast targets',
+      taunt: "3... 2... 1... You're done for!",
+      winQuote: "Houston... we have a problem...",
+      loseQuote: "Mission accomplished! For ME!"
+    },
+    {
+      id: 'pirate_pier',
+      name: 'Pirate Pier',
+      boss: 'Captain Plunder Bear',
+      emoji: '🏴‍☠️',
+      bossEmoji: '🐻',
+      color: '#2d3436',
+      accentColor: '#636e72',
+      description: 'Arrr, treasure targets!',
+      bossHealth: 300,
+      gimmick: 'waves',
+      gimmickDesc: 'Targets bob on waves',
+      taunt: "Ye dare challenge the captain?!",
+      winQuote: "Me ship... me crew... me booty...",
+      loseQuote: "Walk the plank, landlubber!"
+    },
+    {
+      id: 'ringmaster_realm',
+      name: "Ringmaster's Realm",
+      boss: 'Ringmaster Teddy',
       emoji: '🎪',
+      bossEmoji: '🎩',
       color: '#e17055',
-      health: 300,
-      gimmick: 'summon_circus',
-      gimmickDesc: 'Summons circus minions and has multiple phases',
-      taunt: "Welcome to MY show! The FINAL attraction!",
-      winQuote: "The show must go on... without YOU!",
-      loseQuote: "No... my circus... my dreams...",
-      spawnPattern: 'boss_final'
+      accentColor: '#f08a6f',
+      description: 'The FINAL attraction!',
+      bossHealth: 400,
+      gimmick: 'everything',
+      gimmickDesc: 'All gimmicks combined!',
+      taunt: "Welcome to MY show! The FINAL act!",
+      winQuote: "No... my circus... my dreams...",
+      loseQuote: "The show must go on... without YOU!"
     }
   ];
 
-  // Target types for regular enemies
+  // Target types for regular stages
   const targetTypes = [
     { type: 'duck', emoji: '🦆', points: 10, speed: 2, health: 1 },
     { type: 'balloon_red', emoji: '🎈', points: 15, speed: 1.5, health: 1 },
@@ -172,13 +273,36 @@ const TeddyCoaster = () => {
     { type: 'star', emoji: '⭐', points: 25, speed: 2.5, health: 1 },
     { type: 'ghost', emoji: '👻', points: 30, speed: 4, health: 1, phasing: true },
     { type: 'clown', emoji: '🤡', points: 50, speed: 1, health: 2 },
+  ];
+
+  const powerUpTypes = [
     { type: 'powerup_ammo', emoji: '📦', points: 5, speed: 1, health: 1, isPowerUp: 'ammo' },
     { type: 'powerup_rapid', emoji: '⚡', points: 5, speed: 1, health: 1, isPowerUp: 'rapid' },
     { type: 'powerup_spread', emoji: '🌟', points: 5, speed: 1, health: 1, isPowerUp: 'spread' }
   ];
 
-  const startGame = (enemy) => {
-    setSelectedEnemy(enemy);
+  // Theme colors
+  const theme = {
+    bg: '#1a1625',
+    bgPanel: '#2a2440',
+    bgDark: '#1a1020',
+    border: '#4a4468',
+    borderLight: '#5a5478',
+    text: '#ffffff',
+    textSecondary: '#b8b0c8',
+    textMuted: '#8880a0',
+    accent: '#e94560',
+    accentBright: '#ff6b8a',
+    gold: '#f4c542',
+    goldGlow: 'rgba(244, 197, 66, 0.4)',
+    error: '#e85a50',
+    success: '#50c878'
+  };
+
+  // Start a specific level
+  const startLevel = (character, level) => {
+    setSelectedCharacter(character);
+    setCurrentLevel(level);
     setGameState('playing');
     setScore(0);
     setCombo(0);
@@ -190,191 +314,164 @@ const TeddyCoaster = () => {
     setTargets([]);
     setProjectiles([]);
     setEffects([]);
-    setCurrentWave(1);
-    setWaveProgress(0);
+    setLevelProgress(0);
     setTrackOffset(0);
-    setBossHealth(enemy.health);
-    setBossMaxHealth(enemy.health);
-    bossActiveRef.current = false;
-    currentBossRef.current = null;
-    spawnTimerRef.current = 0;
     setPowerUp(null);
     setPowerUpTimer(0);
+    spawnTimerRef.current = 0;
+
+    // Level 10 is boss fight
+    if (level === 10) {
+      setBossMaxHealth(character.bossHealth);
+      setBossHealth(character.bossHealth);
+      bossActiveRef.current = false;
+      currentBossRef.current = null;
+      setLevelTarget(1); // Just need to beat boss
+    } else {
+      setBossHealth(0);
+      setBossMaxHealth(0);
+      bossActiveRef.current = false;
+      currentBossRef.current = null;
+      // Regular levels: need to hit target count based on level
+      setLevelTarget(15 + level * 3); // 18, 21, 24, 27, 30, 33, 36, 39, 42
+    }
   };
 
   const returnToMenu = () => {
     setGameState('menu');
-    setSelectedEnemy(null);
+    setSelectedCharacter(null);
     if (gameLoopRef.current) {
       cancelAnimationFrame(gameLoopRef.current);
     }
   };
 
-  // Spawn targets based on wave and boss pattern
+  const returnToLevelSelect = () => {
+    setGameState('levelSelect');
+    if (gameLoopRef.current) {
+      cancelAnimationFrame(gameLoopRef.current);
+    }
+  };
+
+  // Get target spawn pattern based on character gimmick
+  const getSpawnPattern = useCallback(() => {
+    if (!selectedCharacter) return 'default';
+    return selectedCharacter.gimmick;
+  }, [selectedCharacter]);
+
+  // Spawn targets based on level and character
   const spawnTarget = useCallback(() => {
-    if (!selectedEnemy) return;
+    if (!selectedCharacter) return;
 
-    const patterns = {
-      balloons: () => {
-        // Spawn in balloon clusters
-        const centerX = Math.random() * (CANVAS_WIDTH - 200) + 100;
-        const centerY = Math.random() * (CANVAS_HEIGHT - 200) + 50;
-        const newTargets = [];
-        for (let i = 0; i < 5; i++) {
-          const angle = (i / 5) * Math.PI * 2;
-          newTargets.push({
-            id: Date.now() + i,
-            x: centerX + Math.cos(angle) * 40,
-            y: centerY + Math.sin(angle) * 40,
-            ...targetTypes[1],
-            vx: (Math.random() - 0.5) * 2,
-            vy: -1 - Math.random()
-          });
-        }
-        return newTargets;
-      },
-      spiral: () => {
-        // Spiral pattern
-        const angle = (Date.now() / 500) % (Math.PI * 2);
-        const radius = 100 + Math.sin(Date.now() / 1000) * 50;
-        return [{
-          id: Date.now(),
-          x: CANVAS_WIDTH / 2 + Math.cos(angle) * radius,
-          y: CANVAS_HEIGHT / 2 + Math.sin(angle) * radius,
-          ...targetTypes[Math.floor(Math.random() * 4)],
-          vx: Math.cos(angle + Math.PI / 2) * 2,
-          vy: Math.sin(angle + Math.PI / 2) * 2,
-          sticky: Math.random() < 0.3
-        }];
-      },
-      circle: () => {
-        // Circular movement
-        return [{
-          id: Date.now(),
-          x: Math.random() * CANVAS_WIDTH,
-          y: Math.random() * CANVAS_HEIGHT * 0.6,
-          ...targetTypes[4], // ghost
-          vx: 0,
-          vy: 0,
-          circleCenter: { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 3 },
-          circleRadius: 100 + Math.random() * 100,
-          circleAngle: Math.random() * Math.PI * 2,
-          circleSpeed: 0.02 + Math.random() * 0.02
-        }];
-      },
-      scatter: () => {
-        // Random scatter with some explosive
-        const newTargets = [];
-        const count = 3 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < count; i++) {
-          const isExplosive = Math.random() < 0.4;
-          newTargets.push({
-            id: Date.now() + i,
-            x: Math.random() * CANVAS_WIDTH,
-            y: -30,
-            ...(isExplosive ? {
-              type: 'kernel', emoji: '🌽', points: -20, speed: 1, health: 1,
-              explosive: true, fuseTime: 3000, spawnTime: Date.now()
-            } : targetTypes[Math.floor(Math.random() * 4)]),
-            vx: (Math.random() - 0.5) * 3,
-            vy: 1 + Math.random() * 2
-          });
-        }
-        return newTargets;
-      },
-      joust: () => {
-        // Knight charging pattern
-        const fromLeft = Math.random() < 0.5;
-        return [{
-          id: Date.now(),
-          x: fromLeft ? -50 : CANVAS_WIDTH + 50,
-          y: 100 + Math.random() * 200,
-          type: 'knight', emoji: '🛡️', points: 40, speed: 4, health: 2,
-          vx: fromLeft ? 5 : -5,
-          vy: 0,
-          shieldAngle: fromLeft ? 0 : Math.PI,
-          hasShield: true
-        }];
-      },
-      mirrors: () => {
-        // Mirror clone spawn
-        const realX = Math.random() * (CANVAS_WIDTH - 100) + 50;
-        const realY = Math.random() * (CANVAS_HEIGHT - 200) + 50;
-        const newTargets = [{
-          id: Date.now(),
-          x: realX,
-          y: realY,
-          type: 'mirror_real', emoji: '🎭', points: 100, speed: 2, health: 1,
-          vx: (Math.random() - 0.5) * 2,
-          vy: (Math.random() - 0.5) * 2,
-          isReal: true
-        }];
-        // Add fakes
-        for (let i = 0; i < 3; i++) {
-          newTargets.push({
-            id: Date.now() + i + 1,
-            x: Math.random() * (CANVAS_WIDTH - 100) + 50,
-            y: Math.random() * (CANVAS_HEIGHT - 200) + 50,
-            type: 'mirror_fake', emoji: '🎭', points: -10, speed: 2, health: 1,
-            vx: (Math.random() - 0.5) * 2,
-            vy: (Math.random() - 0.5) * 2,
-            isReal: false,
-            opacity: 0.7
-          });
-        }
-        return newTargets;
-      },
-      charge: () => {
-        // Dinosaur charge warning then attack
-        const lane = Math.floor(Math.random() * 3);
-        const laneY = 100 + lane * 120;
-        return [{
-          id: Date.now(),
-          x: -100,
-          y: laneY,
-          type: 'dino', emoji: '🦖', points: 60, speed: 8, health: 3,
-          vx: 8,
-          vy: 0,
-          warningShown: false
-        }];
-      },
-      boss_final: () => {
-        // Mix of everything
-        const patterns = ['balloons', 'spiral', 'scatter', 'joust'];
-        const chosen = patterns[Math.floor(Math.random() * patterns.length)];
-        return this[chosen] ? this[chosen]() : [{
-          id: Date.now(),
-          x: Math.random() * CANVAS_WIDTH,
-          y: -30,
-          ...targetTypes[Math.floor(Math.random() * 6)],
-          vx: (Math.random() - 0.5) * 3,
-          vy: 1 + Math.random() * 2
-        }];
-      }
-    };
+    const pattern = getSpawnPattern();
+    const levelDifficulty = currentLevel / 10; // 0.1 to 1.0
 
-    const patternFunc = patterns[selectedEnemy.spawnPattern];
-    if (patternFunc) {
-      const newTargets = patternFunc();
-      if (newTargets) {
-        setTargets(prev => [...prev, ...newTargets]);
-      }
-    } else {
-      // Default spawn
+    // Chance for power-up
+    if (Math.random() < 0.05) {
+      const pu = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
       setTargets(prev => [...prev, {
         id: Date.now(),
-        x: Math.random() * CANVAS_WIDTH,
+        x: Math.random() * (CANVAS_WIDTH - 100) + 50,
         y: -30,
-        ...targetTypes[Math.floor(Math.random() * 6)],
-        vx: (Math.random() - 0.5) * 3,
-        vy: 1 + Math.random() * 2
+        ...pu,
+        vx: (Math.random() - 0.5) * 2,
+        vy: 1 + Math.random()
       }]);
+      return;
     }
-  }, [selectedEnemy]);
+
+    const baseTarget = targetTypes[Math.floor(Math.random() * targetTypes.length)];
+    let newTarget = {
+      id: Date.now(),
+      x: Math.random() * (CANVAS_WIDTH - 100) + 50,
+      y: -30,
+      ...baseTarget,
+      speed: baseTarget.speed * (1 + levelDifficulty * 0.5),
+      vx: (Math.random() - 0.5) * 3,
+      vy: 1 + Math.random() * 2
+    };
+
+    // Apply gimmick modifications
+    switch (pattern) {
+      case 'floating_targets':
+        newTarget.vy = -1 - Math.random(); // Float up
+        newTarget.y = CANVAS_HEIGHT + 30;
+        break;
+      case 'sticky_slow':
+        if (Math.random() < 0.3) {
+          newTarget.sticky = true;
+          newTarget.emoji = '🍬';
+        }
+        break;
+      case 'phasing':
+        newTarget.phasing = true;
+        break;
+      case 'explosive':
+        if (Math.random() < 0.3) {
+          newTarget.explosive = true;
+          newTarget.emoji = '🌽';
+          newTarget.fuseTime = 3000;
+          newTarget.spawnTime = Date.now();
+          newTarget.points = 30;
+        }
+        break;
+      case 'circular':
+        newTarget.circleCenter = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 3 };
+        newTarget.circleRadius = 80 + Math.random() * 120;
+        newTarget.circleAngle = Math.random() * Math.PI * 2;
+        newTarget.circleSpeed = 0.02 + Math.random() * 0.02;
+        break;
+      case 'decoys':
+        if (Math.random() < 0.4) {
+          newTarget.isDecoy = true;
+          newTarget.opacity = 0.6;
+          newTarget.points = -10;
+        }
+        break;
+      case 'charging':
+        if (Math.random() < 0.3) {
+          const fromLeft = Math.random() < 0.5;
+          newTarget.x = fromLeft ? -50 : CANVAS_WIDTH + 50;
+          newTarget.y = 100 + Math.random() * 250;
+          newTarget.vx = fromLeft ? 6 : -6;
+          newTarget.vy = 0;
+          newTarget.emoji = '🦕';
+          newTarget.health = 2;
+          newTarget.points = 40;
+        }
+        break;
+      case 'fast_targets':
+        newTarget.speed *= 2;
+        newTarget.vx *= 1.5;
+        newTarget.vy *= 1.5;
+        break;
+      case 'waves':
+        newTarget.waveOffset = Math.random() * Math.PI * 2;
+        newTarget.waveAmp = 30 + Math.random() * 30;
+        break;
+      case 'everything':
+        // Random gimmick for final world
+        const gimmicks = ['phasing', 'explosive', 'charging', 'fast_targets'];
+        const chosen = gimmicks[Math.floor(Math.random() * gimmicks.length)];
+        if (chosen === 'phasing') newTarget.phasing = true;
+        if (chosen === 'explosive' && Math.random() < 0.5) {
+          newTarget.explosive = true;
+          newTarget.emoji = '🌽';
+          newTarget.fuseTime = 2500;
+          newTarget.spawnTime = Date.now();
+        }
+        if (chosen === 'fast_targets') {
+          newTarget.speed *= 2;
+          newTarget.vx *= 1.5;
+        }
+        break;
+    }
+
+    setTargets(prev => [...prev, newTarget]);
+  }, [selectedCharacter, currentLevel, getSpawnPattern]);
 
   // Spawn boss
   const spawnBoss = useCallback(() => {
-    if (!selectedEnemy) return;
+    if (!selectedCharacter) return;
 
     bossActiveRef.current = true;
     currentBossRef.current = {
@@ -387,7 +484,7 @@ const TeddyCoaster = () => {
       invulnerableTimer: 0
     };
     setBossHealth(bossMaxHealth);
-  }, [selectedEnemy, bossMaxHealth]);
+  }, [selectedCharacter, bossMaxHealth]);
 
   // Shoot function
   const shoot = useCallback(() => {
@@ -399,11 +496,9 @@ const TeddyCoaster = () => {
 
     lastShootRef.current = now;
 
-    // Update stats
-    setStats(prev => ({ ...prev, totalShots: prev.totalShots + 1 }));
+    setProgression(prev => ({ ...prev, totalShots: prev.totalShots + 1 }));
 
     if (powerUp === 'spread') {
-      // Spread shot - 3 projectiles
       const angles = [-0.2, 0, 0.2];
       angles.forEach(angle => {
         setProjectiles(prev => [...prev, {
@@ -428,7 +523,6 @@ const TeddyCoaster = () => {
       setAmmo(prev => prev - 1);
     }
 
-    // Add muzzle flash effect
     setEffects(prev => [...prev, {
       id: Date.now(),
       type: 'muzzle',
@@ -474,7 +568,6 @@ const TeddyCoaster = () => {
         setTimeout(() => setShowHitMarker(false), 100);
         setScreenShake(5);
 
-        // Add hit effect
         setEffects(prev => [...prev, {
           id: Date.now(),
           type: 'hit',
@@ -489,28 +582,12 @@ const TeddyCoaster = () => {
           currentBossRef.current = null;
           setScore(prev => prev + 500);
           setScreenShake(20);
+          setLevelProgress(prev => prev + 1);
 
-          // Victory!
-          setStats(prev => ({
-            ...prev,
-            bossesDefeated: prev.bossesDefeated + 1,
-            totalHits: prev.totalHits + 1
-          }));
-
-          setDefeatedBosses(prev => [...prev, selectedEnemy.id]);
-
-          setTimeout(() => {
-            setGameState('victory');
-            setStats(prev => ({
-              ...prev,
-              totalScore: prev.totalScore + score + 500,
-              gamesPlayed: prev.gamesPlayed + 1,
-              highScore: Math.max(prev.highScore, score + 500)
-            }));
-          }, 1000);
+          setProgression(prev => ({ ...prev, totalHits: prev.totalHits + 1 }));
         }
 
-        setStats(prev => ({ ...prev, totalHits: prev.totalHits + 1 }));
+        setProgression(prev => ({ ...prev, totalHits: prev.totalHits + 1 }));
       }
     }
 
@@ -530,23 +607,11 @@ const TeddyCoaster = () => {
           }
         }
 
-        // Check shield
-        if (target.hasShield) {
-          const angleToProj = Math.atan2(projY - target.y, projX - target.x);
-          const shieldAngle = target.shieldAngle || 0;
-          const angleDiff = Math.abs(angleToProj - shieldAngle);
-          if (angleDiff < Math.PI / 2 || angleDiff > Math.PI * 1.5) {
-            newTargets.push(target);
-            continue;
-          }
-        }
-
         if (dist < hitRadius) {
           hit = true;
           target.health -= 1;
 
           if (target.health <= 0) {
-            // Target destroyed
             const comboMultiplier = Math.floor(combo / 5) + 1;
             const points = target.points * comboMultiplier;
             setScore(prev => prev + points);
@@ -556,7 +621,6 @@ const TeddyCoaster = () => {
               return newCombo;
             });
 
-            // Handle power-ups
             if (target.isPowerUp) {
               if (target.isPowerUp === 'ammo') {
                 setAmmo(prev => Math.min(maxAmmo, prev + 10));
@@ -566,13 +630,15 @@ const TeddyCoaster = () => {
               }
             }
 
-            // Handle explosive
             if (target.explosive) {
-              // Defused!
               setScore(prev => prev + 50);
             }
 
-            // Add destroy effect
+            // Only count non-decoy, non-powerup targets for progress
+            if (!target.isDecoy && !target.isPowerUp && target.points > 0) {
+              setLevelProgress(prev => prev + 1);
+            }
+
             setEffects(prev => [...prev, {
               id: Date.now(),
               type: 'destroy',
@@ -583,8 +649,7 @@ const TeddyCoaster = () => {
               points: points
             }]);
 
-            setWaveProgress(prev => prev + 1);
-            setStats(prev => ({ ...prev, totalHits: prev.totalHits + 1 }));
+            setProgression(prev => ({ ...prev, totalHits: prev.totalHits + 1 }));
           } else {
             newTargets.push(target);
           }
@@ -603,7 +668,65 @@ const TeddyCoaster = () => {
     }
 
     return hit;
-  }, [combo, score, selectedEnemy, maxAmmo]);
+  }, [combo, maxAmmo]);
+
+  // Check level completion
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    if (currentLevel === 10) {
+      // Boss level - check if boss is defeated
+      if (levelProgress >= levelTarget && !bossActiveRef.current && bossHealth <= 0) {
+        // Victory!
+        handleVictory();
+      } else if (levelProgress >= 15 && !bossActiveRef.current && !currentBossRef.current) {
+        // Spawn boss after getting enough targets
+        spawnBoss();
+      }
+    } else {
+      // Regular level - check progress
+      if (levelProgress >= levelTarget) {
+        handleVictory();
+      }
+    }
+  }, [levelProgress, levelTarget, gameState, currentLevel, bossHealth]);
+
+  const handleVictory = () => {
+    setGameState('victory');
+
+    // Award star for this level if not already earned
+    const progressInfo = getProgressInfo();
+    const charIndex = characterDefs.findIndex(c => c.id === selectedCharacter.id);
+    const levelIndex = currentLevel - 1;
+
+    if (!progressInfo.isLevelCompleted(charIndex, levelIndex)) {
+      setProgression(prev => {
+        const newHighScores = [...prev.highScores];
+        newHighScores[charIndex] = [...newHighScores[charIndex]];
+        newHighScores[charIndex][levelIndex] = Math.max(newHighScores[charIndex][levelIndex], score);
+
+        return {
+          ...prev,
+          starPoints: prev.starPoints + 1,
+          highScores: newHighScores,
+          gamesPlayed: prev.gamesPlayed + 1
+        };
+      });
+    } else {
+      // Just update high score if already completed
+      setProgression(prev => {
+        const newHighScores = [...prev.highScores];
+        newHighScores[charIndex] = [...newHighScores[charIndex]];
+        newHighScores[charIndex][levelIndex] = Math.max(newHighScores[charIndex][levelIndex], score);
+
+        return {
+          ...prev,
+          highScores: newHighScores,
+          gamesPlayed: prev.gamesPlayed + 1
+        };
+      });
+    }
+  };
 
   // Main game loop
   useEffect(() => {
@@ -619,13 +742,9 @@ const TeddyCoaster = () => {
       const deltaTime = timestamp - lastTime;
       lastTime = timestamp;
 
-      // Update track offset (scrolling background)
       setTrackOffset(prev => (prev + 2) % 100);
-
-      // Decrease screen shake
       setScreenShake(prev => Math.max(0, prev - 0.5));
 
-      // Update power-up timer
       if (powerUpTimer > 0) {
         setPowerUpTimer(prev => {
           const newTime = prev - deltaTime;
@@ -638,15 +757,11 @@ const TeddyCoaster = () => {
 
       // Spawn logic
       spawnTimerRef.current += deltaTime;
-      const spawnRate = bossActiveRef.current ? 800 : 1200 - (currentWave * 50);
+      const baseRate = 1200 - (currentLevel * 80);
+      const spawnRate = bossActiveRef.current ? baseRate * 0.7 : baseRate;
       if (spawnTimerRef.current > spawnRate) {
         spawnTimerRef.current = 0;
         spawnTarget();
-      }
-
-      // Check if should spawn boss
-      if (waveProgress >= 20 && !bossActiveRef.current) {
-        spawnBoss();
       }
 
       // Update projectiles
@@ -658,7 +773,6 @@ const TeddyCoaster = () => {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < proj.speed) {
-            // Reached target, check hit
             checkHit(proj.targetX, proj.targetY);
           } else {
             const vx = (dx / dist) * proj.speed;
@@ -680,20 +794,21 @@ const TeddyCoaster = () => {
           let newX = target.x;
           let newY = target.y;
 
-          // Circle movement
           if (target.circleCenter) {
             target.circleAngle += target.circleSpeed;
             newX = target.circleCenter.x + Math.cos(target.circleAngle) * target.circleRadius;
             newY = target.circleCenter.y + Math.sin(target.circleAngle) * target.circleRadius;
+          } else if (target.waveOffset !== undefined) {
+            newX += target.vx || 0;
+            newY += target.vy || 0;
+            newX += Math.sin(Date.now() / 300 + target.waveOffset) * 2;
           } else {
             newX += target.vx || 0;
             newY += target.vy || 0;
           }
 
-          // Check explosive timeout
           if (target.explosive && target.spawnTime) {
             if (Date.now() - target.spawnTime > target.fuseTime) {
-              // Explode! Damage player
               setLives(prev => prev - 1);
               setScreenShake(15);
               setEffects(prev => [...prev, {
@@ -707,18 +822,15 @@ const TeddyCoaster = () => {
             }
           }
 
-          // Remove if off screen
           if (newY > CANVAS_HEIGHT + 50 || newY < -100 ||
               newX < -100 || newX > CANVAS_WIDTH + 100) {
-            // Missed target
-            if (!target.isPowerUp && target.points > 0) {
+            if (!target.isPowerUp && target.points > 0 && !target.isDecoy) {
               setCombo(0);
             }
             continue;
           }
 
-          // Check collision with player area
-          if (newY > CANVAS_HEIGHT - 80 && target.points > 0 && !target.isPowerUp) {
+          if (newY > CANVAS_HEIGHT - 80 && target.points > 0 && !target.isPowerUp && !target.isDecoy) {
             setLives(prev => prev - 1);
             setScreenShake(10);
             setCombo(0);
@@ -737,23 +849,19 @@ const TeddyCoaster = () => {
       // Update boss
       if (bossActiveRef.current && currentBossRef.current) {
         const boss = currentBossRef.current;
-
-        // Boss movement
         boss.x = CANVAS_WIDTH / 2 + Math.sin(Date.now() / 1000) * 200;
         boss.y = 80 + Math.sin(Date.now() / 1500) * 30;
 
-        // Boss attack
         boss.attackTimer += deltaTime;
         if (boss.attackTimer > 2000) {
           boss.attackTimer = 0;
 
-          // Boss shoots projectile at player
           setTargets(prev => [...prev, {
             id: Date.now(),
             x: boss.x,
             y: boss.y + 50,
             type: 'boss_proj',
-            emoji: selectedEnemy.id === 'cotton_candy_witch' ? '🍭' : '💥',
+            emoji: '💥',
             points: 0,
             speed: 3,
             health: 1,
@@ -763,7 +871,6 @@ const TeddyCoaster = () => {
           }]);
         }
 
-        // Invulnerability timer
         if (boss.invulnerable) {
           boss.invulnerableTimer -= deltaTime;
           if (boss.invulnerableTimer <= 0) {
@@ -781,18 +888,11 @@ const TeddyCoaster = () => {
       // Check game over
       if (lives <= 0) {
         setGameState('gameover');
-        setStats(prev => ({
-          ...prev,
-          totalScore: prev.totalScore + score,
-          gamesPlayed: prev.gamesPlayed + 1,
-          highScore: Math.max(prev.highScore, score)
-        }));
+        setProgression(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
         return;
       }
 
-      // Render
       render(ctx);
-
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
 
@@ -803,7 +903,7 @@ const TeddyCoaster = () => {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameState, lives, checkHit, spawnTarget, spawnBoss, selectedEnemy, mousePos, powerUpTimer, waveProgress, currentWave, score]);
+  }, [gameState, lives, checkHit, spawnTarget, spawnBoss, selectedCharacter, mousePos, powerUpTimer, currentLevel]);
 
   // Render function
   const render = (ctx) => {
@@ -814,7 +914,8 @@ const TeddyCoaster = () => {
     ctx.save();
     ctx.translate(offsetX, offsetY);
 
-    // Draw background (coaster track view)
+    // Draw background with character color
+    const charColor = selectedCharacter?.color || '#e94560';
     const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     gradient.addColorStop(0, '#1a1a2e');
     gradient.addColorStop(0.5, '#16213e');
@@ -833,15 +934,14 @@ const TeddyCoaster = () => {
       ctx.fill();
     }
 
-    // Draw track rails
-    ctx.strokeStyle = '#e94560';
+    // Draw track
+    ctx.strokeStyle = charColor;
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(0, CANVAS_HEIGHT - 40);
     ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 40);
     ctx.stroke();
 
-    // Track ties
     ctx.strokeStyle = '#533a71';
     ctx.lineWidth = 8;
     for (let i = 0; i < 20; i++) {
@@ -852,7 +952,7 @@ const TeddyCoaster = () => {
       ctx.stroke();
     }
 
-    // Draw coaster car (player)
+    // Draw coaster car
     ctx.font = '40px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('🎢', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
@@ -861,7 +961,6 @@ const TeddyCoaster = () => {
     // Draw targets
     ctx.font = '36px Arial';
     for (const target of targets) {
-      // Ghost phasing effect
       if (target.phasing) {
         const phaseValue = Math.sin(Date.now() / 200);
         ctx.globalAlpha = phaseValue > 0.3 ? 1 : 0.3;
@@ -869,7 +968,6 @@ const TeddyCoaster = () => {
         ctx.globalAlpha = target.opacity;
       }
 
-      // Explosive warning
       if (target.explosive && target.spawnTime) {
         const timeLeft = target.fuseTime - (Date.now() - target.spawnTime);
         if (timeLeft < 1000) {
@@ -881,40 +979,27 @@ const TeddyCoaster = () => {
       }
 
       ctx.fillText(target.emoji, target.x, target.y);
-
-      // Draw shield
-      if (target.hasShield) {
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(target.x, target.y, 30, target.shieldAngle - Math.PI/3, target.shieldAngle + Math.PI/3);
-        ctx.stroke();
-      }
-
       ctx.globalAlpha = 1;
     }
 
     // Draw boss
-    if (bossActiveRef.current && currentBossRef.current && selectedEnemy) {
+    if (bossActiveRef.current && currentBossRef.current && selectedCharacter) {
       const boss = currentBossRef.current;
 
-      // Boss glow
-      ctx.shadowColor = selectedEnemy.color;
+      ctx.shadowColor = selectedCharacter.color;
       ctx.shadowBlur = 20;
 
-      // Boss sprite
       ctx.font = '64px Arial';
       if (boss.invulnerable) {
         ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 50) * 0.5;
       }
-      ctx.fillText(selectedEnemy.emoji, boss.x, boss.y);
+      ctx.fillText(selectedCharacter.bossEmoji, boss.x, boss.y);
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
 
-      // Boss name
       ctx.font = 'bold 16px Arial';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(selectedEnemy.name, boss.x, boss.y - 50);
+      ctx.fillText(selectedCharacter.boss, boss.x, boss.y - 50);
     }
 
     // Draw projectiles
@@ -924,7 +1009,6 @@ const TeddyCoaster = () => {
       ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Trail
       ctx.fillStyle = 'rgba(255, 221, 0, 0.3)';
       ctx.beginPath();
       ctx.arc(proj.x, proj.y + 10, 4, 0, Math.PI * 2);
@@ -944,7 +1028,6 @@ const TeddyCoaster = () => {
         ctx.globalAlpha = effect.life / 20;
         ctx.fillText(effect.emoji, effect.x, effect.y - (20 - effect.life) * 2);
 
-        // Points popup
         ctx.font = 'bold 14px Arial';
         ctx.fillStyle = '#ffdd00';
         ctx.fillText(`+${effect.points}`, effect.x, effect.y - 30 - (20 - effect.life) * 2);
@@ -968,12 +1051,10 @@ const TeddyCoaster = () => {
     const cx = mousePos.x;
     const cy = mousePos.y;
 
-    // Outer circle
     ctx.beginPath();
     ctx.arc(cx, cy, CROSSHAIR_SIZE / 2, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Cross lines
     ctx.beginPath();
     ctx.moveTo(cx - CROSSHAIR_SIZE / 2 - 5, cy);
     ctx.lineTo(cx - 8, cy);
@@ -985,7 +1066,6 @@ const TeddyCoaster = () => {
     ctx.lineTo(cx, cy + CROSSHAIR_SIZE / 2 + 5);
     ctx.stroke();
 
-    // Center dot
     ctx.fillStyle = showHitMarker ? '#ff0000' : '#00ff00';
     ctx.beginPath();
     ctx.arc(cx, cy, 3, 0, Math.PI * 2);
@@ -993,23 +1073,19 @@ const TeddyCoaster = () => {
 
     ctx.restore();
 
-    // HUD (not affected by shake)
-    // Score
+    // HUD
     ctx.font = 'bold 24px Arial';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
     ctx.fillText(`Score: ${score}`, 20, 35);
 
-    // Combo
     if (combo > 0) {
       ctx.fillStyle = combo >= 10 ? '#ff6b6b' : combo >= 5 ? '#feca57' : '#ffffff';
       ctx.fillText(`Combo: x${combo}`, 20, 65);
     }
 
-    // Lives
     ctx.fillText('❤️'.repeat(lives), 20, 95);
 
-    // Ammo
     ctx.textAlign = 'right';
     if (reloading) {
       ctx.fillStyle = '#ff6b6b';
@@ -1019,44 +1095,45 @@ const TeddyCoaster = () => {
       ctx.fillText(`Ammo: ${ammo}/${maxAmmo}`, CANVAS_WIDTH - 20, 35);
     }
 
-    // Power-up indicator
     if (powerUp) {
       ctx.fillStyle = '#feca57';
       const powerUpName = powerUp === 'rapid' ? '⚡ RAPID FIRE' : '🌟 SPREAD SHOT';
       ctx.fillText(powerUpName, CANVAS_WIDTH - 20, 65);
     }
 
-    // Wave progress
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`Wave ${currentWave} - ${waveProgress}/20`, CANVAS_WIDTH / 2, 35);
+
+    if (currentLevel === 10) {
+      ctx.fillText(`BOSS FIGHT - ${selectedCharacter?.name}`, CANVAS_WIDTH / 2, 35);
+    } else {
+      ctx.fillText(`${selectedCharacter?.name} - Level ${currentLevel}`, CANVAS_WIDTH / 2, 35);
+      ctx.font = '16px Arial';
+      ctx.fillText(`Progress: ${levelProgress}/${levelTarget}`, CANVAS_WIDTH / 2, 55);
+    }
 
     // Boss health bar
     if (bossActiveRef.current && bossMaxHealth > 0) {
       const barWidth = 300;
       const barHeight = 20;
       const barX = (CANVAS_WIDTH - barWidth) / 2;
-      const barY = 50;
+      const barY = 60;
 
-      // Background
       ctx.fillStyle = '#333';
       ctx.fillRect(barX, barY, barWidth, barHeight);
 
-      // Health
       const healthPercent = bossHealth / bossMaxHealth;
       ctx.fillStyle = healthPercent > 0.5 ? '#00ff00' : healthPercent > 0.25 ? '#ffff00' : '#ff0000';
       ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
 
-      // Border
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 2;
       ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-      // Boss name
-      if (selectedEnemy) {
+      if (selectedCharacter) {
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 14px Arial';
-        ctx.fillText(selectedEnemy.name, CANVAS_WIDTH / 2, barY + 15);
+        ctx.fillText(selectedCharacter.boss, CANVAS_WIDTH / 2, barY + 15);
       }
     }
   };
@@ -1072,7 +1149,7 @@ const TeddyCoaster = () => {
     });
   };
 
-  const handleClick = (e) => {
+  const handleClick = () => {
     if (gameState === 'playing') {
       shoot();
     }
@@ -1086,6 +1163,8 @@ const TeddyCoaster = () => {
           setGameState('paused');
         } else if (gameState === 'paused') {
           setGameState('playing');
+        } else if (gameState === 'levelSelect') {
+          returnToMenu();
         } else {
           returnToMenu();
         }
@@ -1103,6 +1182,39 @@ const TeddyCoaster = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState, shoot, reload]);
 
+  const resetProgress = () => {
+    if (confirm('Reset all progress? This cannot be undone.')) {
+      setProgression({
+        starPoints: 0,
+        characterStars: Array(10).fill(0),
+        highScores: Array(10).fill(null).map(() => Array(10).fill(0)),
+        totalShots: 0,
+        totalHits: 0,
+        gamesPlayed: 0,
+      });
+    }
+  };
+
+  // Star bar component
+  const StarBar = ({ stars, maxStars = 10, color = theme.gold }) => {
+    return (
+      <div style={{ display: 'flex', gap: '2px' }}>
+        {Array(maxStars).fill(0).map((_, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: '14px',
+              opacity: i < stars ? 1 : 0.3,
+              filter: i < stars ? `drop-shadow(0 0 3px ${color})` : 'none'
+            }}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   // Styles
   const styles = {
     container: {
@@ -1111,82 +1223,75 @@ const TeddyCoaster = () => {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      background: 'linear-gradient(135deg, #1a1625 0%, #2a1f3d 50%, #1a2535 100%)',
       fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
       color: '#fff',
       padding: '20px',
       boxSizing: 'border-box'
     },
     title: {
-      fontSize: '48px',
+      fontSize: '42px',
       fontWeight: 'bold',
-      marginBottom: '10px',
+      marginBottom: '5px',
       textShadow: '0 0 20px #e94560, 0 0 40px #e94560',
       letterSpacing: '3px'
     },
     subtitle: {
-      fontSize: '18px',
+      fontSize: '14px',
       color: '#a0a0a0',
-      marginBottom: '30px'
+      marginBottom: '20px'
     },
     menuGrid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-      gap: '20px',
-      maxWidth: '1200px',
+      gridTemplateColumns: 'repeat(5, 1fr)',
+      gap: '12px',
+      maxWidth: '900px',
       width: '100%',
-      padding: '20px'
+      padding: '10px'
     },
-    enemyCard: {
+    characterCard: {
       background: 'rgba(255, 255, 255, 0.05)',
-      borderRadius: '15px',
-      padding: '20px',
+      borderRadius: '12px',
+      padding: '15px',
       cursor: 'pointer',
       transition: 'all 0.3s ease',
       border: '2px solid transparent',
-      position: 'relative',
-      overflow: 'hidden'
+      textAlign: 'center',
+      position: 'relative'
     },
-    enemyCardHover: {
-      transform: 'translateY(-5px)',
-      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+    characterEmoji: {
+      fontSize: '36px',
+      marginBottom: '5px'
     },
-    enemyEmoji: {
-      fontSize: '48px',
-      marginBottom: '10px'
-    },
-    enemyName: {
-      fontSize: '20px',
-      fontWeight: 'bold',
-      marginBottom: '8px'
-    },
-    enemyGimmick: {
+    characterName: {
       fontSize: '14px',
-      color: '#a0a0a0',
-      marginBottom: '10px'
+      fontWeight: 'bold',
+      marginBottom: '4px'
     },
-    enemyTaunt: {
-      fontSize: '13px',
-      fontStyle: 'italic',
-      color: '#feca57'
+    levelGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(5, 1fr)',
+      gap: '10px',
+      maxWidth: '500px',
+      width: '100%',
+      padding: '20px'
     },
-    defeatedBadge: {
-      position: 'absolute',
-      top: '10px',
-      right: '10px',
-      background: '#00ff00',
-      color: '#000',
-      padding: '3px 8px',
+    levelCard: {
+      background: 'rgba(255, 255, 255, 0.05)',
       borderRadius: '10px',
-      fontSize: '12px',
-      fontWeight: 'bold'
+      padding: '15px',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      border: '2px solid transparent',
+      textAlign: 'center'
     },
     statsBox: {
       background: 'rgba(0, 0, 0, 0.3)',
       borderRadius: '10px',
-      padding: '15px 25px',
-      marginTop: '20px',
-      textAlign: 'center'
+      padding: '12px 20px',
+      marginTop: '15px',
+      textAlign: 'center',
+      fontSize: '13px'
     },
     canvas: {
       border: '3px solid #e94560',
@@ -1236,44 +1341,58 @@ const TeddyCoaster = () => {
       cursor: 'pointer',
       fontSize: '14px'
     },
-    instructions: {
-      background: 'rgba(0, 0, 0, 0.3)',
+    lockedOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.7)',
       borderRadius: '10px',
-      padding: '15px 25px',
-      marginTop: '15px',
-      fontSize: '14px',
-      color: '#a0a0a0',
-      textAlign: 'center'
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '24px'
     }
   };
 
-  // Render menu
+  const progressInfo = getProgressInfo();
+
+  // Render main menu (character select)
   if (gameState === 'menu') {
     return (
       <div style={styles.container}>
         <a href="menu.html" style={styles.backButton}>← Back to Games</a>
         <div style={styles.title}>🎢 TEDDY COASTER 🧸</div>
-        <div style={styles.subtitle}>A Rail Shooter Adventure!</div>
+        <div style={styles.subtitle}>
+          Part of Teddy's Review Roundup | Total Stars: {progressInfo.totalStars}/100
+        </div>
 
         <div style={styles.menuGrid}>
-          {enemyDefs.map((enemy, index) => {
-            const isDefeated = defeatedBosses.includes(enemy.id);
-            const isLocked = index > 0 && !defeatedBosses.includes(enemyDefs[index - 1].id);
+          {characterDefs.map((char, index) => {
+            const isUnlocked = progressInfo.isCharacterUnlocked(index);
+            const charStars = progressInfo.getCharacterStars(index);
+            const isComplete = charStars >= STARS_PER_CHARACTER;
 
             return (
               <div
-                key={enemy.id}
+                key={char.id}
                 style={{
-                  ...styles.enemyCard,
-                  borderColor: enemy.color,
-                  opacity: isLocked ? 0.5 : 1,
-                  cursor: isLocked ? 'not-allowed' : 'pointer'
+                  ...styles.characterCard,
+                  borderColor: isUnlocked ? char.color : '#333',
+                  opacity: isUnlocked ? 1 : 0.6,
+                  cursor: isUnlocked ? 'pointer' : 'not-allowed'
                 }}
-                onClick={() => !isLocked && startGame(enemy)}
+                onClick={() => {
+                  if (isUnlocked) {
+                    setSelectedCharacter(char);
+                    setGameState('levelSelect');
+                  }
+                }}
                 onMouseEnter={(e) => {
-                  if (!isLocked) {
-                    e.currentTarget.style.transform = 'translateY(-5px)';
-                    e.currentTarget.style.boxShadow = `0 10px 30px ${enemy.color}40`;
+                  if (isUnlocked) {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = `0 8px 25px ${char.color}40`;
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -1281,24 +1400,134 @@ const TeddyCoaster = () => {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                {isDefeated && <div style={styles.defeatedBadge}>DEFEATED</div>}
-                {isLocked && <div style={{...styles.defeatedBadge, background: '#666'}}>LOCKED</div>}
-                <div style={styles.enemyEmoji}>{enemy.emoji}</div>
-                <div style={{...styles.enemyName, color: enemy.color}}>{enemy.name}</div>
-                <div style={styles.enemyGimmick}>{enemy.gimmickDesc}</div>
-                <div style={styles.enemyTaunt}>"{enemy.taunt}"</div>
+                {!isUnlocked && <div style={styles.lockedOverlay}>🔒</div>}
+                {isComplete && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-5px',
+                    right: '-5px',
+                    background: '#50c878',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px'
+                  }}>✓</div>
+                )}
+                <div style={styles.characterEmoji}>{char.emoji}</div>
+                <div style={{...styles.characterName, color: char.color}}>{char.name}</div>
+                <StarBar stars={charStars} maxStars={10} color={char.color} />
               </div>
             );
           })}
         </div>
 
         <div style={styles.statsBox}>
-          <div>High Score: {stats.highScore} | Games Played: {stats.gamesPlayed} | Bosses Defeated: {stats.bossesDefeated}</div>
-          <div>Accuracy: {stats.totalShots > 0 ? Math.round((stats.totalHits / stats.totalShots) * 100) : 0}%</div>
+          <div>Games Played: {progression.gamesPlayed} | Accuracy: {progression.totalShots > 0 ? Math.round((progression.totalHits / progression.totalShots) * 100) : 0}%</div>
+          <button
+            onClick={resetProgress}
+            style={{
+              background: 'transparent',
+              border: '1px solid #666',
+              color: '#888',
+              padding: '5px 15px',
+              borderRadius: '15px',
+              cursor: 'pointer',
+              marginTop: '10px',
+              fontSize: '12px'
+            }}
+          >
+            Reset Progress
+          </button>
         </div>
 
-        <div style={styles.instructions}>
+        <div style={{
+          marginTop: '15px',
+          fontSize: '13px',
+          color: '#888',
+          textAlign: 'center'
+        }}>
           <strong>Controls:</strong> Mouse to aim | Click/Space to shoot | R to reload | ESC to pause
+        </div>
+      </div>
+    );
+  }
+
+  // Render level select
+  if (gameState === 'levelSelect' && selectedCharacter) {
+    const charIndex = characterDefs.findIndex(c => c.id === selectedCharacter.id);
+
+    return (
+      <div style={styles.container}>
+        <button style={styles.backButton} onClick={returnToMenu}>← Characters</button>
+
+        <div style={{fontSize: '48px', marginBottom: '10px'}}>{selectedCharacter.emoji}</div>
+        <div style={{...styles.title, fontSize: '32px', color: selectedCharacter.color}}>
+          {selectedCharacter.name}
+        </div>
+        <div style={styles.subtitle}>{selectedCharacter.description}</div>
+
+        <div style={styles.levelGrid}>
+          {Array(10).fill(0).map((_, levelIdx) => {
+            const level = levelIdx + 1;
+            const isUnlocked = progressInfo.isLevelUnlocked(charIndex, levelIdx);
+            const isCompleted = progressInfo.isLevelCompleted(charIndex, levelIdx);
+            const isBoss = level === 10;
+
+            return (
+              <div
+                key={level}
+                style={{
+                  ...styles.levelCard,
+                  borderColor: isUnlocked ? (isBoss ? '#e94560' : selectedCharacter.color) : '#333',
+                  background: isCompleted ? `${selectedCharacter.color}20` : 'rgba(255,255,255,0.05)',
+                  cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                  opacity: isUnlocked ? 1 : 0.5,
+                  gridColumn: isBoss ? 'span 5' : 'auto'
+                }}
+                onClick={() => {
+                  if (isUnlocked) {
+                    startLevel(selectedCharacter, level);
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (isUnlocked) {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                {!isUnlocked && <div style={{fontSize: '20px'}}>🔒</div>}
+                {isUnlocked && (
+                  <>
+                    <div style={{fontSize: isBoss ? '32px' : '20px'}}>
+                      {isBoss ? selectedCharacter.bossEmoji : (isCompleted ? '⭐' : level)}
+                    </div>
+                    <div style={{
+                      fontSize: isBoss ? '16px' : '12px',
+                      color: isBoss ? '#e94560' : '#aaa',
+                      marginTop: '5px'
+                    }}>
+                      {isBoss ? `BOSS: ${selectedCharacter.boss}` : (isCompleted ? 'Complete!' : `Level ${level}`)}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{...styles.statsBox, maxWidth: '400px'}}>
+          <div style={{color: selectedCharacter.color, marginBottom: '5px'}}>
+            <strong>{selectedCharacter.gimmickDesc}</strong>
+          </div>
+          <div style={{fontStyle: 'italic', color: '#feca57'}}>
+            "{selectedCharacter.taunt}"
+          </div>
         </div>
       </div>
     );
@@ -1321,37 +1550,49 @@ const TeddyCoaster = () => {
           <div style={styles.overlay}>
             <div style={styles.overlayTitle}>PAUSED</div>
             <button style={styles.button} onClick={() => setGameState('playing')}>Resume</button>
-            <button style={styles.button} onClick={returnToMenu}>Quit to Menu</button>
+            <button style={styles.button} onClick={returnToLevelSelect}>Quit Level</button>
           </div>
         )}
 
         {gameState === 'victory' && (
           <div style={styles.overlay}>
-            <div style={{...styles.overlayTitle, color: '#00ff00'}}>VICTORY!</div>
-            <div style={styles.enemyEmoji}>{selectedEnemy?.emoji}</div>
-            <div style={{fontSize: '18px', marginBottom: '10px'}}>You defeated {selectedEnemy?.name}!</div>
-            <div style={{fontStyle: 'italic', color: '#feca57', marginBottom: '20px'}}>
-              "{selectedEnemy?.loseQuote}"
+            <div style={{...styles.overlayTitle, color: '#50c878'}}>
+              {currentLevel === 10 ? 'BOSS DEFEATED!' : 'LEVEL COMPLETE!'}
             </div>
-            <div style={{fontSize: '24px', marginBottom: '20px'}}>
-              Final Score: {score} | Max Combo: {maxCombo}
+            {currentLevel === 10 && (
+              <div style={{fontSize: '48px', marginBottom: '10px'}}>{selectedCharacter?.bossEmoji}</div>
+            )}
+            <div style={{fontSize: '24px', marginBottom: '10px'}}>⭐ +1 Star ⭐</div>
+            {currentLevel === 10 && (
+              <div style={{fontStyle: 'italic', color: '#feca57', marginBottom: '20px'}}>
+                "{selectedCharacter?.winQuote}"
+              </div>
+            )}
+            <div style={{fontSize: '18px', marginBottom: '20px'}}>
+              Score: {score} | Max Combo: {maxCombo}
             </div>
-            <button style={styles.button} onClick={returnToMenu}>Continue</button>
+            <button style={styles.button} onClick={returnToLevelSelect}>Continue</button>
           </div>
         )}
 
         {gameState === 'gameover' && (
           <div style={styles.overlay}>
             <div style={{...styles.overlayTitle, color: '#ff6b6b'}}>GAME OVER</div>
-            <div style={styles.enemyEmoji}>{selectedEnemy?.emoji}</div>
-            <div style={{fontStyle: 'italic', color: '#feca57', marginBottom: '20px'}}>
-              "{selectedEnemy?.winQuote}"
+            <div style={{fontSize: '48px', marginBottom: '10px'}}>
+              {currentLevel === 10 ? selectedCharacter?.bossEmoji : '💔'}
             </div>
-            <div style={{fontSize: '24px', marginBottom: '20px'}}>
-              Final Score: {score} | Max Combo: {maxCombo}
+            {currentLevel === 10 && (
+              <div style={{fontStyle: 'italic', color: '#feca57', marginBottom: '20px'}}>
+                "{selectedCharacter?.loseQuote}"
+              </div>
+            )}
+            <div style={{fontSize: '18px', marginBottom: '20px'}}>
+              Score: {score} | Max Combo: {maxCombo}
             </div>
-            <button style={styles.button} onClick={() => startGame(selectedEnemy)}>Try Again</button>
-            <button style={styles.button} onClick={returnToMenu}>Back to Menu</button>
+            <button style={styles.button} onClick={() => startLevel(selectedCharacter, currentLevel)}>
+              Try Again
+            </button>
+            <button style={styles.button} onClick={returnToLevelSelect}>Back to Levels</button>
           </div>
         )}
       </div>
