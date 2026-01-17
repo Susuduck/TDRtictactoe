@@ -70,6 +70,40 @@ Eat food to grow longer and earn points. Each wave has a target number of food t
 
 ---
 
+## Mission System
+
+Complete missions to earn bonus XP and coins. Missions provide goals beyond simple survival and reward skilled play.
+
+### How Missions Work
+- **3 Active Missions** at a time
+- Missions refresh daily or when completed
+- Track progress during gameplay
+- Rewards awarded on game over if mission is complete
+- Mission difficulty scales with player level
+
+### Mission Types
+
+| Mission | Icon | Description | Example Targets |
+|---------|------|-------------|-----------------|
+| Collector | 🍎 | Eat X food in one run | 10, 15, 20, 30 |
+| Bonus Hunter | 🍊 | Eat X bonus food (oranges) | 3, 5, 8 |
+| Star Chaser | ⭐ | Eat X super food (stars) | 2, 3, 5 |
+| Wave Rider | 🌊 | Reach wave X | 3, 5, 7, 10 |
+| High Scorer | 🏆 | Reach X points | 200, 400, 600, 1000 |
+| Long Snake | 📏 | Reach length X | 10, 15, 20, 25 |
+| Dash Master | 💨 | Use dash X times (Level 3+) | 3, 5, 8 |
+| Power Collector | 💎 | Collect X power-ups | 3, 5, 8 |
+| Untouchable | 🛡️ | Complete run without using shield (Level 5+) | - |
+| Enemy Slayer | 💀 | Beat specific enemy | Varies |
+
+### Mission Rewards
+- **XP Rewards:** 30-150 XP depending on difficulty
+- **Coin Rewards:** 15-100 coins depending on difficulty
+- Higher difficulty missions give better rewards
+- Completing missions is the fastest way to level up
+
+---
+
 ## Enemies & Worlds
 
 Each enemy has a unique themed world with different grid sizes, backgrounds, and decorations. Slower enemies have smaller grids to keep gameplay engaging.
@@ -207,7 +241,8 @@ Boss HP = 5 + (wave / 5) * 2
 - `snake.jsx` - Game logic and React component
 
 ### localStorage Keys
-- `snake_rpg_stats` - Player stats, high scores, games played
+- `snake_rpg_stats` - Player stats, high scores, XP, level, unlocks
+- `snake_missions` - Active missions and progress
 
 ---
 
@@ -223,6 +258,8 @@ Boss HP = 5 + (wave / 5) * 2
 8. **Shield is clutch** - One free hit can save a long run, prioritize shield pickups
 9. **Magnet makes collection easy** - Food within 3 tiles is auto-collected
 10. **Double points early** - Grab Double Points at the start of a wave for maximum effect
+11. **Check your missions** - Focus on mission objectives for bonus XP and coins
+12. **Match enemy to mission** - Pick enemies that help complete your current missions
 
 ---
 
