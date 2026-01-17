@@ -1207,8 +1207,24 @@ const TowerDefenseGame = () => {
           // Hit flash decay
           if (enemy.hitFlash > 0) enemy.hitFlash -= deltaTime * 0.01;
 
-          // Death
+          // Death (or Resurrect for World 8)
           if (enemy.currentHealth <= 0) {
+            // Check for resurrect (World 8 gimmick or boss ability)
+            const world = worldDefs[currentWorld];
+            const canResurrect = (world.gimmick === 'resurrect' || enemy.resurrects > 0) && !enemy.hasResurrected;
+
+            if (canResurrect) {
+              // Resurrect at 50% HP
+              enemy.currentHealth = Math.floor(enemy.maxHealth * 0.5);
+              enemy.hasResurrected = true;
+              enemy.hitFlash = 1;
+              spawnParticles(enemy.x, enemy.y, '#8b008b', 12, { speed: 3, size: 5, life: 500 });
+              spawnFloatingText(enemy.x, enemy.y - 15, '👻 RISEN!', '#8b008b', 14);
+              playSound(SFX.bossWarning);
+              newEnemies.push(enemy);
+              continue;
+            }
+
             const comboBonus = Math.floor(enemy.reward * combo * 0.1);
             const totalReward = enemy.reward + comboBonus;
             setGold(g => g + totalReward);
