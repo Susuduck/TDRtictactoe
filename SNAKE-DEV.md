@@ -345,53 +345,62 @@ const hasShield = shieldCharges > 0; // backwards compatibility
 
 ---
 
-### Phase 4: Achievement System (NOT STARTED)
+### Phase 4: Achievement System (COMPLETE)
 
-**Concept:** Long-term goals with badges and bonus rewards
+**Concept:** Long-term goals with badges and coin rewards
 
-**Suggested Achievements:**
+#### Achievements (25 total)
 ```javascript
 const ACHIEVEMENTS = {
-  // Progression
-  first_win: { name: 'First Victory', desc: 'Beat any enemy', reward: 50 },
-  level_10: { name: 'Getting Stronger', desc: 'Reach level 10', reward: 100 },
-  level_25: { name: 'Experienced', desc: 'Reach level 25', reward: 250 },
-  level_50: { name: 'Master', desc: 'Reach max level', reward: 500 },
-
-  // Enemies
-  beat_all: { name: 'Champion', desc: 'Beat all 10 enemies', reward: 300 },
-  wyrm_slayer: { name: 'Wyrm Slayer', desc: 'Beat Eternal Wyrm', reward: 200 },
-
-  // Score
-  score_1000: { name: 'High Scorer', desc: 'Score 1000 in one game', reward: 75 },
-  score_5000: { name: 'Score Legend', desc: 'Score 5000 in one game', reward: 200 },
-
-  // Length
-  length_30: { name: 'Long Boi', desc: 'Reach length 30', reward: 100 },
-  length_50: { name: 'Endless Snake', desc: 'Reach length 50', reward: 200 },
-
-  // Waves
-  wave_10: { name: 'Wave Surfer', desc: 'Reach wave 10', reward: 75 },
-  wave_20: { name: 'Wave Master', desc: 'Reach wave 20', reward: 150 },
-
-  // Special
-  no_powerups: { name: 'Purist', desc: 'Beat an enemy without power-ups', reward: 100 },
-  speedrun: { name: 'Speed Demon', desc: 'Beat Slime King in under 2 minutes', reward: 150 },
-  pacifist: { name: 'Pacifist', desc: 'Beat a boss wave without taking damage', reward: 125 },
-
-  // Cumulative
-  total_food_1000: { name: 'Hungry', desc: 'Eat 1000 total food', reward: 100 },
-  total_food_10000: { name: 'Insatiable', desc: 'Eat 10000 total food', reward: 300 },
-  games_100: { name: 'Dedicated', desc: 'Play 100 games', reward: 150 },
+  // Progression (5)
+  first_game: { name: 'First Steps', desc: 'Play your first game', icon: '👶', reward: 25 },
+  level_5: { name: 'Getting Started', desc: 'Reach level 5', icon: '⭐', reward: 50 },
+  level_10: { name: 'Rising Star', desc: 'Reach level 10', icon: '🌟', reward: 100 },
+  level_25: { name: 'Veteran', desc: 'Reach level 25', icon: '💫', reward: 250 },
+  level_50: { name: 'Master', desc: 'Reach max level', icon: '👑', reward: 500 },
+  // Score (3)
+  score_500/1000/2500: 50/100/200 coins
+  // Waves (3)
+  wave_5/10/15: 40/100/200 coins
+  // Length (2)
+  length_20/35: 50/150 coins
+  // Enemies (4)
+  beat_slime, beat_3/5/all enemies: 30/75/150/500 coins
+  // Cumulative (6)
+  food_100/500/1000: 30/75/150 coins
+  games_10/50/100: 40/100/200 coins
+  // Special (3)
+  no_powerups (wave 5 without power-ups): 100 coins
+  dash_master (50 total dashes): 75 coins
+  coins_1000 (accumulate 1000 coins): 100 coins
 };
 ```
 
-**Implementation Notes:**
-- Add `achievements` array to stats (list of unlocked achievement ids)
-- Add `cumulativeStats` to stats for tracking totals
-- Check achievements on game over
-- Show achievement popup when unlocked
-- Add achievements panel to main menu
+#### Stats State (updated)
+```javascript
+stats = {
+  // ... existing fields ...
+  achievements: [], // list of unlocked achievement ids
+  totalFood: 0,     // cumulative food eaten
+  totalDashes: 0,   // cumulative dashes used
+  maxScore: 0,      // best single-game score
+  maxWave: 0,       // best single-game wave
+  maxLength: 0,     // best single-game length
+};
+```
+
+#### checkAchievements Function
+- Called at end of handleGameOver with gameData and updatedStats
+- Returns array of newly earned achievement ids
+- Achievement rewards (coins) added to stats.coins
+- Newly earned achievements stored in newAchievements state for display
+
+#### UI
+- "ACHIEVEMENTS (X/25)" button on main menu
+- Achievements panel shows all 25 with unlock status
+- Locked achievements are grayed out with reward preview
+- Unlocked achievements show checkmark
+- New achievements displayed on game over screen with reward
 
 ---
 
@@ -428,12 +437,15 @@ const getTotalXpForLevel = (level) => {
 ### Main Menu Shows:
 - Player level + XP bar
 - Coins
+- SELECT ENEMY button
+- SHOP button (gold)
+- ACHIEVEMENTS button (purple) with progress count
 - Next unlock preview
 - Active missions panel (3 missions with progress)
 
 ### In-Game Shows:
 - Dash button with cooldown indicator (if level 3+)
-- Active power-up indicators (shield, magnet, double points)
+- Active power-up indicators (shield with charge count, magnet, double points)
 - Standard HUD (score, wave, length, etc.)
 
 ### Game Over Shows:
@@ -441,6 +453,7 @@ const getTotalXpForLevel = (level) => {
 - Level progress bar
 - Level up notifications with unlocks
 - Completed missions with rewards
+- New achievements unlocked with coin rewards
 - Coins earned
 
 ---
