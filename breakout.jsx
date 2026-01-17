@@ -14,10 +14,13 @@ const BreakoutGame = () => {
   const BRICK_PADDING = 4;
   const BRICK_OFFSET_TOP = 60;
   const BRICK_OFFSET_LEFT = 27;
+  const DASH_SPEED = 25;
+  const DASH_COOLDOWN = 800;
+  const TEDDY_METER_MAX = 100;
 
   // Game state
   const [gameState, setGameState] = useState('menu');
-  const [paddle, setPaddle] = useState({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH });
+  const [paddle, setPaddle] = useState({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH, vx: 0 });
   const [balls, setBalls] = useState([]);
   const [bricks, setBricks] = useState([]);
   const [score, setScore] = useState(0);
@@ -41,19 +44,90 @@ const BreakoutGame = () => {
   const [flashColor, setFlashColor] = useState(null);
   const [floatingTexts, setFloatingTexts] = useState([]);
 
-  // Stats
+  // === NEW: Teddyball Player Mechanics ===
+  // Dash system
+  const [dashCooldown, setDashCooldown] = useState(0);
+  const [isDashing, setIsDashing] = useState(false);
+  const [lastTapLeft, setLastTapLeft] = useState(0);
+  const [lastTapRight, setLastTapRight] = useState(0);
+
+  // Charge shot system
+  const [chargeLevel, setChargeLevel] = useState(0);
+  const [isCharging, setIsCharging] = useState(false);
+
+  // Teddy Meter system
+  const [teddyMeter, setTeddyMeter] = useState(0);
+  const [teddyAbilityActive, setTeddyAbilityActive] = useState(null);
+
+  // Twin paddle for Teddy Twins ability
+  const [twinPaddle, setTwinPaddle] = useState(null);
+
+  // Stats with unlocks and upgrades
   const [stats, setStats] = useState(() => {
-    const saved = localStorage.getItem('breakout_rpg_stats');
+    const saved = localStorage.getItem('teddyball_stats');
     if (saved) return JSON.parse(saved);
-    return { totalScore: 0, gamesPlayed: 0, levelsCompleted: 0, highScores: {} };
+    return {
+      totalScore: 0,
+      gamesPlayed: 0,
+      levelsCompleted: 0,
+      highScores: {},
+      stars: 0,
+      unlockedPowerUps: ['expand', 'multi', 'slow', 'life'], // Starting power-ups
+      upgrades: {
+        paddleSize: 0,      // +10px per level (max 3)
+        extraLife: 0,       // +1 starting life per level (max 2)
+        magnetCatch: false, // Always have catch ability
+        comboMaster: 0,     // +0.5s combo timer per level (max 3)
+        luckyDrops: 0,      // +5% power-up chance per level (max 3)
+        teddyPower: 0,      // +10% meter gain per level (max 3)
+      }
+    };
   });
+
+  // All unlockable power-ups with costs
+  const powerUpUnlocks = {
+    expand: { cost: 0, name: 'Expand', emoji: '📏', desc: 'Wider paddle' },
+    multi: { cost: 0, name: 'Multi-Ball', emoji: '✨', desc: 'Split into 3 balls' },
+    slow: { cost: 0, name: 'Slow', emoji: '🐌', desc: 'Slow ball speed' },
+    life: { cost: 0, name: 'Extra Life', emoji: '❤️', desc: '+1 life' },
+    shield: { cost: 15, name: 'Shield', emoji: '🛡️', desc: 'Bottom protection' },
+    laser: { cost: 25, name: 'Laser', emoji: '🔫', desc: 'Shoot bricks!' },
+    magnet: { cost: 35, name: 'Magnet', emoji: '🧲', desc: 'Catch the ball' },
+    mega: { cost: 50, name: 'Mega Ball', emoji: '💫', desc: 'Smash through bricks' },
+    warp: { cost: 75, name: 'Warp Gate', emoji: '🌀', desc: 'Skip to next level' },
+  };
+
+  // Permanent upgrades shop
+  const upgradeShop = {
+    paddleSize: { maxLevel: 3, costPerLevel: [15, 30, 50], name: 'Paddle Size', desc: '+10px starting width' },
+    extraLife: { maxLevel: 2, costPerLevel: [30, 60], name: 'Extra Life', desc: '+1 starting life' },
+    magnetCatch: { maxLevel: 1, costPerLevel: [100], name: 'Magnet Catch', desc: 'Always catch balls' },
+    comboMaster: { maxLevel: 3, costPerLevel: [20, 40, 60], name: 'Combo Master', desc: '+0.5s combo window' },
+    luckyDrops: { maxLevel: 3, costPerLevel: [25, 50, 75], name: 'Lucky Drops', desc: '+5% drop chance' },
+    teddyPower: { maxLevel: 3, costPerLevel: [20, 40, 60], name: 'Teddy Power', desc: '+10% meter gain' },
+  };
+
+  // Character-specific rare power-ups
+  const characterRares = {
+    brick_goblin: { id: 'regen_shield', emoji: '🔄', name: 'Regen Shield', desc: 'Bricks you break stay broken', color: '#e85a50' },
+    magnet_mage: { id: 'super_magnet', emoji: '🧲', name: 'Super Magnet', desc: 'Pull all power-ups to paddle', color: '#4080e0' },
+    wind_witch: { id: 'wind_rider', emoji: '🌪️', name: 'Wind Rider', desc: 'Control ball with arrow keys', color: '#80c0a0' },
+    shadow_smith: { id: 'reveal_all', emoji: '👁️', name: 'Reveal All', desc: 'All invisible bricks shown', color: '#6040a0' },
+    fire_phoenix: { id: 'inferno', emoji: '🔥', name: 'Inferno', desc: 'Permanent fire ball', color: '#ff6030' },
+    frost_fairy: { id: 'freeze_all', emoji: '❄️', name: 'Freeze All', desc: 'Freeze all bricks (2x damage)', color: '#60c0e0' },
+    chaos_clown: { id: 'chaos_control', emoji: '🎯', name: 'Chaos Control', desc: 'Perfect aim for 10s', color: '#e060a0' },
+    portal_wizard: { id: 'portal_gun', emoji: '🌀', name: 'Portal Gun', desc: 'Click to place portals', color: '#a060e0' },
+    titan_king: { id: 'titan_strike', emoji: '⚔️', name: 'Titan Strike', desc: 'Deal 10x boss damage', color: '#ffd700' },
+    cosmic_dragon: { id: 'cosmic_power', emoji: '🐉', name: 'Cosmic Power', desc: 'All abilities combined!', color: '#ff00ff' },
+  };
 
   // Refs
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
-  const keysRef = useRef({ left: false, right: false });
+  const keysRef = useRef({ left: false, right: false, space: false, q: false, w: false, e: false });
   const lastTimeRef = useRef(Date.now());
   const comboTimerRef = useRef(null);
+  const paddleLastX = useRef(CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2);
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -189,45 +263,95 @@ const BreakoutGame = () => {
     },
   ];
 
-  // Power-up types
+  // Power-up types (only unlocked ones can spawn)
   const powerUpTypes = {
-    expand: { emoji: '📏', color: '#50c878', effect: 'Wider Paddle' },
-    shrink: { emoji: '📐', color: '#ff6b6b', effect: 'Narrower Paddle (penalty)' },
-    multi: { emoji: '✨', color: '#ffd700', effect: 'Multi-Ball' },
-    fast: { emoji: '⚡', color: '#ffff00', effect: 'Speed Up' },
-    slow: { emoji: '🐌', color: '#80c0ff', effect: 'Slow Down' },
-    life: { emoji: '❤️', color: '#ff4444', effect: '+1 Life' },
-    laser: { emoji: '🔫', color: '#ff00ff', effect: 'Laser Paddle' },
-    shield: { emoji: '🛡️', color: '#4080ff', effect: 'Bottom Shield' },
+    expand: { emoji: '📏', color: '#50c878', effect: 'Wider Paddle', weight: 3 },
+    shrink: { emoji: '📐', color: '#ff6b6b', effect: 'Shrink! (penalty)', weight: 1 },
+    multi: { emoji: '✨', color: '#ffd700', effect: 'Multi-Ball', weight: 3 },
+    fast: { emoji: '⚡', color: '#ffff00', effect: 'Speed Up', weight: 1 },
+    slow: { emoji: '🐌', color: '#80c0ff', effect: 'Slow Down', weight: 2 },
+    life: { emoji: '❤️', color: '#ff4444', effect: '+1 Life', weight: 2 },
+    laser: { emoji: '🔫', color: '#ff00ff', effect: 'Laser Paddle', weight: 2 },
+    shield: { emoji: '🛡️', color: '#4080ff', effect: 'Shield', weight: 2 },
+    magnet: { emoji: '🧲', color: '#4080e0', effect: 'Magnet Catch', weight: 2 },
+    mega: { emoji: '💫', color: '#ffd700', effect: 'Mega Ball!', weight: 1 },
+    warp: { emoji: '🌀', color: '#a060e0', effect: 'WARP GATE!', weight: 0.5 },
   };
 
   // Save stats
   useEffect(() => {
-    localStorage.setItem('breakout_rpg_stats', JSON.stringify(stats));
+    localStorage.setItem('teddyball_stats', JSON.stringify(stats));
   }, [stats]);
 
-  // Keyboard controls
+  // Keyboard controls with dash and Teddy abilities
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const now = Date.now();
+
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        // Double-tap detection for dash
+        if (!keysRef.current.left && now - lastTapLeft < 300 && dashCooldown <= 0) {
+          // Trigger dash left!
+          setIsDashing(true);
+          setDashCooldown(DASH_COOLDOWN);
+          setPaddle(p => ({ ...p, x: Math.max(0, p.x - DASH_SPEED * 4) }));
+          setTimeout(() => setIsDashing(false), 150);
+        }
+        setLastTapLeft(now);
         keysRef.current.left = true;
         e.preventDefault();
       }
       if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        // Double-tap detection for dash
+        if (!keysRef.current.right && now - lastTapRight < 300 && dashCooldown <= 0) {
+          // Trigger dash right!
+          setIsDashing(true);
+          setDashCooldown(DASH_COOLDOWN);
+          setPaddle(p => ({ ...p, x: Math.min(CANVAS_WIDTH - p.width, p.x + DASH_SPEED * 4) }));
+          setTimeout(() => setIsDashing(false), 150);
+        }
+        setLastTapRight(now);
         keysRef.current.right = true;
         e.preventDefault();
       }
+
+      // Space for launch / charge shot
       if (e.key === ' ' && gameState === 'playing') {
-        // Launch ball if attached
-        setBalls(prev => prev.map(ball =>
-          ball.attached ? { ...ball, attached: false, vy: -5 } : ball
-        ));
+        keysRef.current.space = true;
+        const hasAttached = balls.some(b => b.attached);
+        if (hasAttached) {
+          setIsCharging(true);
+        }
         e.preventDefault();
       }
+
+      // Teddy Abilities: Q, W, E
+      if (e.key === 'q' || e.key === 'Q') {
+        keysRef.current.q = true;
+        if (teddyMeter >= TEDDY_METER_MAX && !teddyAbilityActive) {
+          activateTeddyAbility('slam');
+        }
+        e.preventDefault();
+      }
+      if (e.key === 'w' || e.key === 'W') {
+        keysRef.current.w = true;
+        if (teddyMeter >= TEDDY_METER_MAX && !teddyAbilityActive) {
+          activateTeddyAbility('shield');
+        }
+        e.preventDefault();
+      }
+      if (e.key === 'e' || e.key === 'E') {
+        keysRef.current.e = true;
+        if (teddyMeter >= TEDDY_METER_MAX && !teddyAbilityActive) {
+          activateTeddyAbility('twins');
+        }
+        e.preventDefault();
+      }
+
       if (e.key === 'Escape') {
         if (gameState === 'playing') {
           setIsPaused(p => !p);
-        } else {
+        } else if (gameState !== 'menu') {
           setGameState('menu');
         }
       }
@@ -240,6 +364,31 @@ const BreakoutGame = () => {
       if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         keysRef.current.right = false;
       }
+      if (e.key === ' ') {
+        keysRef.current.space = false;
+        // Release charged shot
+        if (isCharging && gameState === 'playing') {
+          const power = Math.min(chargeLevel / 100, 1);
+          setBalls(prev => prev.map(ball => {
+            if (ball.attached) {
+              const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
+              return {
+                ...ball,
+                attached: false,
+                vy: -speed,
+                charged: power > 0.5, // Charged shot if held long enough
+                damage: 1 + Math.floor(power * 2), // Up to 3x damage
+              };
+            }
+            return ball;
+          }));
+          setIsCharging(false);
+          setChargeLevel(0);
+        }
+      }
+      if (e.key === 'q' || e.key === 'Q') keysRef.current.q = false;
+      if (e.key === 'w' || e.key === 'W') keysRef.current.w = false;
+      if (e.key === 'e' || e.key === 'E') keysRef.current.e = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -248,7 +397,41 @@ const BreakoutGame = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameState]);
+  }, [gameState, lastTapLeft, lastTapRight, dashCooldown, teddyMeter, teddyAbilityActive, isCharging, chargeLevel, balls]);
+
+  // Teddy Ability activation
+  const activateTeddyAbility = useCallback((ability) => {
+    setTeddyMeter(0);
+    setTeddyAbilityActive(ability);
+    setFlashColor('#ffd700');
+    setTimeout(() => setFlashColor(null), 200);
+
+    switch (ability) {
+      case 'slam':
+        // Next ball hit does 3x damage and breaks through 3 bricks in a line
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 TEDDY SLAM!', '#ffd700');
+        setTimeout(() => setTeddyAbilityActive(null), 10000); // 10s to use it
+        break;
+      case 'shield':
+        // 5-second invincible bottom
+        setActiveEffects(e => [...e, 'teddy_shield']);
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 TEDDY SHIELD!', '#4080ff');
+        setTimeout(() => {
+          setActiveEffects(e => e.filter(ef => ef !== 'teddy_shield'));
+          setTeddyAbilityActive(null);
+        }, 5000);
+        break;
+      case 'twins':
+        // Paddle splits into two for 10 seconds
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 TEDDY TWINS!', '#ff80ff');
+        setTwinPaddle({ active: true });
+        setTimeout(() => {
+          setTwinPaddle(null);
+          setTeddyAbilityActive(null);
+        }, 10000);
+        break;
+    }
+  }, []);
 
   // Create brick layout
   const createBricks = useCallback((level, enemy) => {
@@ -374,31 +557,62 @@ const BreakoutGame = () => {
     }]);
   }, []);
 
-  // Spawn power-up
-  const spawnPowerUp = useCallback((x, y) => {
-    const types = Object.keys(powerUpTypes);
-    // Weight towards good power-ups
-    const weights = [3, 1, 3, 2, 2, 2, 2, 2]; // expand, shrink, multi, fast, slow, life, laser, shield
-    const totalWeight = weights.reduce((a, b) => a + b, 0);
+  // Spawn power-up (only unlocked ones + character rares)
+  const spawnPowerUp = useCallback((x, y, forceRare = false) => {
+    // Check for character-specific rare drop (2% chance or forced)
+    const charRare = selectedEnemy ? characterRares[selectedEnemy.id] : null;
+    if (charRare && (forceRare || Math.random() < 0.02)) {
+      setPowerUps(prev => [...prev, {
+        id: Date.now(),
+        x, y,
+        type: 'rare_' + charRare.id,
+        vy: 2,
+        emoji: charRare.emoji,
+        color: charRare.color,
+        effect: charRare.name,
+        isRare: true,
+      }]);
+      return;
+    }
+
+    // Get unlocked power-ups only (plus penalties which are always available)
+    const unlockedTypes = stats.unlockedPowerUps.filter(t => powerUpTypes[t]);
+    const alwaysAvailable = ['shrink', 'fast']; // Penalties always spawn
+    const availableTypes = [...new Set([...unlockedTypes, ...alwaysAvailable])];
+
+    // Build weighted list
+    let totalWeight = 0;
+    const weightedTypes = availableTypes.map(type => {
+      const weight = powerUpTypes[type]?.weight || 1;
+      totalWeight += weight;
+      return { type, weight };
+    });
+
+    // Lucky drops upgrade increases weight of good power-ups
+    const luckyBonus = stats.upgrades.luckyDrops * 0.05;
+
     let rand = Math.random() * totalWeight;
-    let typeIndex = 0;
-    for (let i = 0; i < weights.length; i++) {
-      rand -= weights[i];
+    let selectedType = weightedTypes[0]?.type || 'expand';
+
+    for (const wt of weightedTypes) {
+      rand -= wt.weight;
       if (rand <= 0) {
-        typeIndex = i;
+        selectedType = wt.type;
         break;
       }
     }
-    const type = types[typeIndex];
+
+    const puType = powerUpTypes[selectedType];
+    if (!puType) return;
 
     setPowerUps(prev => [...prev, {
       id: Date.now(),
       x, y,
-      type,
+      type: selectedType,
       vy: 2,
-      ...powerUpTypes[type],
+      ...puType,
     }]);
-  }, []);
+  }, [selectedEnemy, stats.unlockedPowerUps, stats.upgrades.luckyDrops]);
 
   // Apply gimmicks
   const applyGimmick = useCallback((deltaTime) => {
@@ -483,17 +697,32 @@ const BreakoutGame = () => {
       const deltaTime = (now - lastTimeRef.current) / 16.67; // Normalize to ~60fps
       lastTimeRef.current = now;
 
-      // Move paddle
+      // Update dash cooldown
+      if (dashCooldown > 0) {
+        setDashCooldown(prev => Math.max(0, prev - 16.67));
+      }
+
+      // Update charge level when holding space with attached ball
+      if (isCharging && balls.some(b => b.attached)) {
+        setChargeLevel(prev => Math.min(100, prev + 2 * deltaTime));
+      }
+
+      // Move paddle with velocity tracking for spin
       if (!activeEffects.includes('frozen')) {
         setPaddle(prev => {
           let newX = prev.x;
-          const speed = 8 * deltaTime;
+          const speed = isDashing ? DASH_SPEED : 8;
 
-          if (keysRef.current.left) newX -= speed;
-          if (keysRef.current.right) newX += speed;
+          if (keysRef.current.left) newX -= speed * deltaTime;
+          if (keysRef.current.right) newX += speed * deltaTime;
 
           newX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, newX));
-          return { ...prev, x: newX };
+
+          // Calculate velocity for spin
+          const vx = (newX - paddleLastX.current) / deltaTime;
+          paddleLastX.current = newX;
+
+          return { ...prev, x: newX, vx };
         });
       }
 
@@ -523,7 +752,7 @@ const BreakoutGame = () => {
             y = BALL_RADIUS;
           }
 
-          // Paddle collision
+          // Paddle collision (main paddle)
           setPaddle(paddle => {
             if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
                 y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
@@ -534,19 +763,59 @@ const BreakoutGame = () => {
               const angle = (hitPos - 0.5) * Math.PI * 0.7;
               const speed = Math.sqrt(vx * vx + vy * vy);
 
-              vx = Math.sin(angle) * speed;
+              // === SPIN CONTROL: Add paddle velocity to ball ===
+              const spinFactor = paddle.vx * 0.15; // Paddle velocity affects ball
+              vx = Math.sin(angle) * speed + spinFactor;
               vy = -Math.abs(Math.cos(angle) * speed);
               y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
 
-              // Magnet paddle
-              if (selectedEnemy?.gimmick === 'magnet_paddle' && !ball.wasAttached) {
-                return paddle;
+              // Magnet catch (from upgrade or power-up or enemy gimmick)
+              const hasMagnet = stats.upgrades.magnetCatch ||
+                               activeEffects.includes('magnet') ||
+                               selectedEnemy?.gimmick === 'magnet_paddle';
+              if (hasMagnet && !ball.wasAttached) {
+                // Ball sticks - will launch on space
+                ball.attached = true;
+                ball.wasAttached = true;
               }
 
-              createParticles(x, y, '#50c878', 5);
+              // Build Teddy Meter on paddle hits
+              const meterGain = 5 * (1 + stats.upgrades.teddyPower * 0.1);
+              setTeddyMeter(prev => Math.min(TEDDY_METER_MAX, prev + meterGain));
+
+              createParticles(x, y, isDashing ? '#ffd700' : '#50c878', isDashing ? 10 : 5);
+
+              // Dash hit bonus
+              if (isDashing) {
+                addFloatingText(x, y - 20, 'DASH HIT!', '#ffd700');
+                setScore(s => s + 25);
+              }
             }
             return paddle;
           });
+
+          // Twin paddle collision (Teddy Twins ability)
+          if (twinPaddle?.active) {
+            setPaddle(paddle => {
+              // Twin is mirrored on opposite side
+              const twinX = CANVAS_WIDTH - paddle.x - paddle.width;
+              if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+                  y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
+                  x >= twinX && x <= twinX + paddle.width) {
+
+                const hitPos = (x - twinX) / paddle.width;
+                const angle = (hitPos - 0.5) * Math.PI * 0.7;
+                const speed = Math.sqrt(vx * vx + vy * vy);
+
+                vx = Math.sin(angle) * speed - (paddle.vx * 0.15); // Inverse spin
+                vy = -Math.abs(Math.cos(angle) * speed);
+                y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
+
+                createParticles(x, y, '#ff80ff', 8);
+              }
+              return paddle;
+            });
+          }
 
           // Portal collision
           if (gimmickData.portals) {
@@ -567,11 +836,20 @@ const BreakoutGame = () => {
         // Check if ball is lost
         newBalls = newBalls.filter(ball => {
           if (ball.y - BALL_RADIUS > CANVAS_HEIGHT) {
-            // Check for shield
+            // Check for teddy shield (from ability)
+            if (activeEffects.includes('teddy_shield')) {
+              ball.vy = -Math.abs(ball.vy);
+              ball.y = CANVAS_HEIGHT - BALL_RADIUS;
+              createParticles(ball.x, ball.y, '#ffd700', 15);
+              addFloatingText(ball.x, ball.y - 20, '🧸 SAVED!', '#ffd700');
+              return true;
+            }
+            // Check for regular shield
             if (activeEffects.includes('shield')) {
               ball.vy = -Math.abs(ball.vy);
               ball.y = CANVAS_HEIGHT - BALL_RADIUS;
               setActiveEffects(e => e.filter(ef => ef !== 'shield'));
+              createParticles(ball.x, ball.y, '#4080ff', 10);
               return true;
             }
             return false;
@@ -633,12 +911,34 @@ const BreakoutGame = () => {
                   brickHit = true;
                 }
 
-                // Damage brick
-                const newHealth = brick.health - 1;
+                // Calculate damage (Teddy Slam, charged shot, mega ball)
+                let damage = ball.damage || 1;
+                if (teddyAbilityActive === 'slam') {
+                  damage = 3;
+                  setTeddyAbilityActive(null); // Used up
+                  addFloatingText(brick.x + brick.width/2, brick.y, '🧸 SLAM!', '#ffd700');
+                  setScreenShake(true);
+                  setTimeout(() => setScreenShake(false), 200);
+                }
+                if (ball.mega) {
+                  damage = 99; // Mega ball destroys everything
+                }
+
+                const newHealth = brick.health - damage;
                 const points = brick.type === 'boss' ? 50 :
                                brick.type === 'explosive' ? 40 :
                                brick.type === 'steel' ? 30 :
                                brick.type === 'tough' ? 20 : 10;
+
+                // Charged shot bonus
+                if (ball.charged) {
+                  setScore(s => s + points * 0.5);
+                  ball.charged = false; // One-time bonus
+                }
+
+                // Build Teddy Meter on brick hits
+                const meterGain = (brick.type === 'boss' ? 3 : 1) * (1 + stats.upgrades.teddyPower * 0.1);
+                setTeddyMeter(prev => Math.min(TEDDY_METER_MAX, prev + meterGain));
 
                 if (newHealth <= 0) {
                   // Brick destroyed
@@ -758,6 +1058,12 @@ const BreakoutGame = () => {
   }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
 
   const applyPowerUp = (type) => {
+    // Handle character-specific rare power-ups
+    if (type.startsWith('rare_')) {
+      applyRarePowerUp(type.replace('rare_', ''));
+      return;
+    }
+
     switch (type) {
       case 'expand':
         setPaddle(p => ({ ...p, width: Math.min(200, p.width + 20) }));
@@ -796,6 +1102,88 @@ const BreakoutGame = () => {
         break;
       case 'shield':
         setActiveEffects(e => [...e, 'shield']);
+        break;
+      case 'magnet':
+        setActiveEffects(e => [...e, 'magnet']);
+        setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'magnet')), 15000);
+        break;
+      case 'mega':
+        // Mega ball - smashes through everything!
+        setBalls(prev => prev.map(ball => ({ ...ball, mega: true, burning: true })));
+        setFlashColor('#ffd700');
+        setTimeout(() => setFlashColor(null), 300);
+        setTimeout(() => {
+          setBalls(prev => prev.map(ball => ({ ...ball, mega: false, burning: false })));
+        }, 8000);
+        break;
+      case 'warp':
+        // Warp gate - skip to next level!
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🌀 WARP!', '#a060e0');
+        setFlashColor('#a060e0');
+        setTimeout(() => {
+          handleLevelComplete();
+          setFlashColor(null);
+        }, 500);
+        break;
+    }
+  };
+
+  // Apply character-specific rare power-ups
+  const applyRarePowerUp = (rareId) => {
+    setFlashColor('#ffd700');
+    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '⭐ RARE DROP!', '#ffd700');
+    setTimeout(() => setFlashColor(null), 300);
+
+    switch (rareId) {
+      case 'regen_shield': // Brick Goblin - bricks stay broken
+        setGimmickData(d => ({ ...d, noRegen: true }));
+        setTimeout(() => setGimmickData(d => ({ ...d, noRegen: false })), 20000);
+        break;
+      case 'super_magnet': // Magnet Mage - pull all power-ups
+        setActiveEffects(e => [...e, 'super_magnet']);
+        setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'super_magnet')), 15000);
+        break;
+      case 'wind_rider': // Wind Witch - control ball with arrows
+        setActiveEffects(e => [...e, 'wind_control']);
+        setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'wind_control')), 10000);
+        break;
+      case 'reveal_all': // Shadow Smith - reveal invisible bricks
+        setBricks(prev => prev.map(b => ({ ...b, invisible: false })));
+        break;
+      case 'inferno': // Fire Phoenix - permanent fire
+        setBalls(prev => prev.map(ball => ({ ...ball, burning: true, permaBurn: true })));
+        break;
+      case 'freeze_all': // Frost Fairy - freeze all bricks
+        setBricks(prev => prev.map(b => ({ ...b, frozen: true, health: Math.ceil(b.health / 2) })));
+        addFloatingText(CANVAS_WIDTH / 2, 100, '❄️ ALL FROZEN!', '#80e0ff');
+        break;
+      case 'chaos_control': // Chaos Clown - perfect aim
+        setActiveEffects(e => [...e, 'perfect_aim']);
+        setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'perfect_aim')), 10000);
+        break;
+      case 'portal_gun': // Portal Wizard - controllable portals
+        // TODO: Click to place portals
+        setGimmickData(d => ({
+          ...d,
+          portals: [
+            { x: 100, y: 200 },
+            { x: CANVAS_WIDTH - 100, y: 200 }
+          ],
+          portalLife: 600
+        }));
+        break;
+      case 'titan_strike': // Titan King - 10x boss damage
+        setActiveEffects(e => [...e, 'titan_strike']);
+        setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'titan_strike')), 15000);
+        break;
+      case 'cosmic_power': // Cosmic Dragon - everything!
+        setBalls(prev => prev.map(ball => ({ ...ball, mega: true, burning: true })));
+        setActiveEffects(e => [...e, 'laser', 'shield', 'slow']);
+        setPaddle(p => ({ ...p, width: Math.min(200, p.width + 40) }));
+        setTimeout(() => {
+          setBalls(prev => prev.map(ball => ({ ...ball, mega: false })));
+          setActiveEffects(e => e.filter(ef => !['laser', 'slow'].includes(ef)));
+        }, 10000);
         break;
     }
   };
@@ -862,10 +1250,17 @@ const BreakoutGame = () => {
     setScreenShake(true);
     setTimeout(() => setScreenShake(false), 500);
 
+    // Award stars based on performance
+    const levelStars = currentLevel; // 1 star per level reached
+    const comboStars = Math.floor(maxCombo / 10); // 1 star per 10 combo
+    const scoreStars = Math.floor(score / 500); // 1 star per 500 points
+    const totalNewStars = levelStars + comboStars + scoreStars;
+
     setStats(s => ({
       ...s,
       totalScore: s.totalScore + score,
       gamesPlayed: s.gamesPlayed + 1,
+      stars: s.stars + totalNewStars,
       highScores: {
         ...s.highScores,
         [selectedEnemy?.id]: Math.max(s.highScores[selectedEnemy?.id] || 0, score)
@@ -876,18 +1271,62 @@ const BreakoutGame = () => {
   const startGame = (enemy) => {
     setSelectedEnemy(enemy);
     setScore(0);
-    setLives(3);
+
+    // Apply upgrades
+    const startingLives = 3 + stats.upgrades.extraLife;
+    const startingWidth = PADDLE_WIDTH + (stats.upgrades.paddleSize * 10);
+
+    setLives(startingLives);
     setCurrentLevel(1);
     setCombo(0);
     setMaxCombo(0);
-    setPaddle({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH });
+    setPaddle({ x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 });
     setBalls([createBall(1)]);
     setBricks(createBricks(1, enemy));
     setPowerUps([]);
     setActiveEffects([]);
     setGimmickData({});
+    setTeddyMeter(0);
+    setTeddyAbilityActive(null);
+    setTwinPaddle(null);
+    setChargeLevel(0);
+    setIsCharging(false);
+    setDashCooldown(0);
     setGameState('playing');
     setIsPaused(false);
+  };
+
+  // Purchase upgrade
+  const purchaseUpgrade = (upgradeId) => {
+    const upgrade = upgradeShop[upgradeId];
+    const currentLevel = stats.upgrades[upgradeId] || 0;
+
+    if (currentLevel >= upgrade.maxLevel) return;
+
+    const cost = upgrade.costPerLevel[currentLevel];
+    if (stats.stars < cost) return;
+
+    setStats(prev => ({
+      ...prev,
+      stars: prev.stars - cost,
+      upgrades: {
+        ...prev.upgrades,
+        [upgradeId]: currentLevel + 1,
+      }
+    }));
+  };
+
+  // Unlock power-up
+  const unlockPowerUp = (powerUpId) => {
+    const pu = powerUpUnlocks[powerUpId];
+    if (!pu || stats.unlockedPowerUps.includes(powerUpId)) return;
+    if (stats.stars < pu.cost) return;
+
+    setStats(prev => ({
+      ...prev,
+      stars: prev.stars - pu.cost,
+      unlockedPowerUps: [...prev.unlockedPowerUps, powerUpId],
+    }));
   };
 
   // Render game
@@ -906,7 +1345,7 @@ const BreakoutGame = () => {
         justifyContent: 'space-between',
         alignItems: 'center',
         width: CANVAS_WIDTH,
-        marginBottom: '12px',
+        marginBottom: '8px',
         padding: '10px 16px',
         background: 'rgba(0,0,0,0.4)',
         borderRadius: '10px',
@@ -932,6 +1371,71 @@ const BreakoutGame = () => {
           </div>
         </div>
       </div>
+
+      {/* Teddy Meter Bar */}
+      <div style={{
+        width: CANVAS_WIDTH,
+        marginBottom: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      }}>
+        <span style={{ fontSize: '20px' }}>🧸</span>
+        <div style={{
+          flex: 1,
+          height: '12px',
+          background: 'rgba(0,0,0,0.4)',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          position: 'relative',
+        }}>
+          <div style={{
+            width: `${(teddyMeter / TEDDY_METER_MAX) * 100}%`,
+            height: '100%',
+            background: teddyMeter >= TEDDY_METER_MAX
+              ? 'linear-gradient(90deg, #ffd700, #ff8800)'
+              : 'linear-gradient(90deg, #8b5a2b, #d2691e)',
+            transition: 'width 0.2s',
+            boxShadow: teddyMeter >= TEDDY_METER_MAX ? '0 0 10px #ffd700' : 'none',
+          }} />
+          {teddyMeter >= TEDDY_METER_MAX && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '10px',
+              fontWeight: '800',
+              color: '#fff',
+              textShadow: '0 0 5px #000',
+              animation: 'pulse 0.5s ease-in-out infinite',
+            }}>
+              READY! Q/W/E
+            </div>
+          )}
+        </div>
+        {teddyMeter >= TEDDY_METER_MAX && (
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ffd70033', borderRadius: '4px', color: '#ffd700' }}>Q:Slam</span>
+            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#4080ff33', borderRadius: '4px', color: '#4080ff' }}>W:Shield</span>
+            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ff80ff33', borderRadius: '4px', color: '#ff80ff' }}>E:Twins</span>
+          </div>
+        )}
+      </div>
+
+      {/* Dash cooldown indicator */}
+      {dashCooldown > 0 && (
+        <div style={{
+          width: CANVAS_WIDTH,
+          marginBottom: '4px',
+          fontSize: '11px',
+          color: '#888',
+          textAlign: 'center',
+        }}>
+          Dash: {Math.ceil(dashCooldown / 1000)}s ⏱️
+        </div>
+      )}
 
       {/* Active effects */}
       {activeEffects.length > 0 && (
@@ -1099,13 +1603,23 @@ const BreakoutGame = () => {
               top: ball.attached ? CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS * 2 : ball.y - BALL_RADIUS,
               width: BALL_RADIUS * 2,
               height: BALL_RADIUS * 2,
-              background: ball.burning
-                ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
-                : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)',
+              background: ball.mega
+                ? 'radial-gradient(circle, #ffd700 0%, #ff8800 50%, #ff4400 100%)'
+                : ball.burning
+                  ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
+                  : ball.charged
+                    ? 'radial-gradient(circle, #60ff60 0%, #40c040 100%)'
+                    : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)',
               borderRadius: '50%',
-              boxShadow: ball.burning
-                ? '0 0 15px #ff6030, 0 0 30px #ff3000'
-                : '0 0 10px rgba(255,255,255,0.5)',
+              boxShadow: ball.mega
+                ? '0 0 20px #ffd700, 0 0 40px #ff8800, 0 0 60px #ff4400'
+                : ball.burning
+                  ? '0 0 15px #ff6030, 0 0 30px #ff3000'
+                  : ball.charged
+                    ? '0 0 15px #60ff60'
+                    : '0 0 10px rgba(255,255,255,0.5)',
+              transform: ball.mega ? 'scale(1.5)' : 'scale(1)',
+              transition: 'transform 0.2s',
             }}
           />
         ))}
@@ -1121,14 +1635,57 @@ const BreakoutGame = () => {
             ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
             : activeEffects.includes('laser')
               ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
-              : 'linear-gradient(180deg, #60a0ff, #4080e0)',
+              : isDashing
+                ? 'linear-gradient(180deg, #ffd700, #ff8800)'
+                : 'linear-gradient(180deg, #60a0ff, #4080e0)',
           borderRadius: '6px',
           boxShadow: activeEffects.includes('frozen')
             ? '0 0 20px #80e0ff'
             : activeEffects.includes('laser')
               ? '0 0 20px #ff60ff'
-              : '0 0 15px rgba(96, 160, 255, 0.5)',
+              : isDashing
+                ? '0 0 25px #ffd700'
+                : '0 0 15px rgba(96, 160, 255, 0.5)',
+          transition: isDashing ? 'none' : 'left 0.05s',
         }} />
+
+        {/* Twin Paddle (Teddy Twins ability) */}
+        {twinPaddle?.active && (
+          <div style={{
+            position: 'absolute',
+            left: CANVAS_WIDTH - paddle.x - paddle.width,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - 10,
+            width: paddle.width,
+            height: PADDLE_HEIGHT,
+            background: 'linear-gradient(180deg, #ff80ff, #c060c0)',
+            borderRadius: '6px',
+            boxShadow: '0 0 20px #ff80ff',
+            opacity: 0.9,
+          }} />
+        )}
+
+        {/* Charge bar when holding space with attached ball */}
+        {isCharging && balls.some(b => b.attached) && (
+          <div style={{
+            position: 'absolute',
+            left: paddle.x,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - 25,
+            width: paddle.width,
+            height: 6,
+            background: 'rgba(0,0,0,0.5)',
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${chargeLevel}%`,
+              height: '100%',
+              background: chargeLevel > 50
+                ? 'linear-gradient(90deg, #ffd700, #ff4400)'
+                : 'linear-gradient(90deg, #60a0ff, #4080e0)',
+              transition: 'width 0.1s',
+            }} />
+          </div>
+        )}
 
         {/* Shield indicator */}
         {activeEffects.includes('shield') && (
@@ -1245,9 +1802,12 @@ const BreakoutGame = () => {
       <div style={{
         marginTop: '12px',
         color: '#5a5a8a',
-        fontSize: '12px',
+        fontSize: '11px',
+        textAlign: 'center',
       }}>
-        Arrow keys or A/D to move • SPACE to launch • ESC to pause
+        A/D to move • Double-tap to DASH • Hold SPACE to charge shot
+        <br />
+        Q/W/E for Teddy abilities when meter is full • ESC to pause
       </div>
 
       <style>{`
@@ -1281,39 +1841,77 @@ const BreakoutGame = () => {
         fontSize: '80px',
         marginBottom: '20px',
         animation: 'bounce 1s ease-in-out infinite',
-      }}>🧱</div>
+      }}>🧸</div>
       <h1 style={{
         fontSize: '48px',
         fontWeight: '900',
         marginBottom: '8px',
-        background: 'linear-gradient(135deg, #ff6b6b 0%, #ffd700 50%, #60c0ff 100%)',
+        background: 'linear-gradient(135deg, #d2691e 0%, #ffd700 50%, #8b4513 100%)',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-      }}>RPG BREAKOUT</h1>
-      <p style={{ color: '#8888aa', marginBottom: '40px' }}>Break bricks, collect power-ups, defeat bosses!</p>
+      }}>TEDDYBALL</h1>
+      <p style={{ color: '#8888aa', marginBottom: '30px' }}>Dash, Spin, Charge, and Smash!</p>
 
-      <button
-        onClick={() => setGameState('select')}
-        style={{
-          padding: '16px 48px',
-          fontSize: '20px',
-          fontWeight: '700',
-          background: 'linear-gradient(135deg, #4080e0, #6040a0)',
-          border: 'none',
-          borderRadius: '12px',
-          color: '#fff',
-          cursor: 'pointer',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          boxShadow: '0 4px 20px rgba(64, 128, 224, 0.4)',
-        }}
-        onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
-        onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
-      >
-        SELECT ENEMY
-      </button>
+      {/* Stars display */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '30px',
+        padding: '10px 24px',
+        background: 'rgba(255, 215, 0, 0.1)',
+        borderRadius: '20px',
+        border: '1px solid rgba(255, 215, 0, 0.3)',
+      }}>
+        <span style={{ fontSize: '24px' }}>⭐</span>
+        <span style={{ fontSize: '24px', fontWeight: '800', color: '#ffd700' }}>{stats.stars}</span>
+        <span style={{ fontSize: '12px', color: '#888' }}>Stars</span>
+      </div>
 
-      <div style={{ marginTop: '40px', color: '#6a6a8a', fontSize: '14px' }}>
-        <p>Games Played: {stats.gamesPlayed} | Levels Completed: {stats.levelsCompleted}</p>
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
+        <button
+          onClick={() => setGameState('select')}
+          style={{
+            padding: '16px 40px',
+            fontSize: '18px',
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #4080e0, #6040a0)',
+            border: 'none',
+            borderRadius: '12px',
+            color: '#fff',
+            cursor: 'pointer',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            boxShadow: '0 4px 20px rgba(64, 128, 224, 0.4)',
+          }}
+          onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+        >
+          🎮 PLAY
+        </button>
+
+        <button
+          onClick={() => setGameState('shop')}
+          style={{
+            padding: '16px 40px',
+            fontSize: '18px',
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #ffd700, #ff8800)',
+            border: 'none',
+            borderRadius: '12px',
+            color: '#1a1a2e',
+            cursor: 'pointer',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            boxShadow: '0 4px 20px rgba(255, 215, 0, 0.4)',
+          }}
+          onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+        >
+          🛒 SHOP
+        </button>
+      </div>
+
+      <div style={{ marginTop: '20px', color: '#6a6a8a', fontSize: '14px' }}>
+        <p>Games: {stats.gamesPlayed} | Levels: {stats.levelsCompleted}</p>
       </div>
 
       <button
@@ -1335,6 +1933,10 @@ const BreakoutGame = () => {
         @keyframes bounce {
           0%, 100% { transform: translateY(0) rotate(-5deg); }
           50% { transform: translateY(-15px) rotate(5deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </div>
@@ -1522,6 +2124,168 @@ const BreakoutGame = () => {
       >
         Main Menu
       </button>
+
+      {/* Stars earned display */}
+      <div style={{
+        marginTop: '20px',
+        padding: '10px 20px',
+        background: 'rgba(255, 215, 0, 0.1)',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 215, 0, 0.3)',
+      }}>
+        <span style={{ color: '#ffd700' }}>
+          ⭐ +{currentLevel + Math.floor(maxCombo / 10) + Math.floor(score / 500)} Stars Earned!
+        </span>
+      </div>
+    </div>
+  );
+
+  const renderShop = () => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '40px',
+      color: '#fff',
+      minHeight: '100vh',
+      overflowY: 'auto',
+    }}>
+      <h2 style={{
+        fontSize: '36px',
+        fontWeight: '800',
+        marginBottom: '8px',
+        background: 'linear-gradient(135deg, #ffd700, #ff8800)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      }}>🛒 TEDDY SHOP</h2>
+
+      {/* Stars balance */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '30px',
+        padding: '10px 24px',
+        background: 'rgba(255, 215, 0, 0.1)',
+        borderRadius: '20px',
+        border: '1px solid rgba(255, 215, 0, 0.3)',
+      }}>
+        <span style={{ fontSize: '24px' }}>⭐</span>
+        <span style={{ fontSize: '24px', fontWeight: '800', color: '#ffd700' }}>{stats.stars}</span>
+      </div>
+
+      {/* Upgrades Section */}
+      <h3 style={{ color: '#60a0ff', marginBottom: '16px' }}>⬆️ Permanent Upgrades</h3>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '12px',
+        maxWidth: '700px',
+        width: '100%',
+        marginBottom: '30px',
+      }}>
+        {Object.entries(upgradeShop).map(([id, upgrade]) => {
+          const currentLevel = stats.upgrades[id] || 0;
+          const isMaxed = currentLevel >= upgrade.maxLevel;
+          const cost = isMaxed ? 0 : upgrade.costPerLevel[currentLevel];
+          const canAfford = stats.stars >= cost;
+
+          return (
+            <div
+              key={id}
+              onClick={() => !isMaxed && canAfford && purchaseUpgrade(id)}
+              style={{
+                background: isMaxed
+                  ? 'rgba(80, 200, 120, 0.2)'
+                  : canAfford
+                    ? 'rgba(255, 215, 0, 0.1)'
+                    : 'rgba(100, 100, 100, 0.1)',
+                border: `2px solid ${isMaxed ? '#50c878' : canAfford ? '#ffd700' : '#444'}`,
+                borderRadius: '10px',
+                padding: '14px',
+                cursor: isMaxed ? 'default' : canAfford ? 'pointer' : 'not-allowed',
+                opacity: isMaxed ? 1 : canAfford ? 1 : 0.6,
+                transition: 'transform 0.2s',
+              }}
+              onMouseOver={(e) => { if (!isMaxed && canAfford) e.currentTarget.style.transform = 'scale(1.03)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '4px' }}>{upgrade.name}</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>{upgrade.desc}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#666' }}>
+                  Lv {currentLevel}/{upgrade.maxLevel}
+                </div>
+                {isMaxed ? (
+                  <span style={{ color: '#50c878', fontSize: '12px' }}>✓ MAX</span>
+                ) : (
+                  <span style={{ color: canAfford ? '#ffd700' : '#666', fontSize: '12px' }}>⭐ {cost}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Power-ups Section */}
+      <h3 style={{ color: '#ff80ff', marginBottom: '16px' }}>⚡ Unlock Power-Ups</h3>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: '10px',
+        maxWidth: '700px',
+        width: '100%',
+        marginBottom: '30px',
+      }}>
+        {Object.entries(powerUpUnlocks).map(([id, pu]) => {
+          const isUnlocked = stats.unlockedPowerUps.includes(id);
+          const canAfford = stats.stars >= pu.cost;
+
+          return (
+            <div
+              key={id}
+              onClick={() => !isUnlocked && pu.cost > 0 && canAfford && unlockPowerUp(id)}
+              style={{
+                background: isUnlocked
+                  ? 'rgba(80, 200, 120, 0.2)'
+                  : canAfford
+                    ? 'rgba(255, 128, 255, 0.1)'
+                    : 'rgba(100, 100, 100, 0.1)',
+                border: `2px solid ${isUnlocked ? '#50c878' : canAfford ? '#ff80ff' : '#444'}`,
+                borderRadius: '10px',
+                padding: '12px',
+                textAlign: 'center',
+                cursor: isUnlocked || pu.cost === 0 ? 'default' : canAfford ? 'pointer' : 'not-allowed',
+                opacity: isUnlocked ? 1 : canAfford ? 1 : 0.5,
+              }}
+            >
+              <div style={{ fontSize: '28px', marginBottom: '4px' }}>{pu.emoji}</div>
+              <div style={{ fontWeight: '600', fontSize: '12px' }}>{pu.name}</div>
+              <div style={{ fontSize: '10px', color: '#888', marginBottom: '6px' }}>{pu.desc}</div>
+              {isUnlocked || pu.cost === 0 ? (
+                <span style={{ color: '#50c878', fontSize: '11px' }}>✓ Unlocked</span>
+              ) : (
+                <span style={{ color: canAfford ? '#ffd700' : '#666', fontSize: '11px' }}>⭐ {pu.cost}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => setGameState('menu')}
+        style={{
+          padding: '12px 32px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          color: '#fff',
+          cursor: 'pointer',
+          fontSize: '16px',
+        }}
+      >
+        ← Back to Menu
+      </button>
     </div>
   );
 
@@ -1533,6 +2297,7 @@ const BreakoutGame = () => {
     }}>
       {gameState === 'menu' && renderMenu()}
       {gameState === 'select' && renderEnemySelect()}
+      {gameState === 'shop' && renderShop()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>
