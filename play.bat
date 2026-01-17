@@ -39,12 +39,14 @@ echo.
 echo    [1] Open Game Menu (all games)
 echo    [2] Ultimate Tic Tac Toe
 echo    [3] Tower Defense
-echo    [4] Exit
+echo    [4] RPG Snake
+echo    [5] RPG Breakout
+echo    [6] Exit
 echo.
 echo  ================================
 echo.
 
-set /p choice="  Enter your choice (1-4): "
+set /p choice="  Enter your choice (1-6): "
 
 if "%choice%"=="1" (
     start "" http://localhost:8000/menu.html
@@ -53,6 +55,10 @@ if "%choice%"=="1" (
 ) else if "%choice%"=="3" (
     start "" http://localhost:8000/tower-defense.html
 ) else if "%choice%"=="4" (
+    start "" http://localhost:8000/snake.html
+) else if "%choice%"=="5" (
+    start "" http://localhost:8000/breakout.html
+) else if "%choice%"=="6" (
     echo  Goodbye!
     exit /b 0
 ) else (

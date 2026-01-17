@@ -145,6 +145,22 @@
       --card-glow: rgba(80, 200, 120, 0.3);
     }
 
+    /* Snake colors */
+    .game-card.snake {
+      --card-color: #50c878;
+      --card-color-light: rgba(80, 200, 120, 0.4);
+      --card-color-dark: rgba(80, 200, 120, 0.2);
+      --card-glow: rgba(80, 200, 120, 0.3);
+    }
+
+    /* Breakout colors */
+    .game-card.breakout {
+      --card-color: #e85a50;
+      --card-color-light: rgba(232, 90, 80, 0.4);
+      --card-color-dark: rgba(232, 90, 80, 0.2);
+      --card-glow: rgba(232, 90, 80, 0.3);
+    }
+
     .footer {
       margin-top: 48px;
       color: #5a5478;
@@ -199,6 +215,24 @@
         <div class="game-info">
           <div class="game-title">Tower Defense</div>
           <div class="game-desc">Build mazes, place towers, defend against waves of enemies. Strategic tower placement is key!</div>
+        </div>
+        <div class="game-arrow">→</div>
+      </a>
+
+      <a href="snake.html" class="game-card snake">
+        <div class="game-icon">🐍</div>
+        <div class="game-info">
+          <div class="game-title">RPG Snake</div>
+          <div class="game-desc">Classic snake with RPG twist! Face unique enemies with special abilities, collect power-ups, survive waves!</div>
+        </div>
+        <div class="game-arrow">→</div>
+      </a>
+
+      <a href="breakout.html" class="game-card breakout">
+        <div class="game-icon">🧱</div>
+        <div class="game-info">
+          <div class="game-title">RPG Breakout</div>
+          <div class="game-desc">Break bricks, collect power-ups, defeat bosses! Each enemy has unique brick abilities to challenge you.</div>
         </div>
         <div class="game-arrow">→</div>
       </a>
