@@ -25,9 +25,38 @@ All world-specific gimmicks are now **active in gameplay**.
 
 ## Meta-Game Integration
 
-| Priority | Task | Description |
-|----------|------|-------------|
-| [ ] | **Single-Session Mode** | For Teddy's Review Roundup integration - play one "run" when triggered, earn stars, return to main game |
+| Status | Task | Description |
+|--------|------|-------------|
+| [x] | **Single-Session Mode** | For Teddy's Review Roundup integration - play one "run" when triggered, earn stars, return to main game |
+
+### Single-Session Mode Usage
+
+**URL Parameters:**
+```
+tower-defense.html?session=true&world=2&callback=parent.towerDefenseComplete
+```
+
+- `session=true` - Enables single-session mode
+- `world=0-9` - Starting world (optional, defaults to 0)
+- `callback=path.to.function` - JavaScript callback path (optional)
+
+**Results are communicated via:**
+1. Callback function (if provided)
+2. postMessage to parent window (for iframe integration)
+   - `towerDefenseSessionComplete` - Contains results object
+   - `towerDefenseClose` - User clicked close button
+
+**Results object:**
+```javascript
+{
+  worldsCompleted: [{ worldId, worldName, stars, kills }],
+  totalStars: number,
+  totalKills: number,
+  sessionWorld: number,
+  outcome: 'victory' | 'defeat' | 'quit',
+  timestamp: number
+}
+```
 
 ---
 
