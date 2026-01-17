@@ -104,6 +104,7 @@ const TowerDefenseGame = () => {
   const pathRef = useRef(path);
   const goldRef = useRef(gold);
   const beamDamageRef = useRef([]); // PERF: Collect beam damage to apply in batch
+  const projectileDamageRef = useRef([]); // Collect projectile damage to apply in batch
 
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
   useEffect(() => { towersRef.current = towers; }, [towers]);
@@ -177,88 +178,88 @@ const TowerDefenseGame = () => {
   // Tower damage types for resistance calculations
   const towerTypes = {
     arrow: {
-      id: 'arrow', name: 'Arrow', emoji: '🏹', cost: 30, hotkey: '1',
+      id: 'arrow', name: 'Archer', emoji: '🏹', cost: 30, hotkey: '1',
       damage: 12, range: 3.5, fireRate: 700, color: '#2ed573',
       projectileSpeed: 18, projectileSize: 4, critChance: 0.15,
       damageType: 'physical',
       desc: 'Fast • 15% crit',
       upgrades: [
-        { cost: 40, damage: 18, fireRate: 600, name: 'Sharp' },
-        { cost: 80, damage: 28, fireRate: 500, critChance: 0.25, name: 'Precise' },
-        { cost: 150, damage: 40, fireRate: 400, critChance: 0.35, range: 4, name: 'Master' },
+        { cost: 40, damage: 18, fireRate: 600, name: 'Marksman' },
+        { cost: 80, damage: 28, fireRate: 500, critChance: 0.25, name: 'Sharpshot' },
+        { cost: 150, damage: 40, fireRate: 400, critChance: 0.35, range: 4, name: 'Deadeye' },
       ]
     },
     cannon: {
-      id: 'cannon', name: 'Cannon', emoji: '💣', cost: 60, hotkey: '2',
+      id: 'cannon', name: 'Bomber', emoji: '💣', cost: 60, hotkey: '2',
       damage: 45, range: 2.8, fireRate: 1800, color: '#ff6b35',
       splash: 1.2, projectileSpeed: 10, projectileSize: 8,
       damageType: 'fire',
       desc: 'Splash damage',
       upgrades: [
-        { cost: 50, damage: 65, splash: 1.4, name: 'Big' },
-        { cost: 100, damage: 90, splash: 1.6, fireRate: 1600, name: 'Heavy' },
-        { cost: 180, damage: 130, splash: 2, fireRate: 1400, name: 'Mega' },
+        { cost: 50, damage: 65, splash: 1.4, name: 'Grenadier' },
+        { cost: 100, damage: 90, splash: 1.6, fireRate: 1600, name: 'Demolisher' },
+        { cost: 180, damage: 130, splash: 2, fireRate: 1400, name: 'Pyro' },
       ]
     },
     sniper: {
-      id: 'sniper', name: 'Sniper', emoji: '🎯', cost: 80, hotkey: '3',
+      id: 'sniper', name: 'Ranger', emoji: '🎯', cost: 80, hotkey: '3',
       damage: 75, range: 6, fireRate: 2200, color: '#5352ed',
       projectileSpeed: 30, projectileSize: 3,
       damageType: 'physical',
       desc: 'Long range',
       upgrades: [
-        { cost: 60, damage: 110, range: 7, name: 'Scope' },
-        { cost: 120, damage: 160, name: 'Pierce' },
-        { cost: 200, damage: 250, range: 8, fireRate: 1800, name: 'Rail' },
+        { cost: 60, damage: 110, range: 7, name: 'Scout' },
+        { cost: 120, damage: 160, name: 'Hunter' },
+        { cost: 200, damage: 250, range: 8, fireRate: 1800, name: 'Assassin' },
       ]
     },
     frost: {
-      id: 'frost', name: 'Frost', emoji: '❄️', cost: 50, hotkey: '4',
+      id: 'frost', name: 'Cryomancer', emoji: '❄️', cost: 50, hotkey: '4',
       damage: 8, range: 3, fireRate: 500, color: '#70c9ff',
       slow: 0.4, slowDuration: 2500, projectileSpeed: 14, projectileSize: 6,
       damageType: 'frost',
       desc: 'Slows 40%',
       upgrades: [
-        { cost: 45, slow: 0.5, slowDuration: 3000, name: 'Deep' },
-        { cost: 90, slow: 0.6, slowDuration: 3500, damage: 15, name: 'Perma' },
-        { cost: 160, slow: 0.7, slowDuration: 4000, damage: 25, range: 3.5, name: 'Zero' },
+        { cost: 45, slow: 0.5, slowDuration: 3000, name: 'Frostbite' },
+        { cost: 90, slow: 0.6, slowDuration: 3500, damage: 15, name: 'Blizzard' },
+        { cost: 160, slow: 0.7, slowDuration: 4000, damage: 25, range: 3.5, name: 'Ice Lord' },
       ]
     },
     lightning: {
-      id: 'lightning', name: 'Tesla', emoji: '⚡', cost: 100, hotkey: '5',
+      id: 'lightning', name: 'Stormcaller', emoji: '⚡', cost: 100, hotkey: '5',
       damage: 20, range: 3.2, fireRate: 350, color: '#fff200',
       chain: 4, chainDamageDecay: 0.7, projectileSpeed: 50, projectileSize: 2,
       damageType: 'lightning',
       desc: 'Chain ×4',
       upgrades: [
-        { cost: 70, damage: 30, chain: 5, name: 'Arc' },
-        { cost: 140, damage: 45, chain: 6, chainDamageDecay: 0.8, name: 'Over' },
-        { cost: 220, damage: 65, chain: 8, fireRate: 280, name: 'Storm' },
+        { cost: 70, damage: 30, chain: 5, name: 'Voltmage' },
+        { cost: 140, damage: 45, chain: 6, chainDamageDecay: 0.8, name: 'Tempest' },
+        { cost: 220, damage: 65, chain: 8, fireRate: 280, name: 'Thunder God' },
       ]
     },
     poison: {
-      id: 'poison', name: 'Plague', emoji: '☠️', cost: 70, hotkey: '6',
+      id: 'poison', name: 'Warlock', emoji: '☠️', cost: 70, hotkey: '6',
       damage: 5, range: 2.5, fireRate: 1200, color: '#a55eea',
       poisonDamage: 8, poisonDuration: 4000, splashPoison: 0.8,
       projectileSpeed: 12, projectileSize: 7,
       damageType: 'poison',
       desc: 'DoT + AoE',
       upgrades: [
-        { cost: 55, poisonDamage: 14, poisonDuration: 5000, name: 'Viral' },
-        { cost: 110, poisonDamage: 22, splashPoison: 1.2, name: 'Plague' },
-        { cost: 190, poisonDamage: 35, poisonDuration: 6000, damage: 15, name: 'Blight' },
+        { cost: 55, poisonDamage: 14, poisonDuration: 5000, name: 'Hexer' },
+        { cost: 110, poisonDamage: 22, splashPoison: 1.2, name: 'Plaguebearer' },
+        { cost: 190, poisonDamage: 35, poisonDuration: 6000, damage: 15, name: 'Lich' },
       ]
     },
     laser: {
-      id: 'laser', name: 'Laser', emoji: '🔴', cost: 120, hotkey: '7',
+      id: 'laser', name: 'Pyromancer', emoji: '🔴', cost: 120, hotkey: '7',
       damage: 3, range: 4, fireRate: 50, color: '#ff4757',
       beam: true, projectileSpeed: 999, projectileSize: 3,
       damageType: 'fire',
       desc: 'Continuous',
       upgrades: [
-        { cost: 80, damage: 5, range: 4.5, name: 'Focus' },
-        { cost: 150, damage: 8, range: 5, name: 'High' },
-        { cost: 250, damage: 12, range: 5.5, name: 'Death' },
+        { cost: 80, damage: 5, range: 4.5, name: 'Firebrand' },
+        { cost: 150, damage: 8, range: 5, name: 'Inferno' },
+        { cost: 250, damage: 12, range: 5.5, name: 'Phoenix' },
       ]
     },
   };
@@ -704,12 +705,46 @@ const TowerDefenseGame = () => {
         setCurrentFps(Math.round(avgFps));
       }
 
+      // Apply pending projectile damage BEFORE enemy update (so death check sees updated health)
+      const pendingProjDamage = projectileDamageRef.current;
+      projectileDamageRef.current = [];
+
       // Update enemies
       setEnemies(prevEnemies => {
+        // First apply any pending projectile damage
+        let enemies = prevEnemies;
+        if (pendingProjDamage.length > 0) {
+          enemies = prevEnemies.map(enemy => {
+            const damages = pendingProjDamage.filter(d => d.targetId === enemy.id);
+            if (damages.length === 0) return enemy;
+
+            let updatedEnemy = { ...enemy };
+            for (const dmg of damages) {
+              // Apply damage
+              if (dmg.shieldDamage && updatedEnemy.currentShield > 0) {
+                updatedEnemy.currentShield = Math.max(0, updatedEnemy.currentShield - dmg.shieldDamage);
+              }
+              updatedEnemy.currentHealth -= dmg.damage;
+              updatedEnemy.hitFlash = dmg.hitFlash || 1;
+
+              // Apply effects
+              if (dmg.slow) {
+                updatedEnemy.slowedUntil = dmg.slowedUntil;
+                updatedEnemy.slowAmount = dmg.slowAmount;
+              }
+              if (dmg.poison) {
+                updatedEnemy.poisonedUntil = dmg.poisonedUntil;
+                updatedEnemy.poisonDamage = dmg.poisonDamage;
+              }
+            }
+            return updatedEnemy;
+          });
+        }
+
         const newEnemies = [];
         const enemiesToSpawn = [];
 
-        for (const enemy of prevEnemies) {
+        for (const enemy of enemies) {
           // Check if enemy has completed the path
           const pathLength = pathRef.current.length;
           const endX = END.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
@@ -1105,81 +1140,87 @@ const TowerDefenseGame = () => {
           proj.progress += (proj.speed / 100) * (deltaTime / 16);
 
           if (proj.progress >= 1) {
-            setEnemies(enemies => {
-              return enemies.map(enemy => {
-                if (proj.chainedEnemies.includes(enemy.id)) return enemy;
+            // Queue damage to be applied at start of next enemy update
+            const targetEnemy = enemiesRef.current.find(e => e.id === proj.targetId);
+            if (targetEnemy && !proj.chainedEnemies.includes(targetEnemy.id)) {
+              const resistance = targetEnemy.resist?.[proj.damageType] || 0;
+              const resistMult = 1 - resistance;
+              let remainingDamage = Math.floor(proj.damage * resistMult);
+              let shieldDamage = 0;
 
-                if (enemy.id === proj.targetId) {
-                  // Apply resistance: positive = takes less damage, negative = takes more
-                  const resistance = enemy.resist?.[proj.damageType] || 0;
-                  const resistMult = 1 - resistance; // 0.3 resist = 0.7x damage, -0.3 weakness = 1.3x
-                  let remainingDamage = Math.floor(proj.damage * resistMult);
-                  if (enemy.currentShield > 0) {
-                    const shieldDamage = Math.min(enemy.currentShield, remainingDamage);
-                    enemy.currentShield -= shieldDamage;
-                    remainingDamage -= shieldDamage;
-                    spawnParticles(enemy.x, enemy.y, '#778ca3', 5, { speed: 3, size: 4, life: 300 });
-                  }
+              if (targetEnemy.currentShield > 0) {
+                shieldDamage = Math.min(targetEnemy.currentShield, remainingDamage);
+                remainingDamage -= shieldDamage;
+                spawnParticles(targetEnemy.x, targetEnemy.y, '#778ca3', 5, { speed: 3, size: 4, life: 300 });
+              }
 
-                  const newHealth = enemy.currentHealth - remainingDamage;
-                  enemy.hitFlash = 1;
+              const newHealth = targetEnemy.currentHealth - remainingDamage;
 
-                  if (proj.slow) {
-                    enemy.slowedUntil = now + proj.slowDuration;
-                    // Diminishing returns for slows: 1 - (1-current)*(1-new), capped at 70%
-                    const currentSlow = enemy.slowAmount || 0;
-                    const newSlow = 1 - (1 - currentSlow) * (1 - proj.slow);
-                    enemy.slowAmount = Math.min(0.7, newSlow); // 70% max slow cap
-                  }
-                  if (proj.poisonDamage) {
-                    enemy.poisonedUntil = now + proj.poisonDuration;
-                    // Poison damage cap at 3% of max HP per second
+              const damageEntry = {
+                targetId: proj.targetId,
+                damage: remainingDamage,
+                shieldDamage,
+                hitFlash: 1,
+              };
+
+              if (proj.slow) {
+                const currentSlow = targetEnemy.slowAmount || 0;
+                const newSlow = 1 - (1 - currentSlow) * (1 - proj.slow);
+                damageEntry.slow = true;
+                damageEntry.slowedUntil = now + proj.slowDuration;
+                damageEntry.slowAmount = Math.min(0.7, newSlow);
+              }
+              if (proj.poisonDamage) {
+                const maxPoisonDPS = targetEnemy.maxHealth * 0.03;
+                damageEntry.poison = true;
+                damageEntry.poisonedUntil = now + proj.poisonDuration;
+                damageEntry.poisonDamage = Math.min(proj.poisonDamage, maxPoisonDPS);
+              }
+
+              projectileDamageRef.current.push(damageEntry);
+              spawnParticles(targetEnemy.x, targetEnemy.y, proj.color, 5, { speed: 3, size: 4, life: 300 });
+
+              if (proj.isCrit) {
+                spawnFloatingText(targetEnemy.x, targetEnemy.y - 15, 'CRIT!', '#ff0', 16, true);
+              }
+
+              setTowers(towers => towers.map(t => {
+                if (t.id === proj.towerId) {
+                  return { ...t, totalDamage: t.totalDamage + proj.damage, kills: newHealth <= 0 ? t.kills + 1 : t.kills };
+                }
+                return t;
+              }));
+            }
+
+            // Splash damage
+            if (proj.splash) {
+              for (const enemy of enemiesRef.current) {
+                if (enemy.id === proj.targetId) continue;
+                const dx = enemy.x - proj.toX;
+                const dy = enemy.y - proj.toY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= proj.splash * CELL_SIZE) {
+                  const splashResist = enemy.resist?.[proj.damageType] || 0;
+                  const splashDamage = Math.floor(proj.damage * 0.5 * (1 - splashResist));
+
+                  const splashEntry = {
+                    targetId: enemy.id,
+                    damage: splashDamage,
+                    hitFlash: 0.5,
+                  };
+
+                  if (proj.splashPoison) {
                     const maxPoisonDPS = enemy.maxHealth * 0.03;
-                    enemy.poisonDamage = Math.min(proj.poisonDamage, maxPoisonDPS);
+                    splashEntry.poison = true;
+                    splashEntry.poisonedUntil = now + (proj.poisonDuration || 3000);
+                    splashEntry.poisonDamage = Math.min(proj.poisonDamage * 0.5, maxPoisonDPS);
                   }
 
-                  spawnParticles(enemy.x, enemy.y, proj.color, 5, { speed: 3, size: 4, life: 300 });
-
-                  if (proj.isCrit) {
-                    spawnFloatingText(enemy.x, enemy.y - 15, 'CRIT!', '#ff0', 16, true);
-                  }
-
-                  setTowers(towers => towers.map(t => {
-                    if (t.id === proj.towerId) {
-                      return { ...t, totalDamage: t.totalDamage + proj.damage, kills: newHealth <= 0 ? t.kills + 1 : t.kills };
-                    }
-                    return t;
-                  }));
-
-                  return { ...enemy, currentHealth: newHealth };
+                  projectileDamageRef.current.push(splashEntry);
+                  spawnParticles(enemy.x, enemy.y, proj.color, 2, { speed: 2, size: 3, life: 200 });
                 }
-
-                if (proj.splash) {
-                  const dx = enemy.x - proj.toX;
-                  const dy = enemy.y - proj.toY;
-                  const dist = Math.sqrt(dx * dx + dy * dy);
-                  if (dist <= proj.splash * CELL_SIZE) {
-                    // Apply resistance to splash damage too
-                    const splashResist = enemy.resist?.[proj.damageType] || 0;
-                    const splashDamage = Math.floor(proj.damage * 0.5 * (1 - splashResist));
-                    const newHealth = enemy.currentHealth - splashDamage;
-                    enemy.hitFlash = 0.5;
-
-                    if (proj.splashPoison) {
-                      enemy.poisonedUntil = now + (proj.poisonDuration || 3000);
-                      // Apply same 3% max HP/second cap as direct hits, then halve for splash
-                      const maxPoisonDPS = enemy.maxHealth * 0.03;
-                      enemy.poisonDamage = Math.min(proj.poisonDamage * 0.5, maxPoisonDPS);
-                    }
-
-                    spawnParticles(enemy.x, enemy.y, proj.color, 2, { speed: 2, size: 3, life: 200 });
-                    return { ...enemy, currentHealth: newHealth };
-                  }
-                }
-
-                return enemy;
-              }).filter(Boolean);
-            });
+              }
+            }
 
             if (proj.splash) {
               spawnParticles(proj.toX, proj.toY, proj.color, 15, { speed: 6, size: 7, life: 500 });
