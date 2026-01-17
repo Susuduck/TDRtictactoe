@@ -15,19 +15,58 @@ Eat food to grow longer and earn points. Each wave has a target number of food t
 
 ### Controls
 - **Arrow Keys / WASD** - Move the snake
+- **SPACE** - Dash ability (unlocks at Level 3)
 - **ESC** - Pause/Resume game
 
 ### Food Types
 
-| Food | Emoji | Points | Effect |
-|------|-------|--------|--------|
-| Normal | Apple | 10 | None |
-| Bonus | Orange | 25 | None |
-| Super | Star | 50 | None |
-| Power | Diamond | 30 | 5s invincibility |
-| Speed | Lightning | 15 | 4s speed boost |
-| Shrink | Leaf | 20 | Reduces length |
-| Boss | Skull | 100 | Damages boss |
+| Food | Emoji | Points | XP | Effect |
+|------|-------|--------|-----|--------|
+| Normal | Apple | 10 | 5 | None |
+| Bonus | Orange | 25 | 12 | None |
+| Super | Star | 50 | 25 | None |
+| Power | Diamond | 30 | 15 | 5s invincibility |
+| Speed | Lightning | 15 | 8 | 4s speed boost |
+| Shrink | Leaf | 20 | 10 | Reduces length |
+| Shield | Shield | 20 | 15 | Blocks one hit (Level 5+) |
+| Magnet | Magnet | 15 | 12 | Attracts nearby food (Level 10+) |
+| Double | Sparkles | 10 | 10 | 2x points for 8s (Level 15+) |
+| Boss | Skull | 100 | 50 | Damages boss |
+
+---
+
+## RPG Progression
+
+### XP & Leveling
+- Earn XP from eating food (each type gives different XP)
+- Earn bonus XP for completing waves (+20 XP per wave)
+- Level up to unlock new abilities, power-ups, and skins
+- Max level: 50
+
+### Unlocks by Level
+
+| Level | Unlock |
+|-------|--------|
+| 3 | Dash Ability |
+| 5 | Shield Power-up |
+| 10 | Magnet Power-up |
+| 15 | Double Points Power-up |
+| 20 | Golden Snake Skin |
+| 30 | Neon Snake Skin |
+| 40 | Fire Snake Skin |
+| 50 | Cosmic Snake Skin |
+
+### Abilities
+
+**Dash (Level 3)**
+- Press SPACE to dash forward 3 tiles
+- Invincible during dash
+- 8 second cooldown
+
+### Coins
+- Earn coins based on score and waves completed
+- Formula: `floor(score / 10) + (wave * 5)`
+- Used for future shop features
 
 ---
 
@@ -124,6 +163,9 @@ Each enemy has a unique themed world with different grid sizes, backgrounds, and
 | Speed Boost | Lightning | 4s | Speed food or zones |
 | Slowed | Snail | 2-3s | Slime or slow zones |
 | Reversed | Arrows | 3s | Mirror Mantis |
+| Shield | Shield | Until hit | Shield food (Level 5+) |
+| Magnet | Magnet | 5s | Magnet food (Level 10+) |
+| Double Points | Sparkles | 8s | Double food (Level 15+) |
 
 ---
 
@@ -177,6 +219,10 @@ Boss HP = 5 + (wave / 5) * 2
 4. **Keep moving** - Standing still makes you vulnerable to hazards
 5. **Learn the world** - Decorations are just visual, they won't hurt you
 6. **Plan your path** - In larger grids, you have more space to maneuver
+7. **Save your dash** - Use dash to escape tight situations or skip through hazards
+8. **Shield is clutch** - One free hit can save a long run, prioritize shield pickups
+9. **Magnet makes collection easy** - Food within 3 tiles is auto-collected
+10. **Double points early** - Grab Double Points at the start of a wave for maximum effect
 
 ---
 
