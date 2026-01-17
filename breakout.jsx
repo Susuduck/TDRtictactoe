@@ -506,11 +506,61 @@ const BreakoutGame = () => {
     }
   }, []);
 
-  // Create brick layout
+  // Health tier colors - higher health = tougher appearance
+  const healthTiers = [
+    { minHealth: 10, color: '#505050', name: 'steel' },    // Dark grey steel
+    { minHealth: 8, color: '#6a5acd', name: 'purple' },    // Purple
+    { minHealth: 6, color: '#4080e0', name: 'blue' },      // Blue
+    { minHealth: 4, color: '#50c878', name: 'green' },     // Green/Lime
+    { minHealth: 2, color: '#ffa500', name: 'orange' },    // Orange
+    { minHealth: 1, color: '#ff6b6b', name: 'red' },       // Red
+  ];
+
+  // Get color for a given health value
+  const getColorForHealth = (health) => {
+    for (const tier of healthTiers) {
+      if (health >= tier.minHealth) return tier.color;
+    }
+    return '#ff6b6b'; // Default red for 1 health
+  };
+
+  // Get which tier a health value belongs to
+  const getHealthTier = (health) => {
+    for (let i = 0; i < healthTiers.length; i++) {
+      if (health >= healthTiers[i].minHealth) return i;
+    }
+    return healthTiers.length - 1;
+  };
+
+  // Create brick layout with designed obstacle patterns
   const createBricks = useCallback((level, enemy) => {
     const newBricks = [];
-    const patterns = [
-      // Level patterns - cycle through these
+
+    // Obstacle patterns for each level - these are walls/barriers
+    // Returns positions where obstacles should be placed: [{row, col, health}]
+    const obstaclePatterns = [
+      // Level 1: No obstacles
+      [],
+      // Level 2: Simple horizontal bar
+      [{r: 3, c: 3}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 3, c: 6}],
+      // Level 3: Two pillars
+      [{r: 1, c: 2}, {r: 2, c: 2}, {r: 3, c: 2}, {r: 1, c: 7}, {r: 2, c: 7}, {r: 3, c: 7}],
+      // Level 4: V shape barrier
+      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 2}, {r: 4, c: 7}],
+      // Level 5: Horizontal bars on sides
+      [{r: 2, c: 0}, {r: 2, c: 1}, {r: 2, c: 2}, {r: 2, c: 7}, {r: 2, c: 8}, {r: 2, c: 9}],
+      // Level 6: Diamond in center
+      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
+      // Level 7: Maze-like with corridors
+      [{r: 1, c: 3}, {r: 2, c: 3}, {r: 3, c: 3}, {r: 1, c: 6}, {r: 2, c: 6}, {r: 4, c: 6},
+       {r: 4, c: 4}, {r: 4, c: 5}],
+      // Level 8: Cross pattern
+      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 1, c: 4}, {r: 1, c: 5},
+       {r: 2, c: 3}, {r: 2, c: 6}],
+    ];
+
+    // Brick layout patterns
+    const layoutPatterns = [
       () => true, // Full grid
       (r, c) => (r + c) % 2 === 0, // Checkerboard
       (r, c) => r < 4, // Top heavy
@@ -521,13 +571,14 @@ const BreakoutGame = () => {
       (r, c) => c < 3 || c > 6, // Side columns
     ];
 
-    const pattern = patterns[(level - 1) % patterns.length];
+    const layoutPattern = layoutPatterns[(level - 1) % layoutPatterns.length];
+    const obstacles = obstaclePatterns[(level - 1) % obstaclePatterns.length] || [];
+    const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
 
-    // Level-based scaling
-    const toughChance = Math.min(0.1 + level * 0.03, 0.4); // 10% -> 40%
-    const steelChance = Math.min(0.05 + level * 0.02, 0.25); // 5% -> 25%
-    const powerUpChance = Math.max(0.12 - level * 0.01, 0.04); // 12% -> 4%
-    const extraHealthChance = level > 5 ? Math.min((level - 5) * 0.05, 0.3) : 0;
+    // Level-based scaling for brick health
+    const baseHealth = 1 + Math.floor(level / 3); // More health at higher levels
+    const maxExtraHealth = Math.min(level, 6); // Cap extra health
+    const powerUpChance = Math.max(0.12 - level * 0.01, 0.04);
 
     // Add extra rows at higher levels
     const extraRows = Math.min(Math.floor(level / 3), 2);
@@ -535,63 +586,71 @@ const BreakoutGame = () => {
 
     for (let row = 0; row < totalRows; row++) {
       for (let col = 0; col < BRICK_COLS; col++) {
-        // Apply pattern only to base rows, extra rows are always filled
-        if (row < BRICK_ROWS && !pattern(row, col)) continue;
-
         const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
         const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
 
-        // Determine brick type with level scaling
-        let health = 1;
+        // Check if this is an obstacle position
+        const isObstacle = obstacleSet.has(`${row}-${col}`);
+
+        if (isObstacle) {
+          // Create indestructible obstacle
+          newBricks.push({
+            id: `${row}-${col}`,
+            x, y,
+            width: BRICK_WIDTH,
+            height: BRICK_HEIGHT,
+            health: 9999,
+            maxHealth: 9999,
+            type: 'obstacle',
+            color: '#2a2a4e',
+            invisible: false,
+            canRegenerate: false,
+          });
+          continue;
+        }
+
+        // Apply layout pattern (skip if not part of pattern)
+        if (row < BRICK_ROWS && !layoutPattern(row, col)) continue;
+
+        // Determine brick health based on row and level
+        // Top rows are tougher
+        let health = baseHealth + Math.max(0, 3 - row);
+
+        // Add some randomness
+        if (Math.random() < 0.3) {
+          health += Math.floor(Math.random() * maxExtraHealth);
+        }
+
+        // Cap health
+        health = Math.min(health, 12);
+
         let type = 'normal';
-        let color = ['#ff6b6b', '#ffa500', '#ffd700', '#90ee90', '#60c0ff', '#c080ff'][row % 6];
 
-        // Extra health at high levels
-        if (Math.random() < extraHealthChance) {
-          health += 1;
-        }
-
-        // Special bricks based on level-scaled chances
-        const rand = Math.random();
-        if (rand < steelChance) {
-          health = 3 + Math.floor(level / 4);
-          type = 'steel';
-          color = '#404040';
-        } else if (rand < steelChance + toughChance) {
-          health = 2 + Math.floor(level / 5);
-          type = 'tough';
-          color = '#808080';
-        }
-
-        // Power-up bricks (decreasing chance at higher levels)
+        // Power-up bricks
         if (Math.random() < powerUpChance) {
           type = 'powerup';
         }
 
         // Explosive bricks at level 4+
-        if (level >= 4 && Math.random() < 0.05) {
+        if (level >= 4 && Math.random() < 0.05 && type !== 'powerup') {
           type = 'explosive';
-          color = '#ff4400';
-          health = 1;
-        }
-
-        // Obstacle bricks - immovable, indestructible (level 2+, placed strategically)
-        if (level >= 2 && Math.random() < 0.08 && type === 'normal') {
-          type = 'obstacle';
-          color = '#2a2a4e';
-          health = 9999; // Effectively indestructible
+          health = 1; // Explosives are fragile
         }
 
         // Boss brick for titan king
         if (enemy?.gimmick === 'boss_bricks' && row === 0 && col === 4) {
           health = 10 + level * 3;
           type = 'boss';
-          color = '#ffd700';
         }
 
-        // Invisible bricks (more at higher levels)
+        // Invisible bricks
         const invisChance = enemy?.gimmick === 'invisible_bricks' ? Math.min(0.2 + level * 0.05, 0.5) : 0;
         const isInvisible = Math.random() < invisChance;
+
+        // Color is determined by health
+        const color = type === 'explosive' ? '#ff4400' :
+                      type === 'boss' ? '#ffd700' :
+                      getColorForHealth(health);
 
         newBricks.push({
           id: `${row}-${col}`,
@@ -623,6 +682,26 @@ const BreakoutGame = () => {
         color,
         size: 3 + Math.random() * 4,
         life: 1,
+      });
+    }
+    setParticles(p => [...p, ...newParticles]);
+  }, []);
+
+  // Create cracking armor particles - fall downward with angular shapes
+  const createCrackingParticles = useCallback((x, y, width, height, color) => {
+    const newParticles = [];
+    // Create multiple "shard" particles that fall and fade
+    for (let i = 0; i < 8; i++) {
+      newParticles.push({
+        id: Date.now() + Math.random(),
+        x: x + Math.random() * width,
+        y: y + Math.random() * height,
+        vx: (Math.random() - 0.5) * 6,
+        vy: Math.random() * 2 + 1, // Fall downward
+        color,
+        size: 4 + Math.random() * 6, // Larger chunks
+        life: 1.5, // Last longer
+        isShard: true, // Mark as shard for different rendering
       });
     }
     setParticles(p => [...p, ...newParticles]);
@@ -1019,11 +1098,26 @@ const BreakoutGame = () => {
                   damage = 99; // Mega ball destroys everything
                 }
 
+                // Track tier before damage for armor cracking effect
+                const oldTier = getHealthTier(brick.health);
+                const oldColor = getColorForHealth(brick.health);
+
                 const newHealth = brick.health - damage;
+                const newTier = getHealthTier(Math.max(1, newHealth));
+                const newColor = getColorForHealth(Math.max(1, newHealth));
+
+                // Points based on brick's max health (tougher bricks = more points)
                 const points = brick.type === 'boss' ? 50 :
                                brick.type === 'explosive' ? 40 :
-                               brick.type === 'steel' ? 30 :
-                               brick.type === 'tough' ? 20 : 10;
+                               brick.maxHealth >= 8 ? 30 :
+                               brick.maxHealth >= 4 ? 20 : 10;
+
+                // Armor cracking effect - when tier changes, old layer breaks off
+                if (newHealth > 0 && newTier !== oldTier && brick.type !== 'boss' && brick.type !== 'explosive') {
+                  createCrackingParticles(brick.x, brick.y, brick.width, brick.height, oldColor);
+                  // Small score bonus for cracking armor
+                  setScore(s => s + 5);
+                }
 
                 // Charged shot bonus
                 if (ball.charged) {
@@ -1048,8 +1142,9 @@ const BreakoutGame = () => {
                   if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
                   comboTimerRef.current = setTimeout(() => setCombo(0), 2000);
 
-                  createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color, 12);
-                  addFloatingText(brick.x + brick.width / 2, brick.y, `+${Math.floor(points * (1 + combo * 0.1))}`, brick.color);
+                  // Final destruction particles use the last color
+                  createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, newColor, 12);
+                  addFloatingText(brick.x + brick.width / 2, brick.y, `+${Math.floor(points * (1 + combo * 0.1))}`, newColor);
 
                   // Explosive brick - destroy nearby bricks!
                   if (brick.type === 'explosive') {
@@ -1065,7 +1160,7 @@ const BreakoutGame = () => {
                       const dx = Math.abs((b.x + b.width/2) - (brick.x + brick.width/2));
                       const dy = Math.abs((b.y + b.height/2) - (brick.y + brick.height/2));
                       if (dx < BRICK_WIDTH * 2 && dy < BRICK_HEIGHT * 2) {
-                        createParticles(b.x + b.width / 2, b.y + b.height / 2, b.color, 8);
+                        createParticles(b.x + b.width / 2, b.y + b.height / 2, getColorForHealth(b.health), 8);
                         setScore(s => s + 15);
                         return { ...b, health: 0 };
                       }
@@ -1082,7 +1177,14 @@ const BreakoutGame = () => {
                   brick.invisible = false;
                 }
 
-                return { ...brick, health: newHealth };
+                // Update brick with new health and color based on current health
+                return {
+                  ...brick,
+                  health: newHealth,
+                  color: brick.type === 'boss' ? '#ffd700' :
+                         brick.type === 'explosive' ? '#ff4400' :
+                         newColor
+                };
               }
               return brick;
             });
@@ -1640,10 +1742,16 @@ const BreakoutGame = () => {
               top: brick.y,
               width: brick.width,
               height: brick.height,
-              background: brick.invisible ? 'transparent' : `linear-gradient(180deg, ${brick.color}, ${brick.color}88)`,
+              background: brick.invisible ? 'transparent' :
+                brick.type === 'obstacle' ? 'linear-gradient(180deg, #3a3a5e 0%, #2a2a4e 50%, #1a1a3e 100%)' :
+                `linear-gradient(180deg, ${brick.color}ee 0%, ${brick.color} 50%, ${brick.color}aa 100%)`,
               borderRadius: '4px',
-              border: brick.invisible ? '1px dashed rgba(255,255,255,0.1)' : `2px solid ${brick.color}`,
-              boxShadow: brick.invisible ? 'none' : `0 2px 8px ${brick.color}44`,
+              border: brick.invisible ? '1px dashed rgba(255,255,255,0.1)' :
+                brick.type === 'obstacle' ? '2px solid #4a4a6e' :
+                `2px solid ${brick.color}`,
+              boxShadow: brick.invisible ? 'none' :
+                brick.type === 'obstacle' ? 'inset 0 -2px 4px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)' :
+                `0 2px 8px ${brick.color}44, inset 0 1px 0 rgba(255,255,255,0.3)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1672,10 +1780,15 @@ const BreakoutGame = () => {
               <span style={{ fontSize: '12px', animation: 'explosivePulse 0.5s ease-in-out infinite' }}>💥</span>
             )}
             {brick.type === 'obstacle' && (
-              <span style={{ fontSize: '14px', opacity: 0.6 }}>🧱</span>
+              <span style={{ fontSize: '14px', opacity: 0.7, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>🧱</span>
             )}
-            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && (
-              <span style={{ fontSize: '10px', fontWeight: '800', color: '#fff' }}>{brick.health}</span>
+            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && (
+              <span style={{
+                fontSize: brick.health >= 10 ? '9px' : '11px',
+                fontWeight: '900',
+                color: '#fff',
+                textShadow: '0 1px 2px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.5)',
+              }}>{brick.health}</span>
             )}
           </div>
         ))}
@@ -1820,11 +1933,13 @@ const BreakoutGame = () => {
               left: p.x - p.size / 2,
               top: p.y - p.size / 2,
               width: p.size,
-              height: p.size,
+              height: p.isShard ? p.size * 0.6 : p.size,
               background: p.color,
-              borderRadius: '50%',
-              opacity: p.life,
+              borderRadius: p.isShard ? '2px' : '50%',
+              opacity: Math.min(p.life, 1),
               pointerEvents: 'none',
+              transform: p.isShard ? `rotate(${Math.random() * 45}deg)` : 'none',
+              boxShadow: p.isShard ? `0 2px 4px rgba(0,0,0,0.3)` : 'none',
             }}
           />
         ))}
