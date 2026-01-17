@@ -50,6 +50,217 @@ const SFX = {
   abilityBomb: () => zzfx(...[.8,.3,100,.05,.3,.5,4,.3,,,,,,.5,,.4,.2]),
   abilityFreeze: () => zzfx(...[.4,.2,1000,.05,.3,.4,2,1,,,300,.1,.1]),
   crit: () => zzfx(...[.4,.05,500,.01,.03,.05,1,2,10]),
+  worldUnlock: () => zzfx(...[.5,.1,400,.02,.3,.4,1,1.5,,,300,.05,.1]),
+  worldSelect: () => zzfx(...[.3,.05,500,.01,.05,.1,1,1.5]),
+};
+
+// ==================== WORLD DEFINITIONS ====================
+// 10 Worlds, each with 10 waves (wave 10 = boss)
+const worldDefs = [
+  {
+    id: 0,
+    name: 'Forest Fawn',
+    title: 'The Woodland Guide',
+    emoji: '🦌',
+    color: '#50c878',
+    bgGradient: 'linear-gradient(135deg, #1a3320 0%, #0d1a10 100%)',
+    description: 'A gentle introduction to tower defense',
+    enemyTypes: ['slime', 'swarm'],
+    bossType: 'treant',
+    gimmick: null, // Tutorial world - no gimmicks
+    unlockRequirement: 0, // Always unlocked
+  },
+  {
+    id: 1,
+    name: 'Sandy Scorpion',
+    title: 'The Desert Dweller',
+    emoji: '🦂',
+    color: '#e8a840',
+    bgGradient: 'linear-gradient(135deg, #3d2a1a 0%, #1a1008 100%)',
+    description: 'Sandstorms reduce tower range',
+    enemyTypes: ['scout', 'swarm', 'slime'],
+    bossType: 'sandwurm',
+    gimmick: 'sandstorm', // Periodically reduces all tower ranges
+    unlockRequirement: 8, // Need 8 stars from previous world
+  },
+  {
+    id: 2,
+    name: 'Glacier Penguin',
+    title: 'The Frozen Guardian',
+    emoji: '🐧',
+    color: '#70c9ff',
+    bgGradient: 'linear-gradient(135deg, #1a2a3d 0%, #0a1520 100%)',
+    description: 'Blizzards slow your towers',
+    enemyTypes: ['tank', 'shielded', 'slime'],
+    bossType: 'icegiant',
+    gimmick: 'blizzard', // Slows tower attack speed
+    unlockRequirement: 8,
+  },
+  {
+    id: 3,
+    name: 'Swamp Toad',
+    title: 'The Murky Master',
+    emoji: '🐸',
+    color: '#7cb342',
+    bgGradient: 'linear-gradient(135deg, #1a2a1a 0%, #0a150a 100%)',
+    description: 'Fog zones heal enemies',
+    enemyTypes: ['healer', 'splitter', 'slime', 'swarm'],
+    bossType: 'hydra',
+    gimmick: 'fogzones', // Certain path areas heal enemies
+    unlockRequirement: 8,
+  },
+  {
+    id: 4,
+    name: 'Volcano Dragon',
+    title: 'The Flame Lord',
+    emoji: '🐉',
+    color: '#ff6b35',
+    bgGradient: 'linear-gradient(135deg, #3d1a1a 0%, #1a0808 100%)',
+    description: 'Lava eruptions damage nearby towers',
+    enemyTypes: ['tank', 'scout', 'slime'],
+    bossType: 'elderdragon',
+    gimmick: 'lavaerupt', // Random tiles erupt, damaging/disabling towers
+    unlockRequirement: 8,
+    enemyResists: { fire: 0.5 }, // Enemies here resist fire
+  },
+  {
+    id: 5,
+    name: 'Crystal Moth',
+    title: 'The Light Seeker',
+    emoji: '🦋',
+    color: '#c990ff',
+    bgGradient: 'linear-gradient(135deg, #2a1a3d 0%, #150a20 100%)',
+    description: 'Some enemies are invisible until revealed',
+    enemyTypes: ['scout', 'swarm', 'slime'],
+    bossType: 'shadowbeast',
+    gimmick: 'invisible', // Some enemies invisible, need reveal towers
+    unlockRequirement: 8,
+  },
+  {
+    id: 6,
+    name: 'Storm Eagle',
+    title: 'The Sky Sovereign',
+    emoji: '🦅',
+    color: '#5090e8',
+    bgGradient: 'linear-gradient(135deg, #1a2030 0%, #080a15 100%)',
+    description: 'Lightning strikes random tiles',
+    enemyTypes: ['scout', 'shielded', 'healer'],
+    bossType: 'thunderroc',
+    gimmick: 'lightning', // Random lightning damages towers/enemies
+    unlockRequirement: 8,
+    enemyResists: { lightning: 0.5 }, // Enemies resist lightning
+  },
+  {
+    id: 7,
+    name: 'Haunted Ghost',
+    title: 'The Spirit Keeper',
+    emoji: '👻',
+    color: '#a0a0c0',
+    bgGradient: 'linear-gradient(135deg, #1a1a2a 0%, #0a0a15 100%)',
+    description: 'Defeated enemies resurrect once',
+    enemyTypes: ['splitter', 'healer', 'tank'],
+    bossType: 'lichking',
+    gimmick: 'resurrect', // Enemies come back at 50% HP once
+    unlockRequirement: 8,
+  },
+  {
+    id: 8,
+    name: 'Clockwork Robot',
+    title: 'The Machine Mind',
+    emoji: '🤖',
+    color: '#c0a080',
+    bgGradient: 'linear-gradient(135deg, #2a2520 0%, #151210 100%)',
+    description: 'Time warps speed up enemies in zones',
+    enemyTypes: ['shielded', 'tank', 'scout'],
+    bossType: 'mechtitan',
+    gimmick: 'timewarp', // Speed zones on path
+    unlockRequirement: 8,
+  },
+  {
+    id: 9,
+    name: 'Cosmic Owl',
+    title: 'The Final Wisdom',
+    emoji: '🦉',
+    color: '#d4a840',
+    bgGradient: 'linear-gradient(135deg, #0a0820 0%, #000008 100%)',
+    description: 'All chaos mechanics combined',
+    enemyTypes: ['slime', 'scout', 'tank', 'swarm', 'healer', 'shielded', 'splitter'],
+    bossType: 'voidemperor',
+    gimmick: 'chaos', // Random gimmick each wave
+    unlockRequirement: 8,
+  },
+];
+
+// Boss definitions
+const bossDefs = {
+  treant: { name: 'Giant Treant', emoji: '🌳', health: 1500, speed: 0.3, reward: 100, size: 1.5, color: '#228b22', resist: { fire: -0.5, physical: 0.3 } },
+  sandwurm: { name: 'Sand Wurm', emoji: '🐛', health: 2000, speed: 0.4, reward: 120, size: 1.6, color: '#daa520', resist: { physical: 0.3 }, splits: true },
+  icegiant: { name: 'Ice Giant', emoji: '🧊', health: 3000, speed: 0.25, reward: 150, size: 1.7, color: '#70c9ff', resist: { frost: 0.8, fire: -0.5 }, shield: 500 },
+  hydra: { name: 'Hydra', emoji: '🐍', health: 2500, speed: 0.35, reward: 180, size: 1.5, color: '#7cb342', resist: { poison: 0.8 }, heals: true, splits: true },
+  elderdragon: { name: 'Elder Dragon', emoji: '🐲', health: 4000, speed: 0.3, reward: 200, size: 1.8, color: '#ff4500', resist: { fire: 0.8, physical: 0.3 } },
+  shadowbeast: { name: 'Shadow Beast', emoji: '👤', health: 2000, speed: 0.5, reward: 180, size: 1.4, color: '#4a0080', invisible: true },
+  thunderroc: { name: 'Thunder Roc', emoji: '🦅', health: 3000, speed: 0.45, reward: 200, size: 1.6, color: '#ffd700', resist: { lightning: 0.8 } },
+  lichking: { name: 'Lich King', emoji: '💀', health: 3500, speed: 0.3, reward: 220, size: 1.6, color: '#8b008b', resurrects: 2 },
+  mechtitan: { name: 'Mech Titan', emoji: '🦾', health: 5000, speed: 0.2, reward: 250, size: 2.0, color: '#b8860b', shield: 1500, resist: { physical: 0.5, lightning: 0.5 } },
+  voidemperor: { name: 'Void Emperor', emoji: '👁️', health: 8000, speed: 0.25, reward: 500, size: 2.2, color: '#9400d3', resist: { fire: 0.3, frost: 0.3, lightning: 0.3, poison: 0.3, physical: 0.3 } },
+};
+
+// Progression storage helper (like UTTT)
+const ProgressionStorage = {
+  KEY: 'towerDefense_progression_v1',
+
+  load: () => {
+    try {
+      const saved = localStorage.getItem(ProgressionStorage.KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      worldStars: Array(10).fill(0), // Stars earned per world (0-10 each)
+      totalStars: 0,
+      highestWorld: 0,
+      highestWave: 0,
+      gamesPlayed: 0,
+      totalKills: 0,
+    };
+  },
+
+  save: (data) => {
+    try {
+      localStorage.setItem(ProgressionStorage.KEY, JSON.stringify(data));
+    } catch (e) {}
+  },
+
+  getWorldStars: (worldId) => {
+    const data = ProgressionStorage.load();
+    return data.worldStars[worldId] || 0;
+  },
+
+  isWorldUnlocked: (worldId) => {
+    if (worldId === 0) return true;
+    const data = ProgressionStorage.load();
+    return data.worldStars[worldId - 1] >= worldDefs[worldId].unlockRequirement;
+  },
+
+  addStar: (worldId, waveNum) => {
+    const data = ProgressionStorage.load();
+    // Only add star if this is a new highest wave for this world
+    if (waveNum > data.worldStars[worldId]) {
+      data.worldStars[worldId] = waveNum;
+      data.totalStars = data.worldStars.reduce((a, b) => a + b, 0);
+      if (worldId > data.highestWorld) data.highestWorld = worldId;
+      if (waveNum > data.highestWave) data.highestWave = waveNum;
+      ProgressionStorage.save(data);
+      return true; // New star earned
+    }
+    return false;
+  },
+
+  recordGame: (kills) => {
+    const data = ProgressionStorage.load();
+    data.gamesPlayed++;
+    data.totalKills += kills;
+    ProgressionStorage.save(data);
+  },
 };
 
 const TowerDefenseGame = () => {
@@ -138,6 +349,14 @@ const TowerDefenseGame = () => {
     freeze: { cooldown: 0, maxCooldown: 20000, cost: 30, ready: true },
   });
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // World progression state
+  const [currentWorld, setCurrentWorld] = useState(0);
+  const [progression, setProgression] = useState(() => ProgressionStorage.load());
+  const [singleSessionMode, setSingleSessionMode] = useState(false); // For Teddy's Review Roundup
+  const [sessionStartWorld, setSessionStartWorld] = useState(0);
+  const [newStarEarned, setNewStarEarned] = useState(false);
+  const [activeGimmick, setActiveGimmick] = useState(null); // Current world gimmick effect
 
   // Refs
   const spawnTimerRef = useRef(null);
@@ -703,21 +922,49 @@ const TowerDefenseGame = () => {
     }));
   }, [gold, spawnParticles, announce, playSound, CELL_SIZE]);
 
-  // Enemy spawning with Infinitode 2-style exponential scaling
+  // Enemy spawning with world-based scaling
   const spawnEnemy = useCallback((type, pathOffset = 0) => {
-    const enemyDef = enemyTypes[type];
-    // Exponential health scaling: wave^1.25 (inspired by Infinitode 2's wave^1.27)
-    const waveMultiplier = Math.pow(wave, 1.25);
-    // Boss-specific scaling: baseHealth * wave * sqrt(wave) for extra challenge
-    const bossMultiplier = enemyDef.isBoss ? wave * Math.sqrt(wave) * 0.5 : waveMultiplier;
-    const healthMultiplier = enemyDef.isBoss ? bossMultiplier : waveMultiplier;
-    // Small random offset to prevent stacking, but keep enemies centered on path
+    // Check if this is a world boss
+    const isWorldBoss = bossDefs[type] !== undefined;
+    const enemyDef = isWorldBoss ? bossDefs[type] : enemyTypes[type];
+
+    if (!enemyDef) {
+      console.warn('Unknown enemy type:', type);
+      return;
+    }
+
+    // World-based difficulty scaling
+    const worldMult = 1 + currentWorld * 0.4;
+    const waveMult = 1 + (wave - 1) * 0.15;
+    const baseMultiplier = worldMult * waveMult;
+
+    // Boss scaling is more aggressive
+    const healthMultiplier = isWorldBoss
+      ? baseMultiplier * 2 * (1 + currentWorld * 0.3)
+      : baseMultiplier;
+
+    // Small random offset to prevent stacking
     const offsetX = (Math.random() - 0.5) * CELL_SIZE * 0.2;
-    const offsetY = -pathOffset * CELL_SIZE * 0.3; // Stagger spawns slightly above the start
+    const offsetY = -pathOffset * CELL_SIZE * 0.3;
+
+    // Apply world-specific enemy resistances
+    const world = worldDefs[currentWorld];
+    const worldResists = world.enemyResists || {};
+    const mergedResist = { ...(enemyDef.resist || {}), ...worldResists };
+
     const newEnemy = {
       id: Date.now() + Math.random(),
       type,
-      ...enemyDef,
+      name: enemyDef.name,
+      emoji: enemyDef.emoji,
+      color: enemyDef.color,
+      speed: enemyDef.speed,
+      reward: Math.floor((enemyDef.reward || 5) * worldMult),
+      size: enemyDef.size || 1,
+      resist: mergedResist,
+      heals: enemyDef.heals,
+      splits: enemyDef.splits,
+      isBoss: isWorldBoss,
       health: Math.floor(enemyDef.health * healthMultiplier),
       maxHealth: Math.floor(enemyDef.health * healthMultiplier),
       currentHealth: Math.floor(enemyDef.health * healthMultiplier),
@@ -734,42 +981,83 @@ const TowerDefenseGame = () => {
       hitFlash: 0,
       rotation: 0,
       lastHealTime: 0,
+      // Special boss properties
+      resurrects: enemyDef.resurrects || 0,
+      invisible: enemyDef.invisible || false,
     };
     setEnemies(prev => [...prev, newEnemy]);
-  }, [wave, CELL_SIZE]);
+  }, [wave, currentWorld, CELL_SIZE]);
 
-  // Generate wave with escalating composition
-  const generateWaveEnemies = useCallback((waveNum) => {
+  // Generate wave using world-specific enemy types
+  // Each world has 10 waves, wave 10 is boss wave
+  const generateWaveEnemies = useCallback((waveNum, worldId = currentWorld) => {
+    const world = worldDefs[worldId];
     const enemies = [];
-    // Slime count grows slower at higher waves - more specials proportionally
-    const slimeCount = Math.floor(6 + waveNum * 1.2);
 
-    for (let i = 0; i < slimeCount; i++) enemies.push('slime');
-    // Scouts - fast and numerous
-    if (waveNum >= 2) for (let i = 0; i < Math.floor(waveNum * 1.0); i++) enemies.push('scout');
-    // Tanks - more at higher waves
-    if (waveNum >= 3) for (let i = 0; i < Math.floor(waveNum * 0.6); i++) enemies.push('tank');
-    // Swarms - scale aggressively
-    if (waveNum >= 4) for (let i = 0; i < Math.floor(waveNum * 1.5); i++) enemies.push('swarm');
-    // Healers - every 3rd after wave 5
-    if (waveNum >= 5) for (let i = 0; i < Math.floor(waveNum / 3); i++) enemies.push('healer');
-    // Shielded - more frequent
-    if (waveNum >= 6) for (let i = 0; i < Math.floor(waveNum * 0.4); i++) enemies.push('shielded');
-    // Splitters - medium frequency
-    if (waveNum >= 7) for (let i = 0; i < Math.floor(waveNum / 3); i++) enemies.push('splitter');
-    // Bosses and mega bosses
-    if (waveNum % 5 === 0) enemies.push('boss');
-    if (waveNum % 10 === 0) enemies.push('megaBoss');
-    // Extra boss every 3 waves after wave 15
-    if (waveNum > 15 && waveNum % 3 === 0) enemies.push('boss');
+    // Global difficulty multiplier based on world
+    const worldMult = 1 + worldId * 0.3;
 
-    // Shuffle the enemies
+    // Wave 10 is BOSS WAVE
+    const isBossWave = waveNum === 10;
+
+    if (isBossWave) {
+      // Boss wave: spawn the world boss + supporting enemies
+      enemies.push(world.bossType);
+      // Add some support enemies
+      const supportCount = 5 + worldId * 2;
+      for (let i = 0; i < supportCount; i++) {
+        enemies.push(world.enemyTypes[Math.floor(Math.random() * world.enemyTypes.length)]);
+      }
+    } else {
+      // Normal wave: use world-specific enemy types
+      const baseCount = Math.floor((5 + waveNum * 1.5) * worldMult);
+      const availableTypes = world.enemyTypes;
+
+      // Primary enemy type (most common for this world)
+      const primaryCount = Math.floor(baseCount * 0.6);
+      for (let i = 0; i < primaryCount; i++) {
+        enemies.push(availableTypes[0]);
+      }
+
+      // Secondary types unlock as wave progresses
+      if (waveNum >= 2 && availableTypes.length > 1) {
+        const secondaryCount = Math.floor(baseCount * 0.25);
+        for (let i = 0; i < secondaryCount; i++) {
+          enemies.push(availableTypes[1]);
+        }
+      }
+
+      // Tertiary types in later waves
+      if (waveNum >= 4 && availableTypes.length > 2) {
+        const tertiaryCount = Math.floor(baseCount * 0.15);
+        for (let i = 0; i < tertiaryCount; i++) {
+          enemies.push(availableTypes[Math.floor(Math.random() * (availableTypes.length - 2)) + 2]);
+        }
+      }
+
+      // Mini-boss on wave 5
+      if (waveNum === 5) {
+        enemies.push('tank');
+      }
+
+      // More variety in later waves
+      if (waveNum >= 7) {
+        for (let i = 0; i < Math.floor(waveNum / 3); i++) {
+          enemies.push(availableTypes[Math.floor(Math.random() * availableTypes.length)]);
+        }
+      }
+    }
+
+    // Shuffle the enemies (except boss stays at end)
+    const boss = isBossWave ? enemies.shift() : null;
     for (let i = enemies.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [enemies[i], enemies[j]] = [enemies[j], enemies[i]];
     }
+    if (boss) enemies.push(boss); // Boss spawns last
+
     return enemies;
-  }, []);
+  }, [currentWorld]);
 
   const startWave = useCallback(() => {
     if (waveInProgress) return;
@@ -786,22 +1074,30 @@ const TowerDefenseGame = () => {
     }
     setWaveCountdown(0);
 
-    const waveEnemies = generateWaveEnemies(wave);
+    const waveEnemies = generateWaveEnemies(wave, currentWorld);
     setWaveEnemyList(waveEnemies);
     setTotalEnemiesInWave(waveEnemies.length);
 
-    // Boss warning
-    if (wave % 5 === 0) {
-      announce(wave % 10 === 0 ? '⚠️ TITAN INCOMING!' : '⚠️ BOSS WAVE!', theme.error, 2500);
-      triggerShake(8);
+    const world = worldDefs[currentWorld];
+
+    // Wave 10 is BOSS WAVE
+    if (wave === 10) {
+      const boss = bossDefs[world.bossType];
+      announce(`⚠️ BOSS: ${boss.emoji} ${boss.name}!`, world.color, 3000);
+      triggerShake(12);
       playSound(SFX.bossWarning);
+    } else if (wave === 5) {
+      // Mini-boss on wave 5
+      announce(`⚠️ Wave ${wave} - Stronger Enemies!`, theme.gold, 2000);
+      playSound(SFX.waveStart);
     } else {
+      announce(`Wave ${wave}/10`, world.color, 1500);
       playSound(SFX.waveStart);
     }
 
     let spawnIndex = 0;
-    // More aggressive spawn rate - faster spawns as waves progress
-    const spawnDelay = Math.max(150, 600 - wave * 25);
+    // Spawn rate scales with world and wave
+    const spawnDelay = Math.max(150, 600 - wave * 20 - currentWorld * 15);
 
     spawnTimerRef.current = setInterval(() => {
       if (spawnIndex < waveEnemies.length) {
@@ -812,7 +1108,7 @@ const TowerDefenseGame = () => {
         clearInterval(spawnTimerRef.current);
       }
     }, spawnDelay);
-  }, [wave, waveInProgress, spawnEnemy, generateWaveEnemies, announce, triggerShake]);
+  }, [wave, waveInProgress, currentWorld, spawnEnemy, generateWaveEnemies, announce, triggerShake]);
 
   // Main game loop
   useEffect(() => {
@@ -853,7 +1149,12 @@ const TowerDefenseGame = () => {
             setLives(l => {
               const damage = enemy.isBoss ? 5 : 1;
               const newLives = l - damage;
-              if (newLives <= 0) setGameState('lost');
+              if (newLives <= 0) {
+                // Save progression when game ends
+                ProgressionStorage.recordGame(killCount);
+                setProgression(ProgressionStorage.load());
+                setGameState('lost');
+              }
               return Math.max(0, newLives);
             });
             setLastDamageTime(now);
@@ -1486,14 +1787,66 @@ const TowerDefenseGame = () => {
       if (waveInProgress && enemiesRef.current.length === 0 && enemiesSpawned >= totalEnemiesInWave && totalEnemiesInWave > 0) {
         setWaveInProgress(false);
         setLastWaveEndTime(now);
-        setWaveCountdown(10000); // 10 second countdown for early start bonus
-        const waveBonus = 30 + wave * 10;
+
+        const world = worldDefs[currentWorld];
+        const waveBonus = 30 + wave * 10 + currentWorld * 5;
         setGold(g => g + waveBonus);
-        announce(`Wave ${wave} Complete! +${waveBonus}💰`, theme.success, 2000);
-        playSound(SFX.waveComplete);
-        spawnConfetti(40 + wave * 2); // More confetti for higher waves
-        triggerFlash(theme.success, 250);
-        setWave(w => w + 1);
+
+        // Save star progress
+        const earnedNewStar = ProgressionStorage.addStar(currentWorld, wave);
+        if (earnedNewStar) {
+          setNewStarEarned(true);
+          setProgression(ProgressionStorage.load());
+        }
+
+        if (wave === 10) {
+          // WORLD COMPLETE - Boss defeated!
+          const boss = bossDefs[world.bossType];
+          announce(`🎉 ${boss.emoji} ${boss.name} DEFEATED!`, world.color, 3000);
+          playSound(SFX.bossDeath);
+          spawnConfetti(100);
+          triggerFlash(theme.gold, 400);
+          triggerSlowMo(0.3, 1000);
+
+          // Check if next world is unlocked
+          const nextWorld = currentWorld + 1;
+          if (nextWorld < 10 && ProgressionStorage.isWorldUnlocked(nextWorld)) {
+            setTimeout(() => {
+              announce(`🔓 ${worldDefs[nextWorld].emoji} ${worldDefs[nextWorld].name} Unlocked!`, worldDefs[nextWorld].color, 2500);
+              playSound(SFX.worldUnlock);
+            }, 1500);
+          }
+
+          // In single session mode, continue to next world or end
+          if (singleSessionMode && nextWorld < 10) {
+            setTimeout(() => {
+              setCurrentWorld(nextWorld);
+              setWave(1);
+              setWaveCountdown(15000);
+              announce(`➡️ World ${nextWorld + 1}: ${worldDefs[nextWorld].emoji} ${worldDefs[nextWorld].name}`, worldDefs[nextWorld].color, 3000);
+            }, 3000);
+          } else if (singleSessionMode) {
+            // Completed all worlds in single session - victory!
+            setTimeout(() => {
+              ProgressionStorage.recordGame(killCount);
+              setGameState('victory');
+            }, 2000);
+          } else {
+            // Not single session - go back to world select after delay
+            setTimeout(() => {
+              ProgressionStorage.recordGame(killCount);
+              goToWorldSelect();
+            }, 3000);
+          }
+        } else {
+          // Normal wave complete
+          announce(`Wave ${wave}/10 Complete! +${waveBonus}💰`, theme.success, 2000);
+          playSound(SFX.waveComplete);
+          spawnConfetti(40 + wave * 2);
+          triggerFlash(theme.success, 250);
+          setWaveCountdown(10000);
+          setWave(w => w + 1);
+        }
       }
 
       // Update dying enemies animation
@@ -1529,7 +1882,8 @@ const TowerDefenseGame = () => {
     setPath(findPath(grid) || []);
   }, []);
 
-  const startGame = () => {
+  // Start game with a specific world
+  const startGame = (worldId = 0, isSingleSession = false) => {
     const emptyGrid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
     setGrid(emptyGrid);
     setTowers([]);
@@ -1540,7 +1894,7 @@ const TowerDefenseGame = () => {
     setAnnouncements([]);
     setWave(1);
     setLives(20);
-    setGold(100);
+    setGold(100 + worldId * 20); // More starting gold for harder worlds
     setWaveInProgress(false);
     setEnemiesSpawned(0);
     setTotalEnemiesInWave(0);
@@ -1562,7 +1916,29 @@ const TowerDefenseGame = () => {
       bomb: { cooldown: 0, maxCooldown: 30000, cost: 50, ready: true },
       freeze: { cooldown: 0, maxCooldown: 20000, cost: 30, ready: true },
     });
+    // World state
+    setCurrentWorld(worldId);
+    setSingleSessionMode(isSingleSession);
+    setSessionStartWorld(worldId);
+    setNewStarEarned(false);
+    setActiveGimmick(null);
     setGameState('playing');
+
+    // Announce world
+    const world = worldDefs[worldId];
+    setTimeout(() => {
+      announce(`${world.emoji} ${world.name}`, world.color, 2000);
+      if (world.gimmick) {
+        setTimeout(() => announce(world.description, world.color, 2500), 500);
+      }
+    }, 500);
+  };
+
+  // Go to world select screen
+  const goToWorldSelect = () => {
+    setProgression(ProgressionStorage.load());
+    setGameState('select');
+    playSound(SFX.worldSelect);
   };
 
   const gridWidth = GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * GRID_GAP + GRID_OFFSET * 2 + 4;
@@ -1700,11 +2076,29 @@ const TowerDefenseGame = () => {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}>TOWER DEFENSE</h1>
-              <p style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '32px' }}>
-                Build towers • Create mazes • Survive
+              <p style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '16px' }}>
+                10 Worlds • 100 Stars • Epic Bosses
               </p>
+
+              {/* Progress summary */}
+              <div style={{
+                background: theme.bgPanel,
+                borderRadius: '10px',
+                padding: '12px 24px',
+                marginBottom: '24px',
+                border: `1px solid ${theme.border}`,
+              }}>
+                <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>TOTAL PROGRESS</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: theme.gold }}>
+                  ⭐ {progression.totalStars} / 100
+                </div>
+                <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>
+                  {progression.gamesPlayed} games • {progression.totalKills.toLocaleString()} kills
+                </div>
+              </div>
+
               <button
-                onClick={startGame}
+                onClick={goToWorldSelect}
                 className="btn"
                 style={{
                   padding: '14px 48px',
@@ -1717,12 +2111,153 @@ const TowerDefenseGame = () => {
                   boxShadow: `0 4px 20px ${theme.accentGlow}`,
                 }}
               >
-                START GAME
+                SELECT WORLD
               </button>
               <div style={{ marginTop: '24px', fontSize: '12px', color: theme.textMuted }}>
-                Press 1-7 to select towers • Space to start wave
+                Complete 10 waves per world to defeat the boss!
               </div>
             </div>
+          </div>
+        )}
+
+        {/* WORLD SELECT */}
+        {gameState === 'select' && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            padding: '16px',
+            animation: 'slideIn 0.3s ease-out',
+          }}>
+            <h2 style={{
+              fontSize: 'clamp(20px, 4vw, 28px)',
+              fontWeight: 800,
+              marginBottom: '8px',
+              color: theme.gold,
+            }}>SELECT WORLD</h2>
+            <p style={{ fontSize: '12px', color: theme.textSecondary, marginBottom: '16px' }}>
+              ⭐ {progression.totalStars} / 100 Stars
+            </p>
+
+            {/* World grid - 2 rows of 5 */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: '10px',
+              maxWidth: '500px',
+              width: '100%',
+            }}>
+              {worldDefs.map((world, idx) => {
+                const isUnlocked = ProgressionStorage.isWorldUnlocked(idx);
+                const stars = progression.worldStars[idx] || 0;
+                const isComplete = stars >= 10;
+
+                return (
+                  <button
+                    key={world.id}
+                    onClick={() => isUnlocked && startGame(idx, false)}
+                    disabled={!isUnlocked}
+                    className="btn"
+                    style={{
+                      padding: '12px 8px',
+                      background: isUnlocked
+                        ? isComplete
+                          ? `linear-gradient(135deg, ${world.color}40 0%, ${world.color}20 100%)`
+                          : theme.bgPanel
+                        : theme.bgDark,
+                      border: `2px solid ${isUnlocked ? world.color : theme.border}`,
+                      borderRadius: '12px',
+                      opacity: isUnlocked ? 1 : 0.4,
+                      cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    {/* World emoji */}
+                    <div style={{
+                      fontSize: '28px',
+                      filter: isUnlocked ? `drop-shadow(0 0 8px ${world.color})` : 'grayscale(1)',
+                    }}>
+                      {isUnlocked ? world.emoji : '🔒'}
+                    </div>
+
+                    {/* World name */}
+                    <div style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: isUnlocked ? world.color : theme.textMuted,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '100%',
+                    }}>
+                      {world.name.split(' ')[0]}
+                    </div>
+
+                    {/* Stars */}
+                    {isUnlocked && (
+                      <div style={{
+                        fontSize: '9px',
+                        color: stars > 0 ? theme.gold : theme.textMuted,
+                      }}>
+                        {'★'.repeat(Math.min(stars, 10))}{'☆'.repeat(Math.max(0, 10 - stars))}
+                      </div>
+                    )}
+
+                    {/* Complete badge */}
+                    {isComplete && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        fontSize: '14px',
+                      }}>👑</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected world info */}
+            <div style={{
+              marginTop: '20px',
+              padding: '16px',
+              background: theme.bgPanel,
+              borderRadius: '12px',
+              border: `1px solid ${theme.border}`,
+              textAlign: 'center',
+              maxWidth: '400px',
+              width: '100%',
+            }}>
+              <div style={{ fontSize: '11px', color: theme.textMuted, marginBottom: '8px' }}>
+                Click a world to play • Complete 10 waves to defeat the boss
+              </div>
+              <div style={{ fontSize: '10px', color: theme.textSecondary }}>
+                Need 8 stars to unlock the next world
+              </div>
+            </div>
+
+            {/* Back button */}
+            <button
+              onClick={() => setGameState('menu')}
+              className="btn"
+              style={{
+                marginTop: '16px',
+                padding: '10px 24px',
+                fontSize: '12px',
+                background: theme.bgDark,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '8px',
+                color: theme.textSecondary,
+              }}
+            >
+              ← Back to Menu
+            </button>
           </div>
         )}
 
@@ -1833,9 +2368,27 @@ const TowerDefenseGame = () => {
                 border: `1px solid ${theme.border}`,
                 width: gridWidth,
               }}>
-                <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  {/* World indicator */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 8px',
+                    background: `${worldDefs[currentWorld].color}20`,
+                    borderRadius: '6px',
+                    border: `1px solid ${worldDefs[currentWorld].color}40`,
+                  }}>
+                    <span style={{ fontSize: '16px' }}>{worldDefs[currentWorld].emoji}</span>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '8px', color: theme.textMuted }}>WORLD {currentWorld + 1}</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: worldDefs[currentWorld].color }}>
+                        {wave}/10
+                      </div>
+                    </div>
+                  </div>
+
                   {[
-                    { label: 'WAVE', value: wave, color: theme.accent },
                     { label: 'LIVES', value: `❤️${lives}`, color: lives <= 5 ? theme.error : theme.success, blink: lives <= 5 },
                     {
                       label: 'GOLD',
@@ -2628,40 +3181,80 @@ const TowerDefenseGame = () => {
                 )}
 
                 {/* Game Over */}
-                {gameState === 'lost' && (
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'rgba(10, 10, 18, 0.95)',
-                    borderRadius: '10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    animation: 'slideIn 0.4s ease-out',
-                  }}>
-                    <div style={{ fontSize: '60px', marginBottom: '16px' }}>💀</div>
-                    <div style={{ fontSize: '28px', fontWeight: 900, color: theme.error, marginBottom: '8px' }}>GAME OVER</div>
-                    <div style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '16px' }}>
-                      Wave {wave} • Score {totalScore.toLocaleString()}
-                    </div>
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: theme.textMuted, marginBottom: '20px' }}>
-                      <span>🎯 {killCount} kills</span>
-                      <span>🔥 {maxCombo} max combo</span>
-                    </div>
-                    <button onClick={startGame} className="btn" style={{
-                      padding: '12px 32px',
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
-                      border: 'none',
+                {gameState === 'lost' && (() => {
+                  const world = worldDefs[currentWorld];
+                  const starsEarned = wave - 1; // Stars = waves completed
+                  return (
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'rgba(10, 10, 18, 0.95)',
                       borderRadius: '10px',
-                      color: '#fff',
-                      boxShadow: `0 4px 16px ${theme.accentGlow}`,
-                    }}>PLAY AGAIN</button>
-                  </div>
-                )}
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 100,
+                      animation: 'slideIn 0.4s ease-out',
+                    }}>
+                      <div style={{ fontSize: '60px', marginBottom: '16px' }}>💀</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: theme.error, marginBottom: '8px' }}>GAME OVER</div>
+
+                      {/* World info */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '12px',
+                        padding: '8px 16px',
+                        background: `${world.color}20`,
+                        borderRadius: '8px',
+                        border: `1px solid ${world.color}40`,
+                      }}>
+                        <span style={{ fontSize: '24px' }}>{world.emoji}</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: world.color }}>{world.name}</div>
+                          <div style={{ fontSize: '11px', color: theme.textSecondary }}>Wave {wave}/10</div>
+                        </div>
+                      </div>
+
+                      {/* Stars earned */}
+                      {starsEarned > 0 && (
+                        <div style={{ fontSize: '16px', color: theme.gold, marginBottom: '12px' }}>
+                          ⭐ +{starsEarned} Stars Earned!
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: theme.textMuted, marginBottom: '20px' }}>
+                        <span>🎯 {killCount} kills</span>
+                        <span>🔥 {maxCombo} max combo</span>
+                        <span>💰 {totalScore.toLocaleString()} score</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={() => startGame(currentWorld, false)} className="btn" style={{
+                          padding: '12px 24px',
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          background: `linear-gradient(135deg, ${world.color} 0%, ${world.color}cc 100%)`,
+                          border: 'none',
+                          borderRadius: '10px',
+                          color: '#fff',
+                          boxShadow: `0 4px 16px ${world.color}40`,
+                        }}>RETRY</button>
+                        <button onClick={goToWorldSelect} className="btn" style={{
+                          padding: '12px 24px',
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          background: theme.bgDark,
+                          border: `1px solid ${theme.border}`,
+                          borderRadius: '10px',
+                          color: theme.textSecondary,
+                        }}>WORLDS</button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Wave preview */}
