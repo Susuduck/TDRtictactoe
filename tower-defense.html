@@ -22,6 +22,36 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/babel">
+// ZzFX - Zuper Zmall Zound Zynth - Micro Edition (MIT License)
+// https://github.com/KilledByAPixel/ZzFX
+const zzfx=(...z)=>zzfxP(zzfxG(...z));const zzfxP=(...z)=>{let e=zzfxX.createBufferSource(),t=zzfxX.createBuffer(z.length,z[0].length,zzfxR);z.map((z,f)=>t.getChannelData(f).set(z)),e.buffer=t,e.connect(zzfxX.destination),e.start();return e};const zzfxG=(q=1,k=.05,c=220,e=0,t=0,u=.1,r=0,F=1,v=0,z=0,w=0,A=0,l=0,B=0,x=0,G=0,d=0,y=1,m=0,C=0)=>{let b=2*Math.PI,H=v*=500*b/zzfxR**2,I=(0<x?1:-1)*b/4,D=c*=(1+2*k*Math.random()-k)*b/zzfxR,Z=[],g=0,E=0,a=0,n=1,J=0,K=0,f=0,p,h;e=99+zzfxR*e;m*=zzfxR;t*=zzfxR;u*=zzfxR;d*=zzfxR;z*=500*b/zzfxR**3;x*=b/zzfxR;w*=b/zzfxR;A*=zzfxR;l=zzfxR*l|0;for(h=e+m+t+u+d|0;a<h;Z[a++]=f)++K%(100*G|0)||(f=r?1<r?2<r?3<r?Math.sin((g%b)**3):Math.max(Math.min(Math.tan(g),1),-1):1-(2*g/b%2+2)%2:1-4*Math.abs(Math.round(g/b)-g/b):Math.sin(g),f=(l?1-C+C*Math.sin(2*Math.PI*a/l):1)*(0<f?1:-1)*Math.abs(f)**F*q*zzfxV*(a<e?a/e:a<e+m?1-(a-e)/m*(1-y):a<e+m+t?y:a<h-d?(h-a-d)/u*y:0),f=d?f/2+(d>a?0:(a<h-d?1:(h-a)/d)/2)*Z[a-d|0]:f),p=(c+=v+=z)*Math.cos(I*J++),g+=p-p*B*(1-1E9*(Math.sin(a)+1)%2),n&&++n>A&&(c+=w,D+=w,n=0),!l||++E%l||(c=D,v=H,n=n||1);return Z};const zzfxV=.3,zzfxR=44100,zzfxX=new(window.AudioContext||window.webkitAudioContext);
+
+// Sound effect presets
+const SFX = {
+  shoot: () => zzfx(...[.3,.05,400,.02,.02,.08,1,.5,,,,,,,,.1]),
+  arrowShoot: () => zzfx(...[.2,.1,200,.01,.01,.05,2,2,,,,,,,,,.02]),
+  cannonShoot: () => zzfx(...[.4,.2,150,.02,.05,.2,4,.5,,,,,,,.1,,.1]),
+  frostShoot: () => zzfx(...[.2,.1,800,.01,.02,.1,2,1,,,200,.05,,,,,.05]),
+  lightningShoot: () => zzfx(...[.3,.05,600,.01,.02,.05,3,1,20,,,,.02,,,,.03]),
+  laserLoop: () => zzfx(...[.1,,200,,.1,.1,4,1,,,,,,,3]),
+  poisonShoot: () => zzfx(...[.2,.2,100,.02,.08,.15,2,2,,,-50,.08,.1]),
+  hit: () => zzfx(...[.2,.05,300,.01,.02,.05,4,.5,-10,,,,,,,,.02]),
+  explosion: () => zzfx(...[.5,.2,150,.03,.15,.3,4,.5,,,,,,.5,,.2,.1]),
+  enemyDeath: () => zzfx(...[.3,.1,200,.01,.05,.1,4,1.5,,-5,-50,.02,.05]),
+  bossDeath: () => zzfx(...[.8,.3,80,.05,.4,.5,4,.5,,,-20,.1,.2,.1,,.5,.2]),
+  goldPickup: () => zzfx(...[.3,.05,600,.02,.1,.1,1,2,,,400,.05]),
+  upgrade: () => zzfx(...[.4,.1,400,.02,.15,.2,1,2,,,200,.05,.05]),
+  place: () => zzfx(...[.3,.05,200,.01,.05,.1,1,1]),
+  sell: () => zzfx(...[.2,.1,300,.01,.1,.1,2,1,,,-100,.02]),
+  waveStart: () => zzfx(...[.5,.1,300,.02,.1,.2,1,1,,,100,.02,.05]),
+  waveComplete: () => zzfx(...[.4,.1,500,.02,.2,.3,1,1.5,,,200,.05,.1]),
+  bossWarning: () => zzfx(...[.6,.3,100,.05,.3,.4,3,.5,,,-20,.05,.1,,,.3,.1]),
+  lifeLost: () => zzfx(...[.5,.2,200,.05,.1,.2,3,1,,,-100,.05]),
+  abilityBomb: () => zzfx(...[.8,.3,100,.05,.3,.5,4,.3,,,,,,.5,,.4,.2]),
+  abilityFreeze: () => zzfx(...[.4,.2,1000,.05,.3,.4,2,1,,,300,.1,.1]),
+  crit: () => zzfx(...[.4,.05,500,.01,.03,.05,1,2,10]),
+};
+
 const TowerDefenseGame = () => {
   const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
@@ -96,6 +126,18 @@ const TowerDefenseGame = () => {
   const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
   const [currentFps, setCurrentFps] = useState(60);
   const fpsHistoryRef = useRef([]);
+
+  // New game feel states
+  const [slowMo, setSlowMo] = useState(1); // Slowmo multiplier (1 = normal, 0.2 = slow)
+  const [screenFlash, setScreenFlash] = useState(null); // { color, opacity }
+  const [dyingEnemies, setDyingEnemies] = useState([]); // Enemies in death animation
+  const [confetti, setConfetti] = useState([]); // Wave complete confetti
+  const [healerBeams, setHealerBeams] = useState([]); // Healer beam visualization
+  const [abilities, setAbilities] = useState({
+    bomb: { cooldown: 0, maxCooldown: 30000, cost: 50, ready: true },
+    freeze: { cooldown: 0, maxCooldown: 20000, cost: 30, ready: true },
+  });
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Refs
   const spawnTimerRef = useRef(null);
@@ -315,11 +357,18 @@ const TowerDefenseGame = () => {
       if (key === 's' && selectedTowerForUpgrade) {
         sellTower(selectedTowerForUpgrade.id);
       }
+      // Ability shortcuts
+      if (key === 'q' || key === 'Q') {
+        useBombAbility();
+      }
+      if (key === 'w' || key === 'W') {
+        useFreezeAbility();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, waveInProgress, selectedTowerForUpgrade]);
+  }, [gameState, waveInProgress, selectedTowerForUpgrade, useBombAbility, useFreezeAbility]);
 
   // Pathfinding
   const findPath = useCallback((gridState) => {
@@ -435,6 +484,83 @@ const TowerDefenseGame = () => {
     shake();
   }, []);
 
+  // Play sound helper
+  const playSound = useCallback((sfxFn) => {
+    if (soundEnabled && sfxFn) {
+      try { sfxFn(); } catch (e) {}
+    }
+  }, [soundEnabled]);
+
+  // Screen flash effect
+  const triggerFlash = useCallback((color, duration = 200) => {
+    setScreenFlash({ color, opacity: 0.6 });
+    setTimeout(() => setScreenFlash({ color, opacity: 0.3 }), duration / 3);
+    setTimeout(() => setScreenFlash({ color, opacity: 0.1 }), duration * 2 / 3);
+    setTimeout(() => setScreenFlash(null), duration);
+  }, []);
+
+  // Slowmo effect
+  const triggerSlowMo = useCallback((factor = 0.2, duration = 500) => {
+    setSlowMo(factor);
+    setTimeout(() => setSlowMo(1), duration);
+  }, []);
+
+  // Spawn confetti for wave complete
+  const spawnConfetti = useCallback((count = 50) => {
+    const colors = [theme.gold, theme.success, theme.accent, '#ff6b6b', '#4ecdc4', '#ffe66d'];
+    const newConfetti = Array(count).fill(null).map(() => ({
+      id: Math.random(),
+      x: gridWidth / 2 + (Math.random() - 0.5) * gridWidth * 0.8,
+      y: -20,
+      vx: (Math.random() - 0.5) * 8,
+      vy: Math.random() * 3 + 2,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 20,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 4 + Math.random() * 6,
+      life: 2000 + Math.random() * 1000,
+    }));
+    setConfetti(prev => [...prev, ...newConfetti]);
+  }, []);
+
+  // Active abilities
+  const useBombAbility = useCallback(() => {
+    if (abilities.bomb.cooldown > 0 || gold < abilities.bomb.cost) return;
+
+    setGold(g => g - abilities.bomb.cost);
+    playSound(SFX.abilityBomb);
+    triggerShake(20);
+    triggerFlash('#ff4757', 300);
+
+    // Damage all enemies
+    setEnemies(enemies => enemies.map(e => {
+      const damage = Math.floor(e.maxHealth * 0.25); // 25% max HP damage
+      spawnParticles(e.x, e.y, theme.fire, 8, { speed: 5, size: 5, life: 400 });
+      return { ...e, currentHealth: e.currentHealth - damage, hitFlash: 1 };
+    }));
+
+    setAbilities(prev => ({ ...prev, bomb: { ...prev.bomb, cooldown: prev.bomb.maxCooldown, ready: false } }));
+    announce('💣 BOMB!', theme.fire, 1500);
+  }, [abilities, gold, playSound, triggerShake, triggerFlash, spawnParticles, announce]);
+
+  const useFreezeAbility = useCallback(() => {
+    if (abilities.freeze.cooldown > 0 || gold < abilities.freeze.cost) return;
+
+    setGold(g => g - abilities.freeze.cost);
+    playSound(SFX.abilityFreeze);
+    triggerFlash(theme.frost, 400);
+
+    // Freeze all enemies
+    const now = Date.now();
+    setEnemies(enemies => enemies.map(e => {
+      spawnParticles(e.x, e.y, theme.frost, 5, { speed: 2, size: 4, life: 500 });
+      return { ...e, slowedUntil: now + 5000, slowAmount: 0.1 }; // 90% slow for 5 seconds
+    }));
+
+    setAbilities(prev => ({ ...prev, freeze: { ...prev.freeze, cooldown: prev.freeze.maxCooldown, ready: false } }));
+    announce('❄️ FREEZE!', theme.frost, 1500);
+  }, [abilities, gold, playSound, triggerFlash, spawnParticles, announce]);
+
   // Tower placement
   const canPlaceTower = useCallback((row, col) => {
     if (grid[row][col] !== null) return false;
@@ -520,12 +646,13 @@ const TowerDefenseGame = () => {
     const cx = col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     const cy = row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     spawnParticles(cx, cy, towerDef.color, 12, { speed: 4, size: 5, life: 400 });
+    playSound(SFX.place);
 
     const newGrid = grid.map(r => [...r]);
     newGrid[row][col] = 'tower';
     setPath(findPath(newGrid) || []);
     return true;
-  }, [canPlaceTower, gold, grid, findPath, spawnParticles, CELL_SIZE]);
+  }, [canPlaceTower, gold, grid, findPath, spawnParticles, playSound, CELL_SIZE]);
 
   const sellTower = useCallback((towerId) => {
     const tower = towers.find(t => t.id === towerId);
@@ -548,11 +675,12 @@ const TowerDefenseGame = () => {
     const cy = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     spawnParticles(cx, cy, theme.gold, 10, { speed: 3, life: 600 });
     spawnFloatingText(cx, cy, `+${sellValue}`, theme.gold, 16);
+    playSound(SFX.sell);
 
     const newGrid = grid.map(r => [...r]);
     newGrid[tower.row][tower.col] = null;
     setPath(findPath(newGrid) || []);
-  }, [towers, grid, findPath, spawnParticles, spawnFloatingText, CELL_SIZE]);
+  }, [towers, grid, findPath, spawnParticles, spawnFloatingText, playSound, CELL_SIZE]);
 
   const upgradeTower = useCallback((towerId) => {
     setTowers(prev => prev.map(tower => {
@@ -569,10 +697,11 @@ const TowerDefenseGame = () => {
       const cy = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
       spawnParticles(cx, cy, theme.gold, 15, { speed: 5, size: 6, life: 500 });
       announce(`${tower.name} → ${upgrade.name}!`, tower.color, 1500);
+      playSound(SFX.upgrade);
 
       return { ...tower, ...upgrade, level: tower.level + 1 };
     }));
-  }, [gold, spawnParticles, announce, CELL_SIZE]);
+  }, [gold, spawnParticles, announce, playSound, CELL_SIZE]);
 
   // Enemy spawning with Infinitode 2-style exponential scaling
   const spawnEnemy = useCallback((type, pathOffset = 0) => {
@@ -665,6 +794,9 @@ const TowerDefenseGame = () => {
     if (wave % 5 === 0) {
       announce(wave % 10 === 0 ? '⚠️ TITAN INCOMING!' : '⚠️ BOSS WAVE!', theme.error, 2500);
       triggerShake(8);
+      playSound(SFX.bossWarning);
+    } else {
+      playSound(SFX.waveStart);
     }
 
     let spawnIndex = 0;
@@ -690,7 +822,7 @@ const TowerDefenseGame = () => {
     let lastTime = performance.now();
 
     const tick = (currentTime) => {
-      const deltaTime = Math.min(currentTime - lastTime, 50) * gameSpeed;
+      const deltaTime = Math.min(currentTime - lastTime, 50) * gameSpeed * slowMo;
       const actualDelta = currentTime - lastTime;
       lastTime = currentTime;
       const now = Date.now();
@@ -726,6 +858,8 @@ const TowerDefenseGame = () => {
             });
             setLastDamageTime(now);
             triggerShake(12);
+            triggerFlash(theme.error, 200);
+            playSound(SFX.lifeLost);
             announce(`-${enemy.isBoss ? 5 : 1} ❤️`, theme.error, 1000);
             continue;
           }
@@ -742,6 +876,7 @@ const TowerDefenseGame = () => {
           // Healer - PERF: Use squared distance and early exit
           if (enemy.heals && now - enemy.lastHealTime > 2000) {
             const healRangeSq = (CELL_SIZE * 2) * (CELL_SIZE * 2); // Pre-compute squared range
+            const newHealBeams = [];
             for (const other of prevEnemies) {
               if (other.id !== enemy.id) {
                 const dx = other.x - enemy.x;
@@ -749,11 +884,21 @@ const TowerDefenseGame = () => {
                 if (dx * dx > healRangeSq) continue;
                 const dy = other.y - enemy.y;
                 const distSq = dx * dx + dy * dy;
-                if (distSq < healRangeSq) {
+                if (distSq < healRangeSq && other.currentHealth < other.maxHealth) {
                   other.currentHealth = Math.min(other.maxHealth, other.currentHealth + 10);
                   spawnParticles(other.x, other.y, theme.success, 3, { speed: 2, size: 3, life: 400 });
+                  // Add heal beam visualization
+                  newHealBeams.push({
+                    id: Math.random(),
+                    fromX: enemy.x, fromY: enemy.y,
+                    toX: other.x, toY: other.y,
+                    life: 400,
+                  });
                 }
               }
+            }
+            if (newHealBeams.length > 0) {
+              setHealerBeams(prev => [...prev, ...newHealBeams]);
             }
             enemy.lastHealTime = now;
           }
@@ -781,7 +926,16 @@ const TowerDefenseGame = () => {
             else if (newCombo === 20) announce('💀 UNSTOPPABLE!', '#ff0000', 2000);
             else if (newCombo === 50) announce('👑 GODLIKE!', theme.gold, 3000);
 
+            // Death pop animation - add to dying enemies list
+            setDyingEnemies(prev => [...prev, {
+              ...enemy,
+              deathTime: now,
+              deathDuration: enemy.isBoss ? 400 : 200,
+            }]);
+
             spawnParticles(enemy.x, enemy.y, enemy.color, 15, { speed: 4, size: 6, life: 600 });
+            playSound(enemy.isBoss ? SFX.bossDeath : SFX.enemyDeath);
+            playSound(SFX.goldPickup);
 
             // Spawn death crater mark
             setDeathMarks(prev => [...prev.slice(-30), { // Keep only last 30 marks
@@ -795,6 +949,8 @@ const TowerDefenseGame = () => {
             if (enemy.isBoss) {
               spawnParticles(enemy.x, enemy.y, theme.gold, 25, { speed: 6, size: 8, life: 800 });
               triggerShake(15);
+              triggerSlowMo(0.2, 600); // Slowmo on boss kill
+              triggerFlash(theme.gold, 300); // Screen flash
               announce(enemy.type === 'megaBoss' ? '👹 TITAN SLAIN!' : '🐉 BOSS DEFEATED!', theme.gold, 2500);
             }
 
@@ -880,6 +1036,8 @@ const TowerDefenseGame = () => {
           const towerX = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           const towerY = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           tower.pulsePhase = (tower.pulsePhase || 0) + deltaTime * 0.005;
+          // Decay recoil animation
+          if (tower.recoil > 0) tower.recoil = Math.max(0, tower.recoil - deltaTime * 0.015);
 
           // Beam tower - PERF: Use squared distance to avoid sqrt
           if (tower.beam) {
@@ -1029,7 +1187,19 @@ const TowerDefenseGame = () => {
             const angle = Math.atan2(target.y - towerY, target.x - towerX);
             spawnParticles(towerX, towerY, tower.color, 3, { speed: 3, size: 3, life: 120, spread: 0.5, direction: angle });
 
-            return { ...tower, lastFired: now };
+            // Play tower-specific sound
+            const soundMap = {
+              arrow: SFX.arrowShoot,
+              sniper: SFX.arrowShoot,
+              cannon: SFX.cannonShoot,
+              frost: SFX.frostShoot,
+              lightning: SFX.lightningShoot,
+              poison: SFX.poisonShoot,
+            };
+            playSound(soundMap[tower.type] || SFX.shoot);
+
+            // Return with recoil animation state
+            return { ...tower, lastFired: now, recoil: 1 };
           }
 
           return tower;
@@ -1139,9 +1309,11 @@ const TowerDefenseGame = () => {
                   }
 
                   spawnParticles(enemy.x, enemy.y, proj.color, 5, { speed: 3, size: 4, life: 300 });
+                  playSound(SFX.hit);
 
                   if (proj.isCrit) {
                     spawnFloatingText(enemy.x, enemy.y - 15, 'CRIT!', '#ff0', 16, true);
+                    playSound(SFX.crit);
                   }
 
                   setTowers(towers => towers.map(t => {
@@ -1184,6 +1356,7 @@ const TowerDefenseGame = () => {
             if (proj.splash) {
               spawnParticles(proj.toX, proj.toY, proj.color, 15, { speed: 6, size: 7, life: 500 });
               spawnParticles(proj.toX, proj.toY, '#fff', 8, { speed: 4, size: 4, life: 350 });
+              playSound(SFX.explosion);
               // Damage-based screenshake: scale from 2-8 based on damage
               const shakeIntensity = Math.min(8, 2 + Math.log2(proj.damage) * 0.8);
               triggerShake(shakeIntensity);
@@ -1317,8 +1490,33 @@ const TowerDefenseGame = () => {
         const waveBonus = 30 + wave * 10;
         setGold(g => g + waveBonus);
         announce(`Wave ${wave} Complete! +${waveBonus}💰`, theme.success, 2000);
+        playSound(SFX.waveComplete);
+        spawnConfetti(40 + wave * 2); // More confetti for higher waves
+        triggerFlash(theme.success, 250);
         setWave(w => w + 1);
       }
+
+      // Update dying enemies animation
+      setDyingEnemies(prev => prev.filter(e => now - e.deathTime < e.deathDuration));
+
+      // Update healer beams
+      setHealerBeams(prev => prev.map(b => ({ ...b, life: b.life - deltaTime })).filter(b => b.life > 0));
+
+      // Update confetti
+      setConfetti(prev => prev.map(c => ({
+        ...c,
+        x: c.x + c.vx * (deltaTime / 16),
+        y: c.y + c.vy * (deltaTime / 16),
+        vy: c.vy + 0.1,
+        rotation: c.rotation + c.rotationSpeed,
+        life: c.life - deltaTime,
+      })).filter(c => c.life > 0));
+
+      // Update ability cooldowns
+      setAbilities(prev => ({
+        bomb: { ...prev.bomb, cooldown: Math.max(0, prev.bomb.cooldown - deltaTime), ready: prev.bomb.cooldown <= deltaTime },
+        freeze: { ...prev.freeze, cooldown: Math.max(0, prev.freeze.cooldown - deltaTime), ready: prev.freeze.cooldown <= deltaTime },
+      }));
 
       animationId = requestAnimationFrame(tick);
     };
@@ -1354,6 +1552,16 @@ const TowerDefenseGame = () => {
     setTotalDamageDealt(0);
     setSelectedTowerForUpgrade(null);
     setPath(findPath(emptyGrid) || []);
+    // Reset new game feel states
+    setSlowMo(1);
+    setScreenFlash(null);
+    setDyingEnemies([]);
+    setConfetti([]);
+    setHealerBeams([]);
+    setAbilities({
+      bomb: { cooldown: 0, maxCooldown: 30000, cost: 50, ready: true },
+      freeze: { cooldown: 0, maxCooldown: 20000, cost: 30, ready: true },
+    });
     setGameState('playing');
   };
 
@@ -1587,9 +1795,28 @@ const TowerDefenseGame = () => {
                 <div style={{ fontWeight: 600, color: theme.textSecondary, marginBottom: '4px' }}>Controls</div>
                 <div>1-7: Select tower</div>
                 <div>U: Upgrade • S: Sell</div>
+                <div>Q: Bomb • W: Freeze</div>
                 <div>Space: Start wave</div>
                 <div>Esc: Deselect</div>
               </div>
+
+              {/* Sound toggle */}
+              <button
+                onClick={() => setSoundEnabled(s => !s)}
+                className="btn"
+                style={{
+                  marginTop: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  background: theme.bgDark,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  color: soundEnabled ? theme.success : theme.textMuted,
+                  width: '100%',
+                }}
+              >
+                {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+              </button>
             </div>}
 
             {/* Center - Game */}
@@ -1652,6 +1879,68 @@ const TowerDefenseGame = () => {
                       }}>🔥{combo}</div>
                     </div>
                   )}
+                </div>
+
+                {/* Ability buttons */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    onClick={useBombAbility}
+                    disabled={abilities.bomb.cooldown > 0 || gold < abilities.bomb.cost}
+                    className="btn"
+                    title={`Bomb (${abilities.bomb.cost}💰) - Deal 25% max HP to all enemies`}
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: '14px',
+                      background: abilities.bomb.cooldown > 0 ? theme.bgDark : `linear-gradient(135deg, ${theme.fire}40 0%, ${theme.fire}20 100%)`,
+                      border: `2px solid ${abilities.bomb.cooldown > 0 ? theme.border : theme.fire}`,
+                      borderRadius: '8px',
+                      color: abilities.bomb.cooldown > 0 ? theme.textMuted : theme.fire,
+                      opacity: gold < abilities.bomb.cost && abilities.bomb.cooldown <= 0 ? 0.5 : 1,
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    💣
+                    {abilities.bomb.cooldown > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        height: '3px',
+                        width: `${(1 - abilities.bomb.cooldown / abilities.bomb.maxCooldown) * 100}%`,
+                        background: theme.fire,
+                      }} />
+                    )}
+                  </button>
+                  <button
+                    onClick={useFreezeAbility}
+                    disabled={abilities.freeze.cooldown > 0 || gold < abilities.freeze.cost}
+                    className="btn"
+                    title={`Freeze (${abilities.freeze.cost}💰) - Slow all enemies 90% for 5s`}
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: '14px',
+                      background: abilities.freeze.cooldown > 0 ? theme.bgDark : `linear-gradient(135deg, ${theme.frost}40 0%, ${theme.frost}20 100%)`,
+                      border: `2px solid ${abilities.freeze.cooldown > 0 ? theme.border : theme.frost}`,
+                      borderRadius: '8px',
+                      color: abilities.freeze.cooldown > 0 ? theme.textMuted : theme.frost,
+                      opacity: gold < abilities.freeze.cost && abilities.freeze.cooldown <= 0 ? 0.5 : 1,
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    ❄️
+                    {abilities.freeze.cooldown > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        height: '3px',
+                        width: `${(1 - abilities.freeze.cooldown / abilities.freeze.maxCooldown) * 100}%`,
+                        background: theme.frost,
+                      }} />
+                    )}
+                  </button>
                 </div>
 
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1770,25 +2059,43 @@ const TowerDefenseGame = () => {
                       {isEnd && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.error})`, animation: 'pulse 2s ease-in-out infinite' }}>🏠</span>}
                       {tower && (
                         <>
-                          {sprites.towers[tower.type] ? (
-                            <img
-                              src={sprites.towers[tower.type]}
-                              alt={tower.name}
-                              style={{
-                                width: CELL_SIZE * 0.6,
-                                height: CELL_SIZE * 0.6,
-                                imageRendering: 'pixelated',
-                                filter: `drop-shadow(0 0 4px ${tower.color})`,
-                                animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                              }}
-                            />
-                          ) : (
-                            <span style={{
-                              fontSize: CELL_SIZE * 0.55,
-                              filter: `drop-shadow(0 0 4px ${tower.color})`,
-                              animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                            }}>{tower.emoji}</span>
+                          {/* Upgrade aura ring */}
+                          {tower.level > 0 && (
+                            <div style={{
+                              position: 'absolute',
+                              width: CELL_SIZE * (0.7 + tower.level * 0.1),
+                              height: CELL_SIZE * (0.7 + tower.level * 0.1),
+                              borderRadius: '50%',
+                              border: `${tower.level}px solid ${tower.color}40`,
+                              boxShadow: `0 0 ${4 + tower.level * 3}px ${tower.color}60, inset 0 0 ${tower.level * 2}px ${tower.color}30`,
+                              animation: 'pulse 2s ease-in-out infinite',
+                            }} />
                           )}
+                          {/* Tower sprite/emoji with recoil */}
+                          <div style={{
+                            transform: `scale(${1 + tower.level * 0.08 - (tower.recoil || 0) * 0.15}) translateY(${(tower.recoil || 0) * 2}px)`,
+                            transition: 'transform 0.05s ease-out',
+                          }}>
+                            {sprites.towers[tower.type] ? (
+                              <img
+                                src={sprites.towers[tower.type]}
+                                alt={tower.name}
+                                style={{
+                                  width: CELL_SIZE * 0.6,
+                                  height: CELL_SIZE * 0.6,
+                                  imageRendering: 'pixelated',
+                                  filter: `drop-shadow(0 0 ${4 + tower.level * 2}px ${tower.color}) ${tower.level >= 2 ? 'brightness(1.2)' : ''} ${tower.level >= 3 ? 'saturate(1.3)' : ''}`,
+                                  animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                                }}
+                              />
+                            ) : (
+                              <span style={{
+                                fontSize: CELL_SIZE * 0.55,
+                                filter: `drop-shadow(0 0 ${4 + tower.level * 2}px ${tower.color})`,
+                                animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                              }}>{tower.emoji}</span>
+                            )}
+                          </div>
                           {/* Type badge in corner */}
                           <div style={{
                             position: 'absolute',
@@ -1798,7 +2105,7 @@ const TowerDefenseGame = () => {
                             filter: `drop-shadow(0 0 2px ${tower.color})`,
                             lineHeight: 1,
                           }}>{tower.emoji}</div>
-                          {/* Level indicator */}
+                          {/* Level indicator with upgrade tier color */}
                           {tower.level > 0 && (
                             <div style={{
                               position: 'absolute',
@@ -1806,8 +2113,9 @@ const TowerDefenseGame = () => {
                               right: '2px',
                               fontSize: '8px',
                               fontWeight: 900,
-                              color: theme.gold,
-                            }}>★{tower.level}</div>
+                              color: tower.level >= 3 ? '#ff4757' : tower.level >= 2 ? '#ffa502' : theme.gold,
+                              textShadow: `0 0 4px ${tower.level >= 3 ? '#ff4757' : tower.level >= 2 ? '#ffa502' : theme.gold}`,
+                            }}>{'★'.repeat(tower.level)}</div>
                           )}
                         </>
                       )}
@@ -2065,6 +2373,97 @@ const TowerDefenseGame = () => {
                   );
                 })}
 
+                {/* Dying enemies - pop animation */}
+                {dyingEnemies.map(enemy => {
+                  const elapsed = renderTime - enemy.deathTime;
+                  const progress = elapsed / enemy.deathDuration;
+                  const scale = 1 + progress * 0.8; // Scale up
+                  const opacity = 1 - progress; // Fade out
+                  const size = (CELL_SIZE * 0.55) * (enemy.size || 1);
+
+                  return (
+                    <div
+                      key={`dying-${enemy.id}`}
+                      style={{
+                        position: 'absolute',
+                        left: enemy.x - size / 2 + GRID_OFFSET,
+                        top: enemy.y - size / 2 + GRID_OFFSET,
+                        width: size,
+                        height: size,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: 'none',
+                        zIndex: 11,
+                        transform: `scale(${scale})`,
+                        opacity: opacity,
+                        filter: `brightness(2) drop-shadow(0 0 15px ${enemy.color})`,
+                      }}
+                    >
+                      {sprites.enemies[enemy.type] ? (
+                        <img
+                          src={sprites.enemies[enemy.type]}
+                          alt={enemy.name}
+                          style={{
+                            width: size * 0.9,
+                            height: size * 0.9,
+                            imageRendering: 'pixelated',
+                          }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: size * 0.8 }}>{enemy.emoji}</span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Healer beams */}
+                {healerBeams.map(beam => {
+                  const angle = Math.atan2(beam.toY - beam.fromY, beam.toX - beam.fromX) * 180 / Math.PI;
+                  const length = Math.sqrt((beam.toX - beam.fromX) ** 2 + (beam.toY - beam.fromY) ** 2);
+                  const opacity = beam.life / 400;
+
+                  return (
+                    <div
+                      key={beam.id}
+                      style={{
+                        position: 'absolute',
+                        left: beam.fromX + GRID_OFFSET,
+                        top: beam.fromY + GRID_OFFSET - 1,
+                        width: length,
+                        height: 3,
+                        background: `linear-gradient(90deg, transparent 0%, ${theme.success}${Math.floor(opacity * 255).toString(16).padStart(2, '0')} 20%, ${theme.success}${Math.floor(opacity * 255).toString(16).padStart(2, '0')} 80%, transparent 100%)`,
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: '0 50%',
+                        pointerEvents: 'none',
+                        zIndex: 9,
+                        boxShadow: `0 0 8px ${theme.success}`,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Confetti */}
+                {confetti.map(c => (
+                  <div
+                    key={c.id}
+                    style={{
+                      position: 'absolute',
+                      left: c.x + GRID_OFFSET,
+                      top: c.y + GRID_OFFSET,
+                      width: c.size,
+                      height: c.size * 0.6,
+                      background: c.color,
+                      transform: `rotate(${c.rotation}deg)`,
+                      opacity: c.life / 2000,
+                      pointerEvents: 'none',
+                      zIndex: 20,
+                      borderRadius: '1px',
+                      boxShadow: `0 0 4px ${c.color}`,
+                    }}
+                  />
+                ))}
+
                 {/* Projectiles */}
                 {projectiles.map(proj => {
                   // Calculate position with optional arcing
@@ -2214,6 +2613,19 @@ const TowerDefenseGame = () => {
                     animation: 'popIn 0.2s ease-out',
                   }}>{a.text}</div>
                 ))}
+
+                {/* Screen Flash Overlay */}
+                {screenFlash && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: screenFlash.color,
+                    opacity: screenFlash.opacity,
+                    pointerEvents: 'none',
+                    zIndex: 55,
+                    borderRadius: '10px',
+                  }} />
+                )}
 
                 {/* Game Over */}
                 {gameState === 'lost' && (
