@@ -254,52 +254,81 @@ const BreakoutGame = () => {
   const createBricks = useCallback((level, enemy) => {
     const newBricks = [];
     const patterns = [
-      // Level patterns
+      // Level patterns - cycle through these
       () => true, // Full grid
       (r, c) => (r + c) % 2 === 0, // Checkerboard
       (r, c) => r < 4, // Top heavy
       (r, c) => Math.abs(c - 4.5) < (BRICK_ROWS - r), // Pyramid
       (r, c) => r === 0 || r === BRICK_ROWS - 1 || c === 0 || c === BRICK_COLS - 1, // Border
+      (r, c) => (r < 2) || (r >= 4), // Gap in middle
+      (r, c) => Math.abs(r - 2.5) + Math.abs(c - 4.5) < 5, // Diamond
+      (r, c) => c < 3 || c > 6, // Side columns
     ];
 
     const pattern = patterns[(level - 1) % patterns.length];
 
-    for (let row = 0; row < BRICK_ROWS; row++) {
+    // Level-based scaling
+    const toughChance = Math.min(0.1 + level * 0.03, 0.4); // 10% -> 40%
+    const steelChance = Math.min(0.05 + level * 0.02, 0.25); // 5% -> 25%
+    const powerUpChance = Math.max(0.12 - level * 0.01, 0.04); // 12% -> 4%
+    const extraHealthChance = level > 5 ? Math.min((level - 5) * 0.05, 0.3) : 0;
+
+    // Add extra rows at higher levels
+    const extraRows = Math.min(Math.floor(level / 3), 2);
+    const totalRows = BRICK_ROWS + extraRows;
+
+    for (let row = 0; row < totalRows; row++) {
       for (let col = 0; col < BRICK_COLS; col++) {
-        if (!pattern(row, col)) continue;
+        // Apply pattern only to base rows, extra rows are always filled
+        if (row < BRICK_ROWS && !pattern(row, col)) continue;
 
         const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
         const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
 
-        // Determine brick type
+        // Determine brick type with level scaling
         let health = 1;
         let type = 'normal';
         let color = ['#ff6b6b', '#ffa500', '#ffd700', '#90ee90', '#60c0ff', '#c080ff'][row % 6];
 
-        // Special bricks based on level
-        if (Math.random() < 0.1) {
-          health = 2;
+        // Extra health at high levels
+        if (Math.random() < extraHealthChance) {
+          health += 1;
+        }
+
+        // Special bricks based on level-scaled chances
+        const rand = Math.random();
+        if (rand < steelChance) {
+          health = 3 + Math.floor(level / 4);
+          type = 'steel';
+          color = '#404040';
+        } else if (rand < steelChance + toughChance) {
+          health = 2 + Math.floor(level / 5);
           type = 'tough';
           color = '#808080';
         }
-        if (Math.random() < 0.05) {
-          health = 3;
-          type = 'steel';
-          color = '#404040';
-        }
-        if (Math.random() < 0.08) {
+
+        // Power-up bricks (decreasing chance at higher levels)
+        if (Math.random() < powerUpChance) {
           type = 'powerup';
+        }
+
+        // Explosive bricks at level 4+
+        if (level >= 4 && Math.random() < 0.05) {
+          type = 'explosive';
+          color = '#ff4400';
+          health = 1;
         }
 
         // Boss brick for titan king
         if (enemy?.gimmick === 'boss_bricks' && row === 0 && col === 4) {
-          health = 10 + level * 2;
+          health = 10 + level * 3;
           type = 'boss';
           color = '#ffd700';
         }
 
-        // Invisible bricks
-        const isInvisible = enemy?.gimmick === 'invisible_bricks' && Math.random() < 0.3;
+        // Invisible bricks (more at higher levels)
+        const invisChance = enemy?.gimmick === 'invisible_bricks' ? Math.min(0.2 + level * 0.05, 0.5) : 0;
+        const isInvisible = Math.random() < invisChance;
 
         newBricks.push({
           id: `${row}-${col}`,
@@ -552,7 +581,7 @@ const BreakoutGame = () => {
 
         if (newBalls.length === 0) {
           handleBallLost();
-          return [createBall()];
+          return [createBall(currentLevel)];
         }
 
         return newBalls;
@@ -606,7 +635,10 @@ const BreakoutGame = () => {
 
                 // Damage brick
                 const newHealth = brick.health - 1;
-                const points = brick.type === 'boss' ? 50 : brick.type === 'steel' ? 30 : brick.type === 'tough' ? 20 : 10;
+                const points = brick.type === 'boss' ? 50 :
+                               brick.type === 'explosive' ? 40 :
+                               brick.type === 'steel' ? 30 :
+                               brick.type === 'tough' ? 20 : 10;
 
                 if (newHealth <= 0) {
                   // Brick destroyed
@@ -623,6 +655,28 @@ const BreakoutGame = () => {
 
                   createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color, 12);
                   addFloatingText(brick.x + brick.width / 2, brick.y, `+${Math.floor(points * (1 + combo * 0.1))}`, brick.color);
+
+                  // Explosive brick - destroy nearby bricks!
+                  if (brick.type === 'explosive') {
+                    setScreenShake(true);
+                    setTimeout(() => setScreenShake(false), 200);
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#ff4400', 25);
+                    setFlashColor('#ff4400');
+                    setTimeout(() => setFlashColor(null), 100);
+
+                    // Mark nearby bricks for destruction
+                    setBricks(allBricks => allBricks.map(b => {
+                      if (b.health <= 0 || b.id === brick.id) return b;
+                      const dx = Math.abs((b.x + b.width/2) - (brick.x + brick.width/2));
+                      const dy = Math.abs((b.y + b.height/2) - (brick.y + brick.height/2));
+                      if (dx < BRICK_WIDTH * 2 && dy < BRICK_HEIGHT * 2) {
+                        createParticles(b.x + b.width / 2, b.y + b.height / 2, b.color, 8);
+                        setScore(s => s + 15);
+                        return { ...b, health: 0 };
+                      }
+                      return b;
+                    }));
+                  }
 
                   // Spawn power-up
                   if (brick.type === 'powerup' || Math.random() < 0.15) {
@@ -701,7 +755,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText]);
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
 
   const applyPowerUp = (type) => {
     switch (type) {
@@ -746,15 +800,23 @@ const BreakoutGame = () => {
     }
   };
 
-  const createBall = () => ({
-    id: Date.now(),
-    x: CANVAS_WIDTH / 2,
-    y: CANVAS_HEIGHT - PADDLE_HEIGHT - 20 - BALL_RADIUS,
-    vx: (Math.random() - 0.5) * 4,
-    vy: -5,
-    attached: true,
-    burning: false,
-  });
+  const createBall = (level = 1) => {
+    // Ball speed increases with level
+    const baseSpeed = 5;
+    const speedBonus = Math.min(level * 0.3, 3); // Up to +3 speed at level 10
+    const totalSpeed = baseSpeed + speedBonus;
+
+    return {
+      id: Date.now(),
+      x: CANVAS_WIDTH / 2,
+      y: CANVAS_HEIGHT - PADDLE_HEIGHT - 20 - BALL_RADIUS,
+      vx: (Math.random() - 0.5) * 4,
+      vy: -totalSpeed,
+      attached: true,
+      burning: false,
+      baseSpeed: totalSpeed,
+    };
+  };
 
   const handleBallLost = () => {
     setLives(l => {
@@ -770,21 +832,26 @@ const BreakoutGame = () => {
   };
 
   const handleLevelComplete = () => {
-    setCurrentLevel(l => l + 1);
+    const nextLevel = currentLevel + 1;
+    setCurrentLevel(nextLevel);
     setStats(s => ({ ...s, levelsCompleted: s.levelsCompleted + 1 }));
 
-    // Bonus points
-    const levelBonus = 100 * currentLevel;
+    // Bonus points scale with level
+    const levelBonus = 100 * currentLevel + (currentLevel > 5 ? 50 * (currentLevel - 5) : 0);
     setScore(s => s + levelBonus);
-    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, `LEVEL COMPLETE! +${levelBonus}`, '#ffd700');
+    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, `LEVEL ${nextLevel}! +${levelBonus}`, '#ffd700');
+
+    // Show level info
+    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30,
+      nextLevel >= 7 ? '⚠️ HARD MODE' : nextLevel >= 4 ? '💥 Explosive bricks!' : '', '#ff8800');
 
     setFlashColor('#ffd700');
     setTimeout(() => setFlashColor(null), 500);
 
     // Setup next level
     setTimeout(() => {
-      setBricks(createBricks(currentLevel + 1, selectedEnemy));
-      setBalls([createBall()]);
+      setBricks(createBricks(nextLevel, selectedEnemy));
+      setBalls([createBall(nextLevel)]);
       setPowerUps([]);
       setPaddle({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH });
     }, 1000);
@@ -814,7 +881,7 @@ const BreakoutGame = () => {
     setCombo(0);
     setMaxCombo(0);
     setPaddle({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH });
-    setBalls([createBall()]);
+    setBalls([createBall(1)]);
     setBricks(createBricks(1, enemy));
     setPowerUps([]);
     setActiveEffects([]);
@@ -989,7 +1056,10 @@ const BreakoutGame = () => {
                 }} />
               </div>
             )}
-            {brick.health > 1 && !brick.invisible && (
+            {brick.type === 'explosive' && !brick.invisible && (
+              <span style={{ fontSize: '12px', animation: 'explosivePulse 0.5s ease-in-out infinite' }}>💥</span>
+            )}
+            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && (
               <span style={{ fontSize: '10px', fontWeight: '800', color: '#fff' }}>{brick.health}</span>
             )}
           </div>
@@ -1188,6 +1258,10 @@ const BreakoutGame = () => {
         @keyframes portalSpin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes explosivePulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.8; }
         }
       `}</style>
     </div>
