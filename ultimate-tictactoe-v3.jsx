@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+const { useState, useEffect, useCallback, useRef } = React;
 
 const UltimateTicTacToe = () => {
   // Game state
@@ -3136,5 +3136,3 @@ const UltimateTicTacToe = () => {
     </div>
   );
 };
-
-export default UltimateTicTacToe;

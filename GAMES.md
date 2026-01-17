@@ -19,7 +19,7 @@ The Tower Defense game (`tower-defense.html`) can be opened directly in your bro
 
 ## Games
 
-### Ultimate Tic Tac Toe
+### XO Teddy
 
 A strategic twist on classic tic-tac-toe where you play on a 3x3 grid of 3x3 boards.
 
@@ -125,7 +125,7 @@ The `menu.html` page provides a visual interface to launch either game.
 
 **Files:**
 - `menu.html` - Main game selection menu
-- `ultimate-tictactoe.html` - Ultimate Tic Tac Toe game
+- `ultimate-tictactoe.html` - XO Teddy game
 - `ultimate-tictactoe-v3.jsx` - Game source code
 - `tower-defense.html` - Tower Defense game (standalone)
 - `play.bat` - Windows launcher with server
@@ -136,5 +136,5 @@ The `menu.html` page provides a visual interface to launch either game.
 
 - Built with React 18 and Babel standalone for in-browser JSX compilation
 - Tower Defense is fully self-contained and works without a server
-- Ultimate Tic Tac Toe requires a local server due to file loading restrictions
+- XO Teddy loads directly in the browser without a server
 - Game progress is saved to localStorage

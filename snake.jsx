@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+const { useState, useEffect, useCallback, useRef } = React;
 
 const SnakeGame = () => {
   // Game constants
