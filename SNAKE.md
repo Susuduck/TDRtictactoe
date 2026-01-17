@@ -122,6 +122,24 @@ Complete missions to earn bonus XP and coins. Missions provide goals beyond simp
 
 ---
 
+## Achievements & Stats
+
+### Achievements
+- 25 achievements to unlock across various categories
+- Categories: Progression, Score, Waves, Length, Enemies, Cumulative, Special
+- Each achievement awards bonus coins when unlocked
+- Access via **ACHIEVEMENTS** button on main menu
+
+### Stats Screen
+Track your lifetime statistics:
+- **Summary:** Games played, total score, total XP, average score, coins
+- **Personal Bests:** Best score, best wave, longest snake
+- **Progress Milestones:** Track goals like 1000 food eaten, 100 games played
+
+Access via **STATS** button on main menu.
+
+---
+
 ## Enemies & Worlds
 
 Each enemy has a unique themed world with different grid sizes, backgrounds, and decorations. Slower enemies have smaller grids to keep gameplay engaging.

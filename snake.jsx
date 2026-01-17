@@ -1832,26 +1832,47 @@ const SnakeGame = () => {
         SHOP
       </button>
 
-      <button
-        onClick={() => setGameState('achievements')}
-        style={{
-          marginTop: '8px',
-          padding: '10px 28px',
-          fontSize: '14px',
-          fontWeight: '700',
-          background: 'linear-gradient(135deg, #9400d3, #4b0082)',
-          border: 'none',
-          borderRadius: '8px',
-          color: '#fff',
-          cursor: 'pointer',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          boxShadow: '0 4px 15px rgba(148, 0, 211, 0.3)',
-        }}
-        onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
-        onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
-      >
-        ACHIEVEMENTS ({stats.achievements.length}/{Object.keys(ACHIEVEMENTS).length})
-      </button>
+      <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+        <button
+          onClick={() => setGameState('achievements')}
+          style={{
+            padding: '10px 20px',
+            fontSize: '13px',
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #9400d3, #4b0082)',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#fff',
+            cursor: 'pointer',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            boxShadow: '0 4px 15px rgba(148, 0, 211, 0.3)',
+          }}
+          onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+        >
+          ACHIEVEMENTS ({stats.achievements.length}/{Object.keys(ACHIEVEMENTS).length})
+        </button>
+
+        <button
+          onClick={() => setGameState('stats')}
+          style={{
+            padding: '10px 20px',
+            fontSize: '13px',
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #00bfff, #1e90ff)',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#fff',
+            cursor: 'pointer',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            boxShadow: '0 4px 15px rgba(0, 191, 255, 0.3)',
+          }}
+          onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+        >
+          STATS
+        </button>
+      </div>
 
       {/* Active Missions */}
       {missions.active.length > 0 && (
@@ -2242,6 +2263,183 @@ const SnakeGame = () => {
       </button>
     </div>
   );
+
+  const renderStats = () => {
+    // Calculate some derived stats
+    const avgScore = stats.gamesPlayed > 0 ? Math.round(stats.totalScore / stats.gamesPlayed) : 0;
+    const avgFood = stats.gamesPlayed > 0 ? Math.round(stats.totalFood / stats.gamesPlayed) : 0;
+
+    // Personal bests for bar chart (normalized to 100 for display)
+    const bests = [
+      { label: 'Best Score', value: stats.maxScore, max: 2500, color: '#50c878' },
+      { label: 'Best Wave', value: stats.maxWave, max: 20, color: '#ffd700' },
+      { label: 'Best Length', value: stats.maxLength, max: 50, color: '#00bfff' },
+    ];
+
+    // Milestones for progress tracking
+    const milestones = [
+      { label: 'Food Eaten', current: stats.totalFood, target: 1000, icon: '🍎' },
+      { label: 'Games Played', current: stats.gamesPlayed, target: 100, icon: '🎮' },
+      { label: 'Total Dashes', current: stats.totalDashes, target: 50, icon: '💨' },
+      { label: 'Coins Earned', current: stats.coins, target: 1000, icon: '💰' },
+    ];
+
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '40px',
+        color: '#fff',
+        minHeight: '100vh',
+      }}>
+        <h2 style={{
+          fontSize: '32px',
+          fontWeight: '800',
+          marginBottom: '8px',
+          background: 'linear-gradient(135deg, #00bfff, #1e90ff)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>Statistics</h2>
+        <p style={{ color: '#888', marginBottom: '24px' }}>
+          Level {stats.level} Snake Master
+        </p>
+
+        {/* Summary Stats Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '16px',
+          maxWidth: '500px',
+          width: '100%',
+          marginBottom: '32px',
+        }}>
+          {[
+            { label: 'Games Played', value: stats.gamesPlayed, icon: '🎮' },
+            { label: 'Total Score', value: stats.totalScore.toLocaleString(), icon: '⭐' },
+            { label: 'Total XP', value: stats.xp.toLocaleString(), icon: '✨' },
+            { label: 'Avg Score', value: avgScore, icon: '📊' },
+            { label: 'Avg Food/Game', value: avgFood, icon: '🍎' },
+            { label: 'Coins', value: stats.coins.toLocaleString(), icon: '💰' },
+          ].map((stat, i) => (
+            <div key={i} style={{
+              background: 'rgba(0, 191, 255, 0.1)',
+              border: '1px solid rgba(0, 191, 255, 0.3)',
+              borderRadius: '12px',
+              padding: '16px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '24px', marginBottom: '4px' }}>{stat.icon}</div>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: '#00bfff' }}>{stat.value}</div>
+              <div style={{ fontSize: '11px', color: '#888' }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Personal Bests Bar Chart */}
+        <div style={{
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '16px',
+          padding: '24px',
+          maxWidth: '500px',
+          width: '100%',
+          marginBottom: '24px',
+        }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#fff' }}>
+            Personal Bests
+          </h3>
+          {bests.map((best, i) => {
+            const percentage = Math.min((best.value / best.max) * 100, 100);
+            return (
+              <div key={i} style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '13px', color: '#aaa' }}>{best.label}</span>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: best.color }}>{best.value}</span>
+                </div>
+                <div style={{
+                  height: '12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${percentage}%`,
+                    height: '100%',
+                    background: `linear-gradient(90deg, ${best.color}88, ${best.color})`,
+                    borderRadius: '6px',
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Milestone Progress */}
+        <div style={{
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '16px',
+          padding: '24px',
+          maxWidth: '500px',
+          width: '100%',
+        }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#fff' }}>
+            Lifetime Progress
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {milestones.map((m, i) => {
+              const percentage = Math.min((m.current / m.target) * 100, 100);
+              const complete = m.current >= m.target;
+              return (
+                <div key={i} style={{
+                  background: complete ? 'rgba(80, 200, 120, 0.15)' : 'rgba(255,255,255,0.05)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '20px' }}>{m.icon}</span>
+                    <span style={{ fontSize: '12px', color: '#aaa' }}>{m.label}</span>
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: complete ? '#50c878' : '#fff' }}>
+                    {m.current.toLocaleString()} / {m.target.toLocaleString()}
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    height: '6px',
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '3px',
+                    overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      width: `${percentage}%`,
+                      height: '100%',
+                      background: complete ? '#50c878' : 'linear-gradient(90deg, #1e90ff, #00bfff)',
+                      borderRadius: '3px',
+                    }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          onClick={() => setGameState('menu')}
+          style={{
+            marginTop: '30px',
+            padding: '10px 24px',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            color: '#8fbc8f',
+            cursor: 'pointer',
+          }}
+        >
+          ← Back
+        </button>
+      </div>
+    );
+  };
 
   const renderGame = () => {
     const config = getCurrentConfig();
@@ -3054,6 +3252,7 @@ const SnakeGame = () => {
       {gameState === 'select' && renderEnemySelect()}
       {gameState === 'shop' && renderShop()}
       {gameState === 'achievements' && renderAchievements()}
+      {gameState === 'stats' && renderStats()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>

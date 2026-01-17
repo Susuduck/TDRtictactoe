@@ -466,6 +466,25 @@ stats = {
 - Unlocked achievements show checkmark
 - New achievements displayed on game over screen with reward
 
+#### Stats Screen
+
+Accessible via "STATS" button on main menu. Displays:
+
+**Summary Grid (6 stats):**
+- Games Played, Total Score, Total XP
+- Avg Score, Avg Food/Game, Coins
+
+**Personal Bests (Bar Chart):**
+- Best Score (max 2500 for display scaling)
+- Best Wave (max 20)
+- Best Length (max 50)
+
+**Lifetime Progress (Milestones):**
+- Food Eaten (target: 1000)
+- Games Played (target: 100)
+- Total Dashes (target: 50)
+- Coins Earned (target: 1000)
+
 ---
 
 ## Key Helper Functions
