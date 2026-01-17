@@ -22,6 +22,247 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/babel">
+// ZzFX - Zuper Zmall Zound Zynth - Micro Edition (MIT License)
+// https://github.com/KilledByAPixel/ZzFX
+const zzfx=(...z)=>zzfxP(zzfxG(...z));const zzfxP=(...z)=>{let e=zzfxX.createBufferSource(),t=zzfxX.createBuffer(z.length,z[0].length,zzfxR);z.map((z,f)=>t.getChannelData(f).set(z)),e.buffer=t,e.connect(zzfxX.destination),e.start();return e};const zzfxG=(q=1,k=.05,c=220,e=0,t=0,u=.1,r=0,F=1,v=0,z=0,w=0,A=0,l=0,B=0,x=0,G=0,d=0,y=1,m=0,C=0)=>{let b=2*Math.PI,H=v*=500*b/zzfxR**2,I=(0<x?1:-1)*b/4,D=c*=(1+2*k*Math.random()-k)*b/zzfxR,Z=[],g=0,E=0,a=0,n=1,J=0,K=0,f=0,p,h;e=99+zzfxR*e;m*=zzfxR;t*=zzfxR;u*=zzfxR;d*=zzfxR;z*=500*b/zzfxR**3;x*=b/zzfxR;w*=b/zzfxR;A*=zzfxR;l=zzfxR*l|0;for(h=e+m+t+u+d|0;a<h;Z[a++]=f)++K%(100*G|0)||(f=r?1<r?2<r?3<r?Math.sin((g%b)**3):Math.max(Math.min(Math.tan(g),1),-1):1-(2*g/b%2+2)%2:1-4*Math.abs(Math.round(g/b)-g/b):Math.sin(g),f=(l?1-C+C*Math.sin(2*Math.PI*a/l):1)*(0<f?1:-1)*Math.abs(f)**F*q*zzfxV*(a<e?a/e:a<e+m?1-(a-e)/m*(1-y):a<e+m+t?y:a<h-d?(h-a-d)/u*y:0),f=d?f/2+(d>a?0:(a<h-d?1:(h-a)/d)/2)*Z[a-d|0]:f),p=(c+=v+=z)*Math.cos(I*J++),g+=p-p*B*(1-1E9*(Math.sin(a)+1)%2),n&&++n>A&&(c+=w,D+=w,n=0),!l||++E%l||(c=D,v=H,n=n||1);return Z};const zzfxV=.3,zzfxR=44100,zzfxX=new(window.AudioContext||window.webkitAudioContext);
+
+// Sound effect presets
+const SFX = {
+  shoot: () => zzfx(...[.3,.05,400,.02,.02,.08,1,.5,,,,,,,,.1]),
+  arrowShoot: () => zzfx(...[.2,.1,200,.01,.01,.05,2,2,,,,,,,,,.02]),
+  cannonShoot: () => zzfx(...[.4,.2,150,.02,.05,.2,4,.5,,,,,,,.1,,.1]),
+  frostShoot: () => zzfx(...[.2,.1,800,.01,.02,.1,2,1,,,200,.05,,,,,.05]),
+  lightningShoot: () => zzfx(...[.3,.05,600,.01,.02,.05,3,1,20,,,,.02,,,,.03]),
+  laserLoop: () => zzfx(...[.1,,200,,.1,.1,4,1,,,,,,,3]),
+  poisonShoot: () => zzfx(...[.2,.2,100,.02,.08,.15,2,2,,,-50,.08,.1]),
+  hit: () => zzfx(...[.2,.05,300,.01,.02,.05,4,.5,-10,,,,,,,,.02]),
+  explosion: () => zzfx(...[.5,.2,150,.03,.15,.3,4,.5,,,,,,.5,,.2,.1]),
+  enemyDeath: () => zzfx(...[.3,.1,200,.01,.05,.1,4,1.5,,-5,-50,.02,.05]),
+  bossDeath: () => zzfx(...[.8,.3,80,.05,.4,.5,4,.5,,,-20,.1,.2,.1,,.5,.2]),
+  goldPickup: () => zzfx(...[.3,.05,600,.02,.1,.1,1,2,,,400,.05]),
+  upgrade: () => zzfx(...[.4,.1,400,.02,.15,.2,1,2,,,200,.05,.05]),
+  place: () => zzfx(...[.3,.05,200,.01,.05,.1,1,1]),
+  sell: () => zzfx(...[.2,.1,300,.01,.1,.1,2,1,,,-100,.02]),
+  waveStart: () => zzfx(...[.5,.1,300,.02,.1,.2,1,1,,,100,.02,.05]),
+  waveComplete: () => zzfx(...[.4,.1,500,.02,.2,.3,1,1.5,,,200,.05,.1]),
+  bossWarning: () => zzfx(...[.6,.3,100,.05,.3,.4,3,.5,,,-20,.05,.1,,,.3,.1]),
+  lifeLost: () => zzfx(...[.5,.2,200,.05,.1,.2,3,1,,,-100,.05]),
+  abilityBomb: () => zzfx(...[.8,.3,100,.05,.3,.5,4,.3,,,,,,.5,,.4,.2]),
+  abilityFreeze: () => zzfx(...[.4,.2,1000,.05,.3,.4,2,1,,,300,.1,.1]),
+  crit: () => zzfx(...[.4,.05,500,.01,.03,.05,1,2,10]),
+  worldUnlock: () => zzfx(...[.5,.1,400,.02,.3,.4,1,1.5,,,300,.05,.1]),
+  worldSelect: () => zzfx(...[.3,.05,500,.01,.05,.1,1,1.5]),
+};
+
+// ==================== WORLD DEFINITIONS ====================
+// 10 Worlds, each with 10 waves (wave 10 = boss)
+const worldDefs = [
+  {
+    id: 0,
+    name: 'Forest Fawn',
+    title: 'The Woodland Guide',
+    emoji: '🦌',
+    color: '#50c878',
+    bgGradient: 'linear-gradient(135deg, #1a3320 0%, #0d1a10 100%)',
+    description: 'A gentle introduction to tower defense',
+    enemyTypes: ['slime', 'swarm'],
+    bossType: 'treant',
+    gimmick: null, // Tutorial world - no gimmicks
+    unlockRequirement: 0, // Always unlocked
+  },
+  {
+    id: 1,
+    name: 'Sandy Scorpion',
+    title: 'The Desert Dweller',
+    emoji: '🦂',
+    color: '#e8a840',
+    bgGradient: 'linear-gradient(135deg, #3d2a1a 0%, #1a1008 100%)',
+    description: 'Sandstorms reduce tower range',
+    enemyTypes: ['scout', 'swarm', 'slime'],
+    bossType: 'sandwurm',
+    gimmick: 'sandstorm', // Periodically reduces all tower ranges
+    unlockRequirement: 8, // Need 8 stars from previous world
+  },
+  {
+    id: 2,
+    name: 'Glacier Penguin',
+    title: 'The Frozen Guardian',
+    emoji: '🐧',
+    color: '#70c9ff',
+    bgGradient: 'linear-gradient(135deg, #1a2a3d 0%, #0a1520 100%)',
+    description: 'Blizzards slow your towers',
+    enemyTypes: ['tank', 'shielded', 'slime'],
+    bossType: 'icegiant',
+    gimmick: 'blizzard', // Slows tower attack speed
+    unlockRequirement: 8,
+  },
+  {
+    id: 3,
+    name: 'Swamp Toad',
+    title: 'The Murky Master',
+    emoji: '🐸',
+    color: '#7cb342',
+    bgGradient: 'linear-gradient(135deg, #1a2a1a 0%, #0a150a 100%)',
+    description: 'Fog zones heal enemies',
+    enemyTypes: ['healer', 'splitter', 'slime', 'swarm'],
+    bossType: 'hydra',
+    gimmick: 'fogzones', // Certain path areas heal enemies
+    unlockRequirement: 8,
+  },
+  {
+    id: 4,
+    name: 'Volcano Dragon',
+    title: 'The Flame Lord',
+    emoji: '🐉',
+    color: '#ff6b35',
+    bgGradient: 'linear-gradient(135deg, #3d1a1a 0%, #1a0808 100%)',
+    description: 'Lava eruptions damage nearby towers',
+    enemyTypes: ['tank', 'scout', 'slime'],
+    bossType: 'elderdragon',
+    gimmick: 'lavaerupt', // Random tiles erupt, damaging/disabling towers
+    unlockRequirement: 8,
+    enemyResists: { fire: 0.5 }, // Enemies here resist fire
+  },
+  {
+    id: 5,
+    name: 'Crystal Moth',
+    title: 'The Light Seeker',
+    emoji: '🦋',
+    color: '#c990ff',
+    bgGradient: 'linear-gradient(135deg, #2a1a3d 0%, #150a20 100%)',
+    description: 'Some enemies are invisible until revealed',
+    enemyTypes: ['scout', 'swarm', 'slime'],
+    bossType: 'shadowbeast',
+    gimmick: 'invisible', // Some enemies invisible, need reveal towers
+    unlockRequirement: 8,
+  },
+  {
+    id: 6,
+    name: 'Storm Eagle',
+    title: 'The Sky Sovereign',
+    emoji: '🦅',
+    color: '#5090e8',
+    bgGradient: 'linear-gradient(135deg, #1a2030 0%, #080a15 100%)',
+    description: 'Lightning strikes random tiles',
+    enemyTypes: ['scout', 'shielded', 'healer'],
+    bossType: 'thunderroc',
+    gimmick: 'lightning', // Random lightning damages towers/enemies
+    unlockRequirement: 8,
+    enemyResists: { lightning: 0.5 }, // Enemies resist lightning
+  },
+  {
+    id: 7,
+    name: 'Haunted Ghost',
+    title: 'The Spirit Keeper',
+    emoji: '👻',
+    color: '#a0a0c0',
+    bgGradient: 'linear-gradient(135deg, #1a1a2a 0%, #0a0a15 100%)',
+    description: 'Defeated enemies resurrect once',
+    enemyTypes: ['splitter', 'healer', 'tank'],
+    bossType: 'lichking',
+    gimmick: 'resurrect', // Enemies come back at 50% HP once
+    unlockRequirement: 8,
+  },
+  {
+    id: 8,
+    name: 'Clockwork Robot',
+    title: 'The Machine Mind',
+    emoji: '🤖',
+    color: '#c0a080',
+    bgGradient: 'linear-gradient(135deg, #2a2520 0%, #151210 100%)',
+    description: 'Time warps speed up enemies in zones',
+    enemyTypes: ['shielded', 'tank', 'scout'],
+    bossType: 'mechtitan',
+    gimmick: 'timewarp', // Speed zones on path
+    unlockRequirement: 8,
+  },
+  {
+    id: 9,
+    name: 'Cosmic Owl',
+    title: 'The Final Wisdom',
+    emoji: '🦉',
+    color: '#d4a840',
+    bgGradient: 'linear-gradient(135deg, #0a0820 0%, #000008 100%)',
+    description: 'All chaos mechanics combined',
+    enemyTypes: ['slime', 'scout', 'tank', 'swarm', 'healer', 'shielded', 'splitter'],
+    bossType: 'voidemperor',
+    gimmick: 'chaos', // Random gimmick each wave
+    unlockRequirement: 8,
+  },
+];
+
+// Boss definitions
+const bossDefs = {
+  treant: { name: 'Giant Treant', emoji: '🌳', health: 1500, speed: 0.3, reward: 100, size: 1.5, color: '#228b22', resist: { fire: -0.5, physical: 0.3 } },
+  sandwurm: { name: 'Sand Wurm', emoji: '🐛', health: 2000, speed: 0.4, reward: 120, size: 1.6, color: '#daa520', resist: { physical: 0.3 }, splits: true },
+  icegiant: { name: 'Ice Giant', emoji: '🧊', health: 3000, speed: 0.25, reward: 150, size: 1.7, color: '#70c9ff', resist: { frost: 0.8, fire: -0.5 }, shield: 500 },
+  hydra: { name: 'Hydra', emoji: '🐍', health: 2500, speed: 0.35, reward: 180, size: 1.5, color: '#7cb342', resist: { poison: 0.8 }, heals: true, splits: true },
+  elderdragon: { name: 'Elder Dragon', emoji: '🐲', health: 4000, speed: 0.3, reward: 200, size: 1.8, color: '#ff4500', resist: { fire: 0.8, physical: 0.3 } },
+  shadowbeast: { name: 'Shadow Beast', emoji: '👤', health: 2000, speed: 0.5, reward: 180, size: 1.4, color: '#4a0080', invisible: true },
+  thunderroc: { name: 'Thunder Roc', emoji: '🦅', health: 3000, speed: 0.45, reward: 200, size: 1.6, color: '#ffd700', resist: { lightning: 0.8 } },
+  lichking: { name: 'Lich King', emoji: '💀', health: 3500, speed: 0.3, reward: 220, size: 1.6, color: '#8b008b', resurrects: 2 },
+  mechtitan: { name: 'Mech Titan', emoji: '🦾', health: 5000, speed: 0.2, reward: 250, size: 2.0, color: '#b8860b', shield: 1500, resist: { physical: 0.5, lightning: 0.5 } },
+  voidemperor: { name: 'Void Emperor', emoji: '👁️', health: 8000, speed: 0.25, reward: 500, size: 2.2, color: '#9400d3', resist: { fire: 0.3, frost: 0.3, lightning: 0.3, poison: 0.3, physical: 0.3 } },
+};
+
+// Progression storage helper (like UTTT)
+const ProgressionStorage = {
+  KEY: 'towerDefense_progression_v1',
+
+  load: () => {
+    try {
+      const saved = localStorage.getItem(ProgressionStorage.KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      worldStars: Array(10).fill(0), // Stars earned per world (0-10 each)
+      totalStars: 0,
+      highestWorld: 0,
+      highestWave: 0,
+      gamesPlayed: 0,
+      totalKills: 0,
+    };
+  },
+
+  save: (data) => {
+    try {
+      localStorage.setItem(ProgressionStorage.KEY, JSON.stringify(data));
+    } catch (e) {}
+  },
+
+  getWorldStars: (worldId) => {
+    const data = ProgressionStorage.load();
+    return data.worldStars[worldId] || 0;
+  },
+
+  isWorldUnlocked: (worldId) => {
+    if (worldId === 0) return true;
+    const data = ProgressionStorage.load();
+    return data.worldStars[worldId - 1] >= worldDefs[worldId].unlockRequirement;
+  },
+
+  addStar: (worldId, waveNum) => {
+    const data = ProgressionStorage.load();
+    // Only add star if this is a new highest wave for this world
+    if (waveNum > data.worldStars[worldId]) {
+      data.worldStars[worldId] = waveNum;
+      data.totalStars = data.worldStars.reduce((a, b) => a + b, 0);
+      if (worldId > data.highestWorld) data.highestWorld = worldId;
+      if (waveNum > data.highestWave) data.highestWave = waveNum;
+      ProgressionStorage.save(data);
+      return true; // New star earned
+    }
+    return false;
+  },
+
+  recordGame: (kills) => {
+    const data = ProgressionStorage.load();
+    data.gamesPlayed++;
+    data.totalKills += kills;
+    ProgressionStorage.save(data);
+  },
+};
+
 const TowerDefenseGame = () => {
   const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
@@ -44,6 +285,27 @@ const TowerDefenseGame = () => {
     const handler = (e) => setPrefersReducedMotion(e.matches);
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  // Single-session mode: Parse URL parameters for Teddy's Review Roundup integration
+  // Usage: tower-defense.html?session=true&world=2&callback=parent.towerDefenseComplete
+  const sessionStartedRef = useRef(false);
+  useEffect(() => {
+    if (sessionStartedRef.current) return; // Only run once
+    const params = new URLSearchParams(window.location.search);
+    const isSession = params.get('session') === 'true';
+    const worldParam = parseInt(params.get('world')) || 0;
+    const callbackName = params.get('callback'); // e.g., "parent.towerDefenseComplete"
+
+    if (isSession) {
+      sessionStartedRef.current = true;
+      // Store callback for later use
+      window.towerDefenseCallback = callbackName;
+      // Auto-start the session after a brief delay
+      setTimeout(() => {
+        startGame(Math.min(worldParam, 9), true);
+      }, 100);
+    }
   }, []);
 
   // Calculate responsive cell size with better grid calculation
@@ -97,6 +359,33 @@ const TowerDefenseGame = () => {
   const [currentFps, setCurrentFps] = useState(60);
   const fpsHistoryRef = useRef([]);
 
+  // New game feel states
+  const [slowMo, setSlowMo] = useState(1); // Slowmo multiplier (1 = normal, 0.2 = slow)
+  const [screenFlash, setScreenFlash] = useState(null); // { color, opacity }
+  const [dyingEnemies, setDyingEnemies] = useState([]); // Enemies in death animation
+  const [confetti, setConfetti] = useState([]); // Wave complete confetti
+  const [healerBeams, setHealerBeams] = useState([]); // Healer beam visualization
+  const [abilities, setAbilities] = useState({
+    bomb: { cooldown: 0, maxCooldown: 30000, cost: 50, ready: true },
+    freeze: { cooldown: 0, maxCooldown: 20000, cost: 30, ready: true },
+  });
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // World progression state
+  const [currentWorld, setCurrentWorld] = useState(0);
+  const [progression, setProgression] = useState(() => ProgressionStorage.load());
+  const [singleSessionMode, setSingleSessionMode] = useState(false); // For Teddy's Review Roundup
+  const [sessionStartWorld, setSessionStartWorld] = useState(0);
+  const [newStarEarned, setNewStarEarned] = useState(false);
+  const [activeGimmick, setActiveGimmick] = useState(null); // Current world gimmick effect
+  const [sessionResults, setSessionResults] = useState({ // Track session performance
+    worldsCompleted: [],
+    totalStars: 0,
+    totalKills: 0,
+    sessionWorld: 0,
+    outcome: null, // 'victory', 'defeat', or 'quit'
+  });
+
   // Refs
   const spawnTimerRef = useRef(null);
   const enemiesRef = useRef(enemies);
@@ -104,6 +393,9 @@ const TowerDefenseGame = () => {
   const pathRef = useRef(path);
   const goldRef = useRef(gold);
   const beamDamageRef = useRef([]); // PERF: Collect beam damage to apply in batch
+  const gimmickTimerRef = useRef(0); // Timer for gimmick cycles
+  const gimmickActiveRef = useRef(false); // Whether gimmick effect is currently active
+  const chaosGimmickRef = useRef(null); // For World 10 chaos - random gimmick per wave
 
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
   useEffect(() => { towersRef.current = towers; }, [towers]);
@@ -315,11 +607,18 @@ const TowerDefenseGame = () => {
       if (key === 's' && selectedTowerForUpgrade) {
         sellTower(selectedTowerForUpgrade.id);
       }
+      // Ability shortcuts
+      if (key === 'q' || key === 'Q') {
+        useBombAbility();
+      }
+      if (key === 'w' || key === 'W') {
+        useFreezeAbility();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, waveInProgress, selectedTowerForUpgrade]);
+  }, [gameState, waveInProgress, selectedTowerForUpgrade, useBombAbility, useFreezeAbility]);
 
   // Pathfinding
   const findPath = useCallback((gridState) => {
@@ -435,6 +734,83 @@ const TowerDefenseGame = () => {
     shake();
   }, []);
 
+  // Play sound helper
+  const playSound = useCallback((sfxFn) => {
+    if (soundEnabled && sfxFn) {
+      try { sfxFn(); } catch (e) {}
+    }
+  }, [soundEnabled]);
+
+  // Screen flash effect
+  const triggerFlash = useCallback((color, duration = 200) => {
+    setScreenFlash({ color, opacity: 0.6 });
+    setTimeout(() => setScreenFlash({ color, opacity: 0.3 }), duration / 3);
+    setTimeout(() => setScreenFlash({ color, opacity: 0.1 }), duration * 2 / 3);
+    setTimeout(() => setScreenFlash(null), duration);
+  }, []);
+
+  // Slowmo effect
+  const triggerSlowMo = useCallback((factor = 0.2, duration = 500) => {
+    setSlowMo(factor);
+    setTimeout(() => setSlowMo(1), duration);
+  }, []);
+
+  // Spawn confetti for wave complete
+  const spawnConfetti = useCallback((count = 50) => {
+    const colors = [theme.gold, theme.success, theme.accent, '#ff6b6b', '#4ecdc4', '#ffe66d'];
+    const newConfetti = Array(count).fill(null).map(() => ({
+      id: Math.random(),
+      x: gridWidth / 2 + (Math.random() - 0.5) * gridWidth * 0.8,
+      y: -20,
+      vx: (Math.random() - 0.5) * 8,
+      vy: Math.random() * 3 + 2,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 20,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 4 + Math.random() * 6,
+      life: 2000 + Math.random() * 1000,
+    }));
+    setConfetti(prev => [...prev, ...newConfetti]);
+  }, []);
+
+  // Active abilities
+  const useBombAbility = useCallback(() => {
+    if (abilities.bomb.cooldown > 0 || gold < abilities.bomb.cost) return;
+
+    setGold(g => g - abilities.bomb.cost);
+    playSound(SFX.abilityBomb);
+    triggerShake(20);
+    triggerFlash('#ff4757', 300);
+
+    // Damage all enemies
+    setEnemies(enemies => enemies.map(e => {
+      const damage = Math.floor(e.maxHealth * 0.25); // 25% max HP damage
+      spawnParticles(e.x, e.y, theme.fire, 8, { speed: 5, size: 5, life: 400 });
+      return { ...e, currentHealth: e.currentHealth - damage, hitFlash: 1 };
+    }));
+
+    setAbilities(prev => ({ ...prev, bomb: { ...prev.bomb, cooldown: prev.bomb.maxCooldown, ready: false } }));
+    announce('💣 BOMB!', theme.fire, 1500);
+  }, [abilities, gold, playSound, triggerShake, triggerFlash, spawnParticles, announce]);
+
+  const useFreezeAbility = useCallback(() => {
+    if (abilities.freeze.cooldown > 0 || gold < abilities.freeze.cost) return;
+
+    setGold(g => g - abilities.freeze.cost);
+    playSound(SFX.abilityFreeze);
+    triggerFlash(theme.frost, 400);
+
+    // Freeze all enemies
+    const now = Date.now();
+    setEnemies(enemies => enemies.map(e => {
+      spawnParticles(e.x, e.y, theme.frost, 5, { speed: 2, size: 4, life: 500 });
+      return { ...e, slowedUntil: now + 5000, slowAmount: 0.1 }; // 90% slow for 5 seconds
+    }));
+
+    setAbilities(prev => ({ ...prev, freeze: { ...prev.freeze, cooldown: prev.freeze.maxCooldown, ready: false } }));
+    announce('❄️ FREEZE!', theme.frost, 1500);
+  }, [abilities, gold, playSound, triggerFlash, spawnParticles, announce]);
+
   // Tower placement
   const canPlaceTower = useCallback((row, col) => {
     if (grid[row][col] !== null) return false;
@@ -520,12 +896,13 @@ const TowerDefenseGame = () => {
     const cx = col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     const cy = row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     spawnParticles(cx, cy, towerDef.color, 12, { speed: 4, size: 5, life: 400 });
+    playSound(SFX.place);
 
     const newGrid = grid.map(r => [...r]);
     newGrid[row][col] = 'tower';
     setPath(findPath(newGrid) || []);
     return true;
-  }, [canPlaceTower, gold, grid, findPath, spawnParticles, CELL_SIZE]);
+  }, [canPlaceTower, gold, grid, findPath, spawnParticles, playSound, CELL_SIZE]);
 
   const sellTower = useCallback((towerId) => {
     const tower = towers.find(t => t.id === towerId);
@@ -548,11 +925,12 @@ const TowerDefenseGame = () => {
     const cy = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     spawnParticles(cx, cy, theme.gold, 10, { speed: 3, life: 600 });
     spawnFloatingText(cx, cy, `+${sellValue}`, theme.gold, 16);
+    playSound(SFX.sell);
 
     const newGrid = grid.map(r => [...r]);
     newGrid[tower.row][tower.col] = null;
     setPath(findPath(newGrid) || []);
-  }, [towers, grid, findPath, spawnParticles, spawnFloatingText, CELL_SIZE]);
+  }, [towers, grid, findPath, spawnParticles, spawnFloatingText, playSound, CELL_SIZE]);
 
   const upgradeTower = useCallback((towerId) => {
     setTowers(prev => prev.map(tower => {
@@ -569,26 +947,55 @@ const TowerDefenseGame = () => {
       const cy = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
       spawnParticles(cx, cy, theme.gold, 15, { speed: 5, size: 6, life: 500 });
       announce(`${tower.name} → ${upgrade.name}!`, tower.color, 1500);
+      playSound(SFX.upgrade);
 
       return { ...tower, ...upgrade, level: tower.level + 1 };
     }));
-  }, [gold, spawnParticles, announce, CELL_SIZE]);
+  }, [gold, spawnParticles, announce, playSound, CELL_SIZE]);
 
-  // Enemy spawning with Infinitode 2-style exponential scaling
+  // Enemy spawning with world-based scaling
   const spawnEnemy = useCallback((type, pathOffset = 0) => {
-    const enemyDef = enemyTypes[type];
-    // Exponential health scaling: wave^1.25 (inspired by Infinitode 2's wave^1.27)
-    const waveMultiplier = Math.pow(wave, 1.25);
-    // Boss-specific scaling: baseHealth * wave * sqrt(wave) for extra challenge
-    const bossMultiplier = enemyDef.isBoss ? wave * Math.sqrt(wave) * 0.5 : waveMultiplier;
-    const healthMultiplier = enemyDef.isBoss ? bossMultiplier : waveMultiplier;
-    // Small random offset to prevent stacking, but keep enemies centered on path
+    // Check if this is a world boss
+    const isWorldBoss = bossDefs[type] !== undefined;
+    const enemyDef = isWorldBoss ? bossDefs[type] : enemyTypes[type];
+
+    if (!enemyDef) {
+      console.warn('Unknown enemy type:', type);
+      return;
+    }
+
+    // World-based difficulty scaling
+    const worldMult = 1 + currentWorld * 0.4;
+    const waveMult = 1 + (wave - 1) * 0.15;
+    const baseMultiplier = worldMult * waveMult;
+
+    // Boss scaling is more aggressive
+    const healthMultiplier = isWorldBoss
+      ? baseMultiplier * 2 * (1 + currentWorld * 0.3)
+      : baseMultiplier;
+
+    // Small random offset to prevent stacking
     const offsetX = (Math.random() - 0.5) * CELL_SIZE * 0.2;
-    const offsetY = -pathOffset * CELL_SIZE * 0.3; // Stagger spawns slightly above the start
+    const offsetY = -pathOffset * CELL_SIZE * 0.3;
+
+    // Apply world-specific enemy resistances
+    const world = worldDefs[currentWorld];
+    const worldResists = world.enemyResists || {};
+    const mergedResist = { ...(enemyDef.resist || {}), ...worldResists };
+
     const newEnemy = {
       id: Date.now() + Math.random(),
       type,
-      ...enemyDef,
+      name: enemyDef.name,
+      emoji: enemyDef.emoji,
+      color: enemyDef.color,
+      speed: enemyDef.speed,
+      reward: Math.floor((enemyDef.reward || 5) * worldMult),
+      size: enemyDef.size || 1,
+      resist: mergedResist,
+      heals: enemyDef.heals,
+      splits: enemyDef.splits,
+      isBoss: isWorldBoss,
       health: Math.floor(enemyDef.health * healthMultiplier),
       maxHealth: Math.floor(enemyDef.health * healthMultiplier),
       currentHealth: Math.floor(enemyDef.health * healthMultiplier),
@@ -605,42 +1012,85 @@ const TowerDefenseGame = () => {
       hitFlash: 0,
       rotation: 0,
       lastHealTime: 0,
+      // Special boss properties
+      resurrects: enemyDef.resurrects || 0,
+      // Invisible gimmick (World 6 or Chaos): Some enemies start invisible
+      invisible: enemyDef.invisible ||
+        ((world.gimmick === 'invisible' || (world.gimmick === 'chaos' && chaosGimmickRef.current === 'invisible')) && Math.random() < 0.4),
     };
     setEnemies(prev => [...prev, newEnemy]);
-  }, [wave, CELL_SIZE]);
+  }, [wave, currentWorld, CELL_SIZE]);
 
-  // Generate wave with escalating composition
-  const generateWaveEnemies = useCallback((waveNum) => {
+  // Generate wave using world-specific enemy types
+  // Each world has 10 waves, wave 10 is boss wave
+  const generateWaveEnemies = useCallback((waveNum, worldId = currentWorld) => {
+    const world = worldDefs[worldId];
     const enemies = [];
-    // Slime count grows slower at higher waves - more specials proportionally
-    const slimeCount = Math.floor(6 + waveNum * 1.2);
 
-    for (let i = 0; i < slimeCount; i++) enemies.push('slime');
-    // Scouts - fast and numerous
-    if (waveNum >= 2) for (let i = 0; i < Math.floor(waveNum * 1.0); i++) enemies.push('scout');
-    // Tanks - more at higher waves
-    if (waveNum >= 3) for (let i = 0; i < Math.floor(waveNum * 0.6); i++) enemies.push('tank');
-    // Swarms - scale aggressively
-    if (waveNum >= 4) for (let i = 0; i < Math.floor(waveNum * 1.5); i++) enemies.push('swarm');
-    // Healers - every 3rd after wave 5
-    if (waveNum >= 5) for (let i = 0; i < Math.floor(waveNum / 3); i++) enemies.push('healer');
-    // Shielded - more frequent
-    if (waveNum >= 6) for (let i = 0; i < Math.floor(waveNum * 0.4); i++) enemies.push('shielded');
-    // Splitters - medium frequency
-    if (waveNum >= 7) for (let i = 0; i < Math.floor(waveNum / 3); i++) enemies.push('splitter');
-    // Bosses and mega bosses
-    if (waveNum % 5 === 0) enemies.push('boss');
-    if (waveNum % 10 === 0) enemies.push('megaBoss');
-    // Extra boss every 3 waves after wave 15
-    if (waveNum > 15 && waveNum % 3 === 0) enemies.push('boss');
+    // Global difficulty multiplier based on world
+    const worldMult = 1 + worldId * 0.3;
 
-    // Shuffle the enemies
+    // Wave 10 is BOSS WAVE
+    const isBossWave = waveNum === 10;
+
+    if (isBossWave) {
+      // Boss wave: spawn the world boss + supporting enemies
+      enemies.push(world.bossType);
+      // Add some support enemies
+      const supportCount = 5 + worldId * 2;
+      for (let i = 0; i < supportCount; i++) {
+        enemies.push(world.enemyTypes[Math.floor(Math.random() * world.enemyTypes.length)]);
+      }
+    } else {
+      // Normal wave: use world-specific enemy types
+      const baseCount = Math.floor((5 + waveNum * 1.5) * worldMult);
+      const availableTypes = world.enemyTypes;
+
+      // Primary enemy type (most common for this world)
+      const primaryCount = Math.floor(baseCount * 0.6);
+      for (let i = 0; i < primaryCount; i++) {
+        enemies.push(availableTypes[0]);
+      }
+
+      // Secondary types unlock as wave progresses
+      if (waveNum >= 2 && availableTypes.length > 1) {
+        const secondaryCount = Math.floor(baseCount * 0.25);
+        for (let i = 0; i < secondaryCount; i++) {
+          enemies.push(availableTypes[1]);
+        }
+      }
+
+      // Tertiary types in later waves
+      if (waveNum >= 4 && availableTypes.length > 2) {
+        const tertiaryCount = Math.floor(baseCount * 0.15);
+        for (let i = 0; i < tertiaryCount; i++) {
+          enemies.push(availableTypes[Math.floor(Math.random() * (availableTypes.length - 2)) + 2]);
+        }
+      }
+
+      // Mini-boss on wave 5
+      if (waveNum === 5) {
+        enemies.push('tank');
+      }
+
+      // More variety in later waves
+      if (waveNum >= 7) {
+        for (let i = 0; i < Math.floor(waveNum / 3); i++) {
+          enemies.push(availableTypes[Math.floor(Math.random() * availableTypes.length)]);
+        }
+      }
+    }
+
+    // Shuffle the enemies (except boss stays at end)
+    const boss = isBossWave ? enemies.shift() : null;
     for (let i = enemies.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [enemies[i], enemies[j]] = [enemies[j], enemies[i]];
     }
+    if (boss) enemies.push(boss); // Boss spawns last
+
     return enemies;
-  }, []);
+  }, [currentWorld]);
 
   const startWave = useCallback(() => {
     if (waveInProgress) return;
@@ -657,19 +1107,41 @@ const TowerDefenseGame = () => {
     }
     setWaveCountdown(0);
 
-    const waveEnemies = generateWaveEnemies(wave);
+    const waveEnemies = generateWaveEnemies(wave, currentWorld);
     setWaveEnemyList(waveEnemies);
     setTotalEnemiesInWave(waveEnemies.length);
 
-    // Boss warning
-    if (wave % 5 === 0) {
-      announce(wave % 10 === 0 ? '⚠️ TITAN INCOMING!' : '⚠️ BOSS WAVE!', theme.error, 2500);
-      triggerShake(8);
+    const world = worldDefs[currentWorld];
+
+    // Chaos gimmick (World 10): Pick random gimmick each wave
+    if (world.gimmick === 'chaos') {
+      const possibleGimmicks = ['sandstorm', 'blizzard', 'fog', 'lava', 'invisible', 'lightning', 'resurrect', 'timewarp'];
+      chaosGimmickRef.current = possibleGimmicks[Math.floor(Math.random() * possibleGimmicks.length)];
+      const gimmickEmojis = {
+        sandstorm: '🌪️', blizzard: '❄️', fog: '🌫️', lava: '🌋',
+        invisible: '👻', lightning: '⚡', resurrect: '💀', timewarp: '⏰'
+      };
+      announce(`🎲 CHAOS: ${gimmickEmojis[chaosGimmickRef.current]} ${chaosGimmickRef.current.toUpperCase()}!`, '#9400d3', 2500);
+    }
+
+    // Wave 10 is BOSS WAVE
+    if (wave === 10) {
+      const boss = bossDefs[world.bossType];
+      announce(`⚠️ BOSS: ${boss.emoji} ${boss.name}!`, world.color, 3000);
+      triggerShake(12);
+      playSound(SFX.bossWarning);
+    } else if (wave === 5) {
+      // Mini-boss on wave 5
+      announce(`⚠️ Wave ${wave} - Stronger Enemies!`, theme.gold, 2000);
+      playSound(SFX.waveStart);
+    } else {
+      announce(`Wave ${wave}/10`, world.color, 1500);
+      playSound(SFX.waveStart);
     }
 
     let spawnIndex = 0;
-    // More aggressive spawn rate - faster spawns as waves progress
-    const spawnDelay = Math.max(150, 600 - wave * 25);
+    // Spawn rate scales with world and wave
+    const spawnDelay = Math.max(150, 600 - wave * 20 - currentWorld * 15);
 
     spawnTimerRef.current = setInterval(() => {
       if (spawnIndex < waveEnemies.length) {
@@ -680,7 +1152,7 @@ const TowerDefenseGame = () => {
         clearInterval(spawnTimerRef.current);
       }
     }, spawnDelay);
-  }, [wave, waveInProgress, spawnEnemy, generateWaveEnemies, announce, triggerShake]);
+  }, [wave, waveInProgress, currentWorld, spawnEnemy, generateWaveEnemies, announce, triggerShake]);
 
   // Main game loop
   useEffect(() => {
@@ -690,7 +1162,7 @@ const TowerDefenseGame = () => {
     let lastTime = performance.now();
 
     const tick = (currentTime) => {
-      const deltaTime = Math.min(currentTime - lastTime, 50) * gameSpeed;
+      const deltaTime = Math.min(currentTime - lastTime, 50) * gameSpeed * slowMo;
       const actualDelta = currentTime - lastTime;
       lastTime = currentTime;
       const now = Date.now();
@@ -702,6 +1174,93 @@ const TowerDefenseGame = () => {
         if (fpsHistoryRef.current.length > 30) fpsHistoryRef.current.shift();
         const avgFps = fpsHistoryRef.current.reduce((a, b) => a + b, 0) / fpsHistoryRef.current.length;
         setCurrentFps(Math.round(avgFps));
+      }
+
+      // Gimmick cycle logic (sandstorm, blizzard, etc.)
+      const world = worldDefs[currentWorld];
+      // For chaos world, use the randomly selected gimmick for this wave
+      const effectiveGimmick = world.gimmick === 'chaos' ? chaosGimmickRef.current : world.gimmick;
+
+      const GIMMICK_CYCLE = 20000; // 20 seconds full cycle
+      const GIMMICK_ACTIVE_DURATION = 5000; // Active for 5 seconds
+      gimmickTimerRef.current = (gimmickTimerRef.current + deltaTime) % GIMMICK_CYCLE;
+      const wasActive = gimmickActiveRef.current;
+      gimmickActiveRef.current = gimmickTimerRef.current < GIMMICK_ACTIVE_DURATION;
+
+      // Announce when gimmick activates
+      if (!wasActive && gimmickActiveRef.current && effectiveGimmick) {
+        if (effectiveGimmick === 'sandstorm') {
+          announce('🌪️ SANDSTORM!', '#d4a574', 2000);
+          playSound(SFX.freeze); // Use existing sound
+        } else if (effectiveGimmick === 'blizzard') {
+          announce('❄️ BLIZZARD!', '#70c9ff', 2000);
+          playSound(SFX.freeze);
+        }
+        setActiveGimmick(effectiveGimmick);
+      } else if (wasActive && !gimmickActiveRef.current && effectiveGimmick) {
+        setActiveGimmick(null);
+      }
+
+      // Lightning gimmick (World 7): Random strikes every 3-5 seconds
+      if (effectiveGimmick === 'lightning' && Math.random() < deltaTime / 4000) {
+        const strikeCol = Math.floor(Math.random() * GRID_COLS);
+        const strikeRow = Math.floor(Math.random() * GRID_ROWS);
+        const strikeX = strikeCol * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+        const strikeY = strikeRow * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+
+        // Damage enemies near strike
+        setEnemies(prev => prev.map(enemy => {
+          const dx = enemy.x - strikeX;
+          const dy = enemy.y - strikeY;
+          if (dx * dx + dy * dy < CELL_SIZE * CELL_SIZE * 4) {
+            enemy.currentHealth -= 30;
+            enemy.hitFlash = 1;
+          }
+          return enemy;
+        }));
+
+        // Disable towers near strike temporarily
+        setTowers(prev => prev.map(tower => {
+          if (tower.col === strikeCol && tower.row === strikeRow) {
+            tower.disabledUntil = Date.now() + 2000;
+          }
+          return tower;
+        }));
+
+        spawnParticles(strikeX, strikeY, '#fff200', 20, { speed: 8, size: 6, life: 300 });
+        triggerFlash('#fff200', 100);
+        playSound(SFX.crit);
+      }
+
+      // Lava Eruption gimmick (World 5): Random tile erupts periodically
+      if (effectiveGimmick === 'lava' && Math.random() < deltaTime / 5000) {
+        const eruptCol = Math.floor(Math.random() * GRID_COLS);
+        const eruptRow = Math.floor(Math.random() * GRID_ROWS);
+        const eruptX = eruptCol * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+        const eruptY = eruptRow * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+
+        // Disable towers on erupted tile
+        setTowers(prev => prev.map(tower => {
+          if (tower.col === eruptCol && tower.row === eruptRow) {
+            tower.disabledUntil = Date.now() + 3000;
+            spawnFloatingText(eruptX, eruptY - 20, '🌋 ERUPTION!', '#ff6b35', 12);
+          }
+          return tower;
+        }));
+
+        // Damage enemies on erupted tile
+        setEnemies(prev => prev.map(enemy => {
+          const dx = enemy.x - eruptX;
+          const dy = enemy.y - eruptY;
+          if (dx * dx + dy * dy < CELL_SIZE * CELL_SIZE) {
+            enemy.currentHealth -= 50;
+            enemy.hitFlash = 1;
+          }
+          return enemy;
+        }));
+
+        spawnParticles(eruptX, eruptY, '#ff6b35', 15, { speed: 6, size: 8, life: 500 });
+        playSound(SFX.explosion);
       }
 
       // Update enemies
@@ -721,11 +1280,27 @@ const TowerDefenseGame = () => {
             setLives(l => {
               const damage = enemy.isBoss ? 5 : 1;
               const newLives = l - damage;
-              if (newLives <= 0) setGameState('lost');
+              if (newLives <= 0) {
+                // Save progression when game ends
+                ProgressionStorage.recordGame(killCount);
+                setProgression(ProgressionStorage.load());
+                // In single session mode, track partial results and end session
+                if (singleSessionMode) {
+                  setSessionResults(prev => ({
+                    ...prev,
+                    totalStars: prev.totalStars + (wave - 1), // Stars = waves completed before death
+                    totalKills: killCount,
+                    outcome: 'defeat',
+                  }));
+                }
+                setGameState('lost');
+              }
               return Math.max(0, newLives);
             });
             setLastDamageTime(now);
             triggerShake(12);
+            triggerFlash(theme.error, 200);
+            playSound(SFX.lifeLost);
             announce(`-${enemy.isBoss ? 5 : 1} ❤️`, theme.error, 1000);
             continue;
           }
@@ -742,6 +1317,7 @@ const TowerDefenseGame = () => {
           // Healer - PERF: Use squared distance and early exit
           if (enemy.heals && now - enemy.lastHealTime > 2000) {
             const healRangeSq = (CELL_SIZE * 2) * (CELL_SIZE * 2); // Pre-compute squared range
+            const newHealBeams = [];
             for (const other of prevEnemies) {
               if (other.id !== enemy.id) {
                 const dx = other.x - enemy.x;
@@ -749,11 +1325,21 @@ const TowerDefenseGame = () => {
                 if (dx * dx > healRangeSq) continue;
                 const dy = other.y - enemy.y;
                 const distSq = dx * dx + dy * dy;
-                if (distSq < healRangeSq) {
+                if (distSq < healRangeSq && other.currentHealth < other.maxHealth) {
                   other.currentHealth = Math.min(other.maxHealth, other.currentHealth + 10);
                   spawnParticles(other.x, other.y, theme.success, 3, { speed: 2, size: 3, life: 400 });
+                  // Add heal beam visualization
+                  newHealBeams.push({
+                    id: Math.random(),
+                    fromX: enemy.x, fromY: enemy.y,
+                    toX: other.x, toY: other.y,
+                    life: 400,
+                  });
                 }
               }
+            }
+            if (newHealBeams.length > 0) {
+              setHealerBeams(prev => [...prev, ...newHealBeams]);
             }
             enemy.lastHealTime = now;
           }
@@ -761,8 +1347,23 @@ const TowerDefenseGame = () => {
           // Hit flash decay
           if (enemy.hitFlash > 0) enemy.hitFlash -= deltaTime * 0.01;
 
-          // Death
+          // Death (or Resurrect for World 8)
           if (enemy.currentHealth <= 0) {
+            // Check for resurrect (World 8 gimmick, chaos, or boss ability)
+            const canResurrect = (effectiveGimmick === 'resurrect' || enemy.resurrects > 0) && !enemy.hasResurrected;
+
+            if (canResurrect) {
+              // Resurrect at 50% HP
+              enemy.currentHealth = Math.floor(enemy.maxHealth * 0.5);
+              enemy.hasResurrected = true;
+              enemy.hitFlash = 1;
+              spawnParticles(enemy.x, enemy.y, '#8b008b', 12, { speed: 3, size: 5, life: 500 });
+              spawnFloatingText(enemy.x, enemy.y - 15, '👻 RISEN!', '#8b008b', 14);
+              playSound(SFX.bossWarning);
+              newEnemies.push(enemy);
+              continue;
+            }
+
             const comboBonus = Math.floor(enemy.reward * combo * 0.1);
             const totalReward = enemy.reward + comboBonus;
             setGold(g => g + totalReward);
@@ -781,7 +1382,16 @@ const TowerDefenseGame = () => {
             else if (newCombo === 20) announce('💀 UNSTOPPABLE!', '#ff0000', 2000);
             else if (newCombo === 50) announce('👑 GODLIKE!', theme.gold, 3000);
 
+            // Death pop animation - add to dying enemies list
+            setDyingEnemies(prev => [...prev, {
+              ...enemy,
+              deathTime: now,
+              deathDuration: enemy.isBoss ? 400 : 200,
+            }]);
+
             spawnParticles(enemy.x, enemy.y, enemy.color, 15, { speed: 4, size: 6, life: 600 });
+            playSound(enemy.isBoss ? SFX.bossDeath : SFX.enemyDeath);
+            playSound(SFX.goldPickup);
 
             // Spawn death crater mark
             setDeathMarks(prev => [...prev.slice(-30), { // Keep only last 30 marks
@@ -795,6 +1405,8 @@ const TowerDefenseGame = () => {
             if (enemy.isBoss) {
               spawnParticles(enemy.x, enemy.y, theme.gold, 25, { speed: 6, size: 8, life: 800 });
               triggerShake(15);
+              triggerSlowMo(0.2, 600); // Slowmo on boss kill
+              triggerFlash(theme.gold, 300); // Screen flash
               announce(enemy.type === 'megaBoss' ? '👹 TITAN SLAIN!' : '🐉 BOSS DEFEATED!', theme.gold, 2500);
             }
 
@@ -825,6 +1437,26 @@ const TowerDefenseGame = () => {
 
             let speed = enemy.speed * (deltaTime / 16);
             if (enemy.slowedUntil > now) speed *= enemy.slowAmount;
+
+            // Time Warp gimmick (World 9): Speed zones on path - every 3rd tile is a speed zone
+            if (effectiveGimmick === 'timewarp' && enemy.pathIndex % 3 === 0) {
+              speed *= 2; // Double speed in warp zones
+              enemy.inSpeedZone = true;
+            } else {
+              enemy.inSpeedZone = false;
+            }
+
+            // Fog Zones gimmick (World 4): Every 4th tile heals enemies
+            if (effectiveGimmick === 'fog' && enemy.pathIndex % 4 === 1) {
+              const healAmount = enemy.maxHealth * 0.005 * (deltaTime / 16); // 0.5% max HP per frame
+              enemy.currentHealth = Math.min(enemy.maxHealth, enemy.currentHealth + healAmount);
+              enemy.inFogZone = true;
+              if (Math.random() < 0.05) {
+                spawnParticles(enemy.x, enemy.y, '#50c878', 2, { speed: 1, size: 4, life: 400 });
+              }
+            } else {
+              enemy.inFogZone = false;
+            }
 
             enemy.rotation = Math.atan2(dy, dx);
 
@@ -876,22 +1508,42 @@ const TowerDefenseGame = () => {
 
       // Update towers
       setTowers(prevTowers => {
+        // Gimmick modifiers for towers (use effectiveGimmick for chaos world support)
+        const rangeMultiplier = (gimmickActiveRef.current && effectiveGimmick === 'sandstorm') ? 0.6 : 1;
+        const attackSpeedMultiplier = (gimmickActiveRef.current && effectiveGimmick === 'blizzard') ? 1.6 : 1;
+
         return prevTowers.map(tower => {
           const towerX = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           const towerY = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           tower.pulsePhase = (tower.pulsePhase || 0) + deltaTime * 0.005;
+          // Decay recoil animation
+          if (tower.recoil > 0) tower.recoil = Math.max(0, tower.recoil - deltaTime * 0.015);
+
+          // Skip disabled towers (from lightning/lava gimmicks)
+          if (tower.disabledUntil && tower.disabledUntil > now) {
+            tower.beamTarget = null; // Stop beam if disabled
+            return tower;
+          }
 
           // Beam tower - PERF: Use squared distance to avoid sqrt
           if (tower.beam) {
             let target = null;
             let minDistSq = Infinity;
-            const rangeSq = (tower.range * CELL_SIZE) * (tower.range * CELL_SIZE);
+            const effectiveRange = tower.range * rangeMultiplier;
+            const rangeSq = (effectiveRange * CELL_SIZE) * (effectiveRange * CELL_SIZE);
 
             for (const enemy of enemiesRef.current) {
               const dx = enemy.x - towerX;
               const dy = enemy.y - towerY;
               const distSq = dx * dx + dy * dy;
               if (distSq <= rangeSq && distSq < minDistSq) {
+                // Invisible enemies: beam can reveal them at close range
+                const revealRangeSq = CELL_SIZE * CELL_SIZE * 1.5;
+                if (enemy.invisible && distSq > revealRangeSq) continue;
+                if (enemy.invisible && distSq <= revealRangeSq) {
+                  enemy.invisible = false;
+                  spawnFloatingText(enemy.x, enemy.y - 15, '👁️ REVEALED!', '#ff69b4', 12);
+                }
                 target = enemy;
                 minDistSq = distSq;
               }
@@ -899,7 +1551,8 @@ const TowerDefenseGame = () => {
 
             if (target) {
               tower.beamTarget = { x: target.x, y: target.y, id: target.id };
-              tower.beamDamageAccum += tower.damage * deltaTime / 16;
+              // Apply blizzard slowdown to beam towers
+              tower.beamDamageAccum += (tower.damage * deltaTime / 16) / attackSpeedMultiplier;
 
               if (tower.beamDamageAccum >= 1) {
                 const damage = Math.floor(tower.beamDamageAccum);
@@ -924,7 +1577,8 @@ const TowerDefenseGame = () => {
           }
 
           // Regular tower
-          if (now - tower.lastFired < tower.fireRate) return tower;
+          const effectiveFireRate = tower.fireRate * attackSpeedMultiplier;
+          if (now - tower.lastFired < effectiveFireRate) return tower;
 
           // Calculate XP level from kills: every 10 kills = 1 level (capped at level 10)
           const xpLevel = Math.min(10, Math.floor(tower.kills / 10));
@@ -934,13 +1588,21 @@ const TowerDefenseGame = () => {
           let target = null;
           let bestValue = tower.targetingMode === 'first' || tower.targetingMode === 'strongest' ? -Infinity : Infinity;
           const enemiesInRange = [];
-          const rangeSq = (tower.range * CELL_SIZE) * (tower.range * CELL_SIZE);
+          const effectiveRange = tower.range * rangeMultiplier;
+          const rangeSq = (effectiveRange * CELL_SIZE) * (effectiveRange * CELL_SIZE);
 
           for (const enemy of enemiesRef.current) {
             const dx = enemy.x - towerX;
             const dy = enemy.y - towerY;
             const distSq = dx * dx + dy * dy;
             if (distSq <= rangeSq) {
+              // Invisible enemies: reveal when very close (1 cell), skip otherwise
+              const revealRangeSq = CELL_SIZE * CELL_SIZE * 1.5;
+              if (enemy.invisible && distSq > revealRangeSq) continue;
+              if (enemy.invisible && distSq <= revealRangeSq) {
+                enemy.invisible = false; // Revealed!
+                spawnFloatingText(enemy.x, enemy.y - 15, '👁️ REVEALED!', '#ff69b4', 12);
+              }
               // Only compute sqrt for 'closest' mode, otherwise store squared
               const dist = tower.targetingMode === 'closest' ? Math.sqrt(distSq) : distSq;
               enemiesInRange.push({ enemy, dist, distSq });
@@ -1029,7 +1691,19 @@ const TowerDefenseGame = () => {
             const angle = Math.atan2(target.y - towerY, target.x - towerX);
             spawnParticles(towerX, towerY, tower.color, 3, { speed: 3, size: 3, life: 120, spread: 0.5, direction: angle });
 
-            return { ...tower, lastFired: now };
+            // Play tower-specific sound
+            const soundMap = {
+              arrow: SFX.arrowShoot,
+              sniper: SFX.arrowShoot,
+              cannon: SFX.cannonShoot,
+              frost: SFX.frostShoot,
+              lightning: SFX.lightningShoot,
+              poison: SFX.poisonShoot,
+            };
+            playSound(soundMap[tower.type] || SFX.shoot);
+
+            // Return with recoil animation state
+            return { ...tower, lastFired: now, recoil: 1 };
           }
 
           return tower;
@@ -1139,9 +1813,11 @@ const TowerDefenseGame = () => {
                   }
 
                   spawnParticles(enemy.x, enemy.y, proj.color, 5, { speed: 3, size: 4, life: 300 });
+                  playSound(SFX.hit);
 
                   if (proj.isCrit) {
                     spawnFloatingText(enemy.x, enemy.y - 15, 'CRIT!', '#ff0', 16, true);
+                    playSound(SFX.crit);
                   }
 
                   setTowers(towers => towers.map(t => {
@@ -1184,6 +1860,7 @@ const TowerDefenseGame = () => {
             if (proj.splash) {
               spawnParticles(proj.toX, proj.toY, proj.color, 15, { speed: 6, size: 7, life: 500 });
               spawnParticles(proj.toX, proj.toY, '#fff', 8, { speed: 4, size: 4, life: 350 });
+              playSound(SFX.explosion);
               // Damage-based screenshake: scale from 2-8 based on damage
               const shakeIntensity = Math.min(8, 2 + Math.log2(proj.damage) * 0.8);
               triggerShake(shakeIntensity);
@@ -1313,12 +1990,103 @@ const TowerDefenseGame = () => {
       if (waveInProgress && enemiesRef.current.length === 0 && enemiesSpawned >= totalEnemiesInWave && totalEnemiesInWave > 0) {
         setWaveInProgress(false);
         setLastWaveEndTime(now);
-        setWaveCountdown(10000); // 10 second countdown for early start bonus
-        const waveBonus = 30 + wave * 10;
+
+        const world = worldDefs[currentWorld];
+        const waveBonus = 30 + wave * 10 + currentWorld * 5;
         setGold(g => g + waveBonus);
-        announce(`Wave ${wave} Complete! +${waveBonus}💰`, theme.success, 2000);
-        setWave(w => w + 1);
+
+        // Save star progress
+        const earnedNewStar = ProgressionStorage.addStar(currentWorld, wave);
+        if (earnedNewStar) {
+          setNewStarEarned(true);
+          setProgression(ProgressionStorage.load());
+        }
+
+        if (wave === 10) {
+          // WORLD COMPLETE - Boss defeated!
+          const boss = bossDefs[world.bossType];
+          announce(`🎉 ${boss.emoji} ${boss.name} DEFEATED!`, world.color, 3000);
+          playSound(SFX.bossDeath);
+          spawnConfetti(100);
+          triggerFlash(theme.gold, 400);
+          triggerSlowMo(0.3, 1000);
+
+          // Track session results for single session mode
+          if (singleSessionMode) {
+            setSessionResults(prev => ({
+              ...prev,
+              worldsCompleted: [...prev.worldsCompleted, {
+                worldId: currentWorld,
+                worldName: world.name,
+                stars: 10, // Completed all waves = 10 stars
+                kills: killCount - prev.totalKills,
+              }],
+              totalStars: prev.totalStars + 10,
+              totalKills: killCount,
+            }));
+          }
+
+          // Check if next world is unlocked
+          const nextWorld = currentWorld + 1;
+          if (nextWorld < 10 && ProgressionStorage.isWorldUnlocked(nextWorld)) {
+            setTimeout(() => {
+              announce(`🔓 ${worldDefs[nextWorld].emoji} ${worldDefs[nextWorld].name} Unlocked!`, worldDefs[nextWorld].color, 2500);
+              playSound(SFX.worldUnlock);
+            }, 1500);
+          }
+
+          // In single session mode, continue to next world or end
+          if (singleSessionMode && nextWorld < 10) {
+            setTimeout(() => {
+              setCurrentWorld(nextWorld);
+              setWave(1);
+              setWaveCountdown(15000);
+              announce(`➡️ World ${nextWorld + 1}: ${worldDefs[nextWorld].emoji} ${worldDefs[nextWorld].name}`, worldDefs[nextWorld].color, 3000);
+            }, 3000);
+          } else if (singleSessionMode) {
+            // Completed all worlds in single session - victory!
+            setTimeout(() => {
+              endSession('victory');
+            }, 2000);
+          } else {
+            // Not single session - go back to world select after delay
+            setTimeout(() => {
+              ProgressionStorage.recordGame(killCount);
+              goToWorldSelect();
+            }, 3000);
+          }
+        } else {
+          // Normal wave complete
+          announce(`Wave ${wave}/10 Complete! +${waveBonus}💰`, theme.success, 2000);
+          playSound(SFX.waveComplete);
+          spawnConfetti(40 + wave * 2);
+          triggerFlash(theme.success, 250);
+          setWaveCountdown(10000);
+          setWave(w => w + 1);
+        }
       }
+
+      // Update dying enemies animation
+      setDyingEnemies(prev => prev.filter(e => now - e.deathTime < e.deathDuration));
+
+      // Update healer beams
+      setHealerBeams(prev => prev.map(b => ({ ...b, life: b.life - deltaTime })).filter(b => b.life > 0));
+
+      // Update confetti
+      setConfetti(prev => prev.map(c => ({
+        ...c,
+        x: c.x + c.vx * (deltaTime / 16),
+        y: c.y + c.vy * (deltaTime / 16),
+        vy: c.vy + 0.1,
+        rotation: c.rotation + c.rotationSpeed,
+        life: c.life - deltaTime,
+      })).filter(c => c.life > 0));
+
+      // Update ability cooldowns
+      setAbilities(prev => ({
+        bomb: { ...prev.bomb, cooldown: Math.max(0, prev.bomb.cooldown - deltaTime), ready: prev.bomb.cooldown <= deltaTime },
+        freeze: { ...prev.freeze, cooldown: Math.max(0, prev.freeze.cooldown - deltaTime), ready: prev.freeze.cooldown <= deltaTime },
+      }));
 
       animationId = requestAnimationFrame(tick);
     };
@@ -1331,7 +2099,8 @@ const TowerDefenseGame = () => {
     setPath(findPath(grid) || []);
   }, []);
 
-  const startGame = () => {
+  // Start game with a specific world
+  const startGame = (worldId = 0, isSingleSession = false) => {
     const emptyGrid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
     setGrid(emptyGrid);
     setTowers([]);
@@ -1342,7 +2111,7 @@ const TowerDefenseGame = () => {
     setAnnouncements([]);
     setWave(1);
     setLives(20);
-    setGold(100);
+    setGold(100 + worldId * 20); // More starting gold for harder worlds
     setWaveInProgress(false);
     setEnemiesSpawned(0);
     setTotalEnemiesInWave(0);
@@ -1354,7 +2123,88 @@ const TowerDefenseGame = () => {
     setTotalDamageDealt(0);
     setSelectedTowerForUpgrade(null);
     setPath(findPath(emptyGrid) || []);
+    // Reset new game feel states
+    setSlowMo(1);
+    setScreenFlash(null);
+    setDyingEnemies([]);
+    setConfetti([]);
+    setHealerBeams([]);
+    setAbilities({
+      bomb: { cooldown: 0, maxCooldown: 30000, cost: 50, ready: true },
+      freeze: { cooldown: 0, maxCooldown: 20000, cost: 30, ready: true },
+    });
+    // World state
+    setCurrentWorld(worldId);
+    setSingleSessionMode(isSingleSession);
+    setSessionStartWorld(worldId);
+    setNewStarEarned(false);
+    setActiveGimmick(null);
+    // Reset session results for new session
+    if (isSingleSession) {
+      setSessionResults({
+        worldsCompleted: [],
+        totalStars: 0,
+        totalKills: 0,
+        sessionWorld: worldId,
+        outcome: null,
+      });
+    }
     setGameState('playing');
+
+    // Announce world
+    const world = worldDefs[worldId];
+    setTimeout(() => {
+      announce(`${world.emoji} ${world.name}`, world.color, 2000);
+      if (world.gimmick) {
+        setTimeout(() => announce(world.description, world.color, 2500), 500);
+      }
+    }, 500);
+  };
+
+  // Go to world select screen
+  const goToWorldSelect = () => {
+    setProgression(ProgressionStorage.load());
+    setGameState('select');
+    playSound(SFX.worldSelect);
+  };
+
+  // End single-session mode and report results
+  const endSession = (outcome = 'quit') => {
+    const results = {
+      ...sessionResults,
+      outcome,
+      timestamp: Date.now(),
+    };
+
+    // Save to localStorage
+    ProgressionStorage.recordGame(sessionResults.totalKills);
+
+    // Call the external callback if provided
+    if (window.towerDefenseCallback) {
+      try {
+        const callbackPath = window.towerDefenseCallback.split('.');
+        let callback = window;
+        for (const part of callbackPath) {
+          callback = callback[part];
+        }
+        if (typeof callback === 'function') {
+          callback(results);
+        }
+      } catch (e) {
+        console.warn('Failed to call session callback:', e);
+      }
+    }
+
+    // Post message for iframe integration
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'towerDefenseSessionComplete',
+        results,
+      }, '*');
+    }
+
+    // Reset to menu or close
+    setGameState('sessionComplete');
   };
 
   const gridWidth = GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * GRID_GAP + GRID_OFFSET * 2 + 4;
@@ -1492,11 +2342,29 @@ const TowerDefenseGame = () => {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}>TOWER DEFENSE</h1>
-              <p style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '32px' }}>
-                Build towers • Create mazes • Survive
+              <p style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '16px' }}>
+                10 Worlds • 100 Stars • Epic Bosses
               </p>
+
+              {/* Progress summary */}
+              <div style={{
+                background: theme.bgPanel,
+                borderRadius: '10px',
+                padding: '12px 24px',
+                marginBottom: '24px',
+                border: `1px solid ${theme.border}`,
+              }}>
+                <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>TOTAL PROGRESS</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: theme.gold }}>
+                  ⭐ {progression.totalStars} / 100
+                </div>
+                <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>
+                  {progression.gamesPlayed} games • {progression.totalKills.toLocaleString()} kills
+                </div>
+              </div>
+
               <button
-                onClick={startGame}
+                onClick={goToWorldSelect}
                 className="btn"
                 style={{
                   padding: '14px 48px',
@@ -1509,12 +2377,271 @@ const TowerDefenseGame = () => {
                   boxShadow: `0 4px 20px ${theme.accentGlow}`,
                 }}
               >
-                START GAME
+                SELECT WORLD
               </button>
               <div style={{ marginTop: '24px', fontSize: '12px', color: theme.textMuted }}>
-                Press 1-7 to select towers • Space to start wave
+                Complete 10 waves per world to defeat the boss!
               </div>
             </div>
+          </div>
+        )}
+
+        {/* SESSION COMPLETE - For Teddy's Review Roundup integration */}
+        {gameState === 'sessionComplete' && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            padding: '24px',
+            animation: 'slideIn 0.5s ease-out',
+          }}>
+            <div style={{ fontSize: '60px', marginBottom: '16px' }}>
+              {sessionResults.outcome === 'victory' ? '🏆' : sessionResults.outcome === 'defeat' ? '💀' : '🚪'}
+            </div>
+            <h2 style={{
+              fontSize: '28px',
+              fontWeight: 900,
+              marginBottom: '8px',
+              color: sessionResults.outcome === 'victory' ? theme.gold : theme.text,
+            }}>
+              {sessionResults.outcome === 'victory' ? 'SESSION COMPLETE!' :
+               sessionResults.outcome === 'defeat' ? 'SESSION ENDED' : 'SESSION QUIT'}
+            </h2>
+
+            {/* Session stats */}
+            <div style={{
+              background: theme.bgPanel,
+              borderRadius: '12px',
+              padding: '20px 32px',
+              marginBottom: '20px',
+              border: `1px solid ${theme.border}`,
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '8px' }}>
+                SESSION RESULTS
+              </div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: theme.gold, marginBottom: '8px' }}>
+                ⭐ {sessionResults.totalStars}
+              </div>
+              <div style={{ fontSize: '12px', color: theme.textSecondary }}>
+                {sessionResults.worldsCompleted.length} worlds completed • {sessionResults.totalKills} kills
+              </div>
+            </div>
+
+            {/* Worlds completed breakdown */}
+            {sessionResults.worldsCompleted.length > 0 && (
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginBottom: '24px',
+                justifyContent: 'center',
+              }}>
+                {sessionResults.worldsCompleted.map((w, i) => (
+                  <div key={i} style={{
+                    background: `${worldDefs[w.worldId]?.color || theme.accent}20`,
+                    border: `1px solid ${worldDefs[w.worldId]?.color || theme.accent}40`,
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>{worldDefs[w.worldId]?.emoji}</span>
+                    <span style={{ color: theme.text }}>{w.worldName}</span>
+                    <span style={{ color: theme.gold }}>⭐{w.stars}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setSingleSessionMode(false);
+                  setGameState('menu');
+                }}
+                className="btn"
+                style={{
+                  padding: '14px 28px',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  boxShadow: `0 4px 20px ${theme.accentGlow}`,
+                }}
+              >
+                CONTINUE PLAYING
+              </button>
+              {window.parent !== window && (
+                <button
+                  onClick={() => window.parent.postMessage({ type: 'towerDefenseClose' }, '*')}
+                  className="btn"
+                  style={{
+                    padding: '14px 28px',
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    background: theme.bgDark,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '12px',
+                    color: theme.textSecondary,
+                  }}
+                >
+                  CLOSE
+                </button>
+              )}
+            </div>
+
+            <div style={{ marginTop: '16px', fontSize: '11px', color: theme.textMuted }}>
+              Results have been sent to Teddy's Review Roundup
+            </div>
+          </div>
+        )}
+
+        {/* WORLD SELECT */}
+        {gameState === 'select' && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            padding: '16px',
+            animation: 'slideIn 0.3s ease-out',
+          }}>
+            <h2 style={{
+              fontSize: 'clamp(20px, 4vw, 28px)',
+              fontWeight: 800,
+              marginBottom: '8px',
+              color: theme.gold,
+            }}>SELECT WORLD</h2>
+            <p style={{ fontSize: '12px', color: theme.textSecondary, marginBottom: '16px' }}>
+              ⭐ {progression.totalStars} / 100 Stars
+            </p>
+
+            {/* World grid - 2 rows of 5 */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: '10px',
+              maxWidth: '500px',
+              width: '100%',
+            }}>
+              {worldDefs.map((world, idx) => {
+                const isUnlocked = ProgressionStorage.isWorldUnlocked(idx);
+                const stars = progression.worldStars[idx] || 0;
+                const isComplete = stars >= 10;
+
+                return (
+                  <button
+                    key={world.id}
+                    onClick={() => isUnlocked && startGame(idx, false)}
+                    disabled={!isUnlocked}
+                    className="btn"
+                    style={{
+                      padding: '12px 8px',
+                      background: isUnlocked
+                        ? isComplete
+                          ? `linear-gradient(135deg, ${world.color}40 0%, ${world.color}20 100%)`
+                          : theme.bgPanel
+                        : theme.bgDark,
+                      border: `2px solid ${isUnlocked ? world.color : theme.border}`,
+                      borderRadius: '12px',
+                      opacity: isUnlocked ? 1 : 0.4,
+                      cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    {/* World emoji */}
+                    <div style={{
+                      fontSize: '28px',
+                      filter: isUnlocked ? `drop-shadow(0 0 8px ${world.color})` : 'grayscale(1)',
+                    }}>
+                      {isUnlocked ? world.emoji : '🔒'}
+                    </div>
+
+                    {/* World name */}
+                    <div style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: isUnlocked ? world.color : theme.textMuted,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '100%',
+                    }}>
+                      {world.name.split(' ')[0]}
+                    </div>
+
+                    {/* Stars */}
+                    {isUnlocked && (
+                      <div style={{
+                        fontSize: '9px',
+                        color: stars > 0 ? theme.gold : theme.textMuted,
+                      }}>
+                        {'★'.repeat(Math.min(stars, 10))}{'☆'.repeat(Math.max(0, 10 - stars))}
+                      </div>
+                    )}
+
+                    {/* Complete badge */}
+                    {isComplete && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        fontSize: '14px',
+                      }}>👑</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected world info */}
+            <div style={{
+              marginTop: '20px',
+              padding: '16px',
+              background: theme.bgPanel,
+              borderRadius: '12px',
+              border: `1px solid ${theme.border}`,
+              textAlign: 'center',
+              maxWidth: '400px',
+              width: '100%',
+            }}>
+              <div style={{ fontSize: '11px', color: theme.textMuted, marginBottom: '8px' }}>
+                Click a world to play • Complete 10 waves to defeat the boss
+              </div>
+              <div style={{ fontSize: '10px', color: theme.textSecondary }}>
+                Need 8 stars to unlock the next world
+              </div>
+            </div>
+
+            {/* Back button */}
+            <button
+              onClick={() => setGameState('menu')}
+              className="btn"
+              style={{
+                marginTop: '16px',
+                padding: '10px 24px',
+                fontSize: '12px',
+                background: theme.bgDark,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '8px',
+                color: theme.textSecondary,
+              }}
+            >
+              ← Back to Menu
+            </button>
           </div>
         )}
 
@@ -1587,9 +2714,28 @@ const TowerDefenseGame = () => {
                 <div style={{ fontWeight: 600, color: theme.textSecondary, marginBottom: '4px' }}>Controls</div>
                 <div>1-7: Select tower</div>
                 <div>U: Upgrade • S: Sell</div>
+                <div>Q: Bomb • W: Freeze</div>
                 <div>Space: Start wave</div>
                 <div>Esc: Deselect</div>
               </div>
+
+              {/* Sound toggle */}
+              <button
+                onClick={() => setSoundEnabled(s => !s)}
+                className="btn"
+                style={{
+                  marginTop: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  background: theme.bgDark,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  color: soundEnabled ? theme.success : theme.textMuted,
+                  width: '100%',
+                }}
+              >
+                {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+              </button>
             </div>}
 
             {/* Center - Game */}
@@ -1606,9 +2752,27 @@ const TowerDefenseGame = () => {
                 border: `1px solid ${theme.border}`,
                 width: gridWidth,
               }}>
-                <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  {/* World indicator */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 8px',
+                    background: `${worldDefs[currentWorld].color}20`,
+                    borderRadius: '6px',
+                    border: `1px solid ${worldDefs[currentWorld].color}40`,
+                  }}>
+                    <span style={{ fontSize: '16px' }}>{worldDefs[currentWorld].emoji}</span>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '8px', color: theme.textMuted }}>WORLD {currentWorld + 1}</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: worldDefs[currentWorld].color }}>
+                        {wave}/10
+                      </div>
+                    </div>
+                  </div>
+
                   {[
-                    { label: 'WAVE', value: wave, color: theme.accent },
                     { label: 'LIVES', value: `❤️${lives}`, color: lives <= 5 ? theme.error : theme.success, blink: lives <= 5 },
                     {
                       label: 'GOLD',
@@ -1652,6 +2816,68 @@ const TowerDefenseGame = () => {
                       }}>🔥{combo}</div>
                     </div>
                   )}
+                </div>
+
+                {/* Ability buttons */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    onClick={useBombAbility}
+                    disabled={abilities.bomb.cooldown > 0 || gold < abilities.bomb.cost}
+                    className="btn"
+                    title={`Bomb (${abilities.bomb.cost}💰) - Deal 25% max HP to all enemies`}
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: '14px',
+                      background: abilities.bomb.cooldown > 0 ? theme.bgDark : `linear-gradient(135deg, ${theme.fire}40 0%, ${theme.fire}20 100%)`,
+                      border: `2px solid ${abilities.bomb.cooldown > 0 ? theme.border : theme.fire}`,
+                      borderRadius: '8px',
+                      color: abilities.bomb.cooldown > 0 ? theme.textMuted : theme.fire,
+                      opacity: gold < abilities.bomb.cost && abilities.bomb.cooldown <= 0 ? 0.5 : 1,
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    💣
+                    {abilities.bomb.cooldown > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        height: '3px',
+                        width: `${(1 - abilities.bomb.cooldown / abilities.bomb.maxCooldown) * 100}%`,
+                        background: theme.fire,
+                      }} />
+                    )}
+                  </button>
+                  <button
+                    onClick={useFreezeAbility}
+                    disabled={abilities.freeze.cooldown > 0 || gold < abilities.freeze.cost}
+                    className="btn"
+                    title={`Freeze (${abilities.freeze.cost}💰) - Slow all enemies 90% for 5s`}
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: '14px',
+                      background: abilities.freeze.cooldown > 0 ? theme.bgDark : `linear-gradient(135deg, ${theme.frost}40 0%, ${theme.frost}20 100%)`,
+                      border: `2px solid ${abilities.freeze.cooldown > 0 ? theme.border : theme.frost}`,
+                      borderRadius: '8px',
+                      color: abilities.freeze.cooldown > 0 ? theme.textMuted : theme.frost,
+                      opacity: gold < abilities.freeze.cost && abilities.freeze.cooldown <= 0 ? 0.5 : 1,
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    ❄️
+                    {abilities.freeze.cooldown > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        height: '3px',
+                        width: `${(1 - abilities.freeze.cooldown / abilities.freeze.maxCooldown) * 100}%`,
+                        background: theme.frost,
+                      }} />
+                    )}
+                  </button>
                 </div>
 
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1769,51 +2995,93 @@ const TowerDefenseGame = () => {
                       {isStart && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.success})`, animation: 'pulse 2s ease-in-out infinite' }}>🚪</span>}
                       {isEnd && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.error})`, animation: 'pulse 2s ease-in-out infinite' }}>🏠</span>}
                       {tower && (
-                        sprites.towers[tower.type] ? (
-                          <img
-                            src={sprites.towers[tower.type]}
-                            alt={tower.name}
-                            style={{
-                              width: CELL_SIZE * 0.6,
-                              height: CELL_SIZE * 0.6,
-                              imageRendering: 'pixelated',
-                              filter: `drop-shadow(0 0 4px ${tower.color})`,
-                              animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                            }}
-                          />
-                        ) : (
-                          <span style={{
-                            fontSize: CELL_SIZE * 0.55,
-                            filter: `drop-shadow(0 0 4px ${tower.color})`,
-                            animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                          }}>{tower.emoji}</span>
-                        )
-                      )}
-                      {tower && tower.level > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '1px',
-                          right: '2px',
-                          fontSize: '8px',
-                          fontWeight: 900,
-                          color: theme.gold,
-                        }}>★{tower.level}</div>
+                        <>
+                          {/* Upgrade aura ring */}
+                          {tower.level > 0 && (
+                            <div style={{
+                              position: 'absolute',
+                              width: CELL_SIZE * (0.7 + tower.level * 0.1),
+                              height: CELL_SIZE * (0.7 + tower.level * 0.1),
+                              borderRadius: '50%',
+                              border: `${tower.level}px solid ${tower.color}40`,
+                              boxShadow: `0 0 ${4 + tower.level * 3}px ${tower.color}60, inset 0 0 ${tower.level * 2}px ${tower.color}30`,
+                              animation: 'pulse 2s ease-in-out infinite',
+                            }} />
+                          )}
+                          {/* Tower sprite/emoji with recoil */}
+                          <div style={{
+                            transform: `scale(${1 + tower.level * 0.08 - (tower.recoil || 0) * 0.15}) translateY(${(tower.recoil || 0) * 2}px)`,
+                            transition: 'transform 0.05s ease-out',
+                          }}>
+                            {sprites.towers[tower.type] ? (
+                              <img
+                                src={sprites.towers[tower.type]}
+                                alt={tower.name}
+                                style={{
+                                  width: CELL_SIZE * 0.6,
+                                  height: CELL_SIZE * 0.6,
+                                  imageRendering: 'pixelated',
+                                  filter: `drop-shadow(0 0 ${4 + tower.level * 2}px ${tower.color}) ${tower.level >= 2 ? 'brightness(1.2)' : ''} ${tower.level >= 3 ? 'saturate(1.3)' : ''}`,
+                                  animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                                }}
+                              />
+                            ) : (
+                              <span style={{
+                                fontSize: CELL_SIZE * 0.55,
+                                filter: `drop-shadow(0 0 ${4 + tower.level * 2}px ${tower.color})`,
+                                animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                              }}>{tower.emoji}</span>
+                            )}
+                          </div>
+                          {/* Type badge in corner */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '0px',
+                            left: '1px',
+                            fontSize: '10px',
+                            filter: `drop-shadow(0 0 2px ${tower.color})`,
+                            lineHeight: 1,
+                          }}>{tower.emoji}</div>
+                          {/* Level indicator with upgrade tier color */}
+                          {tower.level > 0 && (
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '1px',
+                              right: '2px',
+                              fontSize: '8px',
+                              fontWeight: 900,
+                              color: tower.level >= 3 ? '#ff4757' : tower.level >= 2 ? '#ffa502' : theme.gold,
+                              textShadow: `0 0 4px ${tower.level >= 3 ? '#ff4757' : tower.level >= 2 ? '#ffa502' : theme.gold}`,
+                            }}>{'★'.repeat(tower.level)}</div>
+                          )}
+                        </>
                       )}
                       {isHovered && canPlace && !tower && (
-                        sprites.towers[selectedTower] ? (
-                          <img
-                            src={sprites.towers[selectedTower]}
-                            alt={towerTypes[selectedTower].name}
-                            style={{
-                              width: CELL_SIZE * 0.55,
-                              height: CELL_SIZE * 0.55,
-                              imageRendering: 'pixelated',
-                              opacity: 0.5,
-                            }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
-                        )
+                        <>
+                          {sprites.towers[selectedTower] ? (
+                            <img
+                              src={sprites.towers[selectedTower]}
+                              alt={towerTypes[selectedTower].name}
+                              style={{
+                                width: CELL_SIZE * 0.55,
+                                height: CELL_SIZE * 0.55,
+                                imageRendering: 'pixelated',
+                                opacity: 0.5,
+                              }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
+                          )}
+                          {/* Type badge preview */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '0px',
+                            left: '1px',
+                            fontSize: '10px',
+                            opacity: 0.5,
+                            lineHeight: 1,
+                          }}>{towerTypes[selectedTower].emoji}</div>
+                        </>
                       )}
                     </div>
                   );
@@ -2042,6 +3310,97 @@ const TowerDefenseGame = () => {
                   );
                 })}
 
+                {/* Dying enemies - pop animation */}
+                {dyingEnemies.map(enemy => {
+                  const elapsed = renderTime - enemy.deathTime;
+                  const progress = elapsed / enemy.deathDuration;
+                  const scale = 1 + progress * 0.8; // Scale up
+                  const opacity = 1 - progress; // Fade out
+                  const size = (CELL_SIZE * 0.55) * (enemy.size || 1);
+
+                  return (
+                    <div
+                      key={`dying-${enemy.id}`}
+                      style={{
+                        position: 'absolute',
+                        left: enemy.x - size / 2 + GRID_OFFSET,
+                        top: enemy.y - size / 2 + GRID_OFFSET,
+                        width: size,
+                        height: size,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: 'none',
+                        zIndex: 11,
+                        transform: `scale(${scale})`,
+                        opacity: opacity,
+                        filter: `brightness(2) drop-shadow(0 0 15px ${enemy.color})`,
+                      }}
+                    >
+                      {sprites.enemies[enemy.type] ? (
+                        <img
+                          src={sprites.enemies[enemy.type]}
+                          alt={enemy.name}
+                          style={{
+                            width: size * 0.9,
+                            height: size * 0.9,
+                            imageRendering: 'pixelated',
+                          }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: size * 0.8 }}>{enemy.emoji}</span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Healer beams */}
+                {healerBeams.map(beam => {
+                  const angle = Math.atan2(beam.toY - beam.fromY, beam.toX - beam.fromX) * 180 / Math.PI;
+                  const length = Math.sqrt((beam.toX - beam.fromX) ** 2 + (beam.toY - beam.fromY) ** 2);
+                  const opacity = beam.life / 400;
+
+                  return (
+                    <div
+                      key={beam.id}
+                      style={{
+                        position: 'absolute',
+                        left: beam.fromX + GRID_OFFSET,
+                        top: beam.fromY + GRID_OFFSET - 1,
+                        width: length,
+                        height: 3,
+                        background: `linear-gradient(90deg, transparent 0%, ${theme.success}${Math.floor(opacity * 255).toString(16).padStart(2, '0')} 20%, ${theme.success}${Math.floor(opacity * 255).toString(16).padStart(2, '0')} 80%, transparent 100%)`,
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: '0 50%',
+                        pointerEvents: 'none',
+                        zIndex: 9,
+                        boxShadow: `0 0 8px ${theme.success}`,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Confetti */}
+                {confetti.map(c => (
+                  <div
+                    key={c.id}
+                    style={{
+                      position: 'absolute',
+                      left: c.x + GRID_OFFSET,
+                      top: c.y + GRID_OFFSET,
+                      width: c.size,
+                      height: c.size * 0.6,
+                      background: c.color,
+                      transform: `rotate(${c.rotation}deg)`,
+                      opacity: c.life / 2000,
+                      pointerEvents: 'none',
+                      zIndex: 20,
+                      borderRadius: '1px',
+                      boxShadow: `0 0 4px ${c.color}`,
+                    }}
+                  />
+                ))}
+
                 {/* Projectiles */}
                 {projectiles.map(proj => {
                   // Calculate position with optional arcing
@@ -2192,41 +3551,120 @@ const TowerDefenseGame = () => {
                   }}>{a.text}</div>
                 ))}
 
-                {/* Game Over */}
-                {gameState === 'lost' && (
+                {/* Screen Flash Overlay */}
+                {screenFlash && (
                   <div style={{
                     position: 'absolute',
                     inset: 0,
-                    background: 'rgba(10, 10, 18, 0.95)',
+                    background: screenFlash.color,
+                    opacity: screenFlash.opacity,
+                    pointerEvents: 'none',
+                    zIndex: 55,
                     borderRadius: '10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    animation: 'slideIn 0.4s ease-out',
-                  }}>
-                    <div style={{ fontSize: '60px', marginBottom: '16px' }}>💀</div>
-                    <div style={{ fontSize: '28px', fontWeight: 900, color: theme.error, marginBottom: '8px' }}>GAME OVER</div>
-                    <div style={{ fontSize: '14px', color: theme.textSecondary, marginBottom: '16px' }}>
-                      Wave {wave} • Score {totalScore.toLocaleString()}
-                    </div>
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: theme.textMuted, marginBottom: '20px' }}>
-                      <span>🎯 {killCount} kills</span>
-                      <span>🔥 {maxCombo} max combo</span>
-                    </div>
-                    <button onClick={startGame} className="btn" style={{
-                      padding: '12px 32px',
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentBright} 100%)`,
-                      border: 'none',
-                      borderRadius: '10px',
-                      color: '#fff',
-                      boxShadow: `0 4px 16px ${theme.accentGlow}`,
-                    }}>PLAY AGAIN</button>
-                  </div>
+                  }} />
                 )}
+
+                {/* Game Over */}
+                {gameState === 'lost' && (() => {
+                  const world = worldDefs[currentWorld];
+                  const starsEarned = wave - 1; // Stars = waves completed
+                  return (
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'rgba(10, 10, 18, 0.95)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 100,
+                      animation: 'slideIn 0.4s ease-out',
+                    }}>
+                      <div style={{ fontSize: '60px', marginBottom: '16px' }}>💀</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: theme.error, marginBottom: '8px' }}>GAME OVER</div>
+
+                      {/* World info */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '12px',
+                        padding: '8px 16px',
+                        background: `${world.color}20`,
+                        borderRadius: '8px',
+                        border: `1px solid ${world.color}40`,
+                      }}>
+                        <span style={{ fontSize: '24px' }}>{world.emoji}</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: world.color }}>{world.name}</div>
+                          <div style={{ fontSize: '11px', color: theme.textSecondary }}>Wave {wave}/10</div>
+                        </div>
+                      </div>
+
+                      {/* Stars earned */}
+                      {starsEarned > 0 && (
+                        <div style={{ fontSize: '16px', color: theme.gold, marginBottom: '12px' }}>
+                          ⭐ +{starsEarned} Stars Earned!
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: theme.textMuted, marginBottom: '20px' }}>
+                        <span>🎯 {killCount} kills</span>
+                        <span>🔥 {maxCombo} max combo</span>
+                        <span>💰 {totalScore.toLocaleString()} score</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        {singleSessionMode ? (
+                          <>
+                            <button onClick={() => startGame(currentWorld, true)} className="btn" style={{
+                              padding: '12px 24px',
+                              fontSize: '14px',
+                              fontWeight: 700,
+                              background: `linear-gradient(135deg, ${world.color} 0%, ${world.color}cc 100%)`,
+                              border: 'none',
+                              borderRadius: '10px',
+                              color: '#fff',
+                              boxShadow: `0 4px 16px ${world.color}40`,
+                            }}>RETRY</button>
+                            <button onClick={() => endSession('defeat')} className="btn" style={{
+                              padding: '12px 24px',
+                              fontSize: '14px',
+                              fontWeight: 700,
+                              background: theme.bgDark,
+                              border: `1px solid ${theme.border}`,
+                              borderRadius: '10px',
+                              color: theme.textSecondary,
+                            }}>END SESSION</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => startGame(currentWorld, false)} className="btn" style={{
+                              padding: '12px 24px',
+                              fontSize: '14px',
+                              fontWeight: 700,
+                              background: `linear-gradient(135deg, ${world.color} 0%, ${world.color}cc 100%)`,
+                              border: 'none',
+                              borderRadius: '10px',
+                              color: '#fff',
+                              boxShadow: `0 4px 16px ${world.color}40`,
+                            }}>RETRY</button>
+                            <button onClick={goToWorldSelect} className="btn" style={{
+                              padding: '12px 24px',
+                              fontSize: '14px',
+                              fontWeight: 700,
+                              background: theme.bgDark,
+                              border: `1px solid ${theme.border}`,
+                              borderRadius: '10px',
+                              color: theme.textSecondary,
+                            }}>WORLDS</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Wave preview */}
