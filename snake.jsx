@@ -186,6 +186,19 @@ const SnakeGame = () => {
     50: { type: 'skin', id: 'cosmic', name: 'Cosmic Snake Skin' },
   };
 
+  // Shop items
+  const SHOP_ITEMS = {
+    xp_boost: { name: 'XP Boost', desc: '+10% XP per level', icon: '📈', baseCost: 200, maxLevel: 5 },
+    coin_boost: { name: 'Coin Boost', desc: '+15% coins per level', icon: '💰', baseCost: 200, maxLevel: 5 },
+    dash_distance: { name: 'Dash Range', desc: '+1 dash distance', icon: '💨', baseCost: 300, maxLevel: 2, reqLevel: 3 },
+    dash_cooldown: { name: 'Quick Dash', desc: '-1s dash cooldown', icon: '⏱️', baseCost: 400, maxLevel: 3, reqLevel: 3 },
+    magnet_range: { name: 'Super Magnet', desc: '+1 magnet range', icon: '🧲', baseCost: 350, maxLevel: 2, reqLevel: 10 },
+    magnet_duration: { name: 'Lasting Magnet', desc: '+2s magnet duration', icon: '⏰', baseCost: 300, maxLevel: 2, reqLevel: 10 },
+    shield_charges: { name: 'Fortified Shield', desc: '+1 shield charge', icon: '🛡️', baseCost: 500, maxLevel: 2, reqLevel: 5 },
+    starting_length: { name: 'Head Start', desc: '+1 starting length', icon: '📏', baseCost: 250, maxLevel: 3 },
+    double_duration: { name: 'Extended Double', desc: '+3s double points', icon: '✨', baseCost: 350, maxLevel: 2, reqLevel: 15 },
+  };
+
   // Stats tracking with RPG progression
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('snake_rpg_stats');
@@ -205,6 +218,8 @@ const SnakeGame = () => {
         unlockedSkins: parsed.unlockedSkins || ['default'],
         selectedSkin: parsed.selectedSkin || 'default',
         coins: parsed.coins || 0,
+        // Shop purchases
+        shopPurchases: parsed.shopPurchases || {},
       };
     }
     return {
@@ -219,6 +234,7 @@ const SnakeGame = () => {
       unlockedSkins: ['default'],
       selectedSkin: 'default',
       coins: 0,
+      shopPurchases: {},
     };
   });
 
@@ -234,7 +250,8 @@ const SnakeGame = () => {
   const DASH_DISTANCE = 3;
 
   // Active power-up state
-  const [hasShield, setHasShield] = useState(false);
+  const [shieldCharges, setShieldCharges] = useState(0); // Number of shield hits remaining
+  const hasShield = shieldCharges > 0; // For backwards compatibility
   const [hasMagnet, setHasMagnet] = useState(false);
   const [hasDoublePoints, setHasDoublePoints] = useState(false);
 
@@ -389,6 +406,30 @@ const SnakeGame = () => {
 
   // Get current skin
   const getCurrentSkin = () => snakeSkins[stats.selectedSkin] || snakeSkins.default;
+
+  // Shop helper functions
+  const getShopLevel = (itemId) => stats.shopPurchases[itemId] || 0;
+  const getShopCost = (itemId) => {
+    const item = SHOP_ITEMS[itemId];
+    const currentLevel = getShopLevel(itemId);
+    return Math.floor(item.baseCost * Math.pow(1.5, currentLevel));
+  };
+  const canBuyShopItem = (itemId) => {
+    const item = SHOP_ITEMS[itemId];
+    const currentLevel = getShopLevel(itemId);
+    if (currentLevel >= item.maxLevel) return false;
+    if (item.reqLevel && stats.level < item.reqLevel) return false;
+    return stats.coins >= getShopCost(itemId);
+  };
+  const buyShopItem = (itemId) => {
+    if (!canBuyShopItem(itemId)) return;
+    const cost = getShopCost(itemId);
+    setStats(s => ({
+      ...s,
+      coins: s.coins - cost,
+      shopPurchases: { ...s.shopPurchases, [itemId]: (s.shopPurchases[itemId] || 0) + 1 }
+    }));
+  };
 
   // Save missions to localStorage
   useEffect(() => {
@@ -737,12 +778,13 @@ const SnakeGame = () => {
     setActiveEffects(e => [...e, 'invincible']);
     setDashesUsed(d => d + 1); // Track for missions
 
-    // Move snake forward by DASH_DISTANCE tiles
+    // Move snake forward by DASH_DISTANCE tiles (+ shop upgrades)
+    const dashDist = DASH_DISTANCE + getShopLevel('dash_distance');
     setSnake(currentSnake => {
       const head = currentSnake[0];
       const newSegments = [];
 
-      for (let i = 1; i <= DASH_DISTANCE; i++) {
+      for (let i = 1; i <= dashDist; i++) {
         const newX = (head.x + direction.x * i + gridSize) % gridSize;
         const newY = (head.y + direction.y * i + gridSize) % gridSize;
         newSegments.push({ x: newX, y: newY });
@@ -763,9 +805,10 @@ const SnakeGame = () => {
       setActiveEffects(e => e.filter(ef => ef !== 'invincible'));
     }, 200);
 
-    // Start cooldown
-    setDashCooldown(DASH_COOLDOWN);
-  }, [dashCooldown, gameState, isPaused, direction, createParticles, getGridSize, stats.level]);
+    // Start cooldown (reduced by shop upgrade)
+    const cooldownReduction = getShopLevel('dash_cooldown') * 1000; // -1s per level
+    setDashCooldown(DASH_COOLDOWN - cooldownReduction);
+  }, [dashCooldown, gameState, isPaused, direction, createParticles, getGridSize, stats.level, stats.shopPurchases]);
 
   // Dash cooldown timer
   useEffect(() => {
@@ -1082,7 +1125,7 @@ const SnakeGame = () => {
         if (currentSnake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
           if (!activeEffects.includes('invincible')) {
             if (hasShield) {
-              setHasShield(false);
+              setShieldCharges(c => c - 1);
               setShieldUsed(true); // Track for missions
               createParticles(newHead.x, newHead.y, '#4169e1', 15);
               setFlashColor('#4169e1');
@@ -1100,7 +1143,7 @@ const SnakeGame = () => {
           if (hitHazard.type === 'ice_wall' || hitHazard.type === 'lightning') {
             if (!activeEffects.includes('invincible')) {
               if (hasShield) {
-                setHasShield(false);
+                setShieldCharges(c => c - 1);
                 setShieldUsed(true); // Track for missions
                 createParticles(newHead.x, newHead.y, '#4169e1', 15);
                 setFlashColor('#4169e1');
@@ -1139,9 +1182,10 @@ const SnakeGame = () => {
           }
         }
 
-        // Food collision (check with magnet range)
+        // Food collision (check with magnet range + shop upgrade)
         let newSnake;
-        const magnetRange = hasMagnet ? 3 : 0;
+        const baseMagnetRange = 3 + getShopLevel('magnet_range');
+        const magnetRange = hasMagnet ? baseMagnetRange : 0;
         const distToFood = Math.abs(newHead.x - food.x) + Math.abs(newHead.y - food.y);
         const gotFood = distToFood === 0 || (hasMagnet && distToFood <= magnetRange);
 
@@ -1175,15 +1219,18 @@ const SnakeGame = () => {
             spawnFood(newSnake);
             return newSnake;
           } else if (foodData.effect === 'shield') {
-            setHasShield(true);
+            const shieldAmount = 1 + getShopLevel('shield_charges'); // +1 charge per shop level
+            setShieldCharges(c => c + shieldAmount);
             setFlashColor('#4169e1');
             setTimeout(() => setFlashColor(null), 300);
           } else if (foodData.effect === 'magnet') {
             setHasMagnet(true);
-            setTimeout(() => setHasMagnet(false), 5000);
+            const magnetDur = 5000 + getShopLevel('magnet_duration') * 2000; // +2s per level
+            setTimeout(() => setHasMagnet(false), magnetDur);
           } else if (foodData.effect === 'double_points') {
             setHasDoublePoints(true);
-            setTimeout(() => setHasDoublePoints(false), 8000);
+            const doubleDur = 8000 + getShopLevel('double_duration') * 3000; // +3s per level
+            setTimeout(() => setHasDoublePoints(false), doubleDur);
           }
 
           if (food.type === 'boss') {
@@ -1305,13 +1352,15 @@ const SnakeGame = () => {
       });
     }
 
-    // Calculate wave bonus XP
+    // Calculate wave bonus XP with shop boost
     const waveBonus = currentWave * 20;
-    const totalXpGained = gameXp + waveBonus + missionXpBonus;
+    const xpBoostMultiplier = 1 + (getShopLevel('xp_boost') * 0.1); // +10% per level
+    const totalXpGained = Math.floor((gameXp + waveBonus + missionXpBonus) * xpBoostMultiplier);
     setXpGained(totalXpGained);
 
-    // Calculate coins (based on score and wave + mission bonus)
-    const coinsEarned = Math.floor(score / 10) + currentWave * 5 + missionCoinBonus;
+    // Calculate coins (based on score and wave + mission bonus) with shop boost
+    const coinBoostMultiplier = 1 + (getShopLevel('coin_boost') * 0.15); // +15% per level
+    const coinsEarned = Math.floor((Math.floor(score / 10) + currentWave * 5 + missionCoinBonus) * coinBoostMultiplier);
 
     // Update stats with XP and check for level ups
     setStats(s => {
@@ -1364,8 +1413,15 @@ const SnakeGame = () => {
     const startX = Math.floor(gridSize / 2);
     const startY = Math.floor(gridSize / 2);
 
+    // Build starting snake with shop-upgraded length
+    const startingLength = 1 + getShopLevel('starting_length');
+    const startingSnake = [];
+    for (let i = 0; i < startingLength; i++) {
+      startingSnake.push({ x: startX - i, y: startY });
+    }
+
     setSelectedEnemy(enemy);
-    setSnake([{ x: startX, y: startY }]);
+    setSnake(startingSnake);
     setDirection({ x: 1, y: 0 });
     setNextDirection({ x: 1, y: 0 });
     setScore(0);
@@ -1385,7 +1441,7 @@ const SnakeGame = () => {
     setLevelUps([]);
     setDashCooldown(0);
     setIsDashing(false);
-    setHasShield(false);
+    setShieldCharges(0);
     setHasMagnet(false);
     setHasDoublePoints(false);
     // Reset mission tracking
@@ -1534,6 +1590,27 @@ const SnakeGame = () => {
         onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
       >
         SELECT ENEMY
+      </button>
+
+      <button
+        onClick={() => setGameState('shop')}
+        style={{
+          marginTop: '12px',
+          padding: '12px 36px',
+          fontSize: '16px',
+          fontWeight: '700',
+          background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+          border: 'none',
+          borderRadius: '10px',
+          color: '#fff',
+          cursor: 'pointer',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          boxShadow: '0 4px 15px rgba(255, 215, 0, 0.3)',
+        }}
+        onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+        onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+      >
+        SHOP
       </button>
 
       {/* Active Missions */}
@@ -1710,6 +1787,130 @@ const SnakeGame = () => {
     </div>
   );
 
+  const renderShop = () => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '40px',
+      color: '#fff',
+      minHeight: '100vh',
+    }}>
+      <h2 style={{
+        fontSize: '32px',
+        fontWeight: '800',
+        marginBottom: '8px',
+        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      }}>Upgrade Shop</h2>
+      <p style={{ color: '#888', marginBottom: '8px' }}>Spend coins on permanent upgrades</p>
+
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 20px',
+        background: 'rgba(255, 215, 0, 0.1)',
+        borderRadius: '20px',
+        marginBottom: '24px',
+      }}>
+        <span style={{ fontSize: '24px' }}>💰</span>
+        <span style={{ fontSize: '22px', fontWeight: '700', color: '#ffd700' }}>{stats.coins}</span>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '12px',
+        maxWidth: '900px',
+        width: '100%',
+      }}>
+        {Object.entries(SHOP_ITEMS).map(([itemId, item]) => {
+          const currentLevel = getShopLevel(itemId);
+          const maxed = currentLevel >= item.maxLevel;
+          const cost = getShopCost(itemId);
+          const canBuy = canBuyShopItem(itemId);
+          const locked = item.reqLevel && stats.level < item.reqLevel;
+
+          return (
+            <div
+              key={itemId}
+              onClick={() => canBuy && buyShopItem(itemId)}
+              style={{
+                background: locked ? 'rgba(60,60,60,0.3)' : maxed ? 'rgba(80,200,120,0.15)' : 'rgba(255,215,0,0.08)',
+                border: `2px solid ${locked ? '#444' : maxed ? '#50c878' : canBuy ? '#ffd700' : '#555'}`,
+                borderRadius: '12px',
+                padding: '16px',
+                cursor: canBuy ? 'pointer' : 'default',
+                opacity: locked ? 0.5 : 1,
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={(e) => canBuy && (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  fontSize: '32px',
+                  width: '50px',
+                  height: '50px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(255,255,255,0.1)',
+                  borderRadius: '10px',
+                }}>{item.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '16px', color: maxed ? '#50c878' : '#fff' }}>
+                    {item.name}
+                    {locked && <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>Lv{item.reqLevel}+</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#888' }}>{item.desc}</div>
+                  <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                    Level: {currentLevel} / {item.maxLevel}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {maxed ? (
+                    <div style={{ color: '#50c878', fontWeight: '700', fontSize: '14px' }}>MAX</div>
+                  ) : locked ? (
+                    <div style={{ color: '#666', fontSize: '12px' }}>Locked</div>
+                  ) : (
+                    <div style={{
+                      padding: '6px 12px',
+                      background: canBuy ? 'linear-gradient(135deg, #ffd700, #ff8c00)' : 'rgba(100,100,100,0.3)',
+                      borderRadius: '8px',
+                      color: canBuy ? '#fff' : '#666',
+                      fontWeight: '700',
+                      fontSize: '14px',
+                    }}>
+                      {cost} 💰
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => setGameState('menu')}
+        style={{
+          marginTop: '30px',
+          padding: '10px 24px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          color: '#8fbc8f',
+          cursor: 'pointer',
+        }}
+      >
+        ← Back
+      </button>
+    </div>
+  );
+
   const renderGame = () => {
     const config = getCurrentConfig();
     const gridSize = config.gridSize;
@@ -1834,7 +2035,7 @@ const SnakeGame = () => {
         }}>
           {hasShield && (
             <div style={{ padding: '4px 12px', background: '#4169e133', borderRadius: '20px', color: '#4169e1', fontSize: '12px' }}>
-              🛡️ SHIELD
+              🛡️ SHIELD{shieldCharges > 1 ? ` x${shieldCharges}` : ''}
             </div>
           )}
           {hasMagnet && (
@@ -2390,6 +2591,7 @@ const SnakeGame = () => {
     }}>
       {gameState === 'menu' && renderMenu()}
       {gameState === 'select' && renderEnemySelect()}
+      {gameState === 'shop' && renderShop()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>
