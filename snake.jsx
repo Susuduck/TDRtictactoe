@@ -178,11 +178,17 @@ const SnakeGame = () => {
   const UNLOCKS = {
     3: { type: 'ability', id: 'dash', name: 'Dash Ability' },
     5: { type: 'powerup', id: 'shield', name: 'Shield Power-up' },
+    8: { type: 'ability', id: 'slowmo', name: 'Slow Time Ability' },
     10: { type: 'powerup', id: 'magnet', name: 'Magnet Power-up' },
+    12: { type: 'ability', id: 'phase', name: 'Phase Ability' },
     15: { type: 'powerup', id: 'double_points', name: 'Double Points Power-up' },
+    18: { type: 'skin', id: 'ocean', name: 'Ocean Snake Skin' },
     20: { type: 'skin', id: 'golden', name: 'Golden Snake Skin' },
+    25: { type: 'skin', id: 'electric', name: 'Electric Snake Skin' },
     30: { type: 'skin', id: 'neon', name: 'Neon Snake Skin' },
+    35: { type: 'skin', id: 'rainbow', name: 'Rainbow Snake Skin' },
     40: { type: 'skin', id: 'fire', name: 'Fire Snake Skin' },
+    45: { type: 'skin', id: 'shadow', name: 'Shadow Snake Skin' },
     50: { type: 'skin', id: 'cosmic', name: 'Cosmic Snake Skin' },
   };
 
@@ -301,6 +307,18 @@ const SnakeGame = () => {
   const [isDashing, setIsDashing] = useState(false);
   const DASH_COOLDOWN = 8000; // 8 seconds
   const DASH_DISTANCE = 3;
+
+  // Slow Time ability (Level 8)
+  const [slowmoCooldown, setSlowmoCooldown] = useState(0);
+  const [isSlowmo, setIsSlowmo] = useState(false);
+  const SLOWMO_COOLDOWN = 15000; // 15 seconds
+  const SLOWMO_DURATION = 4000; // 4 seconds of slow time
+
+  // Phase ability (Level 12) - pass through walls/self
+  const [phaseCooldown, setPhaseCooldown] = useState(0);
+  const [isPhasing, setIsPhasing] = useState(false);
+  const PHASE_COOLDOWN = 20000; // 20 seconds
+  const PHASE_DURATION = 3000; // 3 seconds of phasing
 
   // Active power-up state
   const [shieldCharges, setShieldCharges] = useState(0); // Number of shield hits remaining
@@ -432,9 +450,13 @@ const SnakeGame = () => {
   // Snake skin colors
   const snakeSkins = {
     default: { head: 'linear-gradient(135deg, #70ee90, #50c878)', body: 'linear-gradient(135deg, #50c878, #3cb371)', glow: 'rgba(80, 200, 120, 0.5)' },
+    ocean: { head: 'linear-gradient(135deg, #00ced1, #20b2aa)', body: 'linear-gradient(135deg, #20b2aa, #008b8b)', glow: 'rgba(0, 206, 209, 0.5)' },
     golden: { head: 'linear-gradient(135deg, #ffd700, #daa520)', body: 'linear-gradient(135deg, #daa520, #b8860b)', glow: 'rgba(255, 215, 0, 0.5)' },
+    electric: { head: 'linear-gradient(135deg, #00ff00, #7fff00)', body: 'linear-gradient(135deg, #7fff00, #adff2f)', glow: 'rgba(127, 255, 0, 0.6)' },
     neon: { head: 'linear-gradient(135deg, #00ffff, #ff00ff)', body: 'linear-gradient(135deg, #ff00ff, #00ffff)', glow: 'rgba(255, 0, 255, 0.5)' },
+    rainbow: { head: 'linear-gradient(135deg, #ff0000, #ff7f00, #ffff00)', body: 'linear-gradient(135deg, #00ff00, #0000ff, #8b00ff)', glow: 'rgba(255, 127, 0, 0.5)' },
     fire: { head: 'linear-gradient(135deg, #ff4500, #ff8c00)', body: 'linear-gradient(135deg, #ff6347, #ff4500)', glow: 'rgba(255, 69, 0, 0.5)' },
+    shadow: { head: 'linear-gradient(135deg, #2f2f2f, #1a1a1a)', body: 'linear-gradient(135deg, #1a1a1a, #0d0d0d)', glow: 'rgba(100, 100, 100, 0.4)' },
     cosmic: { head: 'linear-gradient(135deg, #9400d3, #00bfff)', body: 'linear-gradient(135deg, #4b0082, #9400d3)', glow: 'rgba(148, 0, 211, 0.5)' },
   };
 
@@ -923,6 +945,60 @@ const SnakeGame = () => {
     return () => clearInterval(dashCooldownRef.current);
   }, [dashCooldown > 0]);
 
+  // Slow Time ability (Q key)
+  const performSlowmo = useCallback(() => {
+    if (slowmoCooldown > 0 || !hasAbility('slowmo') || gameState !== 'playing' || isPaused) return;
+
+    setIsSlowmo(true);
+    setFlashColor('#9400d3');
+    setTimeout(() => setFlashColor(null), 200);
+
+    // Slow down game speed temporarily
+    setGameSpeed(s => s * 2); // Double the interval = half speed
+
+    setTimeout(() => {
+      setIsSlowmo(false);
+      setGameSpeed(s => s / 2); // Restore original speed
+    }, SLOWMO_DURATION);
+
+    setSlowmoCooldown(SLOWMO_COOLDOWN);
+  }, [slowmoCooldown, gameState, isPaused, stats.level]);
+
+  // Slowmo cooldown timer
+  useEffect(() => {
+    if (slowmoCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setSlowmoCooldown(cd => Math.max(0, cd - 100));
+    }, 100);
+    return () => clearInterval(timer);
+  }, [slowmoCooldown > 0]);
+
+  // Phase ability (E key) - pass through self/hazards
+  const performPhase = useCallback(() => {
+    if (phaseCooldown > 0 || !hasAbility('phase') || gameState !== 'playing' || isPaused) return;
+
+    setIsPhasing(true);
+    setActiveEffects(e => [...e, 'phasing']);
+    setFlashColor('#00ff88');
+    setTimeout(() => setFlashColor(null), 200);
+
+    setTimeout(() => {
+      setIsPhasing(false);
+      setActiveEffects(e => e.filter(ef => ef !== 'phasing'));
+    }, PHASE_DURATION);
+
+    setPhaseCooldown(PHASE_COOLDOWN);
+  }, [phaseCooldown, gameState, isPaused, stats.level]);
+
+  // Phase cooldown timer
+  useEffect(() => {
+    if (phaseCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setPhaseCooldown(cd => Math.max(0, cd - 100));
+    }, 100);
+    return () => clearInterval(timer);
+  }, [phaseCooldown > 0]);
+
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -943,6 +1019,20 @@ const SnakeGame = () => {
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         performDash();
+        return;
+      }
+
+      // Slow Time with Q
+      if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
+        performSlowmo();
+        return;
+      }
+
+      // Phase with E
+      if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        performPhase();
         return;
       }
 
@@ -1223,9 +1313,9 @@ const SnakeGame = () => {
         newHead.x = (newHead.x + gridSize) % gridSize;
         newHead.y = (newHead.y + gridSize) % gridSize;
 
-        // Self collision
+        // Self collision (phasing ignores this)
         if (currentSnake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
-          if (!activeEffects.includes('invincible')) {
+          if (!activeEffects.includes('invincible') && !activeEffects.includes('phasing')) {
             if (hasShield) {
               setShieldCharges(c => c - 1);
               setShieldUsed(true); // Track for missions
@@ -1239,11 +1329,11 @@ const SnakeGame = () => {
           }
         }
 
-        // Hazard collision
+        // Hazard collision (phasing ignores hazards)
         const hitHazard = hazards.find(h => h.x === newHead.x && h.y === newHead.y);
         if (hitHazard) {
           if (hitHazard.type === 'ice_wall' || hitHazard.type === 'lightning') {
-            if (!activeEffects.includes('invincible')) {
+            if (!activeEffects.includes('invincible') && !activeEffects.includes('phasing')) {
               if (hasShield) {
                 setShieldCharges(c => c - 1);
                 setShieldUsed(true); // Track for missions
@@ -1565,6 +1655,10 @@ const SnakeGame = () => {
     setLevelUps([]);
     setDashCooldown(0);
     setIsDashing(false);
+    setSlowmoCooldown(0);
+    setIsSlowmo(false);
+    setPhaseCooldown(0);
+    setIsPhasing(false);
     setShieldCharges(0);
     setHasMagnet(false);
     setHasDoublePoints(false);
@@ -2259,11 +2353,93 @@ const SnakeGame = () => {
               SPACE
             </div>
           </div>
+
+          {/* Slowmo ability (Level 8) */}
+          {stats.level >= 8 && (
+            <div style={{
+              position: 'relative',
+              width: '50px',
+              height: '50px',
+              borderRadius: '8px',
+              background: slowmoCooldown > 0 ? 'rgba(100,100,100,0.5)' : 'rgba(148,0,211,0.3)',
+              border: slowmoCooldown > 0 ? '2px solid #555' : '2px solid #9400d3',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: slowmoCooldown > 0 ? 'not-allowed' : 'pointer',
+            }} onClick={performSlowmo}>
+              <span style={{ fontSize: '24px', opacity: slowmoCooldown > 0 ? 0.5 : 1 }}>⏱️</span>
+              {slowmoCooldown > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-4px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '10px',
+                  color: '#888',
+                  background: 'rgba(0,0,0,0.7)',
+                  padding: '1px 4px',
+                  borderRadius: '4px',
+                }}>
+                  {Math.ceil(slowmoCooldown / 1000)}s
+                </div>
+              )}
+              <div style={{
+                position: 'absolute',
+                bottom: '-18px',
+                fontSize: '9px',
+                color: '#666',
+              }}>
+                Q
+              </div>
+            </div>
+          )}
+
+          {/* Phase ability (Level 12) */}
+          {stats.level >= 12 && (
+            <div style={{
+              position: 'relative',
+              width: '50px',
+              height: '50px',
+              borderRadius: '8px',
+              background: phaseCooldown > 0 ? 'rgba(100,100,100,0.5)' : 'rgba(0,255,136,0.3)',
+              border: phaseCooldown > 0 ? '2px solid #555' : '2px solid #00ff88',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: phaseCooldown > 0 ? 'not-allowed' : 'pointer',
+            }} onClick={performPhase}>
+              <span style={{ fontSize: '24px', opacity: phaseCooldown > 0 ? 0.5 : 1 }}>👻</span>
+              {phaseCooldown > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-4px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '10px',
+                  color: '#888',
+                  background: 'rgba(0,0,0,0.7)',
+                  padding: '1px 4px',
+                  borderRadius: '4px',
+                }}>
+                  {Math.ceil(phaseCooldown / 1000)}s
+                </div>
+              )}
+              <div style={{
+                position: 'absolute',
+                bottom: '-18px',
+                fontSize: '9px',
+                color: '#666',
+              }}>
+                E
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Active effects */}
-      {(activeEffects.length > 0 || hasShield || hasMagnet || hasDoublePoints) && (
+      {(activeEffects.length > 0 || hasShield || hasMagnet || hasDoublePoints || isSlowmo || isPhasing) && (
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -2304,6 +2480,16 @@ const SnakeGame = () => {
           {activeEffects.includes('reverse') && (
             <div style={{ padding: '4px 12px', background: '#ff00ff33', borderRadius: '20px', color: '#ff00ff', fontSize: '12px' }}>
               🔄 REVERSED
+            </div>
+          )}
+          {isSlowmo && (
+            <div style={{ padding: '4px 12px', background: '#9400d333', borderRadius: '20px', color: '#9400d3', fontSize: '12px' }}>
+              ⏱️ SLOW TIME
+            </div>
+          )}
+          {isPhasing && (
+            <div style={{ padding: '4px 12px', background: '#00ff8833', borderRadius: '20px', color: '#00ff88', fontSize: '12px' }}>
+              👻 PHASING
             </div>
           )}
         </div>
@@ -2594,7 +2780,7 @@ const SnakeGame = () => {
         color: '#5a7a5a',
         fontSize: '12px',
       }}>
-        Arrow keys or WASD to move {stats.level >= 3 && '• SPACE to dash'} • ESC to pause
+        Arrow keys or WASD to move {stats.level >= 3 && '• SPACE to dash'}{stats.level >= 8 && ' • Q to slow time'}{stats.level >= 12 && ' • E to phase'} • ESC to pause
       </div>
 
       <style>{`

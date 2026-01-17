@@ -16,6 +16,8 @@ Eat food to grow longer and earn points. Each wave has a target number of food t
 ### Controls
 - **Arrow Keys / WASD** - Move the snake
 - **SPACE** - Dash ability (unlocks at Level 3)
+- **Q** - Slow Time ability (unlocks at Level 8)
+- **E** - Phase ability (unlocks at Level 12)
 - **ESC** - Pause/Resume game
 
 ### Food Types
@@ -49,11 +51,17 @@ Eat food to grow longer and earn points. Each wave has a target number of food t
 |-------|--------|
 | 3 | Dash Ability |
 | 5 | Shield Power-up |
+| 8 | Slow Time Ability |
 | 10 | Magnet Power-up |
+| 12 | Phase Ability |
 | 15 | Double Points Power-up |
+| 18 | Ocean Snake Skin |
 | 20 | Golden Snake Skin |
+| 25 | Electric Snake Skin |
 | 30 | Neon Snake Skin |
+| 35 | Rainbow Snake Skin |
 | 40 | Fire Snake Skin |
+| 45 | Shadow Snake Skin |
 | 50 | Cosmic Snake Skin |
 
 ### Abilities
@@ -62,6 +70,16 @@ Eat food to grow longer and earn points. Each wave has a target number of food t
 - Press SPACE to dash forward 3 tiles
 - Invincible during dash
 - 8 second cooldown
+
+**Slow Time (Level 8)**
+- Press Q to slow down time for 4 seconds
+- Everything moves at half speed
+- 15 second cooldown
+
+**Phase (Level 12)**
+- Press E to phase through obstacles for 3 seconds
+- Pass through walls and yourself without dying
+- 20 second cooldown
 
 ### Coins
 - Earn coins based on score and waves completed
@@ -200,6 +218,8 @@ Each enemy has a unique themed world with different grid sizes, backgrounds, and
 | Shield | Shield | Until hit | Shield food (Level 5+) |
 | Magnet | Magnet | 5s | Magnet food (Level 10+) |
 | Double Points | Sparkles | 8s | Double food (Level 15+) |
+| Slow Time | Timer | 4s | Slow Time ability (Level 8+) |
+| Phasing | Ghost | 3s | Phase ability (Level 12+) |
 
 ---
 

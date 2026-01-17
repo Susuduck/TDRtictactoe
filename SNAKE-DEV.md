@@ -345,9 +345,73 @@ const hasShield = shieldCharges > 0; // backwards compatibility
 
 ---
 
-### Phase 4: Achievement System (COMPLETE)
+### Phase 4: Polish & Additional Content (COMPLETE)
 
-**Concept:** Long-term goals with badges and coin rewards
+**Includes:** Achievements, new abilities, new skins
+
+#### New Abilities
+
+**Slow Time (Level 8)**
+```javascript
+// State
+const [slowmoCooldown, setSlowmoCooldown] = useState(0);
+const [isSlowmo, setIsSlowmo] = useState(false);
+const SLOWMO_COOLDOWN = 15000; // 15 seconds
+const SLOWMO_DURATION = 4000;  // 4 seconds
+
+// Press Q to activate
+// Doubles game interval (half speed) for 4 seconds
+```
+
+**Phase (Level 12)**
+```javascript
+// State
+const [phaseCooldown, setPhaseCooldown] = useState(0);
+const [isPhasing, setIsPhasing] = useState(false);
+const PHASE_COOLDOWN = 20000; // 20 seconds
+const PHASE_DURATION = 3000;  // 3 seconds
+
+// Press E to activate
+// Pass through walls and self-collision for 3 seconds
+// Adds 'phasing' to activeEffects
+```
+
+#### New Skins (8 total)
+
+```javascript
+const snakeSkins = {
+  default: { head: 'linear-gradient(135deg, #70ee90, #50c878)', body: '...', glow: '...' },
+  ocean: { ... },    // Level 18 - Teal/cyan
+  golden: { ... },   // Level 20 - Gold
+  electric: { ... }, // Level 25 - Bright green/lime
+  neon: { ... },     // Level 30 - Cyan/magenta
+  rainbow: { ... },  // Level 35 - Multi-color
+  fire: { ... },     // Level 40 - Orange/red
+  shadow: { ... },   // Level 45 - Dark gray/black
+  cosmic: { ... },   // Level 50 - Purple/blue
+};
+```
+
+#### UNLOCKS Updated
+
+```javascript
+const UNLOCKS = {
+  3: { type: 'ability', id: 'dash', name: 'Dash Ability' },
+  5: { type: 'powerup', id: 'shield', name: 'Shield Power-up' },
+  8: { type: 'ability', id: 'slowmo', name: 'Slow Time Ability' },
+  10: { type: 'powerup', id: 'magnet', name: 'Magnet Power-up' },
+  12: { type: 'ability', id: 'phase', name: 'Phase Ability' },
+  15: { type: 'powerup', id: 'double_points', name: 'Double Points Power-up' },
+  18: { type: 'skin', id: 'ocean', name: 'Ocean Snake Skin' },
+  20: { type: 'skin', id: 'golden', name: 'Golden Snake Skin' },
+  25: { type: 'skin', id: 'electric', name: 'Electric Snake Skin' },
+  30: { type: 'skin', id: 'neon', name: 'Neon Snake Skin' },
+  35: { type: 'skin', id: 'rainbow', name: 'Rainbow Snake Skin' },
+  40: { type: 'skin', id: 'fire', name: 'Fire Snake Skin' },
+  45: { type: 'skin', id: 'shadow', name: 'Shadow Snake Skin' },
+  50: { type: 'skin', id: 'cosmic', name: 'Cosmic Snake Skin' },
+};
+```
 
 #### Achievements (25 total)
 ```javascript
