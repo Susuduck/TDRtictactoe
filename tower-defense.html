@@ -136,6 +136,44 @@ const TowerDefenseGame = () => {
     pathGlow: 'rgba(124, 106, 237, 0.4)',
   };
 
+  // Sprite URLs from Superpowers Asset Pack (CC0 License)
+  const SPRITE_BASE = 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/medieval-fantasy';
+  const sprites = {
+    enemies: {
+      slime: `${SPRITE_BASE}/monsters/slim.png`,
+      scout: `${SPRITE_BASE}/monsters/bat.png`,
+      tank: `${SPRITE_BASE}/monsters/cyclop.png`,
+      swarm: `${SPRITE_BASE}/monsters/snake.png`,
+      healer: `${SPRITE_BASE}/monsters/leonard.png`,
+      shielded: `${SPRITE_BASE}/monsters/skeleton.png`,
+      splitter: `${SPRITE_BASE}/monsters/slim.png`,
+      boss: `${SPRITE_BASE}/monsters/dragon.png`,
+      megaBoss: `${SPRITE_BASE}/monsters/king skeleton.png`,
+    },
+    towers: {
+      arrow: `${SPRITE_BASE}/characters/1.png`,
+      cannon: `${SPRITE_BASE}/characters/2.png`,
+      sniper: `${SPRITE_BASE}/characters/3.png`,
+      frost: `${SPRITE_BASE}/characters/4.png`,
+      lightning: `${SPRITE_BASE}/characters/5.png`,
+      poison: `${SPRITE_BASE}/characters/6.png`,
+      laser: `${SPRITE_BASE}/characters/7.png`,
+    },
+    projectiles: {
+      arrow: `${SPRITE_BASE}/items/projectile/1.png`,
+      cannon: `${SPRITE_BASE}/items/projectile/2.png`,
+      sniper: `${SPRITE_BASE}/items/projectile/3.png`,
+      frost: `${SPRITE_BASE}/items/projectile/4.png`,
+      lightning: `${SPRITE_BASE}/items/projectile/5.png`,
+      poison: `${SPRITE_BASE}/items/projectile/6.png`,
+      laser: `${SPRITE_BASE}/items/projectile/7.png`,
+    },
+    effects: {
+      hit: `${SPRITE_BASE}/fx/1.png`,
+      explosion: `${SPRITE_BASE}/fx/2.png`,
+    }
+  };
+
   // Tower damage types for resistance calculations
   const towerTypes = {
     arrow: {
@@ -1525,7 +1563,11 @@ const TowerDefenseGame = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '18px' }}>{tower.emoji}</span>
+                      {sprites.towers[tower.id] ? (
+                        <img src={sprites.towers[tower.id]} alt={tower.name} style={{ width: 22, height: 22, imageRendering: 'pixelated' }} />
+                      ) : (
+                        <span style={{ fontSize: '18px' }}>{tower.emoji}</span>
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '11px', fontWeight: 700, color: tower.color }}>{tower.name}</span>
@@ -1727,11 +1769,25 @@ const TowerDefenseGame = () => {
                       {isStart && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.success})`, animation: 'pulse 2s ease-in-out infinite' }}>🚪</span>}
                       {isEnd && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.error})`, animation: 'pulse 2s ease-in-out infinite' }}>🏠</span>}
                       {tower && (
-                        <span style={{
-                          fontSize: CELL_SIZE * 0.55,
-                          filter: `drop-shadow(0 0 4px ${tower.color})`,
-                          animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                        }}>{tower.emoji}</span>
+                        sprites.towers[tower.type] ? (
+                          <img
+                            src={sprites.towers[tower.type]}
+                            alt={tower.name}
+                            style={{
+                              width: CELL_SIZE * 0.6,
+                              height: CELL_SIZE * 0.6,
+                              imageRendering: 'pixelated',
+                              filter: `drop-shadow(0 0 4px ${tower.color})`,
+                              animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                            }}
+                          />
+                        ) : (
+                          <span style={{
+                            fontSize: CELL_SIZE * 0.55,
+                            filter: `drop-shadow(0 0 4px ${tower.color})`,
+                            animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                          }}>{tower.emoji}</span>
+                        )
                       )}
                       {tower && tower.level > 0 && (
                         <div style={{
@@ -1744,7 +1800,20 @@ const TowerDefenseGame = () => {
                         }}>★{tower.level}</div>
                       )}
                       {isHovered && canPlace && !tower && (
-                        <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
+                        sprites.towers[selectedTower] ? (
+                          <img
+                            src={sprites.towers[selectedTower]}
+                            alt={towerTypes[selectedTower].name}
+                            style={{
+                              width: CELL_SIZE * 0.55,
+                              height: CELL_SIZE * 0.55,
+                              imageRendering: 'pixelated',
+                              opacity: 0.5,
+                            }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
+                        )
                       )}
                     </div>
                   );
@@ -1915,10 +1984,23 @@ const TowerDefenseGame = () => {
                         transform: `scale(${scaleEffect})`,
                       }}
                     >
-                      <span style={{
-                        fontSize: enemy.isBoss ? CELL_SIZE * 0.8 : size * 0.8,
-                        transform: `scaleX(${enemy.rotation > -Math.PI / 2 && enemy.rotation < Math.PI / 2 ? 1 : -1})`,
-                      }}>{enemy.emoji}</span>
+                      {sprites.enemies[enemy.type] ? (
+                        <img
+                          src={sprites.enemies[enemy.type]}
+                          alt={enemy.name}
+                          style={{
+                            width: enemy.isBoss ? CELL_SIZE * 0.9 : size * 0.9,
+                            height: enemy.isBoss ? CELL_SIZE * 0.9 : size * 0.9,
+                            imageRendering: 'pixelated',
+                            transform: `scaleX(${enemy.rotation > -Math.PI / 2 && enemy.rotation < Math.PI / 2 ? 1 : -1})`,
+                          }}
+                        />
+                      ) : (
+                        <span style={{
+                          fontSize: enemy.isBoss ? CELL_SIZE * 0.8 : size * 0.8,
+                          transform: `scaleX(${enemy.rotation > -Math.PI / 2 && enemy.rotation < Math.PI / 2 ? 1 : -1})`,
+                        }}>{enemy.emoji}</span>
+                      )}
 
                       {/* Health bar */}
                       <div style={{
@@ -2163,7 +2245,11 @@ const TowerDefenseGame = () => {
                   <span style={{ color: theme.textMuted }}>Next:</span>
                   {Object.entries(wavePreview).map(([type, count]) => (
                     <span key={`preview-${type}`} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                      <span>{enemyTypes[type].emoji}</span>
+                      {sprites.enemies[type] ? (
+                        <img src={sprites.enemies[type]} alt={enemyTypes[type].name} style={{ width: 14, height: 14, imageRendering: 'pixelated' }} />
+                      ) : (
+                        <span>{enemyTypes[type].emoji}</span>
+                      )}
                       <span style={{ color: enemyTypes[type].color, fontWeight: 600 }}>×{count}</span>
                     </span>
                   ))}
@@ -2309,7 +2395,11 @@ const TowerDefenseGame = () => {
                       background: theme.bgDark,
                       borderRadius: '6px',
                     }}>
-                      <span style={{ fontSize: '14px' }}>{enemy.emoji}</span>
+                      {sprites.enemies[enemy.id] ? (
+                        <img src={sprites.enemies[enemy.id]} alt={enemy.name} style={{ width: 18, height: 18, imageRendering: 'pixelated' }} />
+                      ) : (
+                        <span style={{ fontSize: '14px' }}>{enemy.emoji}</span>
+                      )}
                       <div>
                         <div style={{ fontSize: '9px', fontWeight: 600, color: enemy.color }}>{enemy.name}</div>
                         <div style={{ fontSize: '8px', color: theme.textMuted }}>HP:{enemy.health} 💰{enemy.reward}</div>
@@ -2359,7 +2449,11 @@ const TowerDefenseGame = () => {
                         cursor: canAfford ? 'pointer' : 'not-allowed',
                       }}
                     >
-                      <span style={{ fontSize: '20px' }}>{tower.emoji}</span>
+                      {sprites.towers[tower.id] ? (
+                        <img src={sprites.towers[tower.id]} alt={tower.name} style={{ width: 24, height: 24, imageRendering: 'pixelated' }} />
+                      ) : (
+                        <span style={{ fontSize: '20px' }}>{tower.emoji}</span>
+                      )}
                       <span style={{ fontSize: '9px', color: theme.gold }}>{tower.cost}</span>
                     </div>
                   );
