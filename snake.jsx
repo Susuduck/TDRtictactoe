@@ -238,6 +238,122 @@ const SnakeGame = () => {
   const [hasMagnet, setHasMagnet] = useState(false);
   const [hasDoublePoints, setHasDoublePoints] = useState(false);
 
+  // Mission system
+  const MISSION_TYPES = {
+    collect_food: {
+      name: 'Collector',
+      desc: (t) => `Eat ${t} food in one run`,
+      icon: '🍎',
+      targets: [10, 15, 20, 30],
+      xpReward: [30, 50, 75, 100],
+      coinReward: [15, 25, 40, 60],
+    },
+    collect_bonus: {
+      name: 'Bonus Hunter',
+      desc: (t) => `Eat ${t} bonus food (oranges)`,
+      icon: '🍊',
+      targets: [3, 5, 8],
+      xpReward: [40, 60, 90],
+      coinReward: [20, 35, 50],
+    },
+    collect_super: {
+      name: 'Star Chaser',
+      desc: (t) => `Collect ${t} stars`,
+      icon: '⭐',
+      targets: [2, 3, 5],
+      xpReward: [50, 75, 120],
+      coinReward: [25, 40, 65],
+    },
+    reach_wave: {
+      name: 'Survivor',
+      desc: (t) => `Reach wave ${t}`,
+      icon: '🌊',
+      targets: [3, 5, 7, 10],
+      xpReward: [40, 70, 100, 150],
+      coinReward: [20, 40, 60, 100],
+    },
+    reach_score: {
+      name: 'High Scorer',
+      desc: (t) => `Score ${t} points in one run`,
+      icon: '🏆',
+      targets: [200, 400, 600, 1000],
+      xpReward: [35, 60, 90, 150],
+      coinReward: [20, 35, 55, 100],
+    },
+    reach_length: {
+      name: 'Long Snake',
+      desc: (t) => `Grow to length ${t}`,
+      icon: '📏',
+      targets: [10, 15, 20, 30],
+      xpReward: [30, 50, 80, 120],
+      coinReward: [15, 30, 50, 80],
+    },
+    use_dash: {
+      name: 'Dasher',
+      desc: (t) => `Use dash ${t} times`,
+      icon: '💨',
+      targets: [3, 5, 10],
+      xpReward: [25, 40, 70],
+      coinReward: [15, 25, 45],
+      requiresLevel: 3,
+    },
+    collect_powerups: {
+      name: 'Power Player',
+      desc: (t) => `Collect ${t} power-ups`,
+      icon: '💎',
+      targets: [3, 5, 8],
+      xpReward: [35, 55, 85],
+      coinReward: [20, 30, 50],
+    },
+    no_damage: {
+      name: 'Untouchable',
+      desc: (t) => `Complete ${t} waves without using shield`,
+      icon: '🛡️',
+      targets: [2, 3, 5],
+      xpReward: [50, 80, 130],
+      coinReward: [30, 50, 85],
+    },
+    beat_enemy: {
+      name: 'Enemy Slayer',
+      desc: (t, e) => `Beat ${e || 'any enemy'}`,
+      icon: '⚔️',
+      targets: [1],
+      xpReward: [60],
+      coinReward: [40],
+      enemySpecific: true,
+    },
+  };
+
+  // Mission state (persisted)
+  const [missions, setMissions] = useState(() => {
+    const saved = localStorage.getItem('snake_missions');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Check if missions need refresh (daily reset)
+      const lastRefresh = parsed.lastRefresh || 0;
+      const now = Date.now();
+      const dayInMs = 24 * 60 * 60 * 1000;
+      if (now - lastRefresh > dayInMs) {
+        return { active: [], completed: [], lastRefresh: now };
+      }
+      return parsed;
+    }
+    return { active: [], completed: [], lastRefresh: Date.now() };
+  });
+
+  // Current game mission progress
+  const [missionProgress, setMissionProgress] = useState({});
+  const [completedMissions, setCompletedMissions] = useState([]);
+  const [dashesUsed, setDashesUsed] = useState(0);
+  const [powerUpsCollected, setPowerUpsCollected] = useState(0);
+  const [shieldUsed, setShieldUsed] = useState(false);
+  const [wavesWithoutShield, setWavesWithoutShield] = useState(0);
+
+  // Food type tracking for missions
+  const [bonusFoodCount, setBonusFoodCount] = useState(0);
+  const [superFoodCount, setSuperFoodCount] = useState(0);
+  const [totalFoodCount, setTotalFoodCount] = useState(0);
+
   // Refs
   const gameLoopRef = useRef(null);
   const lastMoveRef = useRef(Date.now());
@@ -273,6 +389,169 @@ const SnakeGame = () => {
 
   // Get current skin
   const getCurrentSkin = () => snakeSkins[stats.selectedSkin] || snakeSkins.default;
+
+  // Save missions to localStorage
+  useEffect(() => {
+    localStorage.setItem('snake_missions', JSON.stringify(missions));
+  }, [missions]);
+
+  // Generate new missions
+  const generateMissions = useCallback(() => {
+    const missionTypes = Object.keys(MISSION_TYPES);
+    const newMissions = [];
+    const usedTypes = new Set();
+
+    while (newMissions.length < 3) {
+      const typeKey = missionTypes[Math.floor(Math.random() * missionTypes.length)];
+      if (usedTypes.has(typeKey)) continue;
+
+      const mType = MISSION_TYPES[typeKey];
+
+      // Skip if requires higher level
+      if (mType.requiresLevel && stats.level < mType.requiresLevel) continue;
+
+      // Pick a random difficulty
+      const difficultyIndex = Math.min(
+        Math.floor(Math.random() * mType.targets.length),
+        Math.floor(stats.level / 10) // Higher levels get harder missions
+      );
+
+      const mission = {
+        id: `${typeKey}_${Date.now()}_${newMissions.length}`,
+        type: typeKey,
+        target: mType.targets[difficultyIndex],
+        xpReward: mType.xpReward[difficultyIndex],
+        coinReward: mType.coinReward[difficultyIndex],
+        progress: 0,
+        completed: false,
+      };
+
+      // For enemy-specific missions, pick a random enemy
+      if (mType.enemySpecific) {
+        const enemies = ['slime_king', 'speedy_scorpion', 'phantom_fox', 'ice_wizard', 'thunder_tiger'];
+        mission.enemyId = enemies[Math.floor(Math.random() * enemies.length)];
+      }
+
+      newMissions.push(mission);
+      usedTypes.add(typeKey);
+    }
+
+    setMissions(m => ({ ...m, active: newMissions, lastRefresh: Date.now() }));
+  }, [stats.level]);
+
+  // Initialize missions if empty or refill if less than 3
+  useEffect(() => {
+    if (missions.active.length === 0) {
+      generateMissions();
+    } else if (missions.active.length < 3 && gameState === 'menu') {
+      // Refill missions when back at menu
+      const missionTypes = Object.keys(MISSION_TYPES);
+      const existingTypes = new Set(missions.active.map(m => m.type));
+      const newMissions = [...missions.active];
+
+      while (newMissions.length < 3) {
+        const typeKey = missionTypes[Math.floor(Math.random() * missionTypes.length)];
+        if (existingTypes.has(typeKey)) continue;
+
+        const mType = MISSION_TYPES[typeKey];
+        if (mType.requiresLevel && stats.level < mType.requiresLevel) continue;
+
+        const difficultyIndex = Math.min(
+          Math.floor(Math.random() * mType.targets.length),
+          Math.floor(stats.level / 10)
+        );
+
+        newMissions.push({
+          id: `${typeKey}_${Date.now()}_${newMissions.length}`,
+          type: typeKey,
+          target: mType.targets[difficultyIndex],
+          xpReward: mType.xpReward[difficultyIndex],
+          coinReward: mType.coinReward[difficultyIndex],
+          progress: 0,
+          completed: false,
+        });
+        existingTypes.add(typeKey);
+      }
+
+      setMissions(m => ({ ...m, active: newMissions }));
+    }
+  }, [missions.active.length, generateMissions, gameState, stats.level]);
+
+  // Get mission description
+  const getMissionDesc = (mission) => {
+    const mType = MISSION_TYPES[mission.type];
+    if (!mType) return 'Unknown mission';
+    if (mission.type === 'beat_enemy' && mission.enemyId) {
+      const enemy = enemyDefs.find(e => e.id === mission.enemyId);
+      return mType.desc(mission.target, enemy?.name || 'enemy');
+    }
+    return mType.desc(mission.target);
+  };
+
+  // Check mission progress
+  const checkMissionProgress = useCallback((gameData) => {
+    const { score: gameScore, wave, length, foodCount, bonusCount, superCount, dashCount, powerUpCount, shieldBroken, enemy } = gameData;
+
+    const updates = {};
+    const completed = [];
+
+    missions.active.forEach(mission => {
+      if (mission.completed) return;
+
+      let progress = 0;
+      let isComplete = false;
+
+      switch (mission.type) {
+        case 'collect_food':
+          progress = foodCount;
+          isComplete = foodCount >= mission.target;
+          break;
+        case 'collect_bonus':
+          progress = bonusCount;
+          isComplete = bonusCount >= mission.target;
+          break;
+        case 'collect_super':
+          progress = superCount;
+          isComplete = superCount >= mission.target;
+          break;
+        case 'reach_wave':
+          progress = wave;
+          isComplete = wave >= mission.target;
+          break;
+        case 'reach_score':
+          progress = gameScore;
+          isComplete = gameScore >= mission.target;
+          break;
+        case 'reach_length':
+          progress = length;
+          isComplete = length >= mission.target;
+          break;
+        case 'use_dash':
+          progress = dashCount;
+          isComplete = dashCount >= mission.target;
+          break;
+        case 'collect_powerups':
+          progress = powerUpCount;
+          isComplete = powerUpCount >= mission.target;
+          break;
+        case 'no_damage':
+          progress = shieldBroken ? 0 : wave;
+          isComplete = !shieldBroken && wave >= mission.target;
+          break;
+        case 'beat_enemy':
+          // This is checked when defeating an enemy (not implemented yet)
+          break;
+      }
+
+      updates[mission.id] = progress;
+      if (isComplete && !mission.completed) {
+        completed.push(mission);
+      }
+    });
+
+    setMissionProgress(updates);
+    return completed;
+  }, [missions.active]);
 
   // Get current level config helper
   const getCurrentConfig = useCallback(() => {
@@ -456,6 +735,7 @@ const SnakeGame = () => {
     const gridSize = getGridSize();
     setIsDashing(true);
     setActiveEffects(e => [...e, 'invincible']);
+    setDashesUsed(d => d + 1); // Track for missions
 
     // Move snake forward by DASH_DISTANCE tiles
     setSnake(currentSnake => {
@@ -803,6 +1083,7 @@ const SnakeGame = () => {
           if (!activeEffects.includes('invincible')) {
             if (hasShield) {
               setHasShield(false);
+              setShieldUsed(true); // Track for missions
               createParticles(newHead.x, newHead.y, '#4169e1', 15);
               setFlashColor('#4169e1');
               setTimeout(() => setFlashColor(null), 200);
@@ -820,6 +1101,7 @@ const SnakeGame = () => {
             if (!activeEffects.includes('invincible')) {
               if (hasShield) {
                 setHasShield(false);
+                setShieldUsed(true); // Track for missions
                 createParticles(newHead.x, newHead.y, '#4169e1', 15);
                 setFlashColor('#4169e1');
                 setTimeout(() => setFlashColor(null), 200);
@@ -869,6 +1151,12 @@ const SnakeGame = () => {
           setScore(s => s + foodData.points * pointMultiplier);
           setGameXp(xp => xp + (foodData.xp || 5) * pointMultiplier);
           createParticles(food.x, food.y, foodData.color, 10);
+
+          // Track food types for missions
+          setTotalFoodCount(c => c + 1);
+          if (food.type === 'bonus') setBonusFoodCount(c => c + 1);
+          if (food.type === 'super') setSuperFoodCount(c => c + 1);
+          if (foodData.effect) setPowerUpsCollected(c => c + 1);
 
           // Apply food effects
           if (foodData.effect === 'invincible') {
@@ -981,13 +1269,49 @@ const SnakeGame = () => {
       setHighScore(score);
     }
 
+    // Check mission progress
+    const gameData = {
+      score,
+      wave: currentWave,
+      length: snake.length,
+      foodCount: totalFoodCount,
+      bonusCount: bonusFoodCount,
+      superCount: superFoodCount,
+      dashCount: dashesUsed,
+      powerUpCount: powerUpsCollected,
+      shieldBroken: shieldUsed,
+      enemy: selectedEnemy?.id,
+    };
+
+    const completedMissionsThisGame = checkMissionProgress(gameData);
+    setCompletedMissions(completedMissionsThisGame);
+
+    // Calculate mission rewards
+    let missionXpBonus = 0;
+    let missionCoinBonus = 0;
+    completedMissionsThisGame.forEach(mission => {
+      missionXpBonus += mission.xpReward;
+      missionCoinBonus += mission.coinReward;
+    });
+
+    // Mark missions as completed and generate new ones for completed
+    if (completedMissionsThisGame.length > 0) {
+      setMissions(m => {
+        const remaining = m.active.filter(
+          am => !completedMissionsThisGame.find(cm => cm.id === am.id)
+        );
+        const completed = [...m.completed, ...completedMissionsThisGame.map(cm => cm.id)];
+        return { ...m, active: remaining, completed };
+      });
+    }
+
     // Calculate wave bonus XP
     const waveBonus = currentWave * 20;
-    const totalXpGained = gameXp + waveBonus;
+    const totalXpGained = gameXp + waveBonus + missionXpBonus;
     setXpGained(totalXpGained);
 
-    // Calculate coins (based on score and wave)
-    const coinsEarned = Math.floor(score / 10) + currentWave * 5;
+    // Calculate coins (based on score and wave + mission bonus)
+    const coinsEarned = Math.floor(score / 10) + currentWave * 5 + missionCoinBonus;
 
     // Update stats with XP and check for level ups
     setStats(s => {
@@ -1064,6 +1388,16 @@ const SnakeGame = () => {
     setHasShield(false);
     setHasMagnet(false);
     setHasDoublePoints(false);
+    // Reset mission tracking
+    setMissionProgress({});
+    setCompletedMissions([]);
+    setDashesUsed(0);
+    setPowerUpsCollected(0);
+    setShieldUsed(false);
+    setWavesWithoutShield(0);
+    setBonusFoodCount(0);
+    setSuperFoodCount(0);
+    setTotalFoodCount(0);
 
     // Need to set enemy first so getGridSize works, then spawn food after state update
     setTimeout(() => {
@@ -1201,6 +1535,44 @@ const SnakeGame = () => {
       >
         SELECT ENEMY
       </button>
+
+      {/* Active Missions */}
+      {missions.active.length > 0 && (
+        <div style={{
+          marginTop: '24px',
+          padding: '16px',
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '12px',
+          maxWidth: '350px',
+          width: '100%',
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: '700', color: '#ffd700', marginBottom: '12px' }}>
+            Daily Missions
+          </div>
+          {missions.active.slice(0, 3).map(mission => {
+            const mType = MISSION_TYPES[mission.type];
+            return (
+              <div key={mission.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '8px',
+                marginBottom: '6px',
+              }}>
+                <span style={{ fontSize: '20px' }}>{mType?.icon || '?'}</span>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '12px', color: '#fff' }}>{getMissionDesc(mission)}</div>
+                  <div style={{ fontSize: '10px', color: '#888' }}>
+                    +{mission.xpReward} XP, +{mission.coinReward} coins
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Unlocks preview */}
       {stats.level < 50 && (
@@ -1909,6 +2281,45 @@ const SnakeGame = () => {
           </div>
         )}
       </div>
+
+      {/* Completed Missions */}
+      {completedMissions.length > 0 && (
+        <div style={{
+          background: 'rgba(80, 200, 120, 0.1)',
+          border: '1px solid rgba(80, 200, 120, 0.3)',
+          padding: '12px 20px',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          minWidth: '200px',
+        }}>
+          <div style={{ fontSize: '12px', color: '#50c878', fontWeight: '700', marginBottom: '8px' }}>
+            MISSIONS COMPLETED!
+          </div>
+          {completedMissions.map(mission => {
+            const mType = MISSION_TYPES[mission.type];
+            return (
+              <div key={mission.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '6px',
+                marginBottom: '4px',
+              }}>
+                <span style={{ fontSize: '16px' }}>{mType?.icon || '?'}</span>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '11px', color: '#fff' }}>{getMissionDesc(mission)}</div>
+                  <div style={{ fontSize: '10px', color: '#50c878' }}>
+                    +{mission.xpReward} XP, +{mission.coinReward} coins
+                  </div>
+                </div>
+                <span style={{ fontSize: '14px', color: '#50c878' }}>✓</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '16px' }}>
         <button
