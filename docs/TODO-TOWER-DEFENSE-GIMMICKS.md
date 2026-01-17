@@ -1,25 +1,25 @@
 # TOWER DEFENSE - WORLD GIMMICKS TODO
 
-## Status: NOT YET IMPLEMENTED
+## Status: ALL GIMMICKS IMPLEMENTED
 
-These world-specific gimmicks are **defined in the code** but **not yet active in gameplay**.
+All world-specific gimmicks are now **active in gameplay**.
 
 ---
 
-## World Gimmicks To Implement
+## World Gimmicks (COMPLETE)
 
-| Priority | World | Character | Gimmick | Description |
-|----------|-------|-----------|---------|-------------|
+| Status | World | Character | Gimmick | Description |
+|--------|-------|-----------|---------|-------------|
 | - | 1 | 🦌 Forest Fawn | *None* | Tutorial world - no gimmick intentionally |
-| [ ] | 2 | 🦂 Sandy Scorpion | **Sandstorm** | Periodically reduces all tower ranges |
-| [ ] | 3 | 🐧 Glacier Penguin | **Blizzard** | Slows tower attack speed |
-| [ ] | 4 | 🐸 Swamp Toad | **Fog Zones** | Certain path areas heal enemies |
-| [ ] | 5 | 🐉 Volcano Dragon | **Lava Eruption** | Random tiles erupt, damaging/disabling towers |
-| [ ] | 6 | 🦋 Crystal Moth | **Invisible** | Some enemies invisible until revealed |
-| [ ] | 7 | 🦅 Storm Eagle | **Lightning** | Random lightning strikes damage towers/enemies |
-| [ ] | 8 | 👻 Haunted Ghost | **Resurrect** | Enemies come back once at 50% HP |
-| [ ] | 9 | 🤖 Clockwork Robot | **Time Warp** | Speed zones on path (enemies move faster) |
-| [ ] | 10 | 🦉 Cosmic Owl | **Chaos** | Random gimmick from above each wave |
+| [x] | 2 | 🦂 Sandy Scorpion | **Sandstorm** | Every 20s for 5s: Reduces tower range by 40% |
+| [x] | 3 | 🐧 Glacier Penguin | **Blizzard** | Every 20s for 5s: Slows tower attack speed by 60% |
+| [x] | 4 | 🐸 Swamp Toad | **Fog Zones** | Every 4th path tile heals enemies 0.5% HP/frame |
+| [x] | 5 | 🐉 Volcano Dragon | **Lava Eruption** | Random tiles erupt, disabling towers for 3s |
+| [x] | 6 | 🦋 Crystal Moth | **Invisible** | 40% of enemies spawn invisible, revealed at close range |
+| [x] | 7 | 🦅 Storm Eagle | **Lightning** | Random strikes damage enemies (30) and disable towers (2s) |
+| [x] | 8 | 👻 Haunted Ghost | **Resurrect** | Enemies resurrect once at 50% HP when killed |
+| [x] | 9 | 🤖 Clockwork Robot | **Time Warp** | Every 3rd path tile is a speed zone (2x enemy speed) |
+| [x] | 10 | 🦉 Cosmic Owl | **Chaos** | Random gimmick from above selected each wave |
 
 ---
 
@@ -31,21 +31,29 @@ These world-specific gimmicks are **defined in the code** but **not yet active i
 
 ---
 
-## Implementation Notes
+## Implementation Details
 
-### Where gimmicks are defined:
-- `worldDefs` array in `tower-defense.html` (lines ~57-192)
-- Each world has a `gimmick` property (e.g., `'sandstorm'`, `'blizzard'`)
-- Currently these values are stored but not acted upon
+### Gimmick Timing
+- **Periodic gimmicks** (sandstorm, blizzard): 20-second cycle, active for 5 seconds
+- **Random events** (lightning, lava): Probability-based per frame
+- **Constant effects** (fog, timewarp, invisible, resurrect): Always active in respective worlds
+- **Chaos**: Picks random gimmick at wave start via `chaosGimmickRef`
 
-### Where to implement:
-- Main game loop (`useEffect` with `gameState === 'playing'`)
-- Add gimmick check/application per wave or per tick
-- Use `activeGimmick` state (already defined) to track current effect
+### Key Code Locations
+- **Gimmick cycle logic**: Lines ~1150-1170 in game loop
+- **effectiveGimmick variable**: Handles chaos world by checking `chaosGimmickRef`
+- **Tower modifiers**: Lines ~1475 (rangeMultiplier, attackSpeedMultiplier)
+- **Enemy effects**: Lines ~1405-1420 (timewarp, fog)
+- **Resurrect logic**: Lines ~1315 in enemy death handling
+- **Invisible targeting**: Lines ~1540-1550 in tower targeting
 
-### Reference:
-- See Ultimate Tic-Tac-Toe (`ultimate-tictactoe-v3.jsx`) for similar gimmick pattern
-- Each character there has unique mini-games triggered on intervals
+### Visual Feedback
+- Sandstorm/Blizzard: Announcement text when active
+- Lightning: Yellow flash + particles
+- Lava: "🌋 ERUPTION!" floating text + orange particles
+- Resurrect: "👻 RISEN!" text + purple particles
+- Invisible reveal: "👁️ REVEALED!" text
+- Chaos: "🎲 CHAOS: [gimmick]!" announcement at wave start
 
 ---
 
@@ -57,4 +65,4 @@ These world-specific gimmicks are **defined in the code** but **not yet active i
 
 ---
 
-*Last updated: Session implementing 10-world structure*
+*Last updated: Gimmicks implementation session*
