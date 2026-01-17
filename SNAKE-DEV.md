@@ -275,38 +275,73 @@ const foodTypes = {
 
 ## Planned Future Phases
 
-### Phase 3: Shop System (NOT STARTED)
+### Phase 3: Shop System (COMPLETE)
 
 **Concept:** Spend coins on permanent upgrades
 
-**Suggested Shop Items:**
+#### Shop Items
 ```javascript
 const SHOP_ITEMS = {
-  // Permanent stat boosts
-  xp_boost: { name: 'XP Boost', desc: '+10% XP gain', cost: 500, maxLevel: 5 },
-  coin_boost: { name: 'Coin Boost', desc: '+10% coin gain', cost: 500, maxLevel: 5 },
-  starting_length: { name: 'Starting Length', desc: '+1 starting length', cost: 300, maxLevel: 3 },
-
-  // Ability upgrades
-  dash_distance: { name: 'Dash Distance', desc: '+1 dash distance', cost: 400, maxLevel: 2 },
-  dash_cooldown: { name: 'Dash Cooldown', desc: '-1s dash cooldown', cost: 600, maxLevel: 3 },
-
-  // Power-up duration
-  shield_charges: { name: 'Shield Charges', desc: 'Shield blocks +1 hit', cost: 800, maxLevel: 2 },
-  magnet_range: { name: 'Magnet Range', desc: '+1 magnet range', cost: 500, maxLevel: 2 },
-  magnet_duration: { name: 'Magnet Duration', desc: '+2s magnet duration', cost: 400, maxLevel: 2 },
-
-  // Consumables (buy before game)
-  extra_life: { name: 'Extra Life', desc: 'Revive once per game', cost: 200, consumable: true },
-  score_multiplier: { name: 'Score Boost', desc: '1.5x score for one game', cost: 150, consumable: true },
+  xp_boost: { name: 'XP Boost', desc: '+10% XP per level', icon: '📈', baseCost: 200, maxLevel: 5 },
+  coin_boost: { name: 'Coin Boost', desc: '+15% coins per level', icon: '💰', baseCost: 200, maxLevel: 5 },
+  dash_distance: { name: 'Dash Range', desc: '+1 dash distance', icon: '💨', baseCost: 300, maxLevel: 2, reqLevel: 3 },
+  dash_cooldown: { name: 'Quick Dash', desc: '-1s dash cooldown', icon: '⏱️', baseCost: 400, maxLevel: 3, reqLevel: 3 },
+  magnet_range: { name: 'Super Magnet', desc: '+1 magnet range', icon: '🧲', baseCost: 350, maxLevel: 2, reqLevel: 10 },
+  magnet_duration: { name: 'Lasting Magnet', desc: '+2s magnet duration', icon: '⏰', baseCost: 300, maxLevel: 2, reqLevel: 10 },
+  shield_charges: { name: 'Fortified Shield', desc: '+1 shield charge', icon: '🛡️', baseCost: 500, maxLevel: 2, reqLevel: 5 },
+  starting_length: { name: 'Head Start', desc: '+1 starting length', icon: '📏', baseCost: 250, maxLevel: 3 },
+  double_duration: { name: 'Extended Double', desc: '+3s double points', icon: '✨', baseCost: 350, maxLevel: 2, reqLevel: 15 },
 };
 ```
 
-**Implementation Notes:**
-- Add `shopPurchases` to stats state
-- Create shop UI accessible from main menu
-- Apply upgrades in game logic (check shopPurchases)
-- Consumables reset each game
+#### Helper Functions
+```javascript
+const getShopLevel = (itemId) => stats.shopPurchases[itemId] || 0;
+const getShopCost = (itemId) => {
+  const item = SHOP_ITEMS[itemId];
+  const currentLevel = getShopLevel(itemId);
+  return Math.floor(item.baseCost * Math.pow(1.5, currentLevel)); // Cost scales 1.5x per level
+};
+const canBuyShopItem = (itemId) => {
+  const item = SHOP_ITEMS[itemId];
+  const currentLevel = getShopLevel(itemId);
+  if (currentLevel >= item.maxLevel) return false;
+  if (item.reqLevel && stats.level < item.reqLevel) return false;
+  return stats.coins >= getShopCost(itemId);
+};
+```
+
+#### Stats State (updated)
+```javascript
+stats = {
+  // ... existing fields ...
+  shopPurchases: {}, // { itemId: purchaseLevel }
+};
+```
+
+#### Where Upgrades Apply
+- **xp_boost**: `handleGameOver()` - multiplies total XP by `1 + (level * 0.1)`
+- **coin_boost**: `handleGameOver()` - multiplies coins by `1 + (level * 0.15)`
+- **dash_distance**: `performDash()` - adds to DASH_DISTANCE
+- **dash_cooldown**: `performDash()` - subtracts `level * 1000ms` from cooldown
+- **magnet_range**: Game loop food collision - adds to base 3-tile range
+- **magnet_duration**: Food effect - adds `level * 2000ms` to 5s base
+- **shield_charges**: Food effect - adds `level` extra charges per pickup
+- **starting_length**: `startGame()` - adds to initial snake length
+- **double_duration**: Food effect - adds `level * 3000ms` to 8s base
+
+#### Shield System Change
+Shield was converted from boolean to charges:
+```javascript
+const [shieldCharges, setShieldCharges] = useState(0);
+const hasShield = shieldCharges > 0; // backwards compatibility
+```
+
+#### UI
+- Shop accessible via "SHOP" button on main menu
+- Shows current coins, all items with levels, costs, and lock status
+- Items with `reqLevel` show "Lv X+" when locked
+- Maxed items show "MAX" in green
 
 ---
 
