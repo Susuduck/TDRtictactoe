@@ -1156,6 +1156,68 @@ const TowerDefenseGame = () => {
         setActiveGimmick(null);
       }
 
+      // Lightning gimmick (World 7): Random strikes every 3-5 seconds
+      if (world.gimmick === 'lightning' && Math.random() < deltaTime / 4000) {
+        const strikeCol = Math.floor(Math.random() * GRID_COLS);
+        const strikeRow = Math.floor(Math.random() * GRID_ROWS);
+        const strikeX = strikeCol * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+        const strikeY = strikeRow * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+
+        // Damage enemies near strike
+        setEnemies(prev => prev.map(enemy => {
+          const dx = enemy.x - strikeX;
+          const dy = enemy.y - strikeY;
+          if (dx * dx + dy * dy < CELL_SIZE * CELL_SIZE * 4) {
+            enemy.currentHealth -= 30;
+            enemy.hitFlash = 1;
+          }
+          return enemy;
+        }));
+
+        // Disable towers near strike temporarily
+        setTowers(prev => prev.map(tower => {
+          if (tower.col === strikeCol && tower.row === strikeRow) {
+            tower.disabledUntil = Date.now() + 2000;
+          }
+          return tower;
+        }));
+
+        spawnParticles(strikeX, strikeY, '#fff200', 20, { speed: 8, size: 6, life: 300 });
+        triggerFlash('#fff200', 100);
+        playSound(SFX.crit);
+      }
+
+      // Lava Eruption gimmick (World 5): Random tile erupts periodically
+      if (world.gimmick === 'lava' && Math.random() < deltaTime / 5000) {
+        const eruptCol = Math.floor(Math.random() * GRID_COLS);
+        const eruptRow = Math.floor(Math.random() * GRID_ROWS);
+        const eruptX = eruptCol * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+        const eruptY = eruptRow * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+
+        // Disable towers on erupted tile
+        setTowers(prev => prev.map(tower => {
+          if (tower.col === eruptCol && tower.row === eruptRow) {
+            tower.disabledUntil = Date.now() + 3000;
+            spawnFloatingText(eruptX, eruptY - 20, '🌋 ERUPTION!', '#ff6b35', 12);
+          }
+          return tower;
+        }));
+
+        // Damage enemies on erupted tile
+        setEnemies(prev => prev.map(enemy => {
+          const dx = enemy.x - eruptX;
+          const dy = enemy.y - eruptY;
+          if (dx * dx + dy * dy < CELL_SIZE * CELL_SIZE) {
+            enemy.currentHealth -= 50;
+            enemy.hitFlash = 1;
+          }
+          return enemy;
+        }));
+
+        spawnParticles(eruptX, eruptY, '#ff6b35', 15, { speed: 6, size: 8, life: 500 });
+        playSound(SFX.explosion);
+      }
+
       // Update enemies
       setEnemies(prevEnemies => {
         const newEnemies = [];
@@ -1403,6 +1465,12 @@ const TowerDefenseGame = () => {
           tower.pulsePhase = (tower.pulsePhase || 0) + deltaTime * 0.005;
           // Decay recoil animation
           if (tower.recoil > 0) tower.recoil = Math.max(0, tower.recoil - deltaTime * 0.015);
+
+          // Skip disabled towers (from lightning/lava gimmicks)
+          if (tower.disabledUntil && tower.disabledUntil > now) {
+            tower.beamTarget = null; // Stop beam if disabled
+            return tower;
+          }
 
           // Beam tower - PERF: Use squared distance to avoid sqrt
           if (tower.beam) {
