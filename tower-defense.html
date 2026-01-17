@@ -1769,51 +1769,74 @@ const TowerDefenseGame = () => {
                       {isStart && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.success})`, animation: 'pulse 2s ease-in-out infinite' }}>🚪</span>}
                       {isEnd && <span style={{ fontSize: CELL_SIZE * 0.55, filter: `drop-shadow(0 0 6px ${theme.error})`, animation: 'pulse 2s ease-in-out infinite' }}>🏠</span>}
                       {tower && (
-                        sprites.towers[tower.type] ? (
-                          <img
-                            src={sprites.towers[tower.type]}
-                            alt={tower.name}
-                            style={{
-                              width: CELL_SIZE * 0.6,
-                              height: CELL_SIZE * 0.6,
-                              imageRendering: 'pixelated',
+                        <>
+                          {sprites.towers[tower.type] ? (
+                            <img
+                              src={sprites.towers[tower.type]}
+                              alt={tower.name}
+                              style={{
+                                width: CELL_SIZE * 0.6,
+                                height: CELL_SIZE * 0.6,
+                                imageRendering: 'pixelated',
+                                filter: `drop-shadow(0 0 4px ${tower.color})`,
+                                animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
+                              }}
+                            />
+                          ) : (
+                            <span style={{
+                              fontSize: CELL_SIZE * 0.55,
                               filter: `drop-shadow(0 0 4px ${tower.color})`,
                               animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                            }}
-                          />
-                        ) : (
-                          <span style={{
-                            fontSize: CELL_SIZE * 0.55,
-                            filter: `drop-shadow(0 0 4px ${tower.color})`,
-                            animation: tower.beamTarget ? 'glow 0.3s ease-in-out infinite' : 'none',
-                          }}>{tower.emoji}</span>
-                        )
-                      )}
-                      {tower && tower.level > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '1px',
-                          right: '2px',
-                          fontSize: '8px',
-                          fontWeight: 900,
-                          color: theme.gold,
-                        }}>★{tower.level}</div>
+                            }}>{tower.emoji}</span>
+                          )}
+                          {/* Type badge in corner */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '0px',
+                            left: '1px',
+                            fontSize: '10px',
+                            filter: `drop-shadow(0 0 2px ${tower.color})`,
+                            lineHeight: 1,
+                          }}>{tower.emoji}</div>
+                          {/* Level indicator */}
+                          {tower.level > 0 && (
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '1px',
+                              right: '2px',
+                              fontSize: '8px',
+                              fontWeight: 900,
+                              color: theme.gold,
+                            }}>★{tower.level}</div>
+                          )}
+                        </>
                       )}
                       {isHovered && canPlace && !tower && (
-                        sprites.towers[selectedTower] ? (
-                          <img
-                            src={sprites.towers[selectedTower]}
-                            alt={towerTypes[selectedTower].name}
-                            style={{
-                              width: CELL_SIZE * 0.55,
-                              height: CELL_SIZE * 0.55,
-                              imageRendering: 'pixelated',
-                              opacity: 0.5,
-                            }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
-                        )
+                        <>
+                          {sprites.towers[selectedTower] ? (
+                            <img
+                              src={sprites.towers[selectedTower]}
+                              alt={towerTypes[selectedTower].name}
+                              style={{
+                                width: CELL_SIZE * 0.55,
+                                height: CELL_SIZE * 0.55,
+                                imageRendering: 'pixelated',
+                                opacity: 0.5,
+                              }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: CELL_SIZE * 0.5, opacity: 0.5 }}>{towerTypes[selectedTower].emoji}</span>
+                          )}
+                          {/* Type badge preview */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '0px',
+                            left: '1px',
+                            fontSize: '10px',
+                            opacity: 0.5,
+                            lineHeight: 1,
+                          }}>{towerTypes[selectedTower].emoji}</div>
+                        </>
                       )}
                     </div>
                   );
