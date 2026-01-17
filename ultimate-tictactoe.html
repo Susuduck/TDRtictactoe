@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ultimate Tic Tac Toe</title>
+  <title>XO Teddy</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1625; }
@@ -19,51 +19,14 @@
   </style>
 </head>
 <body>
-  <div id="root"><div class="loading">Loading game...</div></div>
+  <div id="root"><div class="loading">Loading XO Teddy...</div></div>
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script>
-    // Fetch and transform the JSX file to work with browser globals
-    fetch('ultimate-tictactoe-v3.jsx')
-      .then(response => response.text())
-      .then(code => {
-        // Transform ES module syntax to browser globals
-        let transformedCode = code
-          // Remove the import statement
-          .replace(/import React.*from ['"]react['"];?\n?/g, '')
-          // Remove the export statement
-          .replace(/export default .*;\n?$/g, '')
-          // Add React hooks destructuring at the start
-          .replace(
-            /const UltimateTicTacToe = \(\) => \{/,
-            'const { useState, useEffect, useCallback, useRef } = React;\n\nconst UltimateTicTacToe = () => {'
-          );
-
-        // Create a script element with the transformed code
-        const script = document.createElement('script');
-        script.type = 'text/babel';
-        script.textContent = transformedCode + '\n\nconst root = ReactDOM.createRoot(document.getElementById("root"));\nroot.render(React.createElement(UltimateTicTacToe));';
-        document.body.appendChild(script);
-
-        // Trigger Babel transformation
-        Babel.transformScriptTags();
-      })
-      .catch(err => {
-        document.getElementById('root').innerHTML = `
-          <div style="padding: 40px; text-align: center; color: #e85a50; font-family: sans-serif;">
-            <h2>Failed to load game</h2>
-            <p style="color: #8880a0; margin-top: 16px;">
-              This game requires a local server due to browser security restrictions.
-            </p>
-            <p style="color: #8880a0; margin-top: 8px;">
-              Run <code style="background: #2a2440; padding: 4px 8px; border-radius: 4px;">play.bat</code> to start the server,
-              or open <code style="background: #2a2440; padding: 4px 8px; border-radius: 4px;">tower-defense.html</code> directly.
-            </p>
-          </div>
-        `;
-        console.error('Error loading game:', err);
-      });
+  <script type="text/babel" src="ultimate-tictactoe-v3.jsx"></script>
+  <script type="text/babel">
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<UltimateTicTacToe />);
   </script>
 </body>
 </html>
