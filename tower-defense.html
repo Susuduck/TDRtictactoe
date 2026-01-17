@@ -306,7 +306,7 @@ const worldDefs = [
     enemyTypes: ['scout', 'swarm', 'slime'],
     bossType: 'sandwurm',
     gimmick: 'sandstorm', // Periodically reduces all tower ranges
-    unlockRequirement: 8, // Need 8 stars from previous world
+    unlockRequirement: 10, // Need all 10 stars from previous world
   },
   {
     id: 2,
@@ -319,7 +319,7 @@ const worldDefs = [
     enemyTypes: ['tank', 'shielded', 'slime'],
     bossType: 'icegiant',
     gimmick: 'blizzard', // Slows tower attack speed
-    unlockRequirement: 8,
+    unlockRequirement: 10,
   },
   {
     id: 3,
@@ -332,7 +332,7 @@ const worldDefs = [
     enemyTypes: ['healer', 'splitter', 'slime', 'swarm'],
     bossType: 'hydra',
     gimmick: 'fogzones', // Certain path areas heal enemies
-    unlockRequirement: 8,
+    unlockRequirement: 10,
   },
   {
     id: 4,
@@ -345,7 +345,7 @@ const worldDefs = [
     enemyTypes: ['tank', 'scout', 'slime'],
     bossType: 'elderdragon',
     gimmick: 'lavaerupt', // Random tiles erupt, damaging/disabling towers
-    unlockRequirement: 8,
+    unlockRequirement: 10,
     enemyResists: { fire: 0.5 }, // Enemies here resist fire
   },
   {
@@ -359,7 +359,7 @@ const worldDefs = [
     enemyTypes: ['scout', 'swarm', 'slime'],
     bossType: 'shadowbeast',
     gimmick: 'invisible', // Some enemies invisible, need reveal towers
-    unlockRequirement: 8,
+    unlockRequirement: 10,
   },
   {
     id: 6,
@@ -372,7 +372,7 @@ const worldDefs = [
     enemyTypes: ['scout', 'shielded', 'healer'],
     bossType: 'thunderroc',
     gimmick: 'lightning', // Random lightning damages towers/enemies
-    unlockRequirement: 8,
+    unlockRequirement: 10,
     enemyResists: { lightning: 0.5 }, // Enemies resist lightning
   },
   {
@@ -386,7 +386,7 @@ const worldDefs = [
     enemyTypes: ['splitter', 'healer', 'tank'],
     bossType: 'lichking',
     gimmick: 'resurrect', // Enemies come back at 50% HP once
-    unlockRequirement: 8,
+    unlockRequirement: 10,
   },
   {
     id: 8,
@@ -399,7 +399,7 @@ const worldDefs = [
     enemyTypes: ['shielded', 'tank', 'scout'],
     bossType: 'mechtitan',
     gimmick: 'timewarp', // Speed zones on path
-    unlockRequirement: 8,
+    unlockRequirement: 10,
   },
   {
     id: 9,
@@ -412,7 +412,7 @@ const worldDefs = [
     enemyTypes: ['slime', 'scout', 'tank', 'swarm', 'healer', 'shielded', 'splitter'],
     bossType: 'voidemperor',
     gimmick: 'chaos', // Random gimmick each wave
-    unlockRequirement: 8,
+    unlockRequirement: 10,
   },
 ];
 
@@ -471,7 +471,7 @@ const ProgressionStorage = {
   isWorldUnlocked: (worldId) => {
     if (worldId === 0) return true;
     const data = ProgressionStorage.load();
-    // Need 8 levels completed (8 stars) from previous world to unlock next
+    // Need all 10 levels completed (10 stars) from previous world to unlock next
     return (data.worldStars[worldId - 1] || 0) >= worldDefs[worldId].unlockRequirement;
   },
 
@@ -3024,7 +3024,7 @@ const TowerDefenseGame = () => {
                 Click a world to play • Complete 10 levels (each with multiple waves) to defeat the boss
               </div>
               <div style={{ fontSize: '10px', color: theme.textSecondary }}>
-                Need 8 stars to unlock the next world
+                Complete all 10 levels to unlock the next world
               </div>
             </div>
 
