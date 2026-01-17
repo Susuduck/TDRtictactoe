@@ -42,25 +42,28 @@ Each world contains 10 levels, each with a specific number of waves:
 
 ## Map Layouts
 
-Each level features a unique map layout with different entry/exit points and obstacle patterns:
+**100 unique map layouts** - 10 themed layouts per world, each with different entry/exit points and obstacle patterns.
 
-| Level | Layout Name | Start | End | Description |
-|-------|-------------|-------|-----|-------------|
-| 1 | The Trail | Top-center | Bottom-center | Simple S-curve (tutorial) |
-| 2 | The Corner | Top-left | Bottom-right | L-shaped path |
-| 3 | The Serpent | Top-right | Bottom-right | Zigzag pattern |
-| 4 | The Vortex | Top-left | Center | Spiral inward |
-| 5 | The Horseshoe | Top-left | Top-right | U-turn double-back |
-| 6 | The Diamond | Left-center | Right-center | Diamond/cross pattern |
-| 7 | The Fork | Top-center | Bottom-center | Two paths merging |
-| 8 | The Labyrinth | Top-left | Bottom-right | Complex maze |
-| 9 | The Fortress | Top-center | Bottom-center | Central fortress obstacle |
-| 10 | The Throne Room | Top-center | Center | Complex spiral with islands |
+### World-Specific Layout Themes
 
-### Obstacle Tiles
+| World | Theme | Layout Variety |
+|-------|-------|----------------|
+| Forest Fawn | Clearings, trails | Tutorial-friendly, gentle curves |
+| Sandy Scorpion | Dunes, canyons, oasis | Mix of open and narrow |
+| Glacier Penguin | Frozen lakes, ice caves | Wide areas + tight tunnels |
+| Swamp Toad | Murky waters, twisted roots | Organic winding paths |
+| Volcano Dragon | Lava flows, volcanic rocks | Paths around danger zones |
+| Crystal Moth | Crystal formations, geodes | Geometric patterns |
+| Storm Eagle | Floating platforms, clouds | Island-hopping style |
+| Haunted Ghost | Graveyards, crypts | Spooky winding paths |
+| Clockwork Robot | Gears, pipes, factory | Industrial geometric |
+| Cosmic Owl | Asteroids, nebulas, void | Most challenging layouts |
+
+### Layout Features
+- Each world has variety in difficulty (mix of open and complex)
 - Obstacles are shown with world-themed decorations
 - Cannot place towers on obstacles
-- Forces strategic path planning
+- Forces strategic path planning based on world theme
 
 ---
 
@@ -262,6 +265,12 @@ tower-defense.html?session=true&world=2&callback=parent.towerDefenseComplete
 ---
 
 ## Version History
+
+### v2.1 - World-Specific Layouts
+- 100 unique map layouts (10 per world) replacing shared layout pool
+- Each world now has themed layouts matching its aesthetic
+- Variety within each world (mix of open/complex layouts)
+- Forest is tutorial-friendly, Cosmic is most challenging
 
 ### v2.0 - Level System Update
 - Changed from 10 waves to 10 levels (109 waves total per world)
