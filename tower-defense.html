@@ -365,6 +365,8 @@ const TowerDefenseGame = () => {
   const pathRef = useRef(path);
   const goldRef = useRef(gold);
   const beamDamageRef = useRef([]); // PERF: Collect beam damage to apply in batch
+  const gimmickTimerRef = useRef(0); // Timer for gimmick cycles
+  const gimmickActiveRef = useRef(false); // Whether gimmick effect is currently active
 
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
   useEffect(() => { towersRef.current = towers; }, [towers]);
@@ -1132,6 +1134,28 @@ const TowerDefenseGame = () => {
         setCurrentFps(Math.round(avgFps));
       }
 
+      // Gimmick cycle logic (sandstorm, blizzard, etc.)
+      const world = worldDefs[currentWorld];
+      const GIMMICK_CYCLE = 20000; // 20 seconds full cycle
+      const GIMMICK_ACTIVE_DURATION = 5000; // Active for 5 seconds
+      gimmickTimerRef.current = (gimmickTimerRef.current + deltaTime) % GIMMICK_CYCLE;
+      const wasActive = gimmickActiveRef.current;
+      gimmickActiveRef.current = gimmickTimerRef.current < GIMMICK_ACTIVE_DURATION;
+
+      // Announce when gimmick activates
+      if (!wasActive && gimmickActiveRef.current && world.gimmick) {
+        if (world.gimmick === 'sandstorm') {
+          announce('🌪️ SANDSTORM!', '#d4a574', 2000);
+          playSound(SFX.freeze); // Use existing sound
+        } else if (world.gimmick === 'blizzard') {
+          announce('❄️ BLIZZARD!', '#70c9ff', 2000);
+          playSound(SFX.freeze);
+        }
+        setActiveGimmick(world.gimmick);
+      } else if (wasActive && !gimmickActiveRef.current && world.gimmick) {
+        setActiveGimmick(null);
+      }
+
       // Update enemies
       setEnemies(prevEnemies => {
         const newEnemies = [];
@@ -1349,6 +1373,10 @@ const TowerDefenseGame = () => {
 
       // Update towers
       setTowers(prevTowers => {
+        // Gimmick modifiers for towers
+        const rangeMultiplier = (gimmickActiveRef.current && world.gimmick === 'sandstorm') ? 0.6 : 1;
+        const attackSpeedMultiplier = (gimmickActiveRef.current && world.gimmick === 'blizzard') ? 1.6 : 1;
+
         return prevTowers.map(tower => {
           const towerX = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           const towerY = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
@@ -1360,7 +1388,8 @@ const TowerDefenseGame = () => {
           if (tower.beam) {
             let target = null;
             let minDistSq = Infinity;
-            const rangeSq = (tower.range * CELL_SIZE) * (tower.range * CELL_SIZE);
+            const effectiveRange = tower.range * rangeMultiplier;
+            const rangeSq = (effectiveRange * CELL_SIZE) * (effectiveRange * CELL_SIZE);
 
             for (const enemy of enemiesRef.current) {
               const dx = enemy.x - towerX;
@@ -1374,7 +1403,8 @@ const TowerDefenseGame = () => {
 
             if (target) {
               tower.beamTarget = { x: target.x, y: target.y, id: target.id };
-              tower.beamDamageAccum += tower.damage * deltaTime / 16;
+              // Apply blizzard slowdown to beam towers
+              tower.beamDamageAccum += (tower.damage * deltaTime / 16) / attackSpeedMultiplier;
 
               if (tower.beamDamageAccum >= 1) {
                 const damage = Math.floor(tower.beamDamageAccum);
@@ -1399,7 +1429,8 @@ const TowerDefenseGame = () => {
           }
 
           // Regular tower
-          if (now - tower.lastFired < tower.fireRate) return tower;
+          const effectiveFireRate = tower.fireRate * attackSpeedMultiplier;
+          if (now - tower.lastFired < effectiveFireRate) return tower;
 
           // Calculate XP level from kills: every 10 kills = 1 level (capped at level 10)
           const xpLevel = Math.min(10, Math.floor(tower.kills / 10));
@@ -1409,7 +1440,8 @@ const TowerDefenseGame = () => {
           let target = null;
           let bestValue = tower.targetingMode === 'first' || tower.targetingMode === 'strongest' ? -Infinity : Infinity;
           const enemiesInRange = [];
-          const rangeSq = (tower.range * CELL_SIZE) * (tower.range * CELL_SIZE);
+          const effectiveRange = tower.range * rangeMultiplier;
+          const rangeSq = (effectiveRange * CELL_SIZE) * (effectiveRange * CELL_SIZE);
 
           for (const enemy of enemiesRef.current) {
             const dx = enemy.x - towerX;
