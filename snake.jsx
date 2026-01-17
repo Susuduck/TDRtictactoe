@@ -199,6 +199,43 @@ const SnakeGame = () => {
     double_duration: { name: 'Extended Double', desc: '+3s double points', icon: '✨', baseCost: 350, maxLevel: 2, reqLevel: 15 },
   };
 
+  // Achievements
+  const ACHIEVEMENTS = {
+    // Progression
+    first_game: { name: 'First Steps', desc: 'Play your first game', icon: '👶', reward: 25 },
+    level_5: { name: 'Getting Started', desc: 'Reach level 5', icon: '⭐', reward: 50 },
+    level_10: { name: 'Rising Star', desc: 'Reach level 10', icon: '🌟', reward: 100 },
+    level_25: { name: 'Veteran', desc: 'Reach level 25', icon: '💫', reward: 250 },
+    level_50: { name: 'Master', desc: 'Reach max level', icon: '👑', reward: 500 },
+    // Score
+    score_500: { name: 'High Scorer', desc: 'Score 500 in one game', icon: '🎯', reward: 50 },
+    score_1000: { name: 'Score Hunter', desc: 'Score 1000 in one game', icon: '🏆', reward: 100 },
+    score_2500: { name: 'Score Legend', desc: 'Score 2500 in one game', icon: '🥇', reward: 200 },
+    // Waves
+    wave_5: { name: 'Survivor', desc: 'Reach wave 5', icon: '🌊', reward: 40 },
+    wave_10: { name: 'Endurance', desc: 'Reach wave 10', icon: '💪', reward: 100 },
+    wave_15: { name: 'Unstoppable', desc: 'Reach wave 15', icon: '🔥', reward: 200 },
+    // Length
+    length_20: { name: 'Long Boi', desc: 'Reach length 20', icon: '📏', reward: 50 },
+    length_35: { name: 'Snek Lord', desc: 'Reach length 35', icon: '🐍', reward: 150 },
+    // Enemies
+    beat_slime: { name: 'Slime Slayer', desc: 'Beat Slime King', icon: '👑', reward: 30 },
+    beat_3_enemies: { name: 'Monster Hunter', desc: 'Beat 3 different enemies', icon: '⚔️', reward: 75 },
+    beat_5_enemies: { name: 'Champion', desc: 'Beat 5 different enemies', icon: '🏅', reward: 150 },
+    beat_all: { name: 'Legendary', desc: 'Beat all 10 enemies', icon: '🌟', reward: 500 },
+    // Cumulative
+    food_100: { name: 'Hungry', desc: 'Eat 100 total food', icon: '🍎', reward: 30 },
+    food_500: { name: 'Glutton', desc: 'Eat 500 total food', icon: '🍔', reward: 75 },
+    food_1000: { name: 'Insatiable', desc: 'Eat 1000 total food', icon: '🍕', reward: 150 },
+    games_10: { name: 'Regular', desc: 'Play 10 games', icon: '🎮', reward: 40 },
+    games_50: { name: 'Dedicated', desc: 'Play 50 games', icon: '🕹️', reward: 100 },
+    games_100: { name: 'Addict', desc: 'Play 100 games', icon: '💯', reward: 200 },
+    // Special
+    no_powerups: { name: 'Purist', desc: 'Reach wave 5 without power-ups', icon: '🧘', reward: 100 },
+    dash_master: { name: 'Dash Master', desc: 'Use dash 50 times total', icon: '💨', reward: 75 },
+    coins_1000: { name: 'Wealthy', desc: 'Accumulate 1000 coins', icon: '💰', reward: 100 },
+  };
+
   // Stats tracking with RPG progression
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('snake_rpg_stats');
@@ -220,6 +257,13 @@ const SnakeGame = () => {
         coins: parsed.coins || 0,
         // Shop purchases
         shopPurchases: parsed.shopPurchases || {},
+        // Achievements
+        achievements: parsed.achievements || [],
+        totalFood: parsed.totalFood || 0,
+        totalDashes: parsed.totalDashes || 0,
+        maxScore: parsed.maxScore || 0,
+        maxWave: parsed.maxWave || 0,
+        maxLength: parsed.maxLength || 0,
       };
     }
     return {
@@ -235,8 +279,17 @@ const SnakeGame = () => {
       selectedSkin: 'default',
       coins: 0,
       shopPurchases: {},
+      achievements: [],
+      totalFood: 0,
+      totalDashes: 0,
+      maxScore: 0,
+      maxWave: 0,
+      maxLength: 0,
     };
   });
+
+  // New achievements earned this game (for display)
+  const [newAchievements, setNewAchievements] = useState([]);
 
   // Current game XP (awarded at end)
   const [gameXp, setGameXp] = useState(0);
@@ -430,6 +483,55 @@ const SnakeGame = () => {
       shopPurchases: { ...s.shopPurchases, [itemId]: (s.shopPurchases[itemId] || 0) + 1 }
     }));
   };
+
+  // Check and award achievements
+  const checkAchievements = useCallback((gameData, updatedStats) => {
+    const earned = [];
+    const has = (id) => updatedStats.achievements.includes(id);
+
+    // Progression
+    if (!has('first_game') && updatedStats.gamesPlayed >= 1) earned.push('first_game');
+    if (!has('level_5') && updatedStats.level >= 5) earned.push('level_5');
+    if (!has('level_10') && updatedStats.level >= 10) earned.push('level_10');
+    if (!has('level_25') && updatedStats.level >= 25) earned.push('level_25');
+    if (!has('level_50') && updatedStats.level >= 50) earned.push('level_50');
+
+    // Score (this game)
+    if (!has('score_500') && gameData.score >= 500) earned.push('score_500');
+    if (!has('score_1000') && gameData.score >= 1000) earned.push('score_1000');
+    if (!has('score_2500') && gameData.score >= 2500) earned.push('score_2500');
+
+    // Waves (this game)
+    if (!has('wave_5') && gameData.wave >= 5) earned.push('wave_5');
+    if (!has('wave_10') && gameData.wave >= 10) earned.push('wave_10');
+    if (!has('wave_15') && gameData.wave >= 15) earned.push('wave_15');
+
+    // Length (this game)
+    if (!has('length_20') && gameData.length >= 20) earned.push('length_20');
+    if (!has('length_35') && gameData.length >= 35) earned.push('length_35');
+
+    // Enemies
+    const defeatedCount = Object.keys(updatedStats.enemiesDefeated).length;
+    if (!has('beat_slime') && updatedStats.enemiesDefeated['slime_king']) earned.push('beat_slime');
+    if (!has('beat_3_enemies') && defeatedCount >= 3) earned.push('beat_3_enemies');
+    if (!has('beat_5_enemies') && defeatedCount >= 5) earned.push('beat_5_enemies');
+    if (!has('beat_all') && defeatedCount >= 10) earned.push('beat_all');
+
+    // Cumulative
+    if (!has('food_100') && updatedStats.totalFood >= 100) earned.push('food_100');
+    if (!has('food_500') && updatedStats.totalFood >= 500) earned.push('food_500');
+    if (!has('food_1000') && updatedStats.totalFood >= 1000) earned.push('food_1000');
+    if (!has('games_10') && updatedStats.gamesPlayed >= 10) earned.push('games_10');
+    if (!has('games_50') && updatedStats.gamesPlayed >= 50) earned.push('games_50');
+    if (!has('games_100') && updatedStats.gamesPlayed >= 100) earned.push('games_100');
+
+    // Special
+    if (!has('no_powerups') && gameData.wave >= 5 && gameData.powerUpCount === 0) earned.push('no_powerups');
+    if (!has('dash_master') && updatedStats.totalDashes >= 50) earned.push('dash_master');
+    if (!has('coins_1000') && updatedStats.coins >= 1000) earned.push('coins_1000');
+
+    return earned;
+  }, []);
 
   // Save missions to localStorage
   useEffect(() => {
@@ -1389,7 +1491,8 @@ const SnakeGame = () => {
 
       setLevelUps(newLevelUps);
 
-      return {
+      // Build updated stats for achievement checking
+      const updatedStats = {
         ...s,
         totalScore: s.totalScore + score,
         gamesPlayed: s.gamesPlayed + 1,
@@ -1403,7 +1506,28 @@ const SnakeGame = () => {
         unlockedAbilities: newUnlockedAbilities,
         unlockedSkins: newUnlockedSkins,
         coins: s.coins + coinsEarned,
+        // Cumulative tracking
+        totalFood: s.totalFood + totalFoodCount,
+        totalDashes: s.totalDashes + dashesUsed,
+        maxScore: Math.max(s.maxScore, score),
+        maxWave: Math.max(s.maxWave, currentWave),
+        maxLength: Math.max(s.maxLength, snake.length),
       };
+
+      // Check for new achievements
+      const earnedAchievements = checkAchievements(gameData, updatedStats);
+      if (earnedAchievements.length > 0) {
+        setNewAchievements(earnedAchievements);
+        // Add achievement rewards
+        let achievementBonus = 0;
+        earnedAchievements.forEach(id => {
+          achievementBonus += ACHIEVEMENTS[id].reward;
+        });
+        updatedStats.coins += achievementBonus;
+        updatedStats.achievements = [...s.achievements, ...earnedAchievements];
+      }
+
+      return updatedStats;
     });
   };
 
@@ -1447,6 +1571,7 @@ const SnakeGame = () => {
     // Reset mission tracking
     setMissionProgress({});
     setCompletedMissions([]);
+    setNewAchievements([]);
     setDashesUsed(0);
     setPowerUpsCollected(0);
     setShieldUsed(false);
@@ -1611,6 +1736,27 @@ const SnakeGame = () => {
         onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
       >
         SHOP
+      </button>
+
+      <button
+        onClick={() => setGameState('achievements')}
+        style={{
+          marginTop: '8px',
+          padding: '10px 28px',
+          fontSize: '14px',
+          fontWeight: '700',
+          background: 'linear-gradient(135deg, #9400d3, #4b0082)',
+          border: 'none',
+          borderRadius: '8px',
+          color: '#fff',
+          cursor: 'pointer',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          boxShadow: '0 4px 15px rgba(148, 0, 211, 0.3)',
+        }}
+        onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+        onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+      >
+        ACHIEVEMENTS ({stats.achievements.length}/{Object.keys(ACHIEVEMENTS).length})
       </button>
 
       {/* Active Missions */}
@@ -1887,6 +2033,98 @@ const SnakeGame = () => {
                       {cost} 💰
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => setGameState('menu')}
+        style={{
+          marginTop: '30px',
+          padding: '10px 24px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          color: '#8fbc8f',
+          cursor: 'pointer',
+        }}
+      >
+        ← Back
+      </button>
+    </div>
+  );
+
+  const renderAchievements = () => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '40px',
+      color: '#fff',
+      minHeight: '100vh',
+    }}>
+      <h2 style={{
+        fontSize: '32px',
+        fontWeight: '800',
+        marginBottom: '8px',
+        background: 'linear-gradient(135deg, #9400d3, #4b0082)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      }}>Achievements</h2>
+      <p style={{ color: '#888', marginBottom: '24px' }}>
+        {stats.achievements.length} / {Object.keys(ACHIEVEMENTS).length} unlocked
+      </p>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: '10px',
+        maxWidth: '850px',
+        width: '100%',
+      }}>
+        {Object.entries(ACHIEVEMENTS).map(([id, ach]) => {
+          const unlocked = stats.achievements.includes(id);
+          return (
+            <div
+              key={id}
+              style={{
+                background: unlocked ? 'rgba(148, 0, 211, 0.15)' : 'rgba(60,60,60,0.3)',
+                border: `2px solid ${unlocked ? '#9400d3' : '#444'}`,
+                borderRadius: '10px',
+                padding: '12px 16px',
+                opacity: unlocked ? 1 : 0.6,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  fontSize: '28px',
+                  width: '44px',
+                  height: '44px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: unlocked ? 'rgba(148, 0, 211, 0.3)' : 'rgba(100,100,100,0.2)',
+                  borderRadius: '8px',
+                  filter: unlocked ? 'none' : 'grayscale(100%)',
+                }}>{ach.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '14px', color: unlocked ? '#d8b4fe' : '#888' }}>
+                    {ach.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#666' }}>{ach.desc}</div>
+                </div>
+                <div style={{
+                  padding: '4px 10px',
+                  background: unlocked ? '#9400d333' : 'rgba(100,100,100,0.2)',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  color: unlocked ? '#d8b4fe' : '#666',
+                  fontWeight: '600',
+                }}>
+                  {unlocked ? '✓' : `+${ach.reward}`}
                 </div>
               </div>
             </div>
@@ -2522,6 +2760,43 @@ const SnakeGame = () => {
         </div>
       )}
 
+      {/* New Achievements */}
+      {newAchievements.length > 0 && (
+        <div style={{
+          background: 'rgba(148, 0, 211, 0.15)',
+          border: '1px solid rgba(148, 0, 211, 0.4)',
+          padding: '12px 20px',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          minWidth: '200px',
+        }}>
+          <div style={{ fontSize: '12px', color: '#d8b4fe', fontWeight: '700', marginBottom: '8px' }}>
+            ACHIEVEMENTS UNLOCKED!
+          </div>
+          {newAchievements.map(id => {
+            const ach = ACHIEVEMENTS[id];
+            return (
+              <div key={id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px',
+                background: 'rgba(148, 0, 211, 0.2)',
+                borderRadius: '6px',
+                marginBottom: '4px',
+              }}>
+                <span style={{ fontSize: '20px' }}>{ach.icon}</span>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>{ach.name}</div>
+                  <div style={{ fontSize: '10px', color: '#d8b4fe' }}>+{ach.reward} coins</div>
+                </div>
+                <span style={{ fontSize: '14px', color: '#d8b4fe' }}>✓</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '16px' }}>
         <button
           onClick={() => startGame(selectedEnemy)}
@@ -2592,6 +2867,7 @@ const SnakeGame = () => {
       {gameState === 'menu' && renderMenu()}
       {gameState === 'select' && renderEnemySelect()}
       {gameState === 'shop' && renderShop()}
+      {gameState === 'achievements' && renderAchievements()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>
