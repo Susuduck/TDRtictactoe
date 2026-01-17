@@ -1,10 +1,142 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const SnakeGame = () => {
-  // Game constants
-  const GRID_SIZE = 20;
+  // Base constants
   const CELL_SIZE = 24;
   const BASE_SPEED = 150;
+
+  // Level configurations per enemy - smaller grids for slower enemies
+  const levelConfigs = {
+    slime_king: {
+      gridSize: 12,
+      name: "Slimy Swamp",
+      background: 'linear-gradient(180deg, #1a3a25 0%, #0d2818 50%, #1a4028 100%)',
+      boardBg: 'linear-gradient(135deg, #1a3020 0%, #0d2515 100%)',
+      gridColor: 'rgba(100, 220, 100, 0.12)',
+      decorations: [
+        { type: 'lily', positions: [[1,1], [10,1], [1,10], [10,10]] },
+        { type: 'reed', positions: [[5,0], [6,0], [5,11], [6,11]] }
+      ]
+    },
+    speedy_scorpion: {
+      gridSize: 16,
+      name: "Scorching Desert",
+      background: 'linear-gradient(180deg, #4a3520 0%, #3a2510 50%, #5a4525 100%)',
+      boardBg: 'linear-gradient(135deg, #3a2a15 0%, #2a1a08 100%)',
+      gridColor: 'rgba(230, 180, 100, 0.1)',
+      decorations: [
+        { type: 'cactus', positions: [[2,2], [13,2], [2,13], [13,13]] },
+        { type: 'rock', positions: [[7,0], [8,0], [7,15], [8,15], [0,7], [0,8], [15,7], [15,8]] }
+      ]
+    },
+    phantom_fox: {
+      gridSize: 16,
+      name: "Mystic Grove",
+      background: 'linear-gradient(180deg, #2a1a3a 0%, #1a0a2a 50%, #3a2040 100%)',
+      boardBg: 'linear-gradient(135deg, #2a1830 0%, #1a0820 100%)',
+      gridColor: 'rgba(200, 150, 220, 0.1)',
+      decorations: [
+        { type: 'mushroom', positions: [[3,3], [12,3], [3,12], [12,12], [7,7], [8,8]] },
+        { type: 'wisp', positions: [[1,5], [14,5], [5,1], [5,14]] }
+      ]
+    },
+    ice_wizard: {
+      gridSize: 18,
+      name: "Frozen Peaks",
+      background: 'linear-gradient(180deg, #1a2a3a 0%, #0d1a2a 50%, #2a3a4a 100%)',
+      boardBg: 'linear-gradient(135deg, #1a2535 0%, #0d1520 100%)',
+      gridColor: 'rgba(150, 200, 255, 0.12)',
+      decorations: [
+        { type: 'crystal', positions: [[2,2], [15,2], [2,15], [15,15], [8,8], [9,9]] },
+        { type: 'snowpile', positions: [[0,4], [0,13], [17,4], [17,13]] }
+      ]
+    },
+    thunder_tiger: {
+      gridSize: 18,
+      name: "Storm Valley",
+      background: 'linear-gradient(180deg, #2a2a35 0%, #1a1a25 50%, #3a3a40 100%)',
+      boardBg: 'linear-gradient(135deg, #252530 0%, #151520 100%)',
+      gridColor: 'rgba(255, 220, 100, 0.1)',
+      decorations: [
+        { type: 'cloud', positions: [[3,1], [10,1], [14,1], [6,16], [11,16]] },
+        { type: 'scorch', positions: [[4,4], [13,4], [4,13], [13,13]] }
+      ]
+    },
+    shadow_serpent: {
+      gridSize: 18,
+      name: "Dark Hollow",
+      background: 'linear-gradient(180deg, #15102a 0%, #0a0518 50%, #201530 100%)',
+      boardBg: 'linear-gradient(135deg, #150d25 0%, #080410 100%)',
+      gridColor: 'rgba(120, 80, 180, 0.1)',
+      decorations: [
+        { type: 'shadow', positions: [[2,2], [15,2], [2,15], [15,15], [8,2], [8,15]] },
+        { type: 'eyes', positions: [[5,5], [12,5], [5,12], [12,12]] }
+      ]
+    },
+    mirror_mantis: {
+      gridSize: 18,
+      name: "Crystal Cavern",
+      background: 'linear-gradient(180deg, #1a2a2a 0%, #0d1a1a 50%, #2a3a3a 100%)',
+      boardBg: 'linear-gradient(135deg, #1a2828 0%, #0d1515 100%)',
+      gridColor: 'rgba(150, 220, 200, 0.12)',
+      decorations: [
+        { type: 'mirror', positions: [[3,3], [14,3], [3,14], [14,14]] },
+        { type: 'gem', positions: [[8,1], [9,1], [1,8], [1,9], [16,8], [16,9], [8,16], [9,16]] }
+      ]
+    },
+    gravity_gorilla: {
+      gridSize: 20,
+      name: "Boulder Mountain",
+      background: 'linear-gradient(180deg, #2a2525 0%, #1a1515 50%, #3a3030 100%)',
+      boardBg: 'linear-gradient(135deg, #252020 0%, #151010 100%)',
+      gridColor: 'rgba(180, 160, 140, 0.1)',
+      decorations: [
+        { type: 'boulder', positions: [[3,3], [16,3], [3,16], [16,16], [9,9], [10,10]] },
+        { type: 'crack', positions: [[5,0], [14,0], [0,5], [0,14], [19,5], [19,14], [5,19], [14,19]] }
+      ]
+    },
+    chaos_chimera: {
+      gridSize: 20,
+      name: "Chaos Realm",
+      background: 'linear-gradient(135deg, #3a1a2a 0%, #1a3a2a 33%, #2a1a3a 66%, #3a2a1a 100%)',
+      boardBg: 'linear-gradient(135deg, #2a1520 0%, #152a20 50%, #201525 100%)',
+      gridColor: 'rgba(255, 100, 200, 0.1)',
+      decorations: [
+        { type: 'portal', positions: [[4,4], [15,4], [4,15], [15,15]] },
+        { type: 'rift', positions: [[9,2], [10,2], [9,17], [10,17], [2,9], [2,10], [17,9], [17,10]] }
+      ]
+    },
+    eternal_wyrm: {
+      gridSize: 22,
+      name: "Cosmic Void",
+      background: 'linear-gradient(180deg, #0a0510 0%, #050208 50%, #100815 100%)',
+      boardBg: 'linear-gradient(135deg, #0d0815 0%, #050308 100%)',
+      gridColor: 'rgba(255, 215, 0, 0.08)',
+      decorations: [
+        { type: 'star', positions: [[3,3], [18,3], [3,18], [18,18], [10,10], [11,11], [10,1], [11,20]] },
+        { type: 'nebula', positions: [[5,5], [16,5], [5,16], [16,16]] }
+      ]
+    }
+  };
+
+  // Default config for safety
+  const defaultConfig = {
+    gridSize: 16,
+    name: "Unknown Realm",
+    background: 'linear-gradient(135deg, #1a2520 0%, #0d3320 50%, #1a2525 100%)',
+    boardBg: 'linear-gradient(135deg, #1a2a20 0%, #0d1f15 100%)',
+    gridColor: 'rgba(80, 200, 120, 0.1)',
+    decorations: []
+  };
+
+  // Decoration emoji mapping
+  const decorationEmojis = {
+    lily: '🪷', reed: '🌾', cactus: '🌵', rock: '🪨',
+    mushroom: '🍄', wisp: '✨', crystal: '💎', snowpile: '❄️',
+    cloud: '☁️', scorch: '🔥', shadow: '👁️', eyes: '👀',
+    mirror: '🪞', gem: '💠', boulder: '🗿', crack: '⚡',
+    portal: '🌀', rift: '💫', star: '⭐', nebula: '🌌'
+  };
 
   // Game state
   const [gameState, setGameState] = useState('menu');
@@ -48,6 +180,17 @@ const SnakeGame = () => {
   // Refs
   const gameLoopRef = useRef(null);
   const lastMoveRef = useRef(Date.now());
+
+  // Get current level config helper
+  const getCurrentConfig = useCallback(() => {
+    if (!selectedEnemy) return defaultConfig;
+    return levelConfigs[selectedEnemy.id] || defaultConfig;
+  }, [selectedEnemy]);
+
+  // Get current grid size
+  const getGridSize = useCallback(() => {
+    return getCurrentConfig().gridSize;
+  }, [getCurrentConfig]);
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -265,6 +408,7 @@ const SnakeGame = () => {
 
   // Spawn food
   const spawnFood = useCallback((currentSnake = snake) => {
+    const gridSize = getGridSize();
     const occupied = new Set(currentSnake.map(s => `${s.x},${s.y}`));
     hazards.forEach(h => occupied.add(`${h.x},${h.y}`));
 
@@ -272,8 +416,8 @@ const SnakeGame = () => {
     let attempts = 0;
     do {
       pos = {
-        x: Math.floor(Math.random() * GRID_SIZE),
-        y: Math.floor(Math.random() * GRID_SIZE)
+        x: Math.floor(Math.random() * gridSize),
+        y: Math.floor(Math.random() * gridSize)
       };
       attempts++;
     } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 100);
@@ -338,6 +482,7 @@ const SnakeGame = () => {
     if (!selectedEnemy) return;
 
     const gimmick = selectedEnemy.gimmick;
+    const gridSize = getGridSize();
 
     switch (gimmick) {
       case 'slime_trail':
@@ -354,8 +499,8 @@ const SnakeGame = () => {
         if (Math.random() < 0.02) {
           const zoneType = Math.random() < 0.5 ? 'speed_up' : 'slow_down';
           setHazards(h => [...h.slice(-10), {
-            x: Math.floor(Math.random() * GRID_SIZE),
-            y: Math.floor(Math.random() * GRID_SIZE),
+            x: Math.floor(Math.random() * gridSize),
+            y: Math.floor(Math.random() * gridSize),
             type: zoneType,
             life: 100
           }]);
@@ -365,8 +510,8 @@ const SnakeGame = () => {
       case 'fake_food':
         if (Math.random() < 0.01 && powerUps.length < 3) {
           setPowerUps(p => [...p, {
-            x: Math.floor(Math.random() * GRID_SIZE),
-            y: Math.floor(Math.random() * GRID_SIZE),
+            x: Math.floor(Math.random() * gridSize),
+            y: Math.floor(Math.random() * gridSize),
             type: 'fake',
             emoji: '🍎',
           }]);
@@ -375,8 +520,8 @@ const SnakeGame = () => {
 
       case 'ice_walls':
         if (Math.random() < 0.015) {
-          const wallX = Math.floor(Math.random() * GRID_SIZE);
-          const wallY = Math.floor(Math.random() * GRID_SIZE);
+          const wallX = Math.floor(Math.random() * gridSize);
+          const wallY = Math.floor(Math.random() * gridSize);
           for (let i = 0; i < 3; i++) {
             const dir = Math.random() < 0.5;
             setHazards(h => [...h.slice(-20), {
@@ -391,8 +536,8 @@ const SnakeGame = () => {
 
       case 'lightning_strikes':
         if (Math.random() < 0.02) {
-          const strikeX = Math.floor(Math.random() * GRID_SIZE);
-          const strikeY = Math.floor(Math.random() * GRID_SIZE);
+          const strikeX = Math.floor(Math.random() * gridSize);
+          const strikeY = Math.floor(Math.random() * gridSize);
           setHazards(h => [...h, { x: strikeX, y: strikeY, type: 'lightning_warning', life: 20 }]);
           setTimeout(() => {
             setHazards(h => h.map(hz =>
@@ -408,9 +553,10 @@ const SnakeGame = () => {
 
       case 'darkness':
         if (Math.random() < 0.01) {
+          const darkSize = Math.min(5, Math.floor(gridSize / 4));
           setGimmickData(d => ({ ...d, darkZones: [
             ...(d.darkZones || []).slice(-5),
-            { x: Math.floor(Math.random() * (GRID_SIZE - 5)), y: Math.floor(Math.random() * (GRID_SIZE - 5)), size: 5, life: 100 }
+            { x: Math.floor(Math.random() * (gridSize - darkSize)), y: Math.floor(Math.random() * (gridSize - darkSize)), size: darkSize, life: 100 }
           ]}));
         }
         break;
@@ -431,8 +577,8 @@ const SnakeGame = () => {
           setGimmickData(d => ({
             ...d,
             gravityWells: [...(d.gravityWells || []), {
-              x: Math.floor(Math.random() * GRID_SIZE),
-              y: Math.floor(Math.random() * GRID_SIZE),
+              x: Math.floor(Math.random() * gridSize),
+              y: Math.floor(Math.random() * gridSize),
               life: 150
             }]
           }));
@@ -463,6 +609,7 @@ const SnakeGame = () => {
 
     const speed = gameSpeed * (activeEffects.includes('speed_boost') ? 0.7 : 1) *
                   (activeEffects.includes('slowed') ? 1.4 : 1);
+    const gridSize = getGridSize();
 
     gameLoopRef.current = setInterval(() => {
       setDirection(nextDirection);
@@ -489,8 +636,8 @@ const SnakeGame = () => {
         }
 
         // Wall collision (wrap around)
-        newHead.x = (newHead.x + GRID_SIZE) % GRID_SIZE;
-        newHead.y = (newHead.y + GRID_SIZE) % GRID_SIZE;
+        newHead.x = (newHead.x + gridSize) % gridSize;
+        newHead.y = (newHead.y + gridSize) % gridSize;
 
         // Self collision
         if (currentSnake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
@@ -655,8 +802,13 @@ const SnakeGame = () => {
   };
 
   const startGame = (enemy) => {
+    const config = levelConfigs[enemy.id] || defaultConfig;
+    const gridSize = config.gridSize;
+    const startX = Math.floor(gridSize / 2);
+    const startY = Math.floor(gridSize / 2);
+
     setSelectedEnemy(enemy);
-    setSnake([{ x: 10, y: 10 }]);
+    setSnake([{ x: startX, y: startY }]);
     setDirection({ x: 1, y: 0 });
     setNextDirection({ x: 1, y: 0 });
     setScore(0);
@@ -670,7 +822,24 @@ const SnakeGame = () => {
     setGimmickData({});
     setIsBossWave(false);
     setBossHealth(0);
-    spawnFood([{ x: 10, y: 10 }]);
+
+    // Need to set enemy first so getGridSize works, then spawn food after state update
+    setTimeout(() => {
+      setFood(prev => {
+        const occupied = new Set([`${startX},${startY}`]);
+        let pos;
+        let attempts = 0;
+        do {
+          pos = {
+            x: Math.floor(Math.random() * gridSize),
+            y: Math.floor(Math.random() * gridSize)
+          };
+          attempts++;
+        } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 100);
+        return { ...pos, type: 'normal' };
+      });
+    }, 0);
+
     setGameState('playing');
     setIsPaused(false);
   };
@@ -813,6 +982,9 @@ const SnakeGame = () => {
                   <div style={{ fontWeight: '700', fontSize: '18px', color: enemy.color }}>{enemy.name}</div>
                   <div style={{ fontSize: '12px', color: '#888' }}>{enemy.title}</div>
                   <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{enemy.gimmickDesc}</div>
+                  <div style={{ fontSize: '10px', color: '#555', marginTop: '4px' }}>
+                    {levelConfigs[enemy.id]?.name || 'Unknown'} • {levelConfigs[enemy.id]?.gridSize || 16}x{levelConfigs[enemy.id]?.gridSize || 16} grid
+                  </div>
                 </div>
               </div>
               {bestScore > 0 && (
@@ -842,7 +1014,12 @@ const SnakeGame = () => {
     </div>
   );
 
-  const renderGame = () => (
+  const renderGame = () => {
+    const config = getCurrentConfig();
+    const gridSize = config.gridSize;
+    const boardSize = gridSize * CELL_SIZE;
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -851,12 +1028,26 @@ const SnakeGame = () => {
       height: '100vh',
       transform: screenShake ? `translate(${Math.random() * 10 - 5}px, ${Math.random() * 10 - 5}px)` : 'none',
     }}>
+      {/* Level name banner */}
+      <div style={{
+        marginBottom: '8px',
+        padding: '4px 16px',
+        background: `${selectedEnemy?.color}22`,
+        border: `1px solid ${selectedEnemy?.color}44`,
+        borderRadius: '20px',
+        color: selectedEnemy?.color,
+        fontSize: '12px',
+        fontWeight: '600',
+      }}>
+        {config.name}
+      </div>
+
       {/* HUD */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        width: GRID_SIZE * CELL_SIZE,
+        width: boardSize,
         marginBottom: '16px',
         padding: '12px 20px',
         background: 'rgba(0,0,0,0.4)',
@@ -921,11 +1112,11 @@ const SnakeGame = () => {
       {/* Game board */}
       <div style={{
         position: 'relative',
-        width: GRID_SIZE * CELL_SIZE,
-        height: GRID_SIZE * CELL_SIZE,
-        background: 'linear-gradient(135deg, #1a2a20 0%, #0d1f15 100%)',
+        width: boardSize,
+        height: boardSize,
+        background: config.boardBg,
         borderRadius: '8px',
-        border: '3px solid #2a3a30',
+        border: `3px solid ${selectedEnemy?.color}44`,
         overflow: 'hidden',
       }}>
         {/* Flash overlay */}
@@ -941,7 +1132,7 @@ const SnakeGame = () => {
         )}
 
         {/* Grid lines */}
-        {Array.from({ length: GRID_SIZE }).map((_, i) => (
+        {Array.from({ length: gridSize }).map((_, i) => (
           <React.Fragment key={i}>
             <div style={{
               position: 'absolute',
@@ -949,7 +1140,7 @@ const SnakeGame = () => {
               top: 0,
               width: '1px',
               height: '100%',
-              background: 'rgba(80, 200, 120, 0.1)',
+              background: config.gridColor,
             }} />
             <div style={{
               position: 'absolute',
@@ -957,10 +1148,34 @@ const SnakeGame = () => {
               top: i * CELL_SIZE,
               width: '100%',
               height: '1px',
-              background: 'rgba(80, 200, 120, 0.1)',
+              background: config.gridColor,
             }} />
           </React.Fragment>
         ))}
+
+        {/* Level decorations */}
+        {config.decorations.map((decor, idx) =>
+          decor.positions.map(([x, y], posIdx) => (
+            <div
+              key={`decor-${idx}-${posIdx}`}
+              style={{
+                position: 'absolute',
+                left: x * CELL_SIZE,
+                top: y * CELL_SIZE,
+                width: CELL_SIZE,
+                height: CELL_SIZE,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                opacity: 0.4,
+                pointerEvents: 'none',
+              }}
+            >
+              {decorationEmojis[decor.type] || ''}
+            </div>
+          ))
+        )}
 
         {/* Dark zones */}
         {(gimmickData.darkZones || []).map((zone, idx) => (
@@ -1194,6 +1409,7 @@ const SnakeGame = () => {
       `}</style>
     </div>
   );
+  };
 
   const renderGameOver = () => (
     <div style={{
@@ -1289,11 +1505,21 @@ const SnakeGame = () => {
     </div>
   );
 
+  // Get background based on current state
+  const getBackgroundStyle = () => {
+    if (gameState === 'playing' || gameState === 'gameover') {
+      const config = getCurrentConfig();
+      return config.background;
+    }
+    return 'linear-gradient(135deg, #1a2520 0%, #0d3320 50%, #1a2525 100%)';
+  };
+
   return (
     <div style={{
       width: '100%',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a2520 0%, #0d3320 50%, #1a2525 100%)',
+      background: getBackgroundStyle(),
+      transition: 'background 0.5s ease',
     }}>
       {gameState === 'menu' && renderMenu()}
       {gameState === 'select' && renderEnemySelect()}

@@ -119,6 +119,51 @@ A feature-rich mazing tower defense game with particle effects, upgrades, and co
 
 ---
 
+### RPG Snake
+
+A snake game with RPG elements, 10 unique enemies, and themed worlds. Each enemy has their own arena with unique gimmicks!
+
+**How to Play:**
+- Arrow keys or WASD to move
+- Eat food to grow and earn points
+- Complete waves by eating target food count
+- Boss waves every 5 waves
+- ESC to pause
+
+**Enemies & Worlds:**
+
+| Enemy | World | Grid | Gimmick |
+|-------|-------|------|---------|
+| Slime King | Slimy Swamp | 12x12 | Slime trails slow you |
+| Speedy Scorpion | Scorching Desert | 16x16 | Speed/slow zones |
+| Phantom Fox | Mystic Grove | 16x16 | Fake food traps |
+| Ice Wizard | Frozen Peaks | 18x18 | Ice walls |
+| Thunder Tiger | Storm Valley | 18x18 | Lightning strikes |
+| Shadow Serpent | Dark Hollow | 18x18 | Darkness zones |
+| Mirror Mantis | Crystal Cavern | 18x18 | Control reversal |
+| Gravity Gorilla | Boulder Mountain | 20x20 | Gravity wells |
+| Chaos Chimera | Chaos Realm | 20x20 | Random gimmicks |
+| Eternal Wyrm | Cosmic Void | 22x22 | All mechanics |
+
+**Food Types:**
+- Apple (10 pts) - Normal food
+- Orange (25 pts) - Bonus
+- Star (50 pts) - Super bonus
+- Diamond (30 pts) - Grants invincibility
+- Lightning (15 pts) - Speed boost
+- Leaf (20 pts) - Shrinks your snake
+
+**Features:**
+- Progressive difficulty with wave system
+- Unique themed backgrounds per enemy
+- Decorative level elements
+- High score tracking per enemy
+- Power-ups and status effects
+
+For full documentation, see [SNAKE.md](SNAKE.md).
+
+---
+
 ## Menu System
 
 The `menu.html` page provides a visual interface to launch either game.
@@ -126,8 +171,10 @@ The `menu.html` page provides a visual interface to launch either game.
 **Files:**
 - `menu.html` - Main game selection menu
 - `ultimate-tictactoe.html` - XO Teddy game
-- `ultimate-tictactoe-v3.jsx` - Game source code
+- `ultimate-tictactoe-v3.jsx` - XO Teddy source code
 - `tower-defense.html` - Tower Defense game (standalone)
+- `snake.html` - RPG Snake entry point
+- `snake.jsx` - RPG Snake source code
 - `play.bat` - Windows launcher with server
 
 ---
