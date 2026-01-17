@@ -43,13 +43,12 @@ const BreakoutGame = () => {
   const [screenShake, setScreenShake] = useState(false);
   const [flashColor, setFlashColor] = useState(null);
   const [floatingTexts, setFloatingTexts] = useState([]);
+  const [powerUpAnnouncement, setPowerUpAnnouncement] = useState(null);
 
   // === NEW: Teddyball Player Mechanics ===
   // Dash system
   const [dashCooldown, setDashCooldown] = useState(0);
   const [isDashing, setIsDashing] = useState(false);
-  const [lastTapLeft, setLastTapLeft] = useState(0);
-  const [lastTapRight, setLastTapRight] = useState(0);
 
   // Charge shot system
   const [chargeLevel, setChargeLevel] = useState(0);
@@ -128,6 +127,15 @@ const BreakoutGame = () => {
   const lastTimeRef = useRef(Date.now());
   const comboTimerRef = useRef(null);
   const paddleLastX = useRef(CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2);
+  // Refs for keyboard handling to avoid dependency issues
+  const lastTapLeftRef = useRef(0);
+  const lastTapRightRef = useRef(0);
+  const dashCooldownRef = useRef(0);
+  const teddyMeterRef = useRef(0);
+  const teddyAbilityActiveRef = useRef(null);
+  const isChargingRef = useRef(false);
+  const chargeLevelRef = useRef(0);
+  const ballsRef = useRef([]);
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -283,42 +291,50 @@ const BreakoutGame = () => {
     localStorage.setItem('teddyball_stats', JSON.stringify(stats));
   }, [stats]);
 
-  // Keyboard controls with dash and Teddy abilities
+  // Keep refs in sync with state for keyboard handlers
+  useEffect(() => { dashCooldownRef.current = dashCooldown; }, [dashCooldown]);
+  useEffect(() => { teddyMeterRef.current = teddyMeter; }, [teddyMeter]);
+  useEffect(() => { teddyAbilityActiveRef.current = teddyAbilityActive; }, [teddyAbilityActive]);
+  useEffect(() => { isChargingRef.current = isCharging; }, [isCharging]);
+  useEffect(() => { chargeLevelRef.current = chargeLevel; }, [chargeLevel]);
+  useEffect(() => { ballsRef.current = balls; }, [balls]);
+
+  // Keyboard controls with dash and Teddy abilities - stable event handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
       const now = Date.now();
 
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         // Double-tap detection for dash
-        if (!keysRef.current.left && now - lastTapLeft < 300 && dashCooldown <= 0) {
+        if (!keysRef.current.left && now - lastTapLeftRef.current < 300 && dashCooldownRef.current <= 0) {
           // Trigger dash left!
           setIsDashing(true);
           setDashCooldown(DASH_COOLDOWN);
           setPaddle(p => ({ ...p, x: Math.max(0, p.x - DASH_SPEED * 4) }));
           setTimeout(() => setIsDashing(false), 150);
         }
-        setLastTapLeft(now);
+        lastTapLeftRef.current = now;
         keysRef.current.left = true;
         e.preventDefault();
       }
       if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         // Double-tap detection for dash
-        if (!keysRef.current.right && now - lastTapRight < 300 && dashCooldown <= 0) {
+        if (!keysRef.current.right && now - lastTapRightRef.current < 300 && dashCooldownRef.current <= 0) {
           // Trigger dash right!
           setIsDashing(true);
           setDashCooldown(DASH_COOLDOWN);
           setPaddle(p => ({ ...p, x: Math.min(CANVAS_WIDTH - p.width, p.x + DASH_SPEED * 4) }));
           setTimeout(() => setIsDashing(false), 150);
         }
-        setLastTapRight(now);
+        lastTapRightRef.current = now;
         keysRef.current.right = true;
         e.preventDefault();
       }
 
       // Space for launch / charge shot
-      if (e.key === ' ' && gameState === 'playing') {
+      if (e.key === ' ') {
         keysRef.current.space = true;
-        const hasAttached = balls.some(b => b.attached);
+        const hasAttached = ballsRef.current.some(b => b.attached);
         if (hasAttached) {
           setIsCharging(true);
         }
@@ -328,32 +344,36 @@ const BreakoutGame = () => {
       // Teddy Abilities: Q, W, E
       if (e.key === 'q' || e.key === 'Q') {
         keysRef.current.q = true;
-        if (teddyMeter >= TEDDY_METER_MAX && !teddyAbilityActive) {
+        if (teddyMeterRef.current >= TEDDY_METER_MAX && !teddyAbilityActiveRef.current) {
           activateTeddyAbility('slam');
         }
         e.preventDefault();
       }
       if (e.key === 'w' || e.key === 'W') {
         keysRef.current.w = true;
-        if (teddyMeter >= TEDDY_METER_MAX && !teddyAbilityActive) {
+        if (teddyMeterRef.current >= TEDDY_METER_MAX && !teddyAbilityActiveRef.current) {
           activateTeddyAbility('shield');
         }
         e.preventDefault();
       }
       if (e.key === 'e' || e.key === 'E') {
         keysRef.current.e = true;
-        if (teddyMeter >= TEDDY_METER_MAX && !teddyAbilityActive) {
+        if (teddyMeterRef.current >= TEDDY_METER_MAX && !teddyAbilityActiveRef.current) {
           activateTeddyAbility('twins');
         }
         e.preventDefault();
       }
 
       if (e.key === 'Escape') {
-        if (gameState === 'playing') {
-          setIsPaused(p => !p);
-        } else if (gameState !== 'menu') {
-          setGameState('menu');
-        }
+        setGameState(gs => {
+          if (gs === 'playing') {
+            setIsPaused(p => !p);
+            return gs;
+          } else if (gs !== 'menu') {
+            return 'menu';
+          }
+          return gs;
+        });
       }
     };
 
@@ -367,8 +387,8 @@ const BreakoutGame = () => {
       if (e.key === ' ') {
         keysRef.current.space = false;
         // Release charged shot
-        if (isCharging && gameState === 'playing') {
-          const power = Math.min(chargeLevel / 100, 1);
+        if (isChargingRef.current) {
+          const power = Math.min(chargeLevelRef.current / 100, 1);
           setBalls(prev => prev.map(ball => {
             if (ball.attached) {
               const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
@@ -397,7 +417,60 @@ const BreakoutGame = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameState, lastTapLeft, lastTapRight, dashCooldown, teddyMeter, teddyAbilityActive, isCharging, chargeLevel, balls]);
+  }, [activateTeddyAbility]); // Minimal dependencies - refs handle the rest
+
+  // Mouse control for paddle - smooth and responsive
+  useEffect(() => {
+    if (gameState !== 'playing' || isPaused) return;
+
+    const handleMouseMove = (e) => {
+      if (activeEffects.includes('frozen')) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+
+      // Calculate paddle position centered on mouse
+      setPaddle(prev => {
+        const targetX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, mouseX - prev.width / 2));
+        // Calculate velocity for spin effect
+        const vx = (targetX - prev.x) * 2;
+        return { ...prev, x: targetX, vx };
+      });
+    };
+
+    // Click to launch ball
+    const handleClick = (e) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      if (e.clientX >= rect.left && e.clientX <= rect.right &&
+          e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        // Launch attached ball on click
+        setBalls(prev => prev.map(ball => {
+          if (ball.attached) {
+            return {
+              ...ball,
+              attached: false,
+              vy: -ball.baseSpeed,
+              vx: (Math.random() - 0.5) * 2,
+            };
+          }
+          return ball;
+        }));
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('click', handleClick);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('click', handleClick);
+    };
+  }, [gameState, isPaused, activeEffects]);
 
   // Teddy Ability activation
   const activateTeddyAbility = useCallback((ability) => {
@@ -502,6 +575,13 @@ const BreakoutGame = () => {
           health = 1;
         }
 
+        // Obstacle bricks - immovable, indestructible (level 2+, placed strategically)
+        if (level >= 2 && Math.random() < 0.08 && type === 'normal') {
+          type = 'obstacle';
+          color = '#2a2a4e';
+          health = 9999; // Effectively indestructible
+        }
+
         // Boss brick for titan king
         if (enemy?.gimmick === 'boss_bricks' && row === 0 && col === 4) {
           health = 10 + level * 3;
@@ -555,6 +635,13 @@ const BreakoutGame = () => {
       x, y, text, color,
       life: 1,
     }]);
+  }, []);
+
+  // Show prominent powerup announcement
+  const showPowerUpAnnouncement = useCallback((emoji, name, color, isGood = true) => {
+    setPowerUpAnnouncement({ emoji, name, color, isGood, id: Date.now() });
+    // Auto-hide after animation
+    setTimeout(() => setPowerUpAnnouncement(null), 1500);
   }, []);
 
   // Spawn power-up (only unlocked ones + character rares)
@@ -893,8 +980,10 @@ const BreakoutGame = () => {
                   const minOverlapX = Math.min(overlapLeft, overlapRight);
                   const minOverlapY = Math.min(overlapTop, overlapBottom);
 
-                  // Only bounce if not burning through
-                  if (!burning || brick.type === 'boss') {
+                  // Obstacles and burning balls have special bounce rules
+                  // Obstacles ALWAYS bounce the ball (they're solid)
+                  // Burning balls pass through normal bricks but bounce off obstacles and bosses
+                  if (!burning || brick.type === 'boss' || brick.type === 'obstacle') {
                     if (minOverlapX < minOverlapY) {
                       vx = -vx;
                     } else {
@@ -909,6 +998,12 @@ const BreakoutGame = () => {
                   }
 
                   brickHit = true;
+                }
+
+                // Obstacles are indestructible - just bounce and create particles
+                if (brick.type === 'obstacle') {
+                  createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#6a6a9a', 4);
+                  return brick; // No damage to obstacles
                 }
 
                 // Calculate damage (Teddy Slam, charged shot, mega ball)
@@ -1038,9 +1133,9 @@ const BreakoutGame = () => {
         .filter(t => t.life > 0)
       );
 
-      // Check level complete
+      // Check level complete (obstacles don't count toward completion)
       setBricks(prev => {
-        const remaining = prev.filter(b => b.health > 0 && b.type !== 'boss');
+        const remaining = prev.filter(b => b.health > 0 && b.type !== 'boss' && b.type !== 'obstacle');
         const bossBrick = prev.find(b => b.type === 'boss' && b.health > 0);
         if (remaining.length === 0 && !bossBrick) {
           handleLevelComplete();
@@ -1067,9 +1162,11 @@ const BreakoutGame = () => {
     switch (type) {
       case 'expand':
         setPaddle(p => ({ ...p, width: Math.min(200, p.width + 20) }));
+        showPowerUpAnnouncement('📏', 'EXPAND!', '#50c878', true);
         break;
       case 'shrink':
         setPaddle(p => ({ ...p, width: Math.max(40, p.width - 20) }));
+        showPowerUpAnnouncement('📐', 'SHRINK!', '#ff6b6b', false);
         break;
       case 'multi':
         setBalls(prev => {
@@ -1084,28 +1181,35 @@ const BreakoutGame = () => {
           });
           return [...prev, ...newBalls];
         });
+        showPowerUpAnnouncement('✨', 'MULTI-BALL!', '#ffd700', true);
         break;
       case 'fast':
         setActiveEffects(e => [...e.filter(ef => ef !== 'slow'), 'fast']);
         setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'fast')), 5000);
+        showPowerUpAnnouncement('⚡', 'SPEED UP!', '#ffff00', false);
         break;
       case 'slow':
         setActiveEffects(e => [...e.filter(ef => ef !== 'fast'), 'slow']);
         setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'slow')), 5000);
+        showPowerUpAnnouncement('🐌', 'SLOW DOWN!', '#80c0ff', true);
         break;
       case 'life':
         setLives(l => l + 1);
+        showPowerUpAnnouncement('❤️', 'EXTRA LIFE!', '#ff4444', true);
         break;
       case 'laser':
         setActiveEffects(e => [...e, 'laser']);
         setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'laser')), 8000);
+        showPowerUpAnnouncement('🔫', 'LASER MODE!', '#ff00ff', true);
         break;
       case 'shield':
         setActiveEffects(e => [...e, 'shield']);
+        showPowerUpAnnouncement('🛡️', 'SHIELD!', '#4080ff', true);
         break;
       case 'magnet':
         setActiveEffects(e => [...e, 'magnet']);
         setTimeout(() => setActiveEffects(e => e.filter(ef => ef !== 'magnet')), 15000);
+        showPowerUpAnnouncement('🧲', 'MAGNET!', '#4080e0', true);
         break;
       case 'mega':
         // Mega ball - smashes through everything!
@@ -1115,10 +1219,11 @@ const BreakoutGame = () => {
         setTimeout(() => {
           setBalls(prev => prev.map(ball => ({ ...ball, mega: false, burning: false })));
         }, 8000);
+        showPowerUpAnnouncement('💫', 'MEGA BALL!', '#ffd700', true);
         break;
       case 'warp':
         // Warp gate - skip to next level!
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🌀 WARP!', '#a060e0');
+        showPowerUpAnnouncement('🌀', 'WARP GATE!', '#a060e0', true);
         setFlashColor('#a060e0');
         setTimeout(() => {
           handleLevelComplete();
@@ -1469,15 +1574,18 @@ const BreakoutGame = () => {
       )}
 
       {/* Game canvas */}
-      <div style={{
-        position: 'relative',
-        width: CANVAS_WIDTH,
-        height: CANVAS_HEIGHT,
-        background: 'linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%)',
-        borderRadius: '8px',
-        border: '3px solid #2a2a4e',
-        overflow: 'hidden',
-      }}>
+      <div
+        ref={canvasRef}
+        style={{
+          position: 'relative',
+          width: CANVAS_WIDTH,
+          height: CANVAS_HEIGHT,
+          background: 'linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%)',
+          borderRadius: '8px',
+          border: '3px solid #2a2a4e',
+          overflow: 'hidden',
+          cursor: 'none', // Hide cursor during gameplay for cleaner look
+        }}>
         {/* Flash overlay */}
         {flashColor && (
           <div style={{
@@ -1563,7 +1671,10 @@ const BreakoutGame = () => {
             {brick.type === 'explosive' && !brick.invisible && (
               <span style={{ fontSize: '12px', animation: 'explosivePulse 0.5s ease-in-out infinite' }}>💥</span>
             )}
-            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && (
+            {brick.type === 'obstacle' && (
+              <span style={{ fontSize: '14px', opacity: 0.6 }}>🧱</span>
+            )}
+            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && (
               <span style={{ fontSize: '10px', fontWeight: '800', color: '#fff' }}>{brick.health}</span>
             )}
           </div>
@@ -1739,6 +1850,52 @@ const BreakoutGame = () => {
           </div>
         ))}
 
+        {/* Prominent PowerUp Announcement */}
+        {powerUpAnnouncement && (
+          <div
+            key={powerUpAnnouncement.id}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '40%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              animation: 'powerUpAnnounce 1.5s ease-out forwards',
+              pointerEvents: 'none',
+              zIndex: 50,
+            }}
+          >
+            <div style={{
+              fontSize: '64px',
+              filter: 'drop-shadow(0 0 20px ' + powerUpAnnouncement.color + ')',
+              animation: 'powerUpEmoji 0.3s ease-out',
+            }}>
+              {powerUpAnnouncement.emoji}
+            </div>
+            <div style={{
+              fontSize: '28px',
+              fontWeight: '900',
+              color: powerUpAnnouncement.color,
+              textShadow: `0 0 20px ${powerUpAnnouncement.color}, 0 0 40px ${powerUpAnnouncement.color}80, 2px 2px 4px rgba(0,0,0,0.8)`,
+              letterSpacing: '2px',
+            }}>
+              {powerUpAnnouncement.name}
+            </div>
+            {!powerUpAnnouncement.isGood && (
+              <div style={{
+                fontSize: '12px',
+                color: '#ff6b6b',
+                fontWeight: '600',
+              }}>
+                (Penalty!)
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Ball launch hint */}
         {balls.some(b => b.attached) && (
           <div style={{
@@ -1748,8 +1905,11 @@ const BreakoutGame = () => {
             transform: 'translateX(-50%)',
             color: '#888',
             fontSize: '14px',
+            textAlign: 'center',
           }}>
-            Press SPACE to launch
+            CLICK or SPACE to launch
+            <br />
+            <span style={{ fontSize: '12px', color: '#666' }}>Hold SPACE to charge!</span>
           </div>
         )}
 
@@ -1805,9 +1965,9 @@ const BreakoutGame = () => {
         fontSize: '11px',
         textAlign: 'center',
       }}>
-        A/D to move • Double-tap to DASH • Hold SPACE to charge shot
+        🖱️ MOUSE to move • CLICK to launch • A/D keys also work
         <br />
-        Q/W/E for Teddy abilities when meter is full • ESC to pause
+        Double-tap A/D to DASH • Hold SPACE to charge shot • Q/W/E for Teddy abilities • ESC to pause
       </div>
 
       <style>{`
@@ -1822,6 +1982,18 @@ const BreakoutGame = () => {
         @keyframes explosivePulse {
           0%, 100% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.2); opacity: 0.8; }
+        }
+        @keyframes powerUpAnnounce {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          15% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          30% { transform: translate(-50%, -50%) scale(1); }
+          70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -60%) scale(0.8); }
+        }
+        @keyframes powerUpEmoji {
+          0% { transform: scale(0) rotate(-180deg); }
+          50% { transform: scale(1.3) rotate(10deg); }
+          100% { transform: scale(1) rotate(0deg); }
         }
       `}</style>
     </div>
