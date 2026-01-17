@@ -1,10 +1,142 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const SnakeGame = () => {
-  // Game constants
-  const GRID_SIZE = 20;
+  // Base constants
   const CELL_SIZE = 24;
   const BASE_SPEED = 150;
+
+  // Level configurations per enemy - smaller grids for slower enemies
+  const levelConfigs = {
+    slime_king: {
+      gridSize: 12,
+      name: "Slimy Swamp",
+      background: 'linear-gradient(180deg, #1a3a25 0%, #0d2818 50%, #1a4028 100%)',
+      boardBg: 'linear-gradient(135deg, #1a3020 0%, #0d2515 100%)',
+      gridColor: 'rgba(100, 220, 100, 0.12)',
+      decorations: [
+        { type: 'lily', positions: [[1,1], [10,1], [1,10], [10,10]] },
+        { type: 'reed', positions: [[5,0], [6,0], [5,11], [6,11]] }
+      ]
+    },
+    speedy_scorpion: {
+      gridSize: 16,
+      name: "Scorching Desert",
+      background: 'linear-gradient(180deg, #4a3520 0%, #3a2510 50%, #5a4525 100%)',
+      boardBg: 'linear-gradient(135deg, #3a2a15 0%, #2a1a08 100%)',
+      gridColor: 'rgba(230, 180, 100, 0.1)',
+      decorations: [
+        { type: 'cactus', positions: [[2,2], [13,2], [2,13], [13,13]] },
+        { type: 'rock', positions: [[7,0], [8,0], [7,15], [8,15], [0,7], [0,8], [15,7], [15,8]] }
+      ]
+    },
+    phantom_fox: {
+      gridSize: 16,
+      name: "Mystic Grove",
+      background: 'linear-gradient(180deg, #2a1a3a 0%, #1a0a2a 50%, #3a2040 100%)',
+      boardBg: 'linear-gradient(135deg, #2a1830 0%, #1a0820 100%)',
+      gridColor: 'rgba(200, 150, 220, 0.1)',
+      decorations: [
+        { type: 'mushroom', positions: [[3,3], [12,3], [3,12], [12,12], [7,7], [8,8]] },
+        { type: 'wisp', positions: [[1,5], [14,5], [5,1], [5,14]] }
+      ]
+    },
+    ice_wizard: {
+      gridSize: 18,
+      name: "Frozen Peaks",
+      background: 'linear-gradient(180deg, #1a2a3a 0%, #0d1a2a 50%, #2a3a4a 100%)',
+      boardBg: 'linear-gradient(135deg, #1a2535 0%, #0d1520 100%)',
+      gridColor: 'rgba(150, 200, 255, 0.12)',
+      decorations: [
+        { type: 'crystal', positions: [[2,2], [15,2], [2,15], [15,15], [8,8], [9,9]] },
+        { type: 'snowpile', positions: [[0,4], [0,13], [17,4], [17,13]] }
+      ]
+    },
+    thunder_tiger: {
+      gridSize: 18,
+      name: "Storm Valley",
+      background: 'linear-gradient(180deg, #2a2a35 0%, #1a1a25 50%, #3a3a40 100%)',
+      boardBg: 'linear-gradient(135deg, #252530 0%, #151520 100%)',
+      gridColor: 'rgba(255, 220, 100, 0.1)',
+      decorations: [
+        { type: 'cloud', positions: [[3,1], [10,1], [14,1], [6,16], [11,16]] },
+        { type: 'scorch', positions: [[4,4], [13,4], [4,13], [13,13]] }
+      ]
+    },
+    shadow_serpent: {
+      gridSize: 18,
+      name: "Dark Hollow",
+      background: 'linear-gradient(180deg, #15102a 0%, #0a0518 50%, #201530 100%)',
+      boardBg: 'linear-gradient(135deg, #150d25 0%, #080410 100%)',
+      gridColor: 'rgba(120, 80, 180, 0.1)',
+      decorations: [
+        { type: 'shadow', positions: [[2,2], [15,2], [2,15], [15,15], [8,2], [8,15]] },
+        { type: 'eyes', positions: [[5,5], [12,5], [5,12], [12,12]] }
+      ]
+    },
+    mirror_mantis: {
+      gridSize: 18,
+      name: "Crystal Cavern",
+      background: 'linear-gradient(180deg, #1a2a2a 0%, #0d1a1a 50%, #2a3a3a 100%)',
+      boardBg: 'linear-gradient(135deg, #1a2828 0%, #0d1515 100%)',
+      gridColor: 'rgba(150, 220, 200, 0.12)',
+      decorations: [
+        { type: 'mirror', positions: [[3,3], [14,3], [3,14], [14,14]] },
+        { type: 'gem', positions: [[8,1], [9,1], [1,8], [1,9], [16,8], [16,9], [8,16], [9,16]] }
+      ]
+    },
+    gravity_gorilla: {
+      gridSize: 20,
+      name: "Boulder Mountain",
+      background: 'linear-gradient(180deg, #2a2525 0%, #1a1515 50%, #3a3030 100%)',
+      boardBg: 'linear-gradient(135deg, #252020 0%, #151010 100%)',
+      gridColor: 'rgba(180, 160, 140, 0.1)',
+      decorations: [
+        { type: 'boulder', positions: [[3,3], [16,3], [3,16], [16,16], [9,9], [10,10]] },
+        { type: 'crack', positions: [[5,0], [14,0], [0,5], [0,14], [19,5], [19,14], [5,19], [14,19]] }
+      ]
+    },
+    chaos_chimera: {
+      gridSize: 20,
+      name: "Chaos Realm",
+      background: 'linear-gradient(135deg, #3a1a2a 0%, #1a3a2a 33%, #2a1a3a 66%, #3a2a1a 100%)',
+      boardBg: 'linear-gradient(135deg, #2a1520 0%, #152a20 50%, #201525 100%)',
+      gridColor: 'rgba(255, 100, 200, 0.1)',
+      decorations: [
+        { type: 'portal', positions: [[4,4], [15,4], [4,15], [15,15]] },
+        { type: 'rift', positions: [[9,2], [10,2], [9,17], [10,17], [2,9], [2,10], [17,9], [17,10]] }
+      ]
+    },
+    eternal_wyrm: {
+      gridSize: 22,
+      name: "Cosmic Void",
+      background: 'linear-gradient(180deg, #0a0510 0%, #050208 50%, #100815 100%)',
+      boardBg: 'linear-gradient(135deg, #0d0815 0%, #050308 100%)',
+      gridColor: 'rgba(255, 215, 0, 0.08)',
+      decorations: [
+        { type: 'star', positions: [[3,3], [18,3], [3,18], [18,18], [10,10], [11,11], [10,1], [11,20]] },
+        { type: 'nebula', positions: [[5,5], [16,5], [5,16], [16,16]] }
+      ]
+    }
+  };
+
+  // Default config for safety
+  const defaultConfig = {
+    gridSize: 16,
+    name: "Unknown Realm",
+    background: 'linear-gradient(135deg, #1a2520 0%, #0d3320 50%, #1a2525 100%)',
+    boardBg: 'linear-gradient(135deg, #1a2a20 0%, #0d1f15 100%)',
+    gridColor: 'rgba(80, 200, 120, 0.1)',
+    decorations: []
+  };
+
+  // Decoration emoji mapping
+  const decorationEmojis = {
+    lily: '🪷', reed: '🌾', cactus: '🌵', rock: '🪨',
+    mushroom: '🍄', wisp: '✨', crystal: '💎', snowpile: '❄️',
+    cloud: '☁️', scorch: '🔥', shadow: '👁️', eyes: '👀',
+    mirror: '🪞', gem: '💠', boulder: '🗿', crack: '⚡',
+    portal: '🌀', rift: '💫', star: '⭐', nebula: '🌌'
+  };
 
   // Game state
   const [gameState, setGameState] = useState('menu');
@@ -38,16 +170,542 @@ const SnakeGame = () => {
   const [screenShake, setScreenShake] = useState(false);
   const [flashColor, setFlashColor] = useState(null);
 
-  // Stats tracking
+  // RPG Progression constants
+  const XP_PER_LEVEL = 100; // Base XP needed per level
+  const MAX_LEVEL = 50;
+
+  // Unlockables by level
+  const UNLOCKS = {
+    3: { type: 'ability', id: 'dash', name: 'Dash Ability' },
+    5: { type: 'powerup', id: 'shield', name: 'Shield Power-up' },
+    10: { type: 'powerup', id: 'magnet', name: 'Magnet Power-up' },
+    15: { type: 'powerup', id: 'double_points', name: 'Double Points Power-up' },
+    20: { type: 'skin', id: 'golden', name: 'Golden Snake Skin' },
+    30: { type: 'skin', id: 'neon', name: 'Neon Snake Skin' },
+    40: { type: 'skin', id: 'fire', name: 'Fire Snake Skin' },
+    50: { type: 'skin', id: 'cosmic', name: 'Cosmic Snake Skin' },
+  };
+
+  // Shop items
+  const SHOP_ITEMS = {
+    xp_boost: { name: 'XP Boost', desc: '+10% XP per level', icon: '📈', baseCost: 200, maxLevel: 5 },
+    coin_boost: { name: 'Coin Boost', desc: '+15% coins per level', icon: '💰', baseCost: 200, maxLevel: 5 },
+    dash_distance: { name: 'Dash Range', desc: '+1 dash distance', icon: '💨', baseCost: 300, maxLevel: 2, reqLevel: 3 },
+    dash_cooldown: { name: 'Quick Dash', desc: '-1s dash cooldown', icon: '⏱️', baseCost: 400, maxLevel: 3, reqLevel: 3 },
+    magnet_range: { name: 'Super Magnet', desc: '+1 magnet range', icon: '🧲', baseCost: 350, maxLevel: 2, reqLevel: 10 },
+    magnet_duration: { name: 'Lasting Magnet', desc: '+2s magnet duration', icon: '⏰', baseCost: 300, maxLevel: 2, reqLevel: 10 },
+    shield_charges: { name: 'Fortified Shield', desc: '+1 shield charge', icon: '🛡️', baseCost: 500, maxLevel: 2, reqLevel: 5 },
+    starting_length: { name: 'Head Start', desc: '+1 starting length', icon: '📏', baseCost: 250, maxLevel: 3 },
+    double_duration: { name: 'Extended Double', desc: '+3s double points', icon: '✨', baseCost: 350, maxLevel: 2, reqLevel: 15 },
+  };
+
+  // Achievements
+  const ACHIEVEMENTS = {
+    // Progression
+    first_game: { name: 'First Steps', desc: 'Play your first game', icon: '👶', reward: 25 },
+    level_5: { name: 'Getting Started', desc: 'Reach level 5', icon: '⭐', reward: 50 },
+    level_10: { name: 'Rising Star', desc: 'Reach level 10', icon: '🌟', reward: 100 },
+    level_25: { name: 'Veteran', desc: 'Reach level 25', icon: '💫', reward: 250 },
+    level_50: { name: 'Master', desc: 'Reach max level', icon: '👑', reward: 500 },
+    // Score
+    score_500: { name: 'High Scorer', desc: 'Score 500 in one game', icon: '🎯', reward: 50 },
+    score_1000: { name: 'Score Hunter', desc: 'Score 1000 in one game', icon: '🏆', reward: 100 },
+    score_2500: { name: 'Score Legend', desc: 'Score 2500 in one game', icon: '🥇', reward: 200 },
+    // Waves
+    wave_5: { name: 'Survivor', desc: 'Reach wave 5', icon: '🌊', reward: 40 },
+    wave_10: { name: 'Endurance', desc: 'Reach wave 10', icon: '💪', reward: 100 },
+    wave_15: { name: 'Unstoppable', desc: 'Reach wave 15', icon: '🔥', reward: 200 },
+    // Length
+    length_20: { name: 'Long Boi', desc: 'Reach length 20', icon: '📏', reward: 50 },
+    length_35: { name: 'Snek Lord', desc: 'Reach length 35', icon: '🐍', reward: 150 },
+    // Enemies
+    beat_slime: { name: 'Slime Slayer', desc: 'Beat Slime King', icon: '👑', reward: 30 },
+    beat_3_enemies: { name: 'Monster Hunter', desc: 'Beat 3 different enemies', icon: '⚔️', reward: 75 },
+    beat_5_enemies: { name: 'Champion', desc: 'Beat 5 different enemies', icon: '🏅', reward: 150 },
+    beat_all: { name: 'Legendary', desc: 'Beat all 10 enemies', icon: '🌟', reward: 500 },
+    // Cumulative
+    food_100: { name: 'Hungry', desc: 'Eat 100 total food', icon: '🍎', reward: 30 },
+    food_500: { name: 'Glutton', desc: 'Eat 500 total food', icon: '🍔', reward: 75 },
+    food_1000: { name: 'Insatiable', desc: 'Eat 1000 total food', icon: '🍕', reward: 150 },
+    games_10: { name: 'Regular', desc: 'Play 10 games', icon: '🎮', reward: 40 },
+    games_50: { name: 'Dedicated', desc: 'Play 50 games', icon: '🕹️', reward: 100 },
+    games_100: { name: 'Addict', desc: 'Play 100 games', icon: '💯', reward: 200 },
+    // Special
+    no_powerups: { name: 'Purist', desc: 'Reach wave 5 without power-ups', icon: '🧘', reward: 100 },
+    dash_master: { name: 'Dash Master', desc: 'Use dash 50 times total', icon: '💨', reward: 75 },
+    coins_1000: { name: 'Wealthy', desc: 'Accumulate 1000 coins', icon: '💰', reward: 100 },
+  };
+
+  // Stats tracking with RPG progression
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('snake_rpg_stats');
-    if (saved) return JSON.parse(saved);
-    return { totalScore: 0, gamesPlayed: 0, enemiesDefeated: {}, highScores: {} };
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migrate old stats to new format
+      return {
+        totalScore: parsed.totalScore || 0,
+        gamesPlayed: parsed.gamesPlayed || 0,
+        enemiesDefeated: parsed.enemiesDefeated || {},
+        highScores: parsed.highScores || {},
+        // New RPG stats
+        xp: parsed.xp || 0,
+        level: parsed.level || 1,
+        totalXpEarned: parsed.totalXpEarned || 0,
+        unlockedAbilities: parsed.unlockedAbilities || [],
+        unlockedSkins: parsed.unlockedSkins || ['default'],
+        selectedSkin: parsed.selectedSkin || 'default',
+        coins: parsed.coins || 0,
+        // Shop purchases
+        shopPurchases: parsed.shopPurchases || {},
+        // Achievements
+        achievements: parsed.achievements || [],
+        totalFood: parsed.totalFood || 0,
+        totalDashes: parsed.totalDashes || 0,
+        maxScore: parsed.maxScore || 0,
+        maxWave: parsed.maxWave || 0,
+        maxLength: parsed.maxLength || 0,
+      };
+    }
+    return {
+      totalScore: 0,
+      gamesPlayed: 0,
+      enemiesDefeated: {},
+      highScores: {},
+      xp: 0,
+      level: 1,
+      totalXpEarned: 0,
+      unlockedAbilities: [],
+      unlockedSkins: ['default'],
+      selectedSkin: 'default',
+      coins: 0,
+      shopPurchases: {},
+      achievements: [],
+      totalFood: 0,
+      totalDashes: 0,
+      maxScore: 0,
+      maxWave: 0,
+      maxLength: 0,
+    };
   });
+
+  // New achievements earned this game (for display)
+  const [newAchievements, setNewAchievements] = useState([]);
+
+  // Current game XP (awarded at end)
+  const [gameXp, setGameXp] = useState(0);
+  const [xpGained, setXpGained] = useState(0);
+  const [levelUps, setLevelUps] = useState([]);
+
+  // Ability state
+  const [dashCooldown, setDashCooldown] = useState(0);
+  const [isDashing, setIsDashing] = useState(false);
+  const DASH_COOLDOWN = 8000; // 8 seconds
+  const DASH_DISTANCE = 3;
+
+  // Active power-up state
+  const [shieldCharges, setShieldCharges] = useState(0); // Number of shield hits remaining
+  const hasShield = shieldCharges > 0; // For backwards compatibility
+  const [hasMagnet, setHasMagnet] = useState(false);
+  const [hasDoublePoints, setHasDoublePoints] = useState(false);
+
+  // Mission system
+  const MISSION_TYPES = {
+    collect_food: {
+      name: 'Collector',
+      desc: (t) => `Eat ${t} food in one run`,
+      icon: '🍎',
+      targets: [10, 15, 20, 30],
+      xpReward: [30, 50, 75, 100],
+      coinReward: [15, 25, 40, 60],
+    },
+    collect_bonus: {
+      name: 'Bonus Hunter',
+      desc: (t) => `Eat ${t} bonus food (oranges)`,
+      icon: '🍊',
+      targets: [3, 5, 8],
+      xpReward: [40, 60, 90],
+      coinReward: [20, 35, 50],
+    },
+    collect_super: {
+      name: 'Star Chaser',
+      desc: (t) => `Collect ${t} stars`,
+      icon: '⭐',
+      targets: [2, 3, 5],
+      xpReward: [50, 75, 120],
+      coinReward: [25, 40, 65],
+    },
+    reach_wave: {
+      name: 'Survivor',
+      desc: (t) => `Reach wave ${t}`,
+      icon: '🌊',
+      targets: [3, 5, 7, 10],
+      xpReward: [40, 70, 100, 150],
+      coinReward: [20, 40, 60, 100],
+    },
+    reach_score: {
+      name: 'High Scorer',
+      desc: (t) => `Score ${t} points in one run`,
+      icon: '🏆',
+      targets: [200, 400, 600, 1000],
+      xpReward: [35, 60, 90, 150],
+      coinReward: [20, 35, 55, 100],
+    },
+    reach_length: {
+      name: 'Long Snake',
+      desc: (t) => `Grow to length ${t}`,
+      icon: '📏',
+      targets: [10, 15, 20, 30],
+      xpReward: [30, 50, 80, 120],
+      coinReward: [15, 30, 50, 80],
+    },
+    use_dash: {
+      name: 'Dasher',
+      desc: (t) => `Use dash ${t} times`,
+      icon: '💨',
+      targets: [3, 5, 10],
+      xpReward: [25, 40, 70],
+      coinReward: [15, 25, 45],
+      requiresLevel: 3,
+    },
+    collect_powerups: {
+      name: 'Power Player',
+      desc: (t) => `Collect ${t} power-ups`,
+      icon: '💎',
+      targets: [3, 5, 8],
+      xpReward: [35, 55, 85],
+      coinReward: [20, 30, 50],
+    },
+    no_damage: {
+      name: 'Untouchable',
+      desc: (t) => `Complete ${t} waves without using shield`,
+      icon: '🛡️',
+      targets: [2, 3, 5],
+      xpReward: [50, 80, 130],
+      coinReward: [30, 50, 85],
+    },
+    beat_enemy: {
+      name: 'Enemy Slayer',
+      desc: (t, e) => `Beat ${e || 'any enemy'}`,
+      icon: '⚔️',
+      targets: [1],
+      xpReward: [60],
+      coinReward: [40],
+      enemySpecific: true,
+    },
+  };
+
+  // Mission state (persisted)
+  const [missions, setMissions] = useState(() => {
+    const saved = localStorage.getItem('snake_missions');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Check if missions need refresh (daily reset)
+      const lastRefresh = parsed.lastRefresh || 0;
+      const now = Date.now();
+      const dayInMs = 24 * 60 * 60 * 1000;
+      if (now - lastRefresh > dayInMs) {
+        return { active: [], completed: [], lastRefresh: now };
+      }
+      return parsed;
+    }
+    return { active: [], completed: [], lastRefresh: Date.now() };
+  });
+
+  // Current game mission progress
+  const [missionProgress, setMissionProgress] = useState({});
+  const [completedMissions, setCompletedMissions] = useState([]);
+  const [dashesUsed, setDashesUsed] = useState(0);
+  const [powerUpsCollected, setPowerUpsCollected] = useState(0);
+  const [shieldUsed, setShieldUsed] = useState(false);
+  const [wavesWithoutShield, setWavesWithoutShield] = useState(0);
+
+  // Food type tracking for missions
+  const [bonusFoodCount, setBonusFoodCount] = useState(0);
+  const [superFoodCount, setSuperFoodCount] = useState(0);
+  const [totalFoodCount, setTotalFoodCount] = useState(0);
 
   // Refs
   const gameLoopRef = useRef(null);
   const lastMoveRef = useRef(Date.now());
+  const dashCooldownRef = useRef(null);
+
+  // Snake skin colors
+  const snakeSkins = {
+    default: { head: 'linear-gradient(135deg, #70ee90, #50c878)', body: 'linear-gradient(135deg, #50c878, #3cb371)', glow: 'rgba(80, 200, 120, 0.5)' },
+    golden: { head: 'linear-gradient(135deg, #ffd700, #daa520)', body: 'linear-gradient(135deg, #daa520, #b8860b)', glow: 'rgba(255, 215, 0, 0.5)' },
+    neon: { head: 'linear-gradient(135deg, #00ffff, #ff00ff)', body: 'linear-gradient(135deg, #ff00ff, #00ffff)', glow: 'rgba(255, 0, 255, 0.5)' },
+    fire: { head: 'linear-gradient(135deg, #ff4500, #ff8c00)', body: 'linear-gradient(135deg, #ff6347, #ff4500)', glow: 'rgba(255, 69, 0, 0.5)' },
+    cosmic: { head: 'linear-gradient(135deg, #9400d3, #00bfff)', body: 'linear-gradient(135deg, #4b0082, #9400d3)', glow: 'rgba(148, 0, 211, 0.5)' },
+  };
+
+  // XP calculation helpers
+  const getXpForLevel = (level) => Math.floor(XP_PER_LEVEL * Math.pow(1.1, level - 1));
+  const getTotalXpForLevel = (level) => {
+    let total = 0;
+    for (let i = 1; i < level; i++) {
+      total += getXpForLevel(i);
+    }
+    return total;
+  };
+
+  // Check if ability is unlocked
+  const hasAbility = (abilityId) => stats.unlockedAbilities.includes(abilityId) || stats.level >= Object.keys(UNLOCKS).find(lvl => UNLOCKS[lvl].id === abilityId);
+
+  // Check if power-up is unlocked (for spawning)
+  const isPowerUpUnlocked = (powerUpId) => {
+    const unlockLevel = Object.keys(UNLOCKS).find(lvl => UNLOCKS[lvl].id === powerUpId);
+    return unlockLevel ? stats.level >= parseInt(unlockLevel) : true;
+  };
+
+  // Get current skin
+  const getCurrentSkin = () => snakeSkins[stats.selectedSkin] || snakeSkins.default;
+
+  // Shop helper functions
+  const getShopLevel = (itemId) => stats.shopPurchases[itemId] || 0;
+  const getShopCost = (itemId) => {
+    const item = SHOP_ITEMS[itemId];
+    const currentLevel = getShopLevel(itemId);
+    return Math.floor(item.baseCost * Math.pow(1.5, currentLevel));
+  };
+  const canBuyShopItem = (itemId) => {
+    const item = SHOP_ITEMS[itemId];
+    const currentLevel = getShopLevel(itemId);
+    if (currentLevel >= item.maxLevel) return false;
+    if (item.reqLevel && stats.level < item.reqLevel) return false;
+    return stats.coins >= getShopCost(itemId);
+  };
+  const buyShopItem = (itemId) => {
+    if (!canBuyShopItem(itemId)) return;
+    const cost = getShopCost(itemId);
+    setStats(s => ({
+      ...s,
+      coins: s.coins - cost,
+      shopPurchases: { ...s.shopPurchases, [itemId]: (s.shopPurchases[itemId] || 0) + 1 }
+    }));
+  };
+
+  // Check and award achievements
+  const checkAchievements = useCallback((gameData, updatedStats) => {
+    const earned = [];
+    const has = (id) => updatedStats.achievements.includes(id);
+
+    // Progression
+    if (!has('first_game') && updatedStats.gamesPlayed >= 1) earned.push('first_game');
+    if (!has('level_5') && updatedStats.level >= 5) earned.push('level_5');
+    if (!has('level_10') && updatedStats.level >= 10) earned.push('level_10');
+    if (!has('level_25') && updatedStats.level >= 25) earned.push('level_25');
+    if (!has('level_50') && updatedStats.level >= 50) earned.push('level_50');
+
+    // Score (this game)
+    if (!has('score_500') && gameData.score >= 500) earned.push('score_500');
+    if (!has('score_1000') && gameData.score >= 1000) earned.push('score_1000');
+    if (!has('score_2500') && gameData.score >= 2500) earned.push('score_2500');
+
+    // Waves (this game)
+    if (!has('wave_5') && gameData.wave >= 5) earned.push('wave_5');
+    if (!has('wave_10') && gameData.wave >= 10) earned.push('wave_10');
+    if (!has('wave_15') && gameData.wave >= 15) earned.push('wave_15');
+
+    // Length (this game)
+    if (!has('length_20') && gameData.length >= 20) earned.push('length_20');
+    if (!has('length_35') && gameData.length >= 35) earned.push('length_35');
+
+    // Enemies
+    const defeatedCount = Object.keys(updatedStats.enemiesDefeated).length;
+    if (!has('beat_slime') && updatedStats.enemiesDefeated['slime_king']) earned.push('beat_slime');
+    if (!has('beat_3_enemies') && defeatedCount >= 3) earned.push('beat_3_enemies');
+    if (!has('beat_5_enemies') && defeatedCount >= 5) earned.push('beat_5_enemies');
+    if (!has('beat_all') && defeatedCount >= 10) earned.push('beat_all');
+
+    // Cumulative
+    if (!has('food_100') && updatedStats.totalFood >= 100) earned.push('food_100');
+    if (!has('food_500') && updatedStats.totalFood >= 500) earned.push('food_500');
+    if (!has('food_1000') && updatedStats.totalFood >= 1000) earned.push('food_1000');
+    if (!has('games_10') && updatedStats.gamesPlayed >= 10) earned.push('games_10');
+    if (!has('games_50') && updatedStats.gamesPlayed >= 50) earned.push('games_50');
+    if (!has('games_100') && updatedStats.gamesPlayed >= 100) earned.push('games_100');
+
+    // Special
+    if (!has('no_powerups') && gameData.wave >= 5 && gameData.powerUpCount === 0) earned.push('no_powerups');
+    if (!has('dash_master') && updatedStats.totalDashes >= 50) earned.push('dash_master');
+    if (!has('coins_1000') && updatedStats.coins >= 1000) earned.push('coins_1000');
+
+    return earned;
+  }, []);
+
+  // Save missions to localStorage
+  useEffect(() => {
+    localStorage.setItem('snake_missions', JSON.stringify(missions));
+  }, [missions]);
+
+  // Generate new missions
+  const generateMissions = useCallback(() => {
+    const missionTypes = Object.keys(MISSION_TYPES);
+    const newMissions = [];
+    const usedTypes = new Set();
+
+    while (newMissions.length < 3) {
+      const typeKey = missionTypes[Math.floor(Math.random() * missionTypes.length)];
+      if (usedTypes.has(typeKey)) continue;
+
+      const mType = MISSION_TYPES[typeKey];
+
+      // Skip if requires higher level
+      if (mType.requiresLevel && stats.level < mType.requiresLevel) continue;
+
+      // Pick a random difficulty
+      const difficultyIndex = Math.min(
+        Math.floor(Math.random() * mType.targets.length),
+        Math.floor(stats.level / 10) // Higher levels get harder missions
+      );
+
+      const mission = {
+        id: `${typeKey}_${Date.now()}_${newMissions.length}`,
+        type: typeKey,
+        target: mType.targets[difficultyIndex],
+        xpReward: mType.xpReward[difficultyIndex],
+        coinReward: mType.coinReward[difficultyIndex],
+        progress: 0,
+        completed: false,
+      };
+
+      // For enemy-specific missions, pick a random enemy
+      if (mType.enemySpecific) {
+        const enemies = ['slime_king', 'speedy_scorpion', 'phantom_fox', 'ice_wizard', 'thunder_tiger'];
+        mission.enemyId = enemies[Math.floor(Math.random() * enemies.length)];
+      }
+
+      newMissions.push(mission);
+      usedTypes.add(typeKey);
+    }
+
+    setMissions(m => ({ ...m, active: newMissions, lastRefresh: Date.now() }));
+  }, [stats.level]);
+
+  // Initialize missions if empty or refill if less than 3
+  useEffect(() => {
+    if (missions.active.length === 0) {
+      generateMissions();
+    } else if (missions.active.length < 3 && gameState === 'menu') {
+      // Refill missions when back at menu
+      const missionTypes = Object.keys(MISSION_TYPES);
+      const existingTypes = new Set(missions.active.map(m => m.type));
+      const newMissions = [...missions.active];
+
+      while (newMissions.length < 3) {
+        const typeKey = missionTypes[Math.floor(Math.random() * missionTypes.length)];
+        if (existingTypes.has(typeKey)) continue;
+
+        const mType = MISSION_TYPES[typeKey];
+        if (mType.requiresLevel && stats.level < mType.requiresLevel) continue;
+
+        const difficultyIndex = Math.min(
+          Math.floor(Math.random() * mType.targets.length),
+          Math.floor(stats.level / 10)
+        );
+
+        newMissions.push({
+          id: `${typeKey}_${Date.now()}_${newMissions.length}`,
+          type: typeKey,
+          target: mType.targets[difficultyIndex],
+          xpReward: mType.xpReward[difficultyIndex],
+          coinReward: mType.coinReward[difficultyIndex],
+          progress: 0,
+          completed: false,
+        });
+        existingTypes.add(typeKey);
+      }
+
+      setMissions(m => ({ ...m, active: newMissions }));
+    }
+  }, [missions.active.length, generateMissions, gameState, stats.level]);
+
+  // Get mission description
+  const getMissionDesc = (mission) => {
+    const mType = MISSION_TYPES[mission.type];
+    if (!mType) return 'Unknown mission';
+    if (mission.type === 'beat_enemy' && mission.enemyId) {
+      const enemy = enemyDefs.find(e => e.id === mission.enemyId);
+      return mType.desc(mission.target, enemy?.name || 'enemy');
+    }
+    return mType.desc(mission.target);
+  };
+
+  // Check mission progress
+  const checkMissionProgress = useCallback((gameData) => {
+    const { score: gameScore, wave, length, foodCount, bonusCount, superCount, dashCount, powerUpCount, shieldBroken, enemy } = gameData;
+
+    const updates = {};
+    const completed = [];
+
+    missions.active.forEach(mission => {
+      if (mission.completed) return;
+
+      let progress = 0;
+      let isComplete = false;
+
+      switch (mission.type) {
+        case 'collect_food':
+          progress = foodCount;
+          isComplete = foodCount >= mission.target;
+          break;
+        case 'collect_bonus':
+          progress = bonusCount;
+          isComplete = bonusCount >= mission.target;
+          break;
+        case 'collect_super':
+          progress = superCount;
+          isComplete = superCount >= mission.target;
+          break;
+        case 'reach_wave':
+          progress = wave;
+          isComplete = wave >= mission.target;
+          break;
+        case 'reach_score':
+          progress = gameScore;
+          isComplete = gameScore >= mission.target;
+          break;
+        case 'reach_length':
+          progress = length;
+          isComplete = length >= mission.target;
+          break;
+        case 'use_dash':
+          progress = dashCount;
+          isComplete = dashCount >= mission.target;
+          break;
+        case 'collect_powerups':
+          progress = powerUpCount;
+          isComplete = powerUpCount >= mission.target;
+          break;
+        case 'no_damage':
+          progress = shieldBroken ? 0 : wave;
+          isComplete = !shieldBroken && wave >= mission.target;
+          break;
+        case 'beat_enemy':
+          // This is checked when defeating an enemy (not implemented yet)
+          break;
+      }
+
+      updates[mission.id] = progress;
+      if (isComplete && !mission.completed) {
+        completed.push(mission);
+      }
+    });
+
+    setMissionProgress(updates);
+    return completed;
+  }, [missions.active]);
+
+  // Get current level config helper
+  const getCurrentConfig = useCallback(() => {
+    if (!selectedEnemy) return defaultConfig;
+    return levelConfigs[selectedEnemy.id] || defaultConfig;
+  }, [selectedEnemy]);
+
+  // Get current grid size
+  const getGridSize = useCallback(() => {
+    return getCurrentConfig().gridSize;
+  }, [getCurrentConfig]);
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -195,19 +853,75 @@ const SnakeGame = () => {
 
   // Food types
   const foodTypes = {
-    normal: { emoji: '🍎', points: 10, color: '#ff6b6b' },
-    bonus: { emoji: '🍊', points: 25, color: '#ffa500' },
-    super: { emoji: '⭐', points: 50, color: '#ffd700' },
-    power: { emoji: '💎', points: 30, color: '#00ffff', effect: 'invincible' },
-    speed: { emoji: '⚡', points: 15, color: '#ffff00', effect: 'speed_boost' },
-    shrink: { emoji: '🍃', points: 20, color: '#90ee90', effect: 'shrink' },
-    boss: { emoji: '💀', points: 100, color: '#ff0000', damage: true },
+    normal: { emoji: '🍎', points: 10, color: '#ff6b6b', xp: 5 },
+    bonus: { emoji: '🍊', points: 25, color: '#ffa500', xp: 12 },
+    super: { emoji: '⭐', points: 50, color: '#ffd700', xp: 25 },
+    power: { emoji: '💎', points: 30, color: '#00ffff', effect: 'invincible', xp: 15 },
+    speed: { emoji: '⚡', points: 15, color: '#ffff00', effect: 'speed_boost', xp: 8 },
+    shrink: { emoji: '🍃', points: 20, color: '#90ee90', effect: 'shrink', xp: 10 },
+    boss: { emoji: '💀', points: 100, color: '#ff0000', damage: true, xp: 50 },
+    // New power-ups (level-gated)
+    shield: { emoji: '🛡️', points: 20, color: '#4169e1', effect: 'shield', xp: 15 },
+    magnet: { emoji: '🧲', points: 15, color: '#ff69b4', effect: 'magnet', xp: 12 },
+    double_points: { emoji: '✨', points: 10, color: '#daa520', effect: 'double_points', xp: 10 },
   };
 
   // Save stats
   useEffect(() => {
     localStorage.setItem('snake_rpg_stats', JSON.stringify(stats));
   }, [stats]);
+
+  // Dash ability function
+  const performDash = useCallback(() => {
+    if (dashCooldown > 0 || !hasAbility('dash') || gameState !== 'playing' || isPaused) return;
+
+    const gridSize = getGridSize();
+    setIsDashing(true);
+    setActiveEffects(e => [...e, 'invincible']);
+    setDashesUsed(d => d + 1); // Track for missions
+
+    // Move snake forward by DASH_DISTANCE tiles (+ shop upgrades)
+    const dashDist = DASH_DISTANCE + getShopLevel('dash_distance');
+    setSnake(currentSnake => {
+      const head = currentSnake[0];
+      const newSegments = [];
+
+      for (let i = 1; i <= dashDist; i++) {
+        const newX = (head.x + direction.x * i + gridSize) % gridSize;
+        const newY = (head.y + direction.y * i + gridSize) % gridSize;
+        newSegments.push({ x: newX, y: newY });
+      }
+
+      // Create dash trail particles
+      newSegments.forEach((seg, idx) => {
+        createParticles(seg.x, seg.y, '#00ffff', 4);
+      });
+
+      return [...newSegments.reverse(), ...currentSnake];
+    });
+
+    setFlashColor('#00ffff');
+    setTimeout(() => {
+      setFlashColor(null);
+      setIsDashing(false);
+      setActiveEffects(e => e.filter(ef => ef !== 'invincible'));
+    }, 200);
+
+    // Start cooldown (reduced by shop upgrade)
+    const cooldownReduction = getShopLevel('dash_cooldown') * 1000; // -1s per level
+    setDashCooldown(DASH_COOLDOWN - cooldownReduction);
+  }, [dashCooldown, gameState, isPaused, direction, createParticles, getGridSize, stats.level, stats.shopPurchases]);
+
+  // Dash cooldown timer
+  useEffect(() => {
+    if (dashCooldown <= 0) return;
+
+    dashCooldownRef.current = setInterval(() => {
+      setDashCooldown(cd => Math.max(0, cd - 100));
+    }, 100);
+
+    return () => clearInterval(dashCooldownRef.current);
+  }, [dashCooldown > 0]);
 
   // Keyboard controls
   useEffect(() => {
@@ -224,6 +938,13 @@ const SnakeGame = () => {
       }
 
       if (gameState !== 'playing' || isPaused) return;
+
+      // Dash with Space bar
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        performDash();
+        return;
+      }
 
       const isReversed = activeEffects.includes('reverse');
       let newDir = null;
@@ -261,10 +982,11 @@ const SnakeGame = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, direction, isPaused, activeEffects]);
+  }, [gameState, direction, isPaused, activeEffects, performDash]);
 
   // Spawn food
   const spawnFood = useCallback((currentSnake = snake) => {
+    const gridSize = getGridSize();
     const occupied = new Set(currentSnake.map(s => `${s.x},${s.y}`));
     hazards.forEach(h => occupied.add(`${h.x},${h.y}`));
 
@@ -272,8 +994,8 @@ const SnakeGame = () => {
     let attempts = 0;
     do {
       pos = {
-        x: Math.floor(Math.random() * GRID_SIZE),
-        y: Math.floor(Math.random() * GRID_SIZE)
+        x: Math.floor(Math.random() * gridSize),
+        y: Math.floor(Math.random() * gridSize)
       };
       attempts++;
     } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 100);
@@ -293,10 +1015,16 @@ const SnakeGame = () => {
       type = 'speed';
     } else if (rand < 0.30) {
       type = 'shrink';
+    } else if (rand < 0.34 && isPowerUpUnlocked('shield')) {
+      type = 'shield';
+    } else if (rand < 0.38 && isPowerUpUnlocked('magnet')) {
+      type = 'magnet';
+    } else if (rand < 0.42 && isPowerUpUnlocked('double_points')) {
+      type = 'double_points';
     }
 
     setFood({ ...pos, type });
-  }, [snake, hazards, isBossWave]);
+  }, [snake, hazards, isBossWave, stats.level]);
 
   // Create particles
   const createParticles = useCallback((x, y, color, count = 8) => {
@@ -338,6 +1066,7 @@ const SnakeGame = () => {
     if (!selectedEnemy) return;
 
     const gimmick = selectedEnemy.gimmick;
+    const gridSize = getGridSize();
 
     switch (gimmick) {
       case 'slime_trail':
@@ -354,8 +1083,8 @@ const SnakeGame = () => {
         if (Math.random() < 0.02) {
           const zoneType = Math.random() < 0.5 ? 'speed_up' : 'slow_down';
           setHazards(h => [...h.slice(-10), {
-            x: Math.floor(Math.random() * GRID_SIZE),
-            y: Math.floor(Math.random() * GRID_SIZE),
+            x: Math.floor(Math.random() * gridSize),
+            y: Math.floor(Math.random() * gridSize),
             type: zoneType,
             life: 100
           }]);
@@ -365,8 +1094,8 @@ const SnakeGame = () => {
       case 'fake_food':
         if (Math.random() < 0.01 && powerUps.length < 3) {
           setPowerUps(p => [...p, {
-            x: Math.floor(Math.random() * GRID_SIZE),
-            y: Math.floor(Math.random() * GRID_SIZE),
+            x: Math.floor(Math.random() * gridSize),
+            y: Math.floor(Math.random() * gridSize),
             type: 'fake',
             emoji: '🍎',
           }]);
@@ -375,8 +1104,8 @@ const SnakeGame = () => {
 
       case 'ice_walls':
         if (Math.random() < 0.015) {
-          const wallX = Math.floor(Math.random() * GRID_SIZE);
-          const wallY = Math.floor(Math.random() * GRID_SIZE);
+          const wallX = Math.floor(Math.random() * gridSize);
+          const wallY = Math.floor(Math.random() * gridSize);
           for (let i = 0; i < 3; i++) {
             const dir = Math.random() < 0.5;
             setHazards(h => [...h.slice(-20), {
@@ -391,8 +1120,8 @@ const SnakeGame = () => {
 
       case 'lightning_strikes':
         if (Math.random() < 0.02) {
-          const strikeX = Math.floor(Math.random() * GRID_SIZE);
-          const strikeY = Math.floor(Math.random() * GRID_SIZE);
+          const strikeX = Math.floor(Math.random() * gridSize);
+          const strikeY = Math.floor(Math.random() * gridSize);
           setHazards(h => [...h, { x: strikeX, y: strikeY, type: 'lightning_warning', life: 20 }]);
           setTimeout(() => {
             setHazards(h => h.map(hz =>
@@ -408,9 +1137,10 @@ const SnakeGame = () => {
 
       case 'darkness':
         if (Math.random() < 0.01) {
+          const darkSize = Math.min(5, Math.floor(gridSize / 4));
           setGimmickData(d => ({ ...d, darkZones: [
             ...(d.darkZones || []).slice(-5),
-            { x: Math.floor(Math.random() * (GRID_SIZE - 5)), y: Math.floor(Math.random() * (GRID_SIZE - 5)), size: 5, life: 100 }
+            { x: Math.floor(Math.random() * (gridSize - darkSize)), y: Math.floor(Math.random() * (gridSize - darkSize)), size: darkSize, life: 100 }
           ]}));
         }
         break;
@@ -431,8 +1161,8 @@ const SnakeGame = () => {
           setGimmickData(d => ({
             ...d,
             gravityWells: [...(d.gravityWells || []), {
-              x: Math.floor(Math.random() * GRID_SIZE),
-              y: Math.floor(Math.random() * GRID_SIZE),
+              x: Math.floor(Math.random() * gridSize),
+              y: Math.floor(Math.random() * gridSize),
               life: 150
             }]
           }));
@@ -463,6 +1193,7 @@ const SnakeGame = () => {
 
     const speed = gameSpeed * (activeEffects.includes('speed_boost') ? 0.7 : 1) *
                   (activeEffects.includes('slowed') ? 1.4 : 1);
+    const gridSize = getGridSize();
 
     gameLoopRef.current = setInterval(() => {
       setDirection(nextDirection);
@@ -489,14 +1220,22 @@ const SnakeGame = () => {
         }
 
         // Wall collision (wrap around)
-        newHead.x = (newHead.x + GRID_SIZE) % GRID_SIZE;
-        newHead.y = (newHead.y + GRID_SIZE) % GRID_SIZE;
+        newHead.x = (newHead.x + gridSize) % gridSize;
+        newHead.y = (newHead.y + gridSize) % gridSize;
 
         // Self collision
         if (currentSnake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
           if (!activeEffects.includes('invincible')) {
-            handleGameOver();
-            return currentSnake;
+            if (hasShield) {
+              setShieldCharges(c => c - 1);
+              setShieldUsed(true); // Track for missions
+              createParticles(newHead.x, newHead.y, '#4169e1', 15);
+              setFlashColor('#4169e1');
+              setTimeout(() => setFlashColor(null), 200);
+            } else {
+              handleGameOver();
+              return currentSnake;
+            }
           }
         }
 
@@ -505,8 +1244,18 @@ const SnakeGame = () => {
         if (hitHazard) {
           if (hitHazard.type === 'ice_wall' || hitHazard.type === 'lightning') {
             if (!activeEffects.includes('invincible')) {
-              handleGameOver();
-              return currentSnake;
+              if (hasShield) {
+                setShieldCharges(c => c - 1);
+                setShieldUsed(true); // Track for missions
+                createParticles(newHead.x, newHead.y, '#4169e1', 15);
+                setFlashColor('#4169e1');
+                setTimeout(() => setFlashColor(null), 200);
+                // Remove the hazard that was blocked
+                setHazards(h => h.filter(hz => !(hz.x === newHead.x && hz.y === newHead.y)));
+              } else {
+                handleGameOver();
+                return currentSnake;
+              }
             }
           } else if (hitHazard.type === 'slime') {
             setActiveEffects(e => [...e.filter(ef => ef !== 'slowed'), 'slowed']);
@@ -535,12 +1284,25 @@ const SnakeGame = () => {
           }
         }
 
-        // Food collision
+        // Food collision (check with magnet range + shop upgrade)
         let newSnake;
-        if (newHead.x === food.x && newHead.y === food.y) {
+        const baseMagnetRange = 3 + getShopLevel('magnet_range');
+        const magnetRange = hasMagnet ? baseMagnetRange : 0;
+        const distToFood = Math.abs(newHead.x - food.x) + Math.abs(newHead.y - food.y);
+        const gotFood = distToFood === 0 || (hasMagnet && distToFood <= magnetRange);
+
+        if (gotFood) {
           const foodData = foodTypes[food.type];
-          setScore(s => s + foodData.points);
+          const pointMultiplier = hasDoublePoints ? 2 : 1;
+          setScore(s => s + foodData.points * pointMultiplier);
+          setGameXp(xp => xp + (foodData.xp || 5) * pointMultiplier);
           createParticles(food.x, food.y, foodData.color, 10);
+
+          // Track food types for missions
+          setTotalFoodCount(c => c + 1);
+          if (food.type === 'bonus') setBonusFoodCount(c => c + 1);
+          if (food.type === 'super') setSuperFoodCount(c => c + 1);
+          if (foodData.effect) setPowerUpsCollected(c => c + 1);
 
           // Apply food effects
           if (foodData.effect === 'invincible') {
@@ -558,6 +1320,19 @@ const SnakeGame = () => {
             setFoodEaten(f => f + 1);
             spawnFood(newSnake);
             return newSnake;
+          } else if (foodData.effect === 'shield') {
+            const shieldAmount = 1 + getShopLevel('shield_charges'); // +1 charge per shop level
+            setShieldCharges(c => c + shieldAmount);
+            setFlashColor('#4169e1');
+            setTimeout(() => setFlashColor(null), 300);
+          } else if (foodData.effect === 'magnet') {
+            setHasMagnet(true);
+            const magnetDur = 5000 + getShopLevel('magnet_duration') * 2000; // +2s per level
+            setTimeout(() => setHasMagnet(false), magnetDur);
+          } else if (foodData.effect === 'double_points') {
+            setHasDoublePoints(true);
+            const doubleDur = 8000 + getShopLevel('double_duration') * 3000; // +3s per level
+            setTimeout(() => setHasDoublePoints(false), doubleDur);
           }
 
           if (food.type === 'boss') {
@@ -643,20 +1418,134 @@ const SnakeGame = () => {
       setHighScore(score);
     }
 
-    setStats(s => ({
-      ...s,
-      totalScore: s.totalScore + score,
-      gamesPlayed: s.gamesPlayed + 1,
-      highScores: {
-        ...s.highScores,
-        [selectedEnemy?.id]: Math.max(s.highScores[selectedEnemy?.id] || 0, score)
+    // Check mission progress
+    const gameData = {
+      score,
+      wave: currentWave,
+      length: snake.length,
+      foodCount: totalFoodCount,
+      bonusCount: bonusFoodCount,
+      superCount: superFoodCount,
+      dashCount: dashesUsed,
+      powerUpCount: powerUpsCollected,
+      shieldBroken: shieldUsed,
+      enemy: selectedEnemy?.id,
+    };
+
+    const completedMissionsThisGame = checkMissionProgress(gameData);
+    setCompletedMissions(completedMissionsThisGame);
+
+    // Calculate mission rewards
+    let missionXpBonus = 0;
+    let missionCoinBonus = 0;
+    completedMissionsThisGame.forEach(mission => {
+      missionXpBonus += mission.xpReward;
+      missionCoinBonus += mission.coinReward;
+    });
+
+    // Mark missions as completed and generate new ones for completed
+    if (completedMissionsThisGame.length > 0) {
+      setMissions(m => {
+        const remaining = m.active.filter(
+          am => !completedMissionsThisGame.find(cm => cm.id === am.id)
+        );
+        const completed = [...m.completed, ...completedMissionsThisGame.map(cm => cm.id)];
+        return { ...m, active: remaining, completed };
+      });
+    }
+
+    // Calculate wave bonus XP with shop boost
+    const waveBonus = currentWave * 20;
+    const xpBoostMultiplier = 1 + (getShopLevel('xp_boost') * 0.1); // +10% per level
+    const totalXpGained = Math.floor((gameXp + waveBonus + missionXpBonus) * xpBoostMultiplier);
+    setXpGained(totalXpGained);
+
+    // Calculate coins (based on score and wave + mission bonus) with shop boost
+    const coinBoostMultiplier = 1 + (getShopLevel('coin_boost') * 0.15); // +15% per level
+    const coinsEarned = Math.floor((Math.floor(score / 10) + currentWave * 5 + missionCoinBonus) * coinBoostMultiplier);
+
+    // Update stats with XP and check for level ups
+    setStats(s => {
+      let newXp = s.xp + totalXpGained;
+      let newLevel = s.level;
+      const newLevelUps = [];
+      const newUnlockedAbilities = [...s.unlockedAbilities];
+      const newUnlockedSkins = [...s.unlockedSkins];
+
+      // Check for level ups
+      while (newLevel < MAX_LEVEL && newXp >= getXpForLevel(newLevel)) {
+        newXp -= getXpForLevel(newLevel);
+        newLevel++;
+        newLevelUps.push(newLevel);
+
+        // Check for unlocks at this level
+        if (UNLOCKS[newLevel]) {
+          const unlock = UNLOCKS[newLevel];
+          if (unlock.type === 'ability' && !newUnlockedAbilities.includes(unlock.id)) {
+            newUnlockedAbilities.push(unlock.id);
+          } else if (unlock.type === 'skin' && !newUnlockedSkins.includes(unlock.id)) {
+            newUnlockedSkins.push(unlock.id);
+          }
+        }
       }
-    }));
+
+      setLevelUps(newLevelUps);
+
+      // Build updated stats for achievement checking
+      const updatedStats = {
+        ...s,
+        totalScore: s.totalScore + score,
+        gamesPlayed: s.gamesPlayed + 1,
+        highScores: {
+          ...s.highScores,
+          [selectedEnemy?.id]: Math.max(s.highScores[selectedEnemy?.id] || 0, score)
+        },
+        xp: newXp,
+        level: newLevel,
+        totalXpEarned: s.totalXpEarned + totalXpGained,
+        unlockedAbilities: newUnlockedAbilities,
+        unlockedSkins: newUnlockedSkins,
+        coins: s.coins + coinsEarned,
+        // Cumulative tracking
+        totalFood: s.totalFood + totalFoodCount,
+        totalDashes: s.totalDashes + dashesUsed,
+        maxScore: Math.max(s.maxScore, score),
+        maxWave: Math.max(s.maxWave, currentWave),
+        maxLength: Math.max(s.maxLength, snake.length),
+      };
+
+      // Check for new achievements
+      const earnedAchievements = checkAchievements(gameData, updatedStats);
+      if (earnedAchievements.length > 0) {
+        setNewAchievements(earnedAchievements);
+        // Add achievement rewards
+        let achievementBonus = 0;
+        earnedAchievements.forEach(id => {
+          achievementBonus += ACHIEVEMENTS[id].reward;
+        });
+        updatedStats.coins += achievementBonus;
+        updatedStats.achievements = [...s.achievements, ...earnedAchievements];
+      }
+
+      return updatedStats;
+    });
   };
 
   const startGame = (enemy) => {
+    const config = levelConfigs[enemy.id] || defaultConfig;
+    const gridSize = config.gridSize;
+    const startX = Math.floor(gridSize / 2);
+    const startY = Math.floor(gridSize / 2);
+
+    // Build starting snake with shop-upgraded length
+    const startingLength = 1 + getShopLevel('starting_length');
+    const startingSnake = [];
+    for (let i = 0; i < startingLength; i++) {
+      startingSnake.push({ x: startX - i, y: startY });
+    }
+
     setSelectedEnemy(enemy);
-    setSnake([{ x: 10, y: 10 }]);
+    setSnake(startingSnake);
     setDirection({ x: 1, y: 0 });
     setNextDirection({ x: 1, y: 0 });
     setScore(0);
@@ -670,13 +1559,54 @@ const SnakeGame = () => {
     setGimmickData({});
     setIsBossWave(false);
     setBossHealth(0);
-    spawnFood([{ x: 10, y: 10 }]);
+    // Reset RPG state
+    setGameXp(0);
+    setXpGained(0);
+    setLevelUps([]);
+    setDashCooldown(0);
+    setIsDashing(false);
+    setShieldCharges(0);
+    setHasMagnet(false);
+    setHasDoublePoints(false);
+    // Reset mission tracking
+    setMissionProgress({});
+    setCompletedMissions([]);
+    setNewAchievements([]);
+    setDashesUsed(0);
+    setPowerUpsCollected(0);
+    setShieldUsed(false);
+    setWavesWithoutShield(0);
+    setBonusFoodCount(0);
+    setSuperFoodCount(0);
+    setTotalFoodCount(0);
+
+    // Need to set enemy first so getGridSize works, then spawn food after state update
+    setTimeout(() => {
+      setFood(prev => {
+        const occupied = new Set([`${startX},${startY}`]);
+        let pos;
+        let attempts = 0;
+        do {
+          pos = {
+            x: Math.floor(Math.random() * gridSize),
+            y: Math.floor(Math.random() * gridSize)
+          };
+          attempts++;
+        } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 100);
+        return { ...pos, type: 'normal' };
+      });
+    }, 0);
+
     setGameState('playing');
     setIsPaused(false);
   };
 
   // Render functions
-  const renderMenu = () => (
+  const renderMenu = () => {
+    const xpForCurrentLevel = getXpForLevel(stats.level);
+    const xpProgress = (stats.xp / xpForCurrentLevel) * 100;
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -686,6 +1616,72 @@ const SnakeGame = () => {
       color: '#fff',
       textAlign: 'center',
     }}>
+      {/* Player Level & XP Bar */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            fontWeight: '900',
+            color: '#fff',
+            boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
+          }}>
+            {stats.level}
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#ffd700' }}>Level {stats.level}</div>
+            <div style={{ fontSize: '11px', color: '#888' }}>{stats.xp} / {xpForCurrentLevel} XP</div>
+          </div>
+        </div>
+        <div style={{
+          width: '150px',
+          height: '8px',
+          background: 'rgba(255,255,255,0.1)',
+          borderRadius: '4px',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: `${xpProgress}%`,
+            height: '100%',
+            background: 'linear-gradient(90deg, #ffd700, #ff8c00)',
+            transition: 'width 0.3s ease',
+          }} />
+        </div>
+      </div>
+
+      {/* Coins */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '8px 16px',
+        background: 'rgba(0,0,0,0.3)',
+        borderRadius: '20px',
+      }}>
+        <span style={{ fontSize: '20px' }}>💰</span>
+        <span style={{ fontSize: '18px', fontWeight: '700', color: '#ffd700' }}>{stats.coins}</span>
+      </div>
+
       <div style={{
         fontSize: '80px',
         marginBottom: '20px',
@@ -721,7 +1717,98 @@ const SnakeGame = () => {
         SELECT ENEMY
       </button>
 
-      <div style={{ marginTop: '40px', color: '#6a8f6a', fontSize: '14px' }}>
+      <button
+        onClick={() => setGameState('shop')}
+        style={{
+          marginTop: '12px',
+          padding: '12px 36px',
+          fontSize: '16px',
+          fontWeight: '700',
+          background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+          border: 'none',
+          borderRadius: '10px',
+          color: '#fff',
+          cursor: 'pointer',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          boxShadow: '0 4px 15px rgba(255, 215, 0, 0.3)',
+        }}
+        onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+        onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+      >
+        SHOP
+      </button>
+
+      <button
+        onClick={() => setGameState('achievements')}
+        style={{
+          marginTop: '8px',
+          padding: '10px 28px',
+          fontSize: '14px',
+          fontWeight: '700',
+          background: 'linear-gradient(135deg, #9400d3, #4b0082)',
+          border: 'none',
+          borderRadius: '8px',
+          color: '#fff',
+          cursor: 'pointer',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          boxShadow: '0 4px 15px rgba(148, 0, 211, 0.3)',
+        }}
+        onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
+        onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+      >
+        ACHIEVEMENTS ({stats.achievements.length}/{Object.keys(ACHIEVEMENTS).length})
+      </button>
+
+      {/* Active Missions */}
+      {missions.active.length > 0 && (
+        <div style={{
+          marginTop: '24px',
+          padding: '16px',
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '12px',
+          maxWidth: '350px',
+          width: '100%',
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: '700', color: '#ffd700', marginBottom: '12px' }}>
+            Daily Missions
+          </div>
+          {missions.active.slice(0, 3).map(mission => {
+            const mType = MISSION_TYPES[mission.type];
+            return (
+              <div key={mission.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '8px',
+                marginBottom: '6px',
+              }}>
+                <span style={{ fontSize: '20px' }}>{mType?.icon || '?'}</span>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '12px', color: '#fff' }}>{getMissionDesc(mission)}</div>
+                  <div style={{ fontSize: '10px', color: '#888' }}>
+                    +{mission.xpReward} XP, +{mission.coinReward} coins
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Unlocks preview */}
+      {stats.level < 50 && (
+        <div style={{ marginTop: '20px', color: '#666', fontSize: '12px' }}>
+          {Object.keys(UNLOCKS).map(Number).filter(lvl => lvl > stats.level).slice(0, 2).map(lvl => (
+            <div key={lvl} style={{ marginTop: '4px' }}>
+              Level {lvl}: {UNLOCKS[lvl].name}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: '30px', color: '#6a8f6a', fontSize: '14px' }}>
         <p>Games Played: {stats.gamesPlayed} | Total Score: {stats.totalScore}</p>
       </div>
 
@@ -748,6 +1835,7 @@ const SnakeGame = () => {
       `}</style>
     </div>
   );
+  };
 
   const renderEnemySelect = () => (
     <div style={{
@@ -813,6 +1901,9 @@ const SnakeGame = () => {
                   <div style={{ fontWeight: '700', fontSize: '18px', color: enemy.color }}>{enemy.name}</div>
                   <div style={{ fontSize: '12px', color: '#888' }}>{enemy.title}</div>
                   <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{enemy.gimmickDesc}</div>
+                  <div style={{ fontSize: '10px', color: '#555', marginTop: '4px' }}>
+                    {levelConfigs[enemy.id]?.name || 'Unknown'} • {levelConfigs[enemy.id]?.gridSize || 16}x{levelConfigs[enemy.id]?.gridSize || 16} grid
+                  </div>
                 </div>
               </div>
               {bestScore > 0 && (
@@ -842,7 +1933,228 @@ const SnakeGame = () => {
     </div>
   );
 
-  const renderGame = () => (
+  const renderShop = () => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '40px',
+      color: '#fff',
+      minHeight: '100vh',
+    }}>
+      <h2 style={{
+        fontSize: '32px',
+        fontWeight: '800',
+        marginBottom: '8px',
+        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      }}>Upgrade Shop</h2>
+      <p style={{ color: '#888', marginBottom: '8px' }}>Spend coins on permanent upgrades</p>
+
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 20px',
+        background: 'rgba(255, 215, 0, 0.1)',
+        borderRadius: '20px',
+        marginBottom: '24px',
+      }}>
+        <span style={{ fontSize: '24px' }}>💰</span>
+        <span style={{ fontSize: '22px', fontWeight: '700', color: '#ffd700' }}>{stats.coins}</span>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '12px',
+        maxWidth: '900px',
+        width: '100%',
+      }}>
+        {Object.entries(SHOP_ITEMS).map(([itemId, item]) => {
+          const currentLevel = getShopLevel(itemId);
+          const maxed = currentLevel >= item.maxLevel;
+          const cost = getShopCost(itemId);
+          const canBuy = canBuyShopItem(itemId);
+          const locked = item.reqLevel && stats.level < item.reqLevel;
+
+          return (
+            <div
+              key={itemId}
+              onClick={() => canBuy && buyShopItem(itemId)}
+              style={{
+                background: locked ? 'rgba(60,60,60,0.3)' : maxed ? 'rgba(80,200,120,0.15)' : 'rgba(255,215,0,0.08)',
+                border: `2px solid ${locked ? '#444' : maxed ? '#50c878' : canBuy ? '#ffd700' : '#555'}`,
+                borderRadius: '12px',
+                padding: '16px',
+                cursor: canBuy ? 'pointer' : 'default',
+                opacity: locked ? 0.5 : 1,
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={(e) => canBuy && (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  fontSize: '32px',
+                  width: '50px',
+                  height: '50px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(255,255,255,0.1)',
+                  borderRadius: '10px',
+                }}>{item.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '16px', color: maxed ? '#50c878' : '#fff' }}>
+                    {item.name}
+                    {locked && <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>Lv{item.reqLevel}+</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#888' }}>{item.desc}</div>
+                  <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                    Level: {currentLevel} / {item.maxLevel}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {maxed ? (
+                    <div style={{ color: '#50c878', fontWeight: '700', fontSize: '14px' }}>MAX</div>
+                  ) : locked ? (
+                    <div style={{ color: '#666', fontSize: '12px' }}>Locked</div>
+                  ) : (
+                    <div style={{
+                      padding: '6px 12px',
+                      background: canBuy ? 'linear-gradient(135deg, #ffd700, #ff8c00)' : 'rgba(100,100,100,0.3)',
+                      borderRadius: '8px',
+                      color: canBuy ? '#fff' : '#666',
+                      fontWeight: '700',
+                      fontSize: '14px',
+                    }}>
+                      {cost} 💰
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => setGameState('menu')}
+        style={{
+          marginTop: '30px',
+          padding: '10px 24px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          color: '#8fbc8f',
+          cursor: 'pointer',
+        }}
+      >
+        ← Back
+      </button>
+    </div>
+  );
+
+  const renderAchievements = () => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '40px',
+      color: '#fff',
+      minHeight: '100vh',
+    }}>
+      <h2 style={{
+        fontSize: '32px',
+        fontWeight: '800',
+        marginBottom: '8px',
+        background: 'linear-gradient(135deg, #9400d3, #4b0082)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      }}>Achievements</h2>
+      <p style={{ color: '#888', marginBottom: '24px' }}>
+        {stats.achievements.length} / {Object.keys(ACHIEVEMENTS).length} unlocked
+      </p>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: '10px',
+        maxWidth: '850px',
+        width: '100%',
+      }}>
+        {Object.entries(ACHIEVEMENTS).map(([id, ach]) => {
+          const unlocked = stats.achievements.includes(id);
+          return (
+            <div
+              key={id}
+              style={{
+                background: unlocked ? 'rgba(148, 0, 211, 0.15)' : 'rgba(60,60,60,0.3)',
+                border: `2px solid ${unlocked ? '#9400d3' : '#444'}`,
+                borderRadius: '10px',
+                padding: '12px 16px',
+                opacity: unlocked ? 1 : 0.6,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  fontSize: '28px',
+                  width: '44px',
+                  height: '44px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: unlocked ? 'rgba(148, 0, 211, 0.3)' : 'rgba(100,100,100,0.2)',
+                  borderRadius: '8px',
+                  filter: unlocked ? 'none' : 'grayscale(100%)',
+                }}>{ach.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '14px', color: unlocked ? '#d8b4fe' : '#888' }}>
+                    {ach.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#666' }}>{ach.desc}</div>
+                </div>
+                <div style={{
+                  padding: '4px 10px',
+                  background: unlocked ? '#9400d333' : 'rgba(100,100,100,0.2)',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  color: unlocked ? '#d8b4fe' : '#666',
+                  fontWeight: '600',
+                }}>
+                  {unlocked ? '✓' : `+${ach.reward}`}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => setGameState('menu')}
+        style={{
+          marginTop: '30px',
+          padding: '10px 24px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          color: '#8fbc8f',
+          cursor: 'pointer',
+        }}
+      >
+        ← Back
+      </button>
+    </div>
+  );
+
+  const renderGame = () => {
+    const config = getCurrentConfig();
+    const gridSize = config.gridSize;
+    const boardSize = gridSize * CELL_SIZE;
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -851,12 +2163,26 @@ const SnakeGame = () => {
       height: '100vh',
       transform: screenShake ? `translate(${Math.random() * 10 - 5}px, ${Math.random() * 10 - 5}px)` : 'none',
     }}>
+      {/* Level name banner */}
+      <div style={{
+        marginBottom: '8px',
+        padding: '4px 16px',
+        background: `${selectedEnemy?.color}22`,
+        border: `1px solid ${selectedEnemy?.color}44`,
+        borderRadius: '20px',
+        color: selectedEnemy?.color,
+        fontSize: '12px',
+        fontWeight: '600',
+      }}>
+        {config.name}
+      </div>
+
       {/* HUD */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        width: GRID_SIZE * CELL_SIZE,
+        width: boardSize,
         marginBottom: '16px',
         padding: '12px 20px',
         background: 'rgba(0,0,0,0.4)',
@@ -888,14 +2214,79 @@ const SnakeGame = () => {
         </div>
       </div>
 
+      {/* Abilities bar */}
+      {stats.level >= 3 && (
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          marginBottom: '8px',
+        }}>
+          {/* Dash ability */}
+          <div style={{
+            position: 'relative',
+            width: '50px',
+            height: '50px',
+            borderRadius: '8px',
+            background: dashCooldown > 0 ? 'rgba(100,100,100,0.5)' : 'rgba(0,255,255,0.3)',
+            border: dashCooldown > 0 ? '2px solid #555' : '2px solid #00ffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: dashCooldown > 0 ? 'not-allowed' : 'pointer',
+          }} onClick={performDash}>
+            <span style={{ fontSize: '24px', opacity: dashCooldown > 0 ? 0.5 : 1 }}>💨</span>
+            {dashCooldown > 0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: '-4px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '10px',
+                color: '#888',
+                background: 'rgba(0,0,0,0.7)',
+                padding: '1px 4px',
+                borderRadius: '4px',
+              }}>
+                {Math.ceil(dashCooldown / 1000)}s
+              </div>
+            )}
+            <div style={{
+              position: 'absolute',
+              bottom: '-18px',
+              fontSize: '9px',
+              color: '#666',
+            }}>
+              SPACE
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active effects */}
-      {activeEffects.length > 0 && (
+      {(activeEffects.length > 0 || hasShield || hasMagnet || hasDoublePoints) && (
         <div style={{
           display: 'flex',
           gap: '8px',
           marginBottom: '8px',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
         }}>
-          {activeEffects.includes('invincible') && (
+          {hasShield && (
+            <div style={{ padding: '4px 12px', background: '#4169e133', borderRadius: '20px', color: '#4169e1', fontSize: '12px' }}>
+              🛡️ SHIELD{shieldCharges > 1 ? ` x${shieldCharges}` : ''}
+            </div>
+          )}
+          {hasMagnet && (
+            <div style={{ padding: '4px 12px', background: '#ff69b433', borderRadius: '20px', color: '#ff69b4', fontSize: '12px' }}>
+              🧲 MAGNET
+            </div>
+          )}
+          {hasDoublePoints && (
+            <div style={{ padding: '4px 12px', background: '#daa52033', borderRadius: '20px', color: '#daa520', fontSize: '12px' }}>
+              ✨ 2X POINTS
+            </div>
+          )}
+          {activeEffects.includes('invincible') && !isDashing && (
             <div style={{ padding: '4px 12px', background: '#00ffff33', borderRadius: '20px', color: '#00ffff', fontSize: '12px' }}>
               💎 INVINCIBLE
             </div>
@@ -921,11 +2312,11 @@ const SnakeGame = () => {
       {/* Game board */}
       <div style={{
         position: 'relative',
-        width: GRID_SIZE * CELL_SIZE,
-        height: GRID_SIZE * CELL_SIZE,
-        background: 'linear-gradient(135deg, #1a2a20 0%, #0d1f15 100%)',
+        width: boardSize,
+        height: boardSize,
+        background: config.boardBg,
         borderRadius: '8px',
-        border: '3px solid #2a3a30',
+        border: `3px solid ${selectedEnemy?.color}44`,
         overflow: 'hidden',
       }}>
         {/* Flash overlay */}
@@ -941,7 +2332,7 @@ const SnakeGame = () => {
         )}
 
         {/* Grid lines */}
-        {Array.from({ length: GRID_SIZE }).map((_, i) => (
+        {Array.from({ length: gridSize }).map((_, i) => (
           <React.Fragment key={i}>
             <div style={{
               position: 'absolute',
@@ -949,7 +2340,7 @@ const SnakeGame = () => {
               top: 0,
               width: '1px',
               height: '100%',
-              background: 'rgba(80, 200, 120, 0.1)',
+              background: config.gridColor,
             }} />
             <div style={{
               position: 'absolute',
@@ -957,10 +2348,34 @@ const SnakeGame = () => {
               top: i * CELL_SIZE,
               width: '100%',
               height: '1px',
-              background: 'rgba(80, 200, 120, 0.1)',
+              background: config.gridColor,
             }} />
           </React.Fragment>
         ))}
+
+        {/* Level decorations */}
+        {config.decorations.map((decor, idx) =>
+          decor.positions.map(([x, y], posIdx) => (
+            <div
+              key={`decor-${idx}-${posIdx}`}
+              style={{
+                position: 'absolute',
+                left: x * CELL_SIZE,
+                top: y * CELL_SIZE,
+                width: CELL_SIZE,
+                height: CELL_SIZE,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                opacity: 0.4,
+                pointerEvents: 'none',
+              }}
+            >
+              {decorationEmojis[decor.type] || ''}
+            </div>
+          ))
+        )}
 
         {/* Dark zones */}
         {(gimmickData.darkZones || []).map((zone, idx) => (
@@ -1179,7 +2594,7 @@ const SnakeGame = () => {
         color: '#5a7a5a',
         fontSize: '12px',
       }}>
-        Arrow keys or WASD to move • ESC to pause
+        Arrow keys or WASD to move {stats.level >= 3 && '• SPACE to dash'} • ESC to pause
       </div>
 
       <style>{`
@@ -1194,8 +2609,13 @@ const SnakeGame = () => {
       `}</style>
     </div>
   );
+  };
 
-  const renderGameOver = () => (
+  const renderGameOver = () => {
+    const xpForCurrentLevel = getXpForLevel(stats.level);
+    const xpProgress = (stats.xp / xpForCurrentLevel) * 100;
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -1204,6 +2624,8 @@ const SnakeGame = () => {
       height: '100vh',
       color: '#fff',
       textAlign: 'center',
+      overflow: 'auto',
+      padding: '20px',
     }}>
       <div style={{ fontSize: '60px', marginBottom: '20px' }}>💀</div>
       <h2 style={{
@@ -1217,15 +2639,16 @@ const SnakeGame = () => {
         fontSize: '48px',
         marginBottom: '10px',
       }}>{selectedEnemy?.emoji}</div>
-      <p style={{ color: '#888', marginBottom: '30px', fontStyle: 'italic' }}>
+      <p style={{ color: '#888', marginBottom: '20px', fontStyle: 'italic' }}>
         "{selectedEnemy?.winQuote}"
       </p>
 
+      {/* Score and stats */}
       <div style={{
         background: 'rgba(0,0,0,0.3)',
         padding: '20px 40px',
         borderRadius: '12px',
-        marginBottom: '30px',
+        marginBottom: '16px',
       }}>
         <div style={{ fontSize: '14px', color: '#888' }}>Final Score</div>
         <div style={{ fontSize: '48px', fontWeight: '900', color: '#50c878' }}>{score}</div>
@@ -1238,6 +2661,141 @@ const SnakeGame = () => {
           </div>
         )}
       </div>
+
+      {/* XP Rewards */}
+      <div style={{
+        background: 'rgba(255,215,0,0.1)',
+        border: '1px solid rgba(255,215,0,0.3)',
+        padding: '16px 30px',
+        borderRadius: '12px',
+        marginBottom: '16px',
+        minWidth: '200px',
+      }}>
+        <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>XP EARNED</div>
+        <div style={{ fontSize: '28px', fontWeight: '800', color: '#ffd700' }}>+{xpGained} XP</div>
+
+        {/* Level progress bar */}
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginBottom: '4px' }}>
+            <span>Level {stats.level}</span>
+            <span>{stats.xp} / {xpForCurrentLevel}</span>
+          </div>
+          <div style={{
+            width: '100%',
+            height: '8px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '4px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${xpProgress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #ffd700, #ff8c00)',
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+        </div>
+
+        {/* Level up notification */}
+        {levelUps.length > 0 && (
+          <div style={{
+            marginTop: '12px',
+            padding: '8px',
+            background: 'rgba(255,215,0,0.2)',
+            borderRadius: '8px',
+          }}>
+            <div style={{ color: '#ffd700', fontWeight: '700', fontSize: '16px' }}>
+              🎉 LEVEL UP!
+            </div>
+            {levelUps.map(lvl => (
+              <div key={lvl} style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>
+                Level {lvl}
+                {UNLOCKS[lvl] && (
+                  <span style={{ color: '#00ffff', marginLeft: '8px' }}>
+                    Unlocked: {UNLOCKS[lvl].name}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Completed Missions */}
+      {completedMissions.length > 0 && (
+        <div style={{
+          background: 'rgba(80, 200, 120, 0.1)',
+          border: '1px solid rgba(80, 200, 120, 0.3)',
+          padding: '12px 20px',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          minWidth: '200px',
+        }}>
+          <div style={{ fontSize: '12px', color: '#50c878', fontWeight: '700', marginBottom: '8px' }}>
+            MISSIONS COMPLETED!
+          </div>
+          {completedMissions.map(mission => {
+            const mType = MISSION_TYPES[mission.type];
+            return (
+              <div key={mission.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '6px',
+                marginBottom: '4px',
+              }}>
+                <span style={{ fontSize: '16px' }}>{mType?.icon || '?'}</span>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '11px', color: '#fff' }}>{getMissionDesc(mission)}</div>
+                  <div style={{ fontSize: '10px', color: '#50c878' }}>
+                    +{mission.xpReward} XP, +{mission.coinReward} coins
+                  </div>
+                </div>
+                <span style={{ fontSize: '14px', color: '#50c878' }}>✓</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* New Achievements */}
+      {newAchievements.length > 0 && (
+        <div style={{
+          background: 'rgba(148, 0, 211, 0.15)',
+          border: '1px solid rgba(148, 0, 211, 0.4)',
+          padding: '12px 20px',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          minWidth: '200px',
+        }}>
+          <div style={{ fontSize: '12px', color: '#d8b4fe', fontWeight: '700', marginBottom: '8px' }}>
+            ACHIEVEMENTS UNLOCKED!
+          </div>
+          {newAchievements.map(id => {
+            const ach = ACHIEVEMENTS[id];
+            return (
+              <div key={id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px',
+                background: 'rgba(148, 0, 211, 0.2)',
+                borderRadius: '6px',
+                marginBottom: '4px',
+              }}>
+                <span style={{ fontSize: '20px' }}>{ach.icon}</span>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>{ach.name}</div>
+                  <div style={{ fontSize: '10px', color: '#d8b4fe' }}>+{ach.reward} coins</div>
+                </div>
+                <span style={{ fontSize: '14px', color: '#d8b4fe' }}>✓</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '16px' }}>
         <button
@@ -1288,15 +2846,28 @@ const SnakeGame = () => {
       </button>
     </div>
   );
+  };
+
+  // Get background based on current state
+  const getBackgroundStyle = () => {
+    if (gameState === 'playing' || gameState === 'gameover') {
+      const config = getCurrentConfig();
+      return config.background;
+    }
+    return 'linear-gradient(135deg, #1a2520 0%, #0d3320 50%, #1a2525 100%)';
+  };
 
   return (
     <div style={{
       width: '100%',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a2520 0%, #0d3320 50%, #1a2525 100%)',
+      background: getBackgroundStyle(),
+      transition: 'background 0.5s ease',
     }}>
       {gameState === 'menu' && renderMenu()}
       {gameState === 'select' && renderEnemySelect()}
+      {gameState === 'shop' && renderShop()}
+      {gameState === 'achievements' && renderAchievements()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>
