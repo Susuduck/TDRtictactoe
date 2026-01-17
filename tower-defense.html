@@ -55,6 +55,7 @@ const TowerDefenseGame = () => {
   const maxGridWidth = windowSize.width - (isLandscape ? panelWidth * 2 + 50 : 30);
   const CELL_SIZE = Math.max(20, Math.min(42, Math.floor(Math.min(maxGridHeight, maxGridWidth) / GRID_SIZE) - 2));
   const GRID_OFFSET = 8;
+  const GRID_GAP = 2; // Gap between grid cells in CSS
 
   // Game state
   const [gameState, setGameState] = useState('menu');
@@ -478,8 +479,8 @@ const TowerDefenseGame = () => {
     setGold(prev => prev - towerDef.cost);
     setSelectedTower(null);
 
-    const cx = col * CELL_SIZE + CELL_SIZE / 2;
-    const cy = row * CELL_SIZE + CELL_SIZE / 2;
+    const cx = col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+    const cy = row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     spawnParticles(cx, cy, towerDef.color, 12, { speed: 4, size: 5, life: 400 });
 
     const newGrid = grid.map(r => [...r]);
@@ -505,8 +506,8 @@ const TowerDefenseGame = () => {
     setGold(prev => prev + sellValue);
     setSelectedTowerForUpgrade(null);
 
-    const cx = tower.col * CELL_SIZE + CELL_SIZE / 2;
-    const cy = tower.row * CELL_SIZE + CELL_SIZE / 2;
+    const cx = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+    const cy = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
     spawnParticles(cx, cy, theme.gold, 10, { speed: 3, life: 600 });
     spawnFloatingText(cx, cy, `+${sellValue}`, theme.gold, 16);
 
@@ -526,8 +527,8 @@ const TowerDefenseGame = () => {
 
       setGold(g => g - upgrade.cost);
 
-      const cx = tower.col * CELL_SIZE + CELL_SIZE / 2;
-      const cy = tower.row * CELL_SIZE + CELL_SIZE / 2;
+      const cx = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+      const cy = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
       spawnParticles(cx, cy, theme.gold, 15, { speed: 5, size: 6, life: 500 });
       announce(`${tower.name} → ${upgrade.name}!`, tower.color, 1500);
 
@@ -556,8 +557,8 @@ const TowerDefenseGame = () => {
       currentShield: enemyDef.shield ? Math.floor(enemyDef.shield * healthMultiplier) : 0,
       maxShield: enemyDef.shield ? Math.floor(enemyDef.shield * healthMultiplier) : 0,
       pathIndex: 0,
-      x: START.col * CELL_SIZE + CELL_SIZE / 2 + offsetX,
-      y: START.row * CELL_SIZE + CELL_SIZE / 2 + offsetY,
+      x: START.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + offsetX,
+      y: START.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + offsetY,
       slowedUntil: 0,
       slowAmount: 1,
       poisonedUntil: 0,
@@ -673,8 +674,8 @@ const TowerDefenseGame = () => {
         for (const enemy of prevEnemies) {
           // Check if enemy has completed the path
           const pathLength = pathRef.current.length;
-          const endX = END.col * CELL_SIZE + CELL_SIZE / 2;
-          const endY = END.row * CELL_SIZE + CELL_SIZE / 2;
+          const endX = END.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+          const endY = END.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           const distToEnd = Math.sqrt((enemy.x - endX) ** 2 + (enemy.y - endY) ** 2);
 
           // Remove enemy if they reached the end (either by pathIndex or by position)
@@ -778,8 +779,8 @@ const TowerDefenseGame = () => {
           // Movement
           const target = pathRef.current[enemy.pathIndex];
           if (target) {
-            const targetX = target.col * CELL_SIZE + CELL_SIZE / 2;
-            const targetY = target.row * CELL_SIZE + CELL_SIZE / 2;
+            const targetX = target.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+            const targetY = target.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
             const dx = targetX - enemy.x;
             const dy = targetY - enemy.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -838,8 +839,8 @@ const TowerDefenseGame = () => {
       // Update towers
       setTowers(prevTowers => {
         return prevTowers.map(tower => {
-          const towerX = tower.col * CELL_SIZE + CELL_SIZE / 2;
-          const towerY = tower.row * CELL_SIZE + CELL_SIZE / 2;
+          const towerX = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+          const towerY = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
           tower.pulsePhase = (tower.pulsePhase || 0) + deltaTime * 0.005;
 
           // Beam tower - PERF: Use squared distance to avoid sqrt
@@ -947,8 +948,8 @@ const TowerDefenseGame = () => {
             let predictedX = target.x;
             let predictedY = target.y;
             if (targetPath) {
-              const pathTargetX = targetPath.col * CELL_SIZE + CELL_SIZE / 2;
-              const pathTargetY = targetPath.row * CELL_SIZE + CELL_SIZE / 2;
+              const pathTargetX = targetPath.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+              const pathTargetY = targetPath.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
               const moveDir = Math.atan2(pathTargetY - target.y, pathTargetX - target.x);
               const effectiveSpeed = target.speed * (target.slowedUntil > now ? target.slowAmount : 1);
               predictedX = target.x + Math.cos(moveDir) * effectiveSpeed * timeToTarget * 2;
@@ -1128,7 +1129,9 @@ const TowerDefenseGame = () => {
 
                     if (proj.splashPoison) {
                       enemy.poisonedUntil = now + (proj.poisonDuration || 3000);
-                      enemy.poisonDamage = proj.poisonDamage * 0.5;
+                      // Apply same 3% max HP/second cap as direct hits, then halve for splash
+                      const maxPoisonDPS = enemy.maxHealth * 0.03;
+                      enemy.poisonDamage = Math.min(proj.poisonDamage * 0.5, maxPoisonDPS);
                     }
 
                     spawnParticles(enemy.x, enemy.y, proj.color, 2, { speed: 2, size: 3, life: 200 });
@@ -1316,8 +1319,8 @@ const TowerDefenseGame = () => {
     setGameState('playing');
   };
 
-  const gridWidth = GRID_SIZE * CELL_SIZE + GRID_OFFSET * 2 + 4;
-  const gridHeight = GRID_SIZE * CELL_SIZE + GRID_OFFSET * 2 + 4;
+  const gridWidth = GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * GRID_GAP + GRID_OFFSET * 2 + 4;
+  const gridHeight = GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * GRID_GAP + GRID_OFFSET * 2 + 4;
 
   // Wave preview
   const wavePreview = useMemo(() => {
@@ -1667,7 +1670,7 @@ const TowerDefenseGame = () => {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
-                gap: '2px',
+                gap: `${GRID_GAP}px`,
                 background: `linear-gradient(145deg, ${theme.bgDark} 0%, #080810 100%)`,
                 padding: `${GRID_OFFSET}px`,
                 borderRadius: '16px',
@@ -1767,8 +1770,8 @@ const TowerDefenseGame = () => {
                 {/* Base health visualization - glow around the end based on remaining lives */}
                 <div style={{
                   position: 'absolute',
-                  left: END.col * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
-                  top: END.row * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
+                  left: END.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET,
+                  top: END.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET,
                   width: CELL_SIZE * 2.5,
                   height: CELL_SIZE * 2.5,
                   transform: 'translate(-50%, -50%)',
@@ -1789,8 +1792,8 @@ const TowerDefenseGame = () => {
                   const p1 = path[pathIdx];
                   const p2 = path[Math.min(pathIdx + 1, path.length - 1)];
                   if (!p1 || !p2) return null;
-                  const x = (p1.col + (p2.col - p1.col) * t) * CELL_SIZE + CELL_SIZE / 2;
-                  const y = (p1.row + (p2.row - p1.row) * t) * CELL_SIZE + CELL_SIZE / 2;
+                  const x = (p1.col + (p2.col - p1.col) * t) * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
+                  const y = (p1.row + (p2.row - p1.row) * t) * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2;
                   return (
                     <div key={`flow-${i}`} style={{
                       position: 'absolute',
@@ -1812,8 +1815,8 @@ const TowerDefenseGame = () => {
                 {(hoveredCell && selectedTower && canPlaceTowerFast(hoveredCell.row, hoveredCell.col)) && (
                   <div style={{
                     position: 'absolute',
-                    left: hoveredCell.col * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
-                    top: hoveredCell.row * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
+                    left: hoveredCell.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET,
+                    top: hoveredCell.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET,
                     width: towerTypes[selectedTower].range * CELL_SIZE * 2,
                     height: towerTypes[selectedTower].range * CELL_SIZE * 2,
                     transform: 'translate(-50%, -50%)',
@@ -1828,8 +1831,8 @@ const TowerDefenseGame = () => {
                 {selectedTowerForUpgrade && (
                   <div style={{
                     position: 'absolute',
-                    left: selectedTowerForUpgrade.col * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
-                    top: selectedTowerForUpgrade.row * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET,
+                    left: selectedTowerForUpgrade.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET,
+                    top: selectedTowerForUpgrade.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET,
                     width: selectedTowerForUpgrade.range * CELL_SIZE * 2,
                     height: selectedTowerForUpgrade.range * CELL_SIZE * 2,
                     transform: 'translate(-50%, -50%)',
@@ -1842,8 +1845,8 @@ const TowerDefenseGame = () => {
 
                 {/* Beams */}
                 {towers.filter(t => t.beam && t.beamTarget).map(tower => {
-                  const fromX = tower.col * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET;
-                  const fromY = tower.row * CELL_SIZE + CELL_SIZE / 2 + GRID_OFFSET;
+                  const fromX = tower.col * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET;
+                  const fromY = tower.row * (CELL_SIZE + GRID_GAP) + CELL_SIZE / 2 + GRID_OFFSET;
                   const toX = tower.beamTarget.x + GRID_OFFSET;
                   const toY = tower.beamTarget.y + GRID_OFFSET;
                   const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
