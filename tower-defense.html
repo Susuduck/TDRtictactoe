@@ -1323,6 +1323,26 @@ const TowerDefenseGame = () => {
             let speed = enemy.speed * (deltaTime / 16);
             if (enemy.slowedUntil > now) speed *= enemy.slowAmount;
 
+            // Time Warp gimmick (World 9): Speed zones on path - every 3rd tile is a speed zone
+            if (world.gimmick === 'timewarp' && enemy.pathIndex % 3 === 0) {
+              speed *= 2; // Double speed in warp zones
+              enemy.inSpeedZone = true;
+            } else {
+              enemy.inSpeedZone = false;
+            }
+
+            // Fog Zones gimmick (World 4): Every 4th tile heals enemies
+            if (world.gimmick === 'fog' && enemy.pathIndex % 4 === 1) {
+              const healAmount = enemy.maxHealth * 0.005 * (deltaTime / 16); // 0.5% max HP per frame
+              enemy.currentHealth = Math.min(enemy.maxHealth, enemy.currentHealth + healAmount);
+              enemy.inFogZone = true;
+              if (Math.random() < 0.05) {
+                spawnParticles(enemy.x, enemy.y, '#50c878', 2, { speed: 1, size: 4, life: 400 });
+              }
+            } else {
+              enemy.inFogZone = false;
+            }
+
             enemy.rotation = Math.atan2(dy, dx);
 
             // Use a reasonable threshold based on cell size for path advancement
