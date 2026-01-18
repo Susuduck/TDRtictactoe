@@ -500,7 +500,11 @@ const Basketball = () => {
                         return (
                             <div
                                 key={opp.id}
-                                onClick={() => unlocked && setSelectedOpponent(opp) && setGameState('level_select')}
+                                onClick={() => {
+                                    if (!unlocked) return;
+                                    setSelectedOpponent(opp);
+                                    setGameState('level_select');
+                                }}
                                 style={{
                                     background: unlocked
                                         ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`
