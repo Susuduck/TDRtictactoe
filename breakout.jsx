@@ -134,7 +134,7 @@ const BreakoutGame = () => {
   // Refs
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
-  const keysRef = useRef({ left: false, right: false, space: false, q: false, w: false, e: false });
+  const keysRef = useRef({ left: false, right: false, space: false, shift: false, q: false, w: false, e: false });
   const lastTimeRef = useRef(Date.now());
   const comboTimerRef = useRef(null);
   const paddleLastX = useRef(CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2);
@@ -360,6 +360,11 @@ const BreakoutGame = () => {
         e.preventDefault();
       }
 
+      // Shift for speed boost
+      if (e.key === 'Shift') {
+        keysRef.current.shift = true;
+      }
+
       // Space for launch / charge shot
       if (e.key === ' ') {
         keysRef.current.space = true;
@@ -418,23 +423,28 @@ const BreakoutGame = () => {
         // Release charged shot
         if (isChargingRef.current) {
           const power = Math.min(chargeLevelRef.current / 100, 1);
-          setBalls(prev => prev.map(ball => {
-            if (ball.attached) {
-              const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
-              return {
-                ...ball,
-                attached: false,
-                vy: -speed,
-                charged: power > 0.5, // Charged shot if held long enough
-                damage: 1 + Math.floor(power * 2), // Up to 3x damage
-              };
-            }
-            return ball;
-          }));
+          const currentPaddle = paddleRef.current;
+          if (currentPaddle) {
+            setBalls(prev => prev.map(ball => {
+              if (ball.attached) {
+                const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
+                return {
+                  ...ball,
+                  x: currentPaddle.x + currentPaddle.width / 2, // Launch from paddle position
+                  attached: false,
+                  vy: -speed,
+                  charged: power > 0.5, // Charged shot if held long enough
+                  damage: 1 + Math.floor(power * 2), // Up to 3x damage
+                };
+              }
+              return ball;
+            }));
+          }
           setIsCharging(false);
           setChargeLevel(0);
         }
       }
+      if (e.key === 'Shift') keysRef.current.shift = false;
       if (e.key === 'q' || e.key === 'Q') keysRef.current.q = false;
       if (e.key === 'w' || e.key === 'W') keysRef.current.w = false;
       if (e.key === 'e' || e.key === 'E') keysRef.current.e = false;
@@ -448,20 +458,22 @@ const BreakoutGame = () => {
     };
   }, [activateTeddyAbility]); // Minimal dependencies - refs handle the rest
 
-  // Mouse control for paddle - smooth and responsive
+  // Mouse/pointer control for paddle - smooth and responsive
   useEffect(() => {
     if (gameState !== 'playing' || isPaused) return;
 
-    const handleMouseMove = (e) => {
+    const handlePointerMove = (e) => {
       if (activeEffects.includes('frozen')) return;
 
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
+      // Account for any CSS scaling of the canvas
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const mouseX = (e.clientX - rect.left) * scaleX;
 
-      // Calculate paddle position centered on mouse
+      // Calculate paddle position centered on pointer
       setPaddle(prev => {
         const targetX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, mouseX - prev.width / 2));
         // Calculate velocity for spin effect
@@ -472,19 +484,32 @@ const BreakoutGame = () => {
       });
     };
 
-    // Click to launch ball
+    // Touch move for mobile/trackpad
+    const handleTouchMove = (e) => {
+      if (e.touches.length > 0) {
+        e.preventDefault();
+        handlePointerMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+      }
+    };
+
+    // Click/touch to launch ball
     const handleClick = (e) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
-      if (e.clientX >= rect.left && e.clientX <= rect.right &&
-          e.clientY >= rect.top && e.clientY <= rect.bottom) {
-        // Launch attached ball on click
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+      if (clientX >= rect.left && clientX <= rect.right &&
+          clientY >= rect.top && clientY <= rect.bottom) {
+        // Launch attached ball on click - use paddle position
+        const currentPaddle = paddleRef.current;
+        if (!currentPaddle) return;
         setBalls(prev => prev.map(ball => {
           if (ball.attached) {
             return {
               ...ball,
+              x: currentPaddle.x + currentPaddle.width / 2,
               attached: false,
               vy: -ball.baseSpeed,
               vx: (Math.random() - 0.5) * 2,
@@ -495,11 +520,26 @@ const BreakoutGame = () => {
       }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
+    // Use both mouse and pointer events for maximum compatibility
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('click', handleClick);
+
+    // Touch support for mobile and some trackpads
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+      canvas.addEventListener('touchstart', handleClick, { passive: true });
+    }
+
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('click', handleClick);
+      if (canvas) {
+        canvas.removeEventListener('touchmove', handleTouchMove);
+        canvas.removeEventListener('touchstart', handleClick);
+      }
     };
   }, [gameState, isPaused, activeEffects]);
 
@@ -701,7 +741,8 @@ const BreakoutGame = () => {
     return newBricks;
   }, []);
 
-  // Create particles
+  // Create particles (with limit to prevent memory issues)
+  const MAX_PARTICLES = 200;
   const createParticles = useCallback((x, y, color, count = 8) => {
     const newParticles = [];
     for (let i = 0; i < count; i++) {
@@ -715,7 +756,7 @@ const BreakoutGame = () => {
         life: 1,
       });
     }
-    setParticles(p => [...p, ...newParticles]);
+    setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
   // Create cracking armor particles - fall downward with angular shapes
@@ -733,18 +774,20 @@ const BreakoutGame = () => {
         size: 4 + Math.random() * 6, // Larger chunks
         life: 1.5, // Last longer
         isShard: true, // Mark as shard for different rendering
+        rotation: Math.random() * 45, // Fixed rotation at creation time
       });
     }
-    setParticles(p => [...p, ...newParticles]);
+    setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Add floating text
+  // Add floating text (with limit to prevent memory issues)
+  const MAX_FLOATING_TEXTS = 30;
   const addFloatingText = useCallback((x, y, text, color) => {
     setFloatingTexts(prev => [...prev, {
       id: Date.now() + Math.random(),
       x, y, text, color,
       life: 1,
-    }]);
+    }].slice(-MAX_FLOATING_TEXTS));
   }, []);
 
   // Show prominent powerup announcement
@@ -908,7 +951,8 @@ const BreakoutGame = () => {
       if (!activeEffects.includes('frozen')) {
         const currentPaddle = paddleRef.current;
         let newX = currentPaddle.x;
-        const speed = isDashing ? DASH_SPEED : 8;
+        // Faster base speed (14), shift for boost (20), dash is fastest (25)
+        const speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 20 : 14;
 
         if (keysRef.current.left) newX -= speed * deltaTime;
         if (keysRef.current.right) newX += speed * deltaTime;
@@ -1068,6 +1112,8 @@ const BreakoutGame = () => {
 
           let { x, y, vx, vy, burning } = ball;
           const bricksSnapshot = bricksRef.current;
+          let hitBrickId = null;
+          let usedChargedBonus = false;
 
           for (const brick of bricksSnapshot) {
             if (brick.health <= 0) continue;
@@ -1075,6 +1121,9 @@ const BreakoutGame = () => {
                 x - BALL_RADIUS < brick.x + brick.width &&
                 y + BALL_RADIUS > brick.y &&
                 y - BALL_RADIUS < brick.y + brick.height) {
+              // Track which brick was hit for damage application
+              hitBrickId = brick.id;
+
               // Determine bounce direction
               const overlapLeft = (x + BALL_RADIUS) - brick.x;
               const overlapRight = (brick.x + brick.width) - (x - BALL_RADIUS);
@@ -1110,15 +1159,11 @@ const BreakoutGame = () => {
             }
           }
 
-          setBricks(prevBricks => {
-            return prevBricks.map(brick => {
-              if (brick.health <= 0) return brick;
-
-              // Simple AABB collision
-              if (x + BALL_RADIUS > brick.x &&
-                  x - BALL_RADIUS < brick.x + brick.width &&
-                  y + BALL_RADIUS > brick.y &&
-                  y - BALL_RADIUS < brick.y + brick.height) {
+          // Apply damage to hit brick using tracked ID instead of re-checking collision
+          if (hitBrickId !== null) {
+            setBricks(prevBricks => {
+              return prevBricks.map(brick => {
+                if (brick.id !== hitBrickId || brick.health <= 0) return brick;
 
                 // Obstacles are indestructible - just bounce and create particles
                 if (brick.type === 'obstacle') {
@@ -1160,10 +1205,10 @@ const BreakoutGame = () => {
                   setScore(s => s + 5);
                 }
 
-                // Charged shot bonus
-                if (ball.charged) {
+                // Charged shot bonus (one-time, tracked via usedChargedBonus)
+                if (ball.charged && !usedChargedBonus) {
                   setScore(s => s + points * 0.5);
-                  ball.charged = false; // One-time bonus
+                  usedChargedBonus = true;
                 }
 
                 // Build Teddy Meter on brick hits
@@ -1213,15 +1258,14 @@ const BreakoutGame = () => {
                   if (brick.type === 'powerup' || Math.random() < 0.15) {
                     spawnPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
                   }
-
-                  // Reveal invisible brick
-                  brick.invisible = false;
                 }
 
-                // Update brick with new health and color based on current health
+                // Update brick with new health, color, hit flash, and reveal if invisible
                 return {
                   ...brick,
                   health: newHealth,
+                  hitFlash: 1, // Start flash effect
+                  invisible: false, // Reveal on hit (no mutation)
                   color: brick.type === 'boss' ? '#ffd700' :
                          brick.type === 'explosive' ? '#ff4400' :
                          newColor
@@ -1230,29 +1274,32 @@ const BreakoutGame = () => {
               return brick;
             });
           });
+          }
 
-          return { ...ball, x, y, vx, vy };
+          return { ...ball, x, y, vx, vy, charged: usedChargedBonus ? false : ball.charged };
         });
       });
 
-      // Move power-ups
+      // Move power-ups (use paddleRef for current position, avoid state mutation)
       setPowerUps(prev => {
-        return prev.filter(pu => {
-          pu.y += pu.vy * deltaTime;
+        const currentPaddle = paddleRef.current;
+        return prev
+          .map(pu => ({ ...pu, y: pu.y + pu.vy * deltaTime }))
+          .filter(pu => {
+            // Check paddle collision
+            if (pu.y + 15 >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+                currentPaddle &&
+                pu.x >= currentPaddle.x && pu.x <= currentPaddle.x + currentPaddle.width) {
 
-          // Check paddle collision
-          if (pu.y + 15 >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
-              pu.x >= paddle.x && pu.x <= paddle.x + paddle.width) {
+              // Apply power-up effect
+              applyPowerUp(pu.type);
+              createParticles(pu.x, pu.y, pu.color, 10);
+              addFloatingText(pu.x, pu.y, pu.effect, pu.color);
+              return false;
+            }
 
-            // Apply power-up effect
-            applyPowerUp(pu.type);
-            createParticles(pu.x, pu.y, pu.color, 10);
-            addFloatingText(pu.x, pu.y, pu.effect, pu.color);
-            return false;
-          }
-
-          return pu.y < CANVAS_HEIGHT;
-        });
+            return pu.y < CANVAS_HEIGHT;
+          });
       });
 
       // Apply gimmicks
@@ -1275,6 +1322,9 @@ const BreakoutGame = () => {
         .map(t => ({ ...t, y: t.y - 1 * deltaTime, life: t.life - 0.02 * deltaTime }))
         .filter(t => t.life > 0)
       );
+
+      // Decay brick hit flash
+      setBricks(prev => prev.map(b => b.hitFlash > 0 ? { ...b, hitFlash: b.hitFlash - 0.1 * deltaTime } : b));
 
       // Check level complete (obstacles don't count toward completion)
       setBricks(prev => {
@@ -1442,9 +1492,13 @@ const BreakoutGame = () => {
     const speedBonus = Math.min(level * 0.3, 3); // Up to +3 speed at level 10
     const totalSpeed = baseSpeed + speedBonus;
 
+    // Use paddle position from ref for ball spawn location
+    const currentPaddle = paddleRef.current;
+    const ballX = currentPaddle ? currentPaddle.x + currentPaddle.width / 2 : CANVAS_WIDTH / 2;
+
     return {
       id: Date.now(),
-      x: CANVAS_WIDTH / 2,
+      x: ballX,
       y: CANVAS_HEIGHT - PADDLE_HEIGHT - 20 - BALL_RADIUS,
       vx: (Math.random() - 0.5) * 4,
       vy: -totalSpeed,
@@ -1851,6 +1905,17 @@ const BreakoutGame = () => {
                 textShadow: '0 1px 2px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.5)',
               }}>{brick.health}</span>
             )}
+            {/* Hit flash overlay */}
+            {brick.hitFlash > 0 && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'white',
+                opacity: brick.hitFlash * 0.7,
+                borderRadius: '2px',
+                pointerEvents: 'none',
+              }} />
+            )}
           </div>
         ))}
 
@@ -1999,7 +2064,7 @@ const BreakoutGame = () => {
               borderRadius: p.isShard ? '2px' : '50%',
               opacity: Math.min(p.life, 1),
               pointerEvents: 'none',
-              transform: p.isShard ? `rotate(${Math.random() * 45}deg)` : 'none',
+              transform: p.isShard ? `rotate(${p.rotation || 0}deg)` : 'none',
               boxShadow: p.isShard ? `0 2px 4px rgba(0,0,0,0.3)` : 'none',
             }}
           />
