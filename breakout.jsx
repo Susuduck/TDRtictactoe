@@ -148,6 +148,7 @@ const BreakoutGame = () => {
   const chargeLevelRef = useRef(0);
   const ballsRef = useRef([]);
   const bricksRef = useRef([]);
+  const paddleRef = useRef(paddle);
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -325,6 +326,7 @@ const BreakoutGame = () => {
   useEffect(() => { chargeLevelRef.current = chargeLevel; }, [chargeLevel]);
   useEffect(() => { ballsRef.current = balls; }, [balls]);
   useEffect(() => { bricksRef.current = bricks; }, [bricks]);
+  useEffect(() => { paddleRef.current = paddle; }, [paddle]);
 
   // Keyboard controls with dash and Teddy abilities - stable event handlers
   useEffect(() => {
@@ -464,7 +466,9 @@ const BreakoutGame = () => {
         const targetX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, mouseX - prev.width / 2));
         // Calculate velocity for spin effect
         const vx = (targetX - prev.x) * 2;
-        return { ...prev, x: targetX, vx };
+        const nextPaddle = { ...prev, x: targetX, vx };
+        paddleRef.current = nextPaddle;
+        return nextPaddle;
       });
     };
 
@@ -902,21 +906,22 @@ const BreakoutGame = () => {
 
       // Move paddle with velocity tracking for spin
       if (!activeEffects.includes('frozen')) {
-        setPaddle(prev => {
-          let newX = prev.x;
-          const speed = isDashing ? DASH_SPEED : 8;
+        const currentPaddle = paddleRef.current;
+        let newX = currentPaddle.x;
+        const speed = isDashing ? DASH_SPEED : 8;
 
-          if (keysRef.current.left) newX -= speed * deltaTime;
-          if (keysRef.current.right) newX += speed * deltaTime;
+        if (keysRef.current.left) newX -= speed * deltaTime;
+        if (keysRef.current.right) newX += speed * deltaTime;
 
-          newX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, newX));
+        newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
 
-          // Calculate velocity for spin
-          const vx = (newX - paddleLastX.current) / deltaTime;
-          paddleLastX.current = newX;
+        // Calculate velocity for spin
+        const vx = (newX - paddleLastX.current) / deltaTime;
+        paddleLastX.current = newX;
 
-          return { ...prev, x: newX, vx };
-        });
+        const nextPaddle = { ...currentPaddle, x: newX, vx };
+        paddleRef.current = nextPaddle;
+        setPaddle(nextPaddle);
       }
 
       // Move balls
@@ -947,18 +952,20 @@ const BreakoutGame = () => {
             y = BALL_RADIUS;
           }
 
+          const paddleSnapshot = paddleRef.current;
+
           // Paddle collision (main paddle)
           if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
               y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
-              x >= paddle.x && x <= paddle.x + paddle.width) {
+              x >= paddleSnapshot.x && x <= paddleSnapshot.x + paddleSnapshot.width) {
 
             // Calculate bounce angle based on hit position
-            const hitPos = (x - paddle.x) / paddle.width;
+            const hitPos = (x - paddleSnapshot.x) / paddleSnapshot.width;
             const angle = (hitPos - 0.5) * Math.PI * 0.7;
             const speed = Math.sqrt(vx * vx + vy * vy);
 
             // === SPIN CONTROL: Add paddle velocity to ball ===
-            const spinFactor = paddle.vx * 0.15; // Paddle velocity affects ball
+            const spinFactor = paddleSnapshot.vx * 0.15; // Paddle velocity affects ball
             vx = Math.sin(angle) * speed + spinFactor;
             vy = -Math.abs(Math.cos(angle) * speed);
             y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
@@ -989,16 +996,16 @@ const BreakoutGame = () => {
           // Twin paddle collision (Teddy Twins ability)
           if (twinPaddle?.active) {
             // Twin is mirrored on opposite side
-            const twinX = CANVAS_WIDTH - paddle.x - paddle.width;
+            const twinX = CANVAS_WIDTH - paddleSnapshot.x - paddleSnapshot.width;
             if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
                 y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
-                x >= twinX && x <= twinX + paddle.width) {
+                x >= twinX && x <= twinX + paddleSnapshot.width) {
 
-              const hitPos = (x - twinX) / paddle.width;
+              const hitPos = (x - twinX) / paddleSnapshot.width;
               const angle = (hitPos - 0.5) * Math.PI * 0.7;
               const speed = Math.sqrt(vx * vx + vy * vy);
 
-              vx = Math.sin(angle) * speed - (paddle.vx * 0.15); // Inverse spin
+              vx = Math.sin(angle) * speed - (paddleSnapshot.vx * 0.15); // Inverse spin
               vy = -Math.abs(Math.cos(angle) * speed);
               y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
 
@@ -1083,8 +1090,14 @@ const BreakoutGame = () => {
               if (!burning || brick.type === 'boss' || brick.type === 'obstacle') {
                 if (minOverlapX < minOverlapY) {
                   vx = -vx;
+                  x = overlapLeft < overlapRight
+                    ? brick.x - BALL_RADIUS
+                    : brick.x + brick.width + BALL_RADIUS;
                 } else {
                   vy = -vy;
+                  y = overlapTop < overlapBottom
+                    ? brick.y - BALL_RADIUS
+                    : brick.y + brick.height + BALL_RADIUS;
                 }
 
                 // Chaos clown random bounce
@@ -1533,7 +1546,9 @@ const BreakoutGame = () => {
     setCurrentLevel(1);
     setCombo(0);
     setMaxCombo(0);
-    setPaddle({ x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 });
+    const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
+    setPaddle(nextPaddle);
+    paddleRef.current = nextPaddle;
     setBalls([createBall(1)]);
     setBricks(createBricks(1, enemy));
     setPowerUps([]);
