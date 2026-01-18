@@ -9,10 +9,11 @@ const { useState, useEffect, useCallback, useRef } = React;
  * - Worlds unlock when previous world has 10 stars
  * - Difficulty STEPS UP when entering a new world (World N+1 Level 1 > World N Level 10)
  * - Each level has specific difficulty parameters and objectives
+ * - Each world has unique themed environment and atmosphere
  */
 
 const CookOff = () => {
-    // Theme
+    // Base Theme
     const theme = {
         bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#1a1020',
         border: '#4a4468', borderLight: '#5a5478',
@@ -22,6 +23,140 @@ const CookOff = () => {
         error: '#e85a50', success: '#50c878',
         timerGreen: '#50c878', timerYellow: '#f4c542', timerOrange: '#ff8c00', timerRed: '#e85a50',
         starEmpty: '#3a3450', starHalf: '#8a7a40', starFull: '#f4c542'
+    };
+
+    // World-specific themes with unique environments
+    const worldThemes = {
+        0: { // Funky Frog - Peaceful Pond Cafe
+            name: 'Lily Pad Cafe',
+            setting: 'outdoor',
+            timeOfDay: 'day',
+            bgGradient: 'linear-gradient(180deg, #87CEEB 0%, #98D8AA 40%, #2E7D32 100%)',
+            bgPattern: 'radial-gradient(circle at 20% 80%, #4CAF5033 0%, transparent 30%), radial-gradient(circle at 80% 60%, #81C78433 0%, transparent 25%)',
+            ambientEmojis: ['🌿', '🪷', '💧', '🦟', '🌸', '☘️'],
+            decorations: ['🌳', '🪨', '🌺'],
+            particleEmoji: '💧',
+            panelBg: 'rgba(46, 125, 50, 0.85)',
+            panelBorder: '#4CAF50',
+            glowColor: '#50c87844'
+        },
+        1: { // Cheeky Chicken - Cozy Farm Kitchen
+            name: 'Farm Kitchen',
+            setting: 'indoor',
+            timeOfDay: 'morning',
+            bgGradient: 'linear-gradient(180deg, #FFE4B5 0%, #DEB887 50%, #8B4513 100%)',
+            bgPattern: 'repeating-linear-gradient(90deg, #D2691E11 0px, #D2691E11 2px, transparent 2px, transparent 20px)',
+            ambientEmojis: ['🌾', '🥚', '🌻', '☀️', '🐣', '🌽'],
+            decorations: ['🏠', '🌻', '🚜'],
+            particleEmoji: '🥚',
+            panelBg: 'rgba(139, 69, 19, 0.85)',
+            panelBorder: '#e8a840',
+            glowColor: '#e8a84044'
+        },
+        2: { // Disco Dinosaur - Retro Diner
+            name: 'Disco Diner',
+            setting: 'indoor',
+            timeOfDay: 'night',
+            bgGradient: 'linear-gradient(180deg, #1a0a2e 0%, #2d1b4e 50%, #4a1942 100%)',
+            bgPattern: 'radial-gradient(circle at 30% 20%, #ff00ff22 0%, transparent 30%), radial-gradient(circle at 70% 80%, #00ffff22 0%, transparent 30%)',
+            ambientEmojis: ['🪩', '✨', '💜', '🎵', '🎤', '💫'],
+            decorations: ['🎸', '🎹', '📻'],
+            particleEmoji: '✨',
+            panelBg: 'rgba(75, 0, 130, 0.85)',
+            panelBorder: '#a080c0',
+            glowColor: '#a080c044'
+        },
+        3: { // Radical Raccoon - Back Alley Food Truck
+            name: 'Night Market',
+            setting: 'outdoor',
+            timeOfDay: 'night',
+            bgGradient: 'linear-gradient(180deg, #1a1a2e 0%, #2d2d44 50%, #16213e 100%)',
+            bgPattern: 'repeating-linear-gradient(0deg, #ffffff05 0px, #ffffff05 1px, transparent 1px, transparent 40px)',
+            ambientEmojis: ['🌙', '🏮', '💡', '🗑️', '📦', '🔧'],
+            decorations: ['🚚', '🏪', '🌃'],
+            particleEmoji: '💡',
+            panelBg: 'rgba(45, 45, 68, 0.9)',
+            panelBorder: '#808090',
+            glowColor: '#80809044'
+        },
+        4: { // Electric Eel - Underwater Sushi Bar
+            name: 'Deep Sea Kitchen',
+            setting: 'underwater',
+            timeOfDay: 'night',
+            bgGradient: 'linear-gradient(180deg, #001830 0%, #003366 50%, #001a33 100%)',
+            bgPattern: 'radial-gradient(ellipse at 50% 0%, #0066cc33 0%, transparent 50%)',
+            ambientEmojis: ['🫧', '🐠', '🦑', '⚡', '🌊', '💎'],
+            decorations: ['🪸', '🐚', '⚓'],
+            particleEmoji: '🫧',
+            panelBg: 'rgba(0, 51, 102, 0.85)',
+            panelBorder: '#50a8e8',
+            glowColor: '#50a8e844'
+        },
+        5: { // Mysterious Moth - Candlelit Mystery Kitchen
+            name: 'Candlelit Cellar',
+            setting: 'indoor',
+            timeOfDay: 'night',
+            bgGradient: 'linear-gradient(180deg, #1a0a1a 0%, #2d1a2d 50%, #1a0a0a 100%)',
+            bgPattern: 'radial-gradient(circle at 50% 30%, #ffaa0015 0%, transparent 40%)',
+            ambientEmojis: ['🕯️', '🦇', '🌙', '🔮', '📜', '🗝️'],
+            decorations: ['🏚️', '🕸️', '⚗️'],
+            particleEmoji: '🦋',
+            panelBg: 'rgba(45, 26, 45, 0.9)',
+            panelBorder: '#c090a0',
+            glowColor: '#c090a044'
+        },
+        6: { // Professor Penguin - Laboratory Kitchen
+            name: 'Science Lab Kitchen',
+            setting: 'indoor',
+            timeOfDay: 'day',
+            bgGradient: 'linear-gradient(180deg, #e8f4f8 0%, #b8d4e3 50%, #88a4b3 100%)',
+            bgPattern: 'repeating-linear-gradient(90deg, #ffffff33 0px, #ffffff33 1px, transparent 1px, transparent 30px), repeating-linear-gradient(0deg, #ffffff33 0px, #ffffff33 1px, transparent 1px, transparent 30px)',
+            ambientEmojis: ['🧪', '⚗️', '🔬', '📊', '💉', '🧫'],
+            decorations: ['🖥️', '📋', '🔭'],
+            particleEmoji: '❄️',
+            panelBg: 'rgba(64, 128, 160, 0.85)',
+            panelBorder: '#4080a0',
+            glowColor: '#4080a044'
+        },
+        7: { // Sly Snake - Jungle Treehouse
+            name: 'Jungle Canopy',
+            setting: 'outdoor',
+            timeOfDay: 'day',
+            bgGradient: 'linear-gradient(180deg, #228B22 0%, #006400 40%, #004d00 100%)',
+            bgPattern: 'radial-gradient(circle at 10% 20%, #32CD3233 0%, transparent 30%), radial-gradient(circle at 90% 70%, #00800033 0%, transparent 25%)',
+            ambientEmojis: ['🌴', '🦜', '🌺', '🍃', '🦎', '🌿'],
+            decorations: ['🏝️', '🎋', '🪵'],
+            particleEmoji: '🍃',
+            panelBg: 'rgba(0, 100, 0, 0.85)',
+            panelBorder: '#60a060',
+            glowColor: '#60a06044'
+        },
+        8: { // Wolf Warrior - Mountain Lodge
+            name: 'Mountain Lodge',
+            setting: 'indoor',
+            timeOfDay: 'evening',
+            bgGradient: 'linear-gradient(180deg, #4a4a5a 0%, #3a3a4a 50%, #2a2a3a 100%)',
+            bgPattern: 'radial-gradient(circle at 20% 80%, #ff660022 0%, transparent 30%)',
+            ambientEmojis: ['🏔️', '🌲', '🔥', '🪵', '❄️', '🐾'],
+            decorations: ['🏕️', '🪓', '🛖'],
+            particleEmoji: '❄️',
+            panelBg: 'rgba(60, 60, 80, 0.9)',
+            panelBorder: '#606080',
+            glowColor: '#60608044'
+        },
+        9: { // Grand Master Grizzly - Royal Grand Kitchen
+            name: 'Royal Palace Kitchen',
+            setting: 'indoor',
+            timeOfDay: 'evening',
+            bgGradient: 'linear-gradient(180deg, #2a1a0a 0%, #4a3520 50%, #3a2510 100%)',
+            bgPattern: 'repeating-linear-gradient(45deg, #d4a84011 0px, #d4a84011 2px, transparent 2px, transparent 20px)',
+            ambientEmojis: ['👑', '💎', '🏆', '✨', '🎖️', '⭐'],
+            decorations: ['🏰', '🪞', '🕯️'],
+            particleEmoji: '✨',
+            panelBg: 'rgba(74, 53, 32, 0.9)',
+            panelBorder: '#d4a840',
+            glowColor: '#d4a84066'
+        }
     };
 
     // Ingredients
@@ -278,6 +413,8 @@ const CookOff = () => {
     const [perfectBonus, setPerfectBonus] = useState(false);
     const [onFire, setOnFire] = useState(false);
     const [encouragement, setEncouragement] = useState(null);
+    const [opponentMood, setOpponentMood] = useState('neutral'); // neutral, happy, worried, excited, taunting
+    const [ambientParticles, setAmbientParticles] = useState([]);
 
     // Refs
     const timerRef = useRef(null);
@@ -567,6 +704,7 @@ const CookOff = () => {
 
         if (percentage >= 1 && !encouragement) {
             setEncouragement('TARGET REACHED! Keep going for excellence!');
+            setOpponentMood('worried');
             setTimeout(() => setEncouragement(null), 2000);
         } else if (percentage >= 0.75 && percentage < 1 && !encouragement) {
             setEncouragement('Almost there! 75%');
@@ -576,6 +714,67 @@ const CookOff = () => {
             setTimeout(() => setEncouragement(null), 1500);
         }
     }, [score, levelConfig, gameState, encouragement]);
+
+    // Ambient particles animation
+    useEffect(() => {
+        if (gameState !== 'playing' || !selectedWorld) return;
+
+        const worldTheme = worldThemes[selectedWorld.id];
+        const createParticle = () => ({
+            id: Math.random(),
+            emoji: worldTheme.ambientEmojis[Math.floor(Math.random() * worldTheme.ambientEmojis.length)],
+            x: Math.random() * 100,
+            y: -10,
+            speed: 0.5 + Math.random() * 1,
+            size: 12 + Math.random() * 12,
+            opacity: 0.3 + Math.random() * 0.4
+        });
+
+        // Initialize with some particles
+        setAmbientParticles(Array(6).fill(null).map(() => ({
+            ...createParticle(),
+            y: Math.random() * 100
+        })));
+
+        const interval = setInterval(() => {
+            setAmbientParticles(prev => {
+                // Move existing particles down
+                const moved = prev.map(p => ({
+                    ...p,
+                    y: p.y + p.speed
+                })).filter(p => p.y < 110);
+
+                // Add new particle occasionally
+                if (moved.length < 8 && Math.random() < 0.3) {
+                    moved.push(createParticle());
+                }
+                return moved;
+            });
+        }, 200);
+
+        return () => clearInterval(interval);
+    }, [gameState, selectedWorld]);
+
+    // Opponent mood based on game state
+    useEffect(() => {
+        if (gameState !== 'playing') {
+            setOpponentMood('neutral');
+            return;
+        }
+
+        // Update mood based on player performance
+        if (combo >= 5) {
+            setOpponentMood('worried');
+        } else if (mistakes >= 2) {
+            setOpponentMood('happy');
+        } else if (combo >= 3) {
+            setOpponentMood('taunting');
+        } else if (orderTimer < maxOrderTime * 0.25) {
+            setOpponentMood('excited');
+        } else {
+            setOpponentMood('neutral');
+        }
+    }, [gameState, combo, mistakes, orderTimer, maxOrderTime]);
 
     // Screen shake
     const triggerShake = useCallback(() => {
@@ -1068,10 +1267,27 @@ const CookOff = () => {
                                         <div style={{
                                             fontSize: '11px', color: theme.textSecondary,
                                             background: `${world.color}22`, padding: '5px 10px',
-                                            borderRadius: '6px', marginBottom: '10px',
+                                            borderRadius: '6px', marginBottom: '8px',
                                             border: `1px solid ${world.color}33`
                                         }}>
                                             ✨ {world.specialDesc}
+                                        </div>
+                                        {/* Kitchen theme preview */}
+                                        <div style={{
+                                            fontSize: '10px', color: theme.textMuted,
+                                            marginBottom: '8px',
+                                            display: 'flex', alignItems: 'center', gap: '8px'
+                                        }}>
+                                            <span style={{
+                                                background: worldThemes[idx].bgGradient,
+                                                width: '20px', height: '20px',
+                                                borderRadius: '4px',
+                                                border: '1px solid rgba(255,255,255,0.2)'
+                                            }} />
+                                            <span>{worldThemes[idx].name}</span>
+                                            <span style={{ opacity: 0.5 }}>•</span>
+                                            <span>{worldThemes[idx].setting === 'outdoor' ? '🌳' : worldThemes[idx].setting === 'underwater' ? '🌊' : '🏠'}</span>
+                                            <span>{worldThemes[idx].timeOfDay === 'day' ? '☀️' : worldThemes[idx].timeOfDay === 'morning' ? '🌅' : worldThemes[idx].timeOfDay === 'evening' ? '🌆' : '🌙'}</span>
                                         </div>
                                         <WorldStarBar worldId={idx} />
                                     </div>
@@ -1087,39 +1303,109 @@ const CookOff = () => {
     // LEVEL SELECT SCREEN
     if (gameState === 'level_select' && selectedWorld) {
         const worldStars = getWorldStars(selectedWorld.id);
+        const worldTheme = worldThemes[selectedWorld.id];
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedWorld.color}22 100%)`,
+                background: worldTheme.bgGradient,
                 padding: '20px', color: theme.text,
-                display: 'flex', flexDirection: 'column', alignItems: 'center'
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
+                {/* Background pattern */}
+                <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    background: worldTheme.bgPattern,
+                    opacity: 0.5,
+                    pointerEvents: 'none'
+                }} />
+
+                {/* Ambient decorations */}
+                <div style={{
+                    position: 'absolute',
+                    top: '20%', left: '5%',
+                    fontSize: '40px', opacity: 0.3,
+                    pointerEvents: 'none',
+                    animation: 'float 3s ease-in-out infinite'
+                }}>
+                    {worldTheme.ambientEmojis[0]}
+                </div>
+                <div style={{
+                    position: 'absolute',
+                    top: '60%', right: '5%',
+                    fontSize: '35px', opacity: 0.3,
+                    pointerEvents: 'none',
+                    animation: 'float 4s ease-in-out infinite'
+                }}>
+                    {worldTheme.ambientEmojis[1]}
+                </div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: '10%', left: '10%',
+                    fontSize: '45px', opacity: 0.25,
+                    pointerEvents: 'none'
+                }}>
+                    {worldTheme.decorations[0]}
+                </div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: '10%', right: '10%',
+                    fontSize: '45px', opacity: 0.25,
+                    pointerEvents: 'none'
+                }}>
+                    {worldTheme.decorations[2]}
+                </div>
+
+                <style>{`
+                    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+                `}</style>
                 <button onClick={() => setGameState('select')} style={{
                     alignSelf: 'flex-start',
-                    background: 'transparent', border: `1px solid ${theme.border}`,
-                    color: theme.textSecondary, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer'
+                    background: 'rgba(0,0,0,0.4)', border: `1px solid ${worldTheme.panelBorder}`,
+                    color: theme.text, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer',
+                    zIndex: 10,
+                    backdropFilter: 'blur(5px)'
                 }}>← Back to Worlds</button>
 
-                <div style={{ fontSize: '80px', marginTop: '15px' }}>{selectedWorld.emoji}</div>
-                <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '5px' }}>World {selectedWorld.id + 1}</div>
-                <h2 style={{ color: selectedWorld.color, marginTop: '5px', fontSize: '28px' }}>{selectedWorld.name}</h2>
-                <p style={{ color: theme.textMuted }}>{selectedWorld.title}</p>
-                <p style={{ color: theme.textSecondary, fontStyle: 'italic', marginTop: '8px' }}>"{selectedWorld.taunt}"</p>
+                {/* Kitchen name badge */}
+                <div style={{
+                    marginTop: '15px',
+                    background: 'rgba(0,0,0,0.4)',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    zIndex: 10
+                }}>
+                    <span>{worldTheme.setting === 'outdoor' ? '🌳' : worldTheme.setting === 'underwater' ? '🌊' : '🏠'}</span>
+                    <span style={{ color: worldTheme.panelBorder }}>{worldTheme.name}</span>
+                    <span style={{ opacity: 0.5 }}>•</span>
+                    <span>{worldTheme.timeOfDay === 'day' ? '☀️' : worldTheme.timeOfDay === 'morning' ? '🌅' : worldTheme.timeOfDay === 'evening' ? '🌆' : '🌙'}</span>
+                </div>
+
+                <div style={{ fontSize: '80px', marginTop: '15px', zIndex: 10, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}>{selectedWorld.emoji}</div>
+                <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '5px', zIndex: 10 }}>World {selectedWorld.id + 1}</div>
+                <h2 style={{ color: selectedWorld.color, marginTop: '5px', fontSize: '28px', zIndex: 10, textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>{selectedWorld.name}</h2>
+                <p style={{ color: theme.text, zIndex: 10 }}>{selectedWorld.title}</p>
+                <p style={{ color: theme.textSecondary, fontStyle: 'italic', marginTop: '8px', zIndex: 10, background: 'rgba(0,0,0,0.3)', padding: '8px 16px', borderRadius: '8px' }}>"{selectedWorld.taunt}"</p>
 
                 <div style={{
                     marginTop: '12px', padding: '10px 20px',
-                    background: `${selectedWorld.color}22`, borderRadius: '8px',
-                    border: `1px solid ${selectedWorld.color}44`
+                    background: worldTheme.panelBg, borderRadius: '8px',
+                    border: `1px solid ${worldTheme.panelBorder}`,
+                    zIndex: 10, backdropFilter: 'blur(5px)'
                 }}>
                     ✨ {selectedWorld.specialDesc}
                 </div>
 
-                <div style={{ marginTop: '15px' }}>
+                <div style={{ marginTop: '15px', zIndex: 10 }}>
                     <WorldStarBar worldId={selectedWorld.id} />
                 </div>
 
-                <h3 style={{ marginTop: '25px', marginBottom: '15px', color: theme.textSecondary }}>Select Level</h3>
+                <h3 style={{ marginTop: '25px', marginBottom: '15px', color: theme.text, zIndex: 10 }}>Select Level</h3>
 
                 {/* Level grid */}
                 <div style={{
@@ -1127,7 +1413,8 @@ const CookOff = () => {
                     gridTemplateColumns: 'repeat(5, 1fr)',
                     gap: '10px',
                     maxWidth: '500px',
-                    width: '100%'
+                    width: '100%',
+                    zIndex: 10
                 }}>
                     {Array(10).fill(0).map((_, i) => {
                         const level = i + 1;
@@ -1142,25 +1429,27 @@ const CookOff = () => {
                                 onClick={() => unlocked && startMatch(selectedWorld, level)}
                                 style={{
                                     background: unlocked
-                                        ? `linear-gradient(135deg, ${selectedWorld.color}88, ${selectedWorld.color}44)`
-                                        : theme.bgDark,
-                                    border: `2px solid ${unlocked ? selectedWorld.color : theme.border}`,
+                                        ? worldTheme.panelBg
+                                        : 'rgba(0,0,0,0.4)',
+                                    border: `2px solid ${unlocked ? worldTheme.panelBorder : 'rgba(255,255,255,0.1)'}`,
                                     borderRadius: '12px',
                                     padding: '12px 8px',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
-                                    opacity: unlocked ? 1 : 0.4,
+                                    opacity: unlocked ? 1 : 0.5,
                                     transition: 'all 0.2s',
-                                    textAlign: 'center'
+                                    textAlign: 'center',
+                                    backdropFilter: 'blur(5px)',
+                                    boxShadow: unlocked && stars >= 1 ? `0 0 15px ${worldTheme.glowColor}` : 'none'
                                 }}
                                 onMouseEnter={(e) => {
                                     if (unlocked) {
-                                        e.currentTarget.style.transform = 'scale(1.05)';
-                                        e.currentTarget.style.boxShadow = `0 4px 15px ${selectedWorld.color}44`;
+                                        e.currentTarget.style.transform = 'scale(1.08)';
+                                        e.currentTarget.style.boxShadow = `0 6px 20px ${worldTheme.glowColor}`;
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'scale(1)';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.boxShadow = unlocked && stars >= 1 ? `0 0 15px ${worldTheme.glowColor}` : 'none';
                                 }}
                             >
                                 <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '4px' }}>
@@ -1185,9 +1474,12 @@ const CookOff = () => {
                 {/* Star requirements legend */}
                 <div style={{
                     marginTop: '20px', padding: '15px',
-                    background: theme.bgPanel, borderRadius: '10px',
-                    fontSize: '12px', color: theme.textSecondary,
-                    maxWidth: '400px', textAlign: 'center'
+                    background: worldTheme.panelBg, borderRadius: '10px',
+                    fontSize: '12px', color: theme.text,
+                    maxWidth: '400px', textAlign: 'center',
+                    zIndex: 10,
+                    border: `1px solid ${worldTheme.panelBorder}55`,
+                    backdropFilter: 'blur(5px)'
                 }}>
                     <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>How to earn stars:</div>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
@@ -1208,25 +1500,132 @@ const CookOff = () => {
     // PLAYING SCREEN
     if (gameState === 'playing' && levelConfig) {
         const world = selectedWorld;
+        const worldTheme = worldThemes[world?.id] || worldThemes[0];
         const showBeat = world?.special === 'rhythm_bonus' || world?.special === 'all_challenges';
         const timerColor = getTimerColor(orderTimer, maxOrderTime);
         const timerPercent = (orderTimer / maxOrderTime) * 100;
         const scorePercent = Math.min(100, (score / levelConfig.targetScore) * 100);
 
+        // Opponent expressions based on mood
+        const opponentExpressions = {
+            neutral: { scale: 1, message: '' },
+            happy: { scale: 1.1, message: '😏' },
+            worried: { scale: 0.9, message: '😰' },
+            excited: { scale: 1.15, message: '😤' },
+            taunting: { scale: 1.05, message: '😎' }
+        };
+        const opponentState = opponentExpressions[opponentMood];
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${world?.color}15 100%)`,
+                background: worldTheme.bgGradient,
+                position: 'relative',
+                overflow: 'hidden',
                 display: 'flex', flexDirection: 'column',
                 padding: '15px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(5px)' : 'none',
                 transition: screenShake ? 'none' : 'transform 0.1s'
             }}>
+                {/* Background pattern overlay */}
+                <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    background: worldTheme.bgPattern,
+                    pointerEvents: 'none',
+                    zIndex: 0
+                }} />
+
+                {/* Ambient floating particles */}
+                {ambientParticles.map(particle => (
+                    <div
+                        key={particle.id}
+                        style={{
+                            position: 'absolute',
+                            left: `${particle.x}%`,
+                            top: `${particle.y}%`,
+                            fontSize: `${particle.size}px`,
+                            opacity: particle.opacity,
+                            pointerEvents: 'none',
+                            zIndex: 1,
+                            transition: 'top 0.2s linear',
+                            filter: 'blur(0.5px)'
+                        }}
+                    >
+                        {particle.emoji}
+                    </div>
+                ))}
+
+                {/* Decorative elements */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: '10px', left: '10px',
+                    fontSize: '30px', opacity: 0.4,
+                    pointerEvents: 'none', zIndex: 1
+                }}>
+                    {worldTheme.decorations[0]}
+                </div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: '10px', right: '10px',
+                    fontSize: '30px', opacity: 0.4,
+                    pointerEvents: 'none', zIndex: 1
+                }}>
+                    {worldTheme.decorations[2]}
+                </div>
+
+                {/* Opponent character with reactions */}
+                <div style={{
+                    position: 'absolute',
+                    top: '80px', right: '20px',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', zIndex: 2,
+                    transition: 'transform 0.3s ease'
+                }}>
+                    <div style={{
+                        fontSize: '50px',
+                        transform: `scale(${opponentState.scale})`,
+                        transition: 'transform 0.3s ease',
+                        filter: combo >= 5 ? 'grayscale(0.3)' : 'none',
+                        animation: opponentMood === 'excited' ? 'opponentBounce 0.3s infinite' : 'none'
+                    }}>
+                        {world?.emoji}
+                    </div>
+                    {opponentState.message && (
+                        <div style={{
+                            fontSize: '20px',
+                            marginTop: '4px',
+                            animation: 'popIn 0.2s ease-out'
+                        }}>
+                            {opponentState.message}
+                        </div>
+                    )}
+                    {opponentMood === 'taunting' && (
+                        <div style={{
+                            fontSize: '10px',
+                            color: world?.color,
+                            marginTop: '4px',
+                            maxWidth: '80px',
+                            textAlign: 'center',
+                            background: 'rgba(0,0,0,0.5)',
+                            padding: '4px 8px',
+                            borderRadius: '8px'
+                        }}>
+                            {world?.taunt.split(' ').slice(0, 3).join(' ')}...
+                        </div>
+                    )}
+                </div>
+
                 {/* Header */}
                 <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     marginBottom: '10px', padding: '10px 15px',
-                    background: theme.bgPanel, borderRadius: '10px'
+                    background: worldTheme.panelBg,
+                    borderRadius: '10px',
+                    border: `2px solid ${worldTheme.panelBorder}`,
+                    boxShadow: `0 4px 15px ${worldTheme.glowColor}`,
+                    zIndex: 10,
+                    backdropFilter: 'blur(8px)'
                 }}>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                         <div>
@@ -1293,13 +1692,38 @@ const CookOff = () => {
                     </div>
                 </div>
 
+                {/* Kitchen name badge */}
+                <div style={{
+                    position: 'absolute',
+                    top: '15px', left: '15px',
+                    background: 'rgba(0,0,0,0.5)',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    color: worldTheme.panelBorder,
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backdropFilter: 'blur(5px)'
+                }}>
+                    <span>{worldTheme.setting === 'outdoor' ? '🌳' : worldTheme.setting === 'underwater' ? '🌊' : '🏠'}</span>
+                    <span>{worldTheme.name}</span>
+                    <span style={{ opacity: 0.6 }}>•</span>
+                    <span>{worldTheme.timeOfDay === 'day' ? '☀️' : worldTheme.timeOfDay === 'morning' ? '🌅' : worldTheme.timeOfDay === 'evening' ? '🌆' : '🌙'}</span>
+                </div>
+
                 {/* Speed round indicator */}
                 {isSpeedRound && (
                     <div style={{
                         textAlign: 'center', padding: '6px',
-                        background: `${theme.accent}44`, borderRadius: '6px',
+                        background: `${theme.accent}88`,
+                        borderRadius: '6px',
                         marginBottom: '8px', color: 'white', fontWeight: 'bold',
-                        animation: 'pulse 0.4s infinite', fontSize: '13px'
+                        animation: 'pulse 0.4s infinite', fontSize: '13px',
+                        zIndex: 10,
+                        border: `2px solid ${theme.accent}`,
+                        boxShadow: `0 0 20px ${theme.accent}66`
                     }}>
                         ⚡ SPEED ROUND - 1.5x POINTS! ⚡
                     </div>
@@ -1323,10 +1747,23 @@ const CookOff = () => {
                     <div
                         onClick={switchToSecondOrder}
                         style={{
-                            background: theme.bgPanel, border: `2px dashed ${world?.color}`,
+                            background: worldTheme.panelBg,
+                            border: `2px dashed ${worldTheme.panelBorder}`,
                             borderRadius: '8px', padding: '8px 12px', marginBottom: '8px',
                             cursor: 'pointer', display: 'flex', alignItems: 'center',
-                            justifyContent: 'space-between'
+                            justifyContent: 'space-between',
+                            zIndex: 10,
+                            backdropFilter: 'blur(5px)',
+                            transition: 'all 0.2s',
+                            boxShadow: `0 2px 10px ${worldTheme.glowColor}`
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scale(1.02)';
+                            e.currentTarget.style.borderStyle = 'solid';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.borderStyle = 'dashed';
                         }}
                     >
                         <span style={{ fontSize: '11px', color: theme.textMuted }}>ALT:</span>
@@ -1342,9 +1779,13 @@ const CookOff = () => {
                 {/* Current Order */}
                 {currentOrder && (
                     <div style={{
-                        background: theme.bgPanel, borderRadius: '12px',
+                        background: worldTheme.panelBg,
+                        borderRadius: '12px',
                         padding: '15px', marginBottom: '12px',
-                        border: `2px solid ${timerPercent < 25 ? theme.error : theme.accent}`
+                        border: `2px solid ${timerPercent < 25 ? theme.error : worldTheme.panelBorder}`,
+                        boxShadow: timerPercent < 25 ? `0 0 20px ${theme.error}44` : `0 4px 15px ${worldTheme.glowColor}`,
+                        zIndex: 10,
+                        backdropFilter: 'blur(8px)'
                     }}>
                         <div style={{
                             display: 'flex', justifyContent: 'space-between',
@@ -1422,8 +1863,15 @@ const CookOff = () => {
 
                 {/* Ingredients */}
                 <div style={{
-                    flex: 1, background: theme.bgDark, borderRadius: '12px',
-                    padding: '15px', display: 'flex', flexDirection: 'column'
+                    flex: 1,
+                    background: `${worldTheme.panelBg}`,
+                    borderRadius: '12px',
+                    padding: '15px',
+                    display: 'flex', flexDirection: 'column',
+                    border: `2px solid ${worldTheme.panelBorder}55`,
+                    boxShadow: `inset 0 2px 10px rgba(0,0,0,0.3)`,
+                    zIndex: 10,
+                    backdropFilter: 'blur(5px)'
                 }}>
                     <div style={{
                         textAlign: 'center', marginBottom: '15px',
@@ -1523,6 +1971,9 @@ const CookOff = () => {
                 <style>{`
                     @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
                     @keyframes popIn { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+                    @keyframes opponentBounce { 0%, 100% { transform: translateY(0) scale(1.15); } 50% { transform: translateY(-5px) scale(1.15); } }
+                    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+                    @keyframes glow { 0%, 100% { box-shadow: 0 0 10px ${worldTheme.glowColor}; } 50% { box-shadow: 0 0 25px ${worldTheme.glowColor}; } }
                 `}</style>
             </div>
         );
