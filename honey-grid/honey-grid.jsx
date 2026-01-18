@@ -9,11 +9,14 @@ const { useState, useEffect, useCallback, useMemo, useRef } = React;
  * - Need 10 stars to unlock next world
  * - World N Level 10 is easier than World N+1 Level 1 (difficulty steps between worlds)
  * - Stars: 0.25 (cash out ≥4), 0.5 (cash out ≥8), 0.75 (complete), 1.0 (perfect - only multipliers flipped)
+ *
+ * Visual Theming:
+ * - Each world has unique color palette, background, tile styles, trap icons, and ambient effects
  */
 
 const HoneyGrid = () => {
-    // Theme
-    const theme = {
+    // Base theme (used as fallback and for menus)
+    const baseTheme = {
         bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#151020',
         bgLight: '#3a3460', bgHover: '#4a4480',
         border: '#5a5488', borderLight: '#6a64a8', borderBright: '#8a84c8',
@@ -26,6 +29,166 @@ const HoneyGrid = () => {
         safe: '#44aaff', safeGlow: 'rgba(68, 170, 255, 0.3)',
         bronze: '#cd7f32', silver: '#c0c0c0', platinum: '#e5e4e2'
     };
+
+    /**
+     * WORLD THEMES - Each world has a unique visual identity
+     */
+    const worldThemes = {
+        // World 0: Funky Frog - Swamp/Pond theme
+        0: {
+            name: 'Swamp',
+            bg: '#1a2a1a', bgPanel: '#2a3a2a', bgDark: '#0f1f0f',
+            bgLight: '#3a4a3a', bgHover: '#4a5a4a',
+            border: '#4a6a4a', borderLight: '#5a7a5a', borderBright: '#7a9a7a',
+            accent: '#50c878', accentBright: '#70e898', accentDim: '#308858',
+            gradient: 'linear-gradient(135deg, #1a2a1a 0%, #2a4a2a 30%, #1a3a2a 70%, #0f2f1f 100%)',
+            pattern: 'radial-gradient(circle at 20% 80%, rgba(80, 200, 120, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(80, 200, 120, 0.08) 0%, transparent 40%)',
+            tileHidden: '🌿', tileX2: '🍀', tileX3: '💎', tileX1: '🌱', trap: '🪰',
+            particles: { emoji: '🌿', count: 8, color: '#50c878' },
+            ambient: 'bubbles'
+        },
+        // World 1: Cheeky Chicken - Barn/Farm theme
+        1: {
+            name: 'Farm',
+            bg: '#2a2015', bgPanel: '#3a3025', bgDark: '#1a1008',
+            bgLight: '#4a4035', bgHover: '#5a5045',
+            border: '#6a5030', borderLight: '#8a7050', borderBright: '#aa9070',
+            accent: '#e8a840', accentBright: '#ffc860', accentDim: '#c88820',
+            gradient: 'linear-gradient(135deg, #2a2015 0%, #3a2a18 30%, #4a3520 70%, #2a1a10 100%)',
+            pattern: 'repeating-linear-gradient(90deg, rgba(232, 168, 64, 0.03) 0px, rgba(232, 168, 64, 0.03) 2px, transparent 2px, transparent 20px)',
+            tileHidden: '🥚', tileX2: '🌽', tileX3: '🌟', tileX1: '🌾', trap: '🦊',
+            particles: { emoji: '🪶', count: 6, color: '#e8a840' },
+            ambient: 'feathers'
+        },
+        // World 2: Disco Dinosaur - Prehistoric/Volcanic theme
+        2: {
+            name: 'Volcano',
+            bg: '#2a1520', bgPanel: '#3a2530', bgDark: '#1a0810',
+            bgLight: '#4a3540', bgHover: '#5a4550',
+            border: '#6a3050', borderLight: '#8a5070', borderBright: '#aa7090',
+            accent: '#a080c0', accentBright: '#c0a0e0', accentDim: '#8060a0',
+            gradient: 'linear-gradient(135deg, #2a1520 0%, #3a1525 30%, #4a2030 70%, #2a0a15 100%)',
+            pattern: 'radial-gradient(ellipse at 50% 100%, rgba(255, 100, 50, 0.15) 0%, transparent 50%)',
+            tileHidden: '🪨', tileX2: '💜', tileX3: '💎', tileX1: '🦴', trap: '☄️',
+            particles: { emoji: '🔥', count: 10, color: '#ff6633' },
+            ambient: 'embers'
+        },
+        // World 3: Radical Raccoon - Urban/Night theme
+        3: {
+            name: 'City',
+            bg: '#1a1a20', bgPanel: '#2a2a35', bgDark: '#101015',
+            bgLight: '#3a3a45', bgHover: '#4a4a55',
+            border: '#505060', borderLight: '#606575', borderBright: '#808595',
+            accent: '#808090', accentBright: '#a0a0b0', accentDim: '#606070',
+            gradient: 'linear-gradient(180deg, #1a1a25 0%, #252530 50%, #1a1a20 100%)',
+            pattern: 'repeating-linear-gradient(0deg, transparent 0px, transparent 40px, rgba(255,255,255,0.02) 40px, rgba(255,255,255,0.02) 42px)',
+            tileHidden: '🗑️', tileX2: '📦', tileX3: '💰', tileX1: '📰', trap: '🚗',
+            particles: { emoji: '✨', count: 12, color: '#ffff88' },
+            ambient: 'stars'
+        },
+        // World 4: Electric Eel - Underwater theme
+        4: {
+            name: 'Ocean',
+            bg: '#0a1a2a', bgPanel: '#1a2a3a', bgDark: '#050f1a',
+            bgLight: '#2a3a4a', bgHover: '#3a4a5a',
+            border: '#305080', borderLight: '#4070a0', borderBright: '#60a0d0',
+            accent: '#50a8e8', accentBright: '#70c8ff', accentDim: '#3088c8',
+            gradient: 'linear-gradient(180deg, #0a1a2a 0%, #0a2a4a 50%, #051530 100%)',
+            pattern: 'radial-gradient(ellipse at 30% 20%, rgba(80, 168, 232, 0.1) 0%, transparent 40%), radial-gradient(ellipse at 70% 80%, rgba(80, 168, 232, 0.08) 0%, transparent 50%)',
+            tileHidden: '🫧', tileX2: '🐚', tileX3: '🔱', tileX1: '🌊', trap: '🦈',
+            particles: { emoji: '🫧', count: 15, color: '#88ccff' },
+            ambient: 'bubbles'
+        },
+        // World 5: Mysterious Moth - Night Forest theme
+        5: {
+            name: 'Forest',
+            bg: '#151520', bgPanel: '#252530', bgDark: '#0a0a10',
+            bgLight: '#353540', bgHover: '#454550',
+            border: '#504560', borderLight: '#706580', borderBright: '#9085a0',
+            accent: '#c090a0', accentBright: '#e0b0c0', accentDim: '#a07080',
+            gradient: 'linear-gradient(135deg, #151520 0%, #1a1525 30%, #201a30 70%, #100a18 100%)',
+            pattern: 'radial-gradient(circle at 15% 15%, rgba(255, 255, 150, 0.05) 0%, transparent 20%), radial-gradient(circle at 85% 30%, rgba(255, 255, 150, 0.04) 0%, transparent 15%), radial-gradient(circle at 45% 85%, rgba(255, 255, 150, 0.03) 0%, transparent 25%)',
+            tileHidden: '🍄', tileX2: '🌸', tileX3: '🌙', tileX1: '🍂', trap: '🕷️',
+            particles: { emoji: '✨', count: 20, color: '#ffff99' },
+            ambient: 'fireflies'
+        },
+        // World 6: Professor Penguin - Arctic theme
+        6: {
+            name: 'Arctic',
+            bg: '#1a2025', bgPanel: '#2a3540', bgDark: '#0f1518',
+            bgLight: '#3a4550', bgHover: '#4a5560',
+            border: '#506070', borderLight: '#708090', borderBright: '#a0b0c0',
+            accent: '#4080a0', accentBright: '#60a0c0', accentDim: '#306080',
+            gradient: 'linear-gradient(180deg, #1a2530 0%, #253545 30%, #1a2535 70%, #101820 100%)',
+            pattern: 'radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(200, 230, 255, 0.06) 0%, transparent 40%)',
+            tileHidden: '❄️', tileX2: '🧊', tileX3: '💠', tileX1: '🌨️', trap: '🐻‍❄️',
+            particles: { emoji: '❄️', count: 18, color: '#ffffff' },
+            ambient: 'snow'
+        },
+        // World 7: Sly Snake - Desert theme
+        7: {
+            name: 'Desert',
+            bg: '#2a2518', bgPanel: '#3a3528', bgDark: '#1a1508',
+            bgLight: '#4a4538', bgHover: '#5a5548',
+            border: '#6a6040', borderLight: '#8a8060', borderBright: '#aaa080',
+            accent: '#60a060', accentBright: '#80c080', accentDim: '#408040',
+            gradient: 'linear-gradient(180deg, #3a3020 0%, #4a4030 40%, #3a3525 70%, #2a2015 100%)',
+            pattern: 'repeating-linear-gradient(135deg, rgba(255, 200, 100, 0.02) 0px, rgba(255, 200, 100, 0.02) 1px, transparent 1px, transparent 10px)',
+            tileHidden: '🌵', tileX2: '💛', tileX3: '👑', tileX1: '🏜️', trap: '🦂',
+            particles: { emoji: '🌙', count: 5, color: '#ffcc66' },
+            ambient: 'dust'
+        },
+        // World 8: Wolf Warrior - Dark Mountain theme
+        8: {
+            name: 'Mountain',
+            bg: '#181820', bgPanel: '#282835', bgDark: '#0c0c10',
+            bgLight: '#383845', bgHover: '#484855',
+            border: '#404050', borderLight: '#505065', borderBright: '#707085',
+            accent: '#606080', accentBright: '#8080a0', accentDim: '#404060',
+            gradient: 'linear-gradient(180deg, #181820 0%, #202030 30%, #252535 60%, #151520 100%)',
+            pattern: 'linear-gradient(135deg, rgba(100, 100, 120, 0.05) 25%, transparent 25%, transparent 75%, rgba(100, 100, 120, 0.05) 75%)',
+            tileHidden: '🦴', tileX2: '⚔️', tileX3: '🏆', tileX1: '🪨', trap: '🪤',
+            particles: { emoji: '🌫️', count: 8, color: '#666688' },
+            ambient: 'mist'
+        },
+        // World 9: Grand Master Grizzly - Royal/Gold theme
+        9: {
+            name: 'Palace',
+            bg: '#1a1510', bgPanel: '#2a2520', bgDark: '#100a05',
+            bgLight: '#3a3530', bgHover: '#4a4540',
+            border: '#6a5530', borderLight: '#8a7550', borderBright: '#cca050',
+            accent: '#d4a840', accentBright: '#ffc860', accentDim: '#b48820',
+            gradient: 'linear-gradient(135deg, #1a1510 0%, #2a2015 30%, #3a2a1a 60%, #201508 100%)',
+            pattern: 'repeating-linear-gradient(45deg, rgba(212, 168, 64, 0.03) 0px, rgba(212, 168, 64, 0.03) 1px, transparent 1px, transparent 8px), repeating-linear-gradient(-45deg, rgba(212, 168, 64, 0.03) 0px, rgba(212, 168, 64, 0.03) 1px, transparent 1px, transparent 8px)',
+            tileHidden: '🎴', tileX2: '💎', tileX3: '👑', tileX1: '🃏', trap: '🐉',
+            particles: { emoji: '✨', count: 25, color: '#ffd700' },
+            ambient: 'sparkles'
+        }
+    };
+
+    // Game state - declare early so theme can use it
+    const [gameState, setGameState] = useState('menu');
+    const [selectedOpponent, setSelectedOpponent] = useState(null);
+    const [currentLevel, setCurrentLevel] = useState(1);
+    const [showTutorial, setShowTutorial] = useState(false);
+    const [tutorialStep, setTutorialStep] = useState(0);
+
+    // Get active theme based on selected opponent
+    const getActiveTheme = useCallback((opponentId) => {
+        if (opponentId === null || opponentId === undefined) return baseTheme;
+        const worldTheme = worldThemes[opponentId] || {};
+        return { ...baseTheme, ...worldTheme };
+    }, []);
+
+    const theme = useMemo(() => {
+        return getActiveTheme(selectedOpponent?.id);
+    }, [selectedOpponent, getActiveTheme]);
+
+    // Get world theme data for tile rendering
+    const worldTheme = useMemo(() => {
+        if (selectedOpponent === null) return null;
+        return worldThemes[selectedOpponent.id] || null;
+    }, [selectedOpponent]);
 
     /**
      * LEVEL CONFIGURATIONS
@@ -166,76 +329,79 @@ const HoneyGrid = () => {
         ],
     };
 
-    // Opponents/Worlds
+    // Opponents/Worlds - with environment theming
     const opponents = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
             title: 'The Friendly Beginner',
             description: 'Learn the basics with simple puzzles',
             mechanic: 'Tutorial - Safe rows guaranteed!',
+            environment: 'Lily Pond', envEmoji: '🪷'
         },
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
             title: 'The Cunning Clucker',
             description: 'x3 multipliers appear for bigger scores!',
             mechanic: 'x3 tiles introduced!',
+            environment: 'Sunny Farm', envEmoji: '🌾'
         },
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Groovy Giant',
             description: 'More traps, tighter deductions needed',
             mechanic: 'Denser trap fields!',
+            environment: 'Volcanic Plains', envEmoji: '🌋'
         },
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Trash Tactician',
             description: 'Some sums shown as ranges (±1)',
             mechanic: 'Fuzzy hints (~) appear!',
+            environment: 'Night City', envEmoji: '🌃'
         },
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Shocking Strategist',
             description: 'Some hints hidden until you reveal tiles',
             mechanic: 'Hidden hints (?) appear!',
+            environment: 'Deep Ocean', envEmoji: '🌊'
         },
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
             title: 'The Light Seeker',
             description: 'Traps cluster together in groups',
             mechanic: 'Clustered trap patterns!',
+            environment: 'Twilight Forest', envEmoji: '🌲'
         },
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
             title: 'The Antarctic Academic',
             description: 'Dense grids with high-value tiles',
             mechanic: 'High reward density!',
+            environment: 'Frozen Tundra', envEmoji: '🏔️'
         },
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Slithering Schemer',
             description: 'Traps form diagonal patterns',
             mechanic: 'Diagonal trap lines!',
+            environment: 'Scorching Desert', envEmoji: '🏜️'
         },
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Pack Leader',
             description: 'Maximum trap density - every move counts',
             mechanic: 'Heavy trap fields!',
+            environment: 'Dark Mountains', envEmoji: '⛰️'
         },
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Champion',
             description: 'All mechanics combined - prove mastery!',
             mechanic: 'Master challenge!',
+            environment: 'Royal Palace', envEmoji: '🏰'
         }
     ];
-
-    // Game state
-    const [gameState, setGameState] = useState('menu');
-    const [selectedOpponent, setSelectedOpponent] = useState(null);
-    const [currentLevel, setCurrentLevel] = useState(1);
-    const [showTutorial, setShowTutorial] = useState(false);
-    const [tutorialStep, setTutorialStep] = useState(0);
 
     // Board state
     const [grid, setGrid] = useState([]);
@@ -265,6 +431,7 @@ const HoneyGrid = () => {
     const [shakeAnimation, setShakeAnimation] = useState(false);
     const [celebrateAnimation, setCelebrateAnimation] = useState(false);
     const [particles, setParticles] = useState([]);
+    const [ambientParticles, setAmbientParticles] = useState([]);
 
     // Progression - now stores stars per level (0, 0.25, 0.5, 0.75, or 1)
     const [progression, setProgression] = useState(() => {
@@ -339,6 +506,73 @@ const HoneyGrid = () => {
         }, 16);
         return () => clearInterval(interval);
     }, [particles.length]);
+
+    // Ambient particle system - world-themed floating effects
+    useEffect(() => {
+        if (gameState !== 'playing' || !worldTheme) {
+            setAmbientParticles([]);
+            return;
+        }
+
+        const particleConfig = worldTheme.particles || { emoji: '✨', count: 10, color: '#ffffff' };
+        const ambientType = worldTheme.ambient || 'sparkles';
+
+        // Create initial ambient particles
+        const createAmbientParticle = (index) => {
+            const baseSpeed = ambientType === 'snow' ? 0.3 : ambientType === 'bubbles' ? -0.5 : 0.2;
+            const drift = ambientType === 'fireflies' ? (Math.random() - 0.5) * 2 : (Math.random() - 0.5) * 0.5;
+
+            return {
+                id: Date.now() + index + Math.random(),
+                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
+                y: ambientType === 'bubbles' ? (typeof window !== 'undefined' ? window.innerHeight + 50 : 700) :
+                   ambientType === 'snow' ? -50 :
+                   Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600),
+                vx: drift,
+                vy: baseSpeed + Math.random() * 0.3,
+                emoji: particleConfig.emoji,
+                size: 12 + Math.random() * 12,
+                opacity: 0.3 + Math.random() * 0.4,
+                wobble: Math.random() * Math.PI * 2,
+                wobbleSpeed: 0.02 + Math.random() * 0.03
+            };
+        };
+
+        // Initialize particles
+        const initial = Array(particleConfig.count).fill(0).map((_, i) => createAmbientParticle(i));
+        setAmbientParticles(initial);
+
+        // Animate ambient particles
+        const interval = setInterval(() => {
+            setAmbientParticles(prev => prev.map(p => {
+                let newX = p.x + p.vx;
+                let newY = p.y + p.vy;
+
+                // Add wobble for fireflies
+                if (ambientType === 'fireflies') {
+                    newX += Math.sin(p.wobble) * 0.5;
+                    p.wobble += p.wobbleSpeed;
+                }
+
+                // Wrap around screen
+                const maxW = typeof window !== 'undefined' ? window.innerWidth : 800;
+                const maxH = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+                if (ambientType === 'bubbles' && newY < -50) {
+                    return createAmbientParticle(p.id);
+                }
+                if (ambientType === 'snow' && newY > maxH + 50) {
+                    return createAmbientParticle(p.id);
+                }
+                if (newX < -50) newX = maxW + 50;
+                if (newX > maxW + 50) newX = -50;
+
+                return { ...p, x: newX, y: newY };
+            }));
+        }, 50);
+
+        return () => clearInterval(interval);
+    }, [gameState, worldTheme]);
 
     // Generate grid based on level config
     const generateGrid = useCallback((config) => {
@@ -834,7 +1068,7 @@ const HoneyGrid = () => {
         );
     };
 
-    // Tile component
+    // Tile component - with world theming
     const Tile = ({ x, y }) => {
         const isRevealed = revealed[y]?.[x];
         const value = grid[y]?.[x];
@@ -844,21 +1078,75 @@ const HoneyGrid = () => {
                              (hoveredHint?.type === 'col' && hoveredHint?.index === x);
         const isInSafeZone = (rowHints[y]?.traps === 0) || (colHints[x]?.traps === 0);
 
+        // Get themed tile content
+        const getThemedContent = (val) => {
+            if (!worldTheme) {
+                // Fallback to default
+                switch(val) {
+                    case 0: return '💥';
+                    case 1: return 'x1';
+                    case 2: return 'x2';
+                    case 3: return 'x3';
+                    default: return '?';
+                }
+            }
+            switch(val) {
+                case 0: return worldTheme.trap || '💥';
+                case 1: return worldTheme.tileX1 || 'x1';
+                case 2: return worldTheme.tileX2 || 'x2';
+                case 3: return worldTheme.tileX3 || 'x3';
+                default: return '?';
+            }
+        };
+
+        const getHiddenContent = () => {
+            if (mark?.flagged === 'safe') return '✓';
+            if (mark?.flagged === 'trap') return '✗';
+            return worldTheme?.tileHidden || '?';
+        };
+
         const getStyle = () => {
             if (!isRevealed) {
                 const flagColor = mark?.flagged === 'safe' ? theme.safe : mark?.flagged === 'trap' ? theme.error : null;
                 return {
                     bg: flagColor ? `${flagColor}33` : isHighlighted ? theme.bgHover : theme.bgPanel,
                     border: flagColor || (isHighlighted ? theme.borderBright : theme.accent),
-                    content: mark?.flagged === 'safe' ? '✓' : mark?.flagged === 'trap' ? '✗' : '?'
+                    content: getHiddenContent(),
+                    fontSize: '24px'
                 };
             }
             switch(value) {
-                case 0: return { bg: theme.error, border: theme.error, content: '💥', glow: theme.errorGlow };
-                case 1: return { bg: theme.bgDark, border: theme.border, content: 'x1', textColor: theme.textMuted };
-                case 2: return { bg: theme.honey, border: theme.honey, content: 'x2', textColor: '#000', glow: theme.honeyGlow };
-                case 3: return { bg: theme.gold, border: theme.gold, content: 'x3', textColor: '#000', glow: theme.goldGlow };
-                default: return { bg: theme.bgPanel, border: theme.border, content: '?' };
+                case 0: return {
+                    bg: `linear-gradient(135deg, ${theme.error}, ${theme.errorDim || '#aa2222'})`,
+                    border: theme.error,
+                    content: getThemedContent(0),
+                    glow: theme.errorGlow,
+                    fontSize: '26px'
+                };
+                case 1: return {
+                    bg: theme.bgDark,
+                    border: theme.border,
+                    content: getThemedContent(1),
+                    textColor: theme.textMuted,
+                    fontSize: '18px'
+                };
+                case 2: return {
+                    bg: `linear-gradient(135deg, ${theme.honey}, ${theme.accent})`,
+                    border: theme.honey,
+                    content: getThemedContent(2),
+                    textColor: '#000',
+                    glow: theme.honeyGlow,
+                    fontSize: '24px'
+                };
+                case 3: return {
+                    bg: `linear-gradient(135deg, ${theme.gold}, ${theme.honey})`,
+                    border: theme.gold,
+                    content: getThemedContent(3),
+                    textColor: '#000',
+                    glow: theme.goldGlow,
+                    fontSize: '24px'
+                };
+                default: return { bg: theme.bgPanel, border: theme.border, content: '?', fontSize: '20px' };
             }
         };
 
@@ -876,7 +1164,7 @@ const HoneyGrid = () => {
                     background: style.bg, border: `2px solid ${style.border}`,
                     borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: isRevealed || roundResult ? 'default' : 'pointer',
-                    fontSize: isRevealed ? '20px' : '22px', fontWeight: 'bold',
+                    fontSize: style.fontSize || '20px', fontWeight: 'bold',
                     color: style.textColor || theme.text,
                     transition: 'all 0.15s ease',
                     transform: isFlipping ? 'rotateY(90deg) scale(1.1)' :
@@ -1046,14 +1334,27 @@ const HoneyGrid = () => {
                                     }}>{opp.emoji}</div>
 
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '2px' }}>World {idx + 1}</div>
+                                        <div style={{ fontSize: '12px', color: baseTheme.textMuted, marginBottom: '2px' }}>World {idx + 1}</div>
                                         <div style={{ fontSize: '20px', fontWeight: 'bold', color: opp.color, marginBottom: '2px' }}>{opp.name}</div>
-                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '6px' }}>{opp.title}</div>
+                                        <div style={{ fontSize: '12px', color: baseTheme.textMuted, marginBottom: '6px' }}>{opp.title}</div>
                                         <div style={{
-                                            fontSize: '12px', color: theme.textSecondary,
-                                            background: `${opp.color}15`, padding: '5px 10px',
-                                            borderRadius: '6px', marginBottom: '10px'
-                                        }}>{opp.mechanic}</div>
+                                            display: 'flex', gap: '8px', marginBottom: '6px'
+                                        }}>
+                                            <div style={{
+                                                fontSize: '11px', color: baseTheme.textSecondary,
+                                                background: `${opp.color}15`, padding: '4px 8px',
+                                                borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px'
+                                            }}>
+                                                {opp.envEmoji} {opp.environment}
+                                            </div>
+                                            <div style={{
+                                                fontSize: '11px', color: baseTheme.textSecondary,
+                                                background: `${opp.color}15`, padding: '4px 8px',
+                                                borderRadius: '6px'
+                                            }}>
+                                                {opp.mechanic}
+                                            </div>
+                                        </div>
                                         <WorldStarsBar worldIdx={idx} />
                                     </div>
                                 </div>
@@ -1076,27 +1377,60 @@ const HoneyGrid = () => {
 
     // LEVEL SELECT
     if (gameState === 'level_select' && selectedOpponent) {
+        const levelSelectTheme = worldThemes[selectedOpponent.id] || {};
+        const levelSelectBg = levelSelectTheme.gradient || `linear-gradient(135deg, ${baseTheme.bg} 0%, ${selectedOpponent.color}15 50%, ${baseTheme.bg} 100%)`;
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}15 50%, ${theme.bg} 100%)`,
-                padding: '25px', color: theme.text,
-                display: 'flex', flexDirection: 'column', alignItems: 'center'
+                background: levelSelectBg,
+                padding: '25px', color: baseTheme.text,
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                position: 'relative'
             }}>
+                {/* Pattern overlay */}
+                {levelSelectTheme.pattern && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: levelSelectTheme.pattern,
+                        pointerEvents: 'none', zIndex: 0, opacity: 0.5
+                    }} />
+                )}
                 <button onClick={() => setGameState('select')} style={{
                     alignSelf: 'flex-start', background: 'transparent',
                     border: `1px solid ${theme.border}`, color: theme.textSecondary,
                     padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px'
                 }}>← Back</button>
 
-                <div style={{ fontSize: '90px', marginBottom: '10px' }}>{selectedOpponent.emoji}</div>
-                <div style={{ fontSize: '14px', color: theme.textMuted }}>World {selectedOpponent.id + 1}</div>
-                <h2 style={{ color: selectedOpponent.color, fontSize: '32px', marginBottom: '5px' }}>{selectedOpponent.name}</h2>
-                <p style={{ color: theme.textMuted, marginBottom: '10px' }}>{selectedOpponent.title}</p>
+                <div style={{ fontSize: '90px', marginBottom: '10px', position: 'relative', zIndex: 1 }}>{selectedOpponent.emoji}</div>
+                <div style={{ fontSize: '14px', color: baseTheme.textMuted, position: 'relative', zIndex: 1 }}>World {selectedOpponent.id + 1}</div>
+                <h2 style={{ color: selectedOpponent.color, fontSize: '32px', marginBottom: '5px', position: 'relative', zIndex: 1 }}>{selectedOpponent.name}</h2>
+                <p style={{ color: baseTheme.textMuted, marginBottom: '10px', position: 'relative', zIndex: 1 }}>{selectedOpponent.title}</p>
 
                 <div style={{
-                    padding: '12px 24px', background: `${selectedOpponent.color}15`,
-                    borderRadius: '10px', color: theme.textSecondary, marginBottom: '15px'
+                    display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 1
+                }}>
+                    <div style={{
+                        padding: '8px 16px', background: `${selectedOpponent.color}20`,
+                        borderRadius: '8px', color: baseTheme.textSecondary, fontSize: '14px',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        border: `1px solid ${selectedOpponent.color}40`
+                    }}>
+                        {selectedOpponent.envEmoji} {selectedOpponent.environment}
+                    </div>
+                    <div style={{
+                        padding: '8px 16px', background: `${selectedOpponent.color}20`,
+                        borderRadius: '8px', color: baseTheme.textSecondary, fontSize: '14px',
+                        border: `1px solid ${selectedOpponent.color}40`
+                    }}>
+                        {selectedOpponent.mechanic}
+                    </div>
+                </div>
+
+                <div style={{
+                    padding: '10px 20px', background: `${selectedOpponent.color}15`,
+                    borderRadius: '10px', color: baseTheme.textSecondary, marginBottom: '15px',
+                    fontSize: '13px', position: 'relative', zIndex: 1
                 }}>{selectedOpponent.description}</div>
 
                 <div style={{ marginBottom: '30px' }}>
@@ -1134,8 +1468,8 @@ const HoneyGrid = () => {
                                 <span>{unlocked ? levelNum : '🔒'}</span>
                                 {unlocked && <StarDisplay stars={stars} size="small" />}
                                 {unlocked && (
-                                    <span style={{ fontSize: '9px', color: theme.textMuted, opacity: 0.8 }}>
-                                        {config.traps}💀 {config.mults}🍯
+                                    <span style={{ fontSize: '9px', color: baseTheme.textMuted, opacity: 0.8 }}>
+                                        {config.traps}{levelSelectTheme?.trap || '💀'} {config.mults}{levelSelectTheme?.tileX2 || '🍯'}
                                     </span>
                                 )}
                             </button>
@@ -1145,13 +1479,15 @@ const HoneyGrid = () => {
 
                 <div style={{
                     marginTop: '30px', padding: '15px 25px',
-                    background: theme.bgPanel, borderRadius: '10px',
-                    textAlign: 'center', fontSize: '13px', color: theme.textMuted
+                    background: `${baseTheme.bgPanel}cc`, borderRadius: '10px',
+                    textAlign: 'center', fontSize: '13px', color: baseTheme.textMuted,
+                    position: 'relative', zIndex: 1, backdropFilter: 'blur(4px)'
                 }}>
-                    <div style={{ marginBottom: '8px', color: theme.textSecondary }}>Level Difficulty Info</div>
-                    <div>
-                        L1: {levelConfigs[selectedOpponent.id][0].traps} traps, {levelConfigs[selectedOpponent.id][0].mults} mults →
-                        L10: {levelConfigs[selectedOpponent.id][9].traps} traps, {levelConfigs[selectedOpponent.id][9].mults} mults
+                    <div style={{ marginBottom: '8px', color: baseTheme.textSecondary }}>Level Difficulty Info</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                        <span>L1: {levelConfigs[selectedOpponent.id][0].traps} {levelSelectTheme?.trap || '💀'}, {levelConfigs[selectedOpponent.id][0].mults} {levelSelectTheme?.tileX2 || '🍯'}</span>
+                        <span>→</span>
+                        <span>L10: {levelConfigs[selectedOpponent.id][9].traps} {levelSelectTheme?.trap || '💀'}, {levelConfigs[selectedOpponent.id][9].mults} {levelSelectTheme?.tileX2 || '🍯'}</span>
                     </div>
                 </div>
             </div>
@@ -1164,14 +1500,41 @@ const HoneyGrid = () => {
         const currentBest = getLevelStars(selectedOpponent.id, currentLevel - 1);
         const isNewBest = earnedStars > currentBest;
 
+        // Get world-specific background
+        const worldBg = worldTheme?.gradient || `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent?.color}12 50%, ${theme.bg} 100%)`;
+        const worldPattern = worldTheme?.pattern || '';
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent?.color}12 50%, ${theme.bg} 100%)`,
+                background: worldBg,
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 padding: '20px', color: theme.text, position: 'relative', overflow: 'hidden'
             }}>
-                {/* Particles */}
+                {/* World pattern overlay */}
+                {worldPattern && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: worldPattern,
+                        pointerEvents: 'none', zIndex: 0
+                    }} />
+                )}
+
+                {/* Ambient particles */}
+                {ambientParticles.map(p => (
+                    <div key={p.id} style={{
+                        position: 'fixed', left: p.x, top: p.y,
+                        fontSize: `${p.size}px`,
+                        opacity: p.opacity,
+                        pointerEvents: 'none', zIndex: 1,
+                        transform: 'translate(-50%, -50%)',
+                        filter: worldTheme?.ambient === 'fireflies' ? `drop-shadow(0 0 4px ${worldTheme.particles?.color || '#ffff99'})` : 'none'
+                    }}>
+                        {p.emoji}
+                    </div>
+                ))}
+
+                {/* Score particles */}
                 {particles.map(p => (
                     <div key={p.id} style={{
                         position: 'fixed', left: p.x, top: p.y,
@@ -1185,10 +1548,15 @@ const HoneyGrid = () => {
                 <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     width: '100%', maxWidth: '520px', marginBottom: '20px',
-                    padding: '15px 20px', background: theme.bgPanel, borderRadius: '14px'
+                    padding: '15px 20px', background: `${theme.bgPanel}dd`, borderRadius: '14px',
+                    position: 'relative', zIndex: 10, backdropFilter: 'blur(4px)',
+                    border: `1px solid ${theme.border}40`
                 }}>
                     <div>
-                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>World {selectedOpponent.id + 1} - Level {currentLevel}</div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{selectedOpponent?.envEmoji}</span>
+                            World {selectedOpponent.id + 1} - Level {currentLevel}
+                        </div>
                         <div style={{ color: selectedOpponent?.color, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ fontSize: '20px' }}>{selectedOpponent?.emoji}</span>
                             {selectedOpponent?.name}
@@ -1198,18 +1566,21 @@ const HoneyGrid = () => {
                         <div style={{ color: theme.textMuted, fontSize: '11px' }}>Score</div>
                         <div style={{
                             fontSize: '32px', fontWeight: 'bold',
-                            color: currentScore > 1 ? theme.gold : theme.text
+                            color: currentScore > 1 ? theme.gold : theme.text,
+                            textShadow: currentScore > 1 ? `0 0 10px ${theme.goldGlow}` : 'none'
                         }}>{currentScore}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ color: theme.textMuted, fontSize: '11px' }}>Target: {levelConfig?.targetScore}</div>
-                        <div style={{ color: theme.honey, fontSize: '18px', fontWeight: 'bold' }}>{foundMultipliers}/{totalMultipliers}</div>
+                        <div style={{ color: theme.honey, fontSize: '18px', fontWeight: 'bold' }}>
+                            {foundMultipliers}/{totalMultipliers} {worldTheme?.tileX2 || '🍯'}
+                        </div>
                         <div style={{ fontSize: '10px', color: theme.textMuted }}>Best: <StarDisplay stars={currentBest} size="small" /></div>
                     </div>
                 </div>
 
                 {/* Grid */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', animation: shakeAnimation ? 'shake 0.5s' : 'none' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', animation: shakeAnimation ? 'shake 0.5s' : 'none', position: 'relative', zIndex: 10 }}>
                     <div style={{ display: 'flex', gap: '6px', marginLeft: '58px' }}>
                         {colHints.map((hint, i) => (
                             <HintDisplay key={i} hint={hint} hidden={hiddenHints.cols?.has(i)}
@@ -1228,32 +1599,33 @@ const HoneyGrid = () => {
                 </div>
 
                 {/* Buttons */}
-                <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 10 }}>
                     <button onClick={autoMarkSafe} disabled={roundResult !== null} style={{
-                        padding: '10px 20px', fontSize: '14px', background: 'transparent',
+                        padding: '10px 20px', fontSize: '14px', background: `${theme.bgPanel}88`,
                         border: `1px solid ${theme.safe}`, borderRadius: '8px', color: theme.safe,
-                        cursor: roundResult ? 'not-allowed' : 'pointer', opacity: roundResult ? 0.5 : 1
+                        cursor: roundResult ? 'not-allowed' : 'pointer', opacity: roundResult ? 0.5 : 1,
+                        backdropFilter: 'blur(4px)'
                     }}>Auto-Mark Safe (A)</button>
 
                     {moveHistory.length > 0 && !roundResult && (
                         <button onClick={undoMove} style={{
-                            padding: '10px 20px', fontSize: '14px', background: 'transparent',
+                            padding: '10px 20px', fontSize: '14px', background: `${theme.bgPanel}88`,
                             border: `1px solid ${theme.border}`, borderRadius: '8px',
-                            color: theme.textSecondary, cursor: 'pointer'
+                            color: theme.textSecondary, cursor: 'pointer', backdropFilter: 'blur(4px)'
                         }}>Undo (Ctrl+Z)</button>
                     )}
 
                     {!roundResult && currentScore > 1 && (
                         <button onClick={cashOut} style={{
                             padding: '12px 30px', fontSize: '16px', fontWeight: 'bold',
-                            background: `linear-gradient(135deg, ${theme.gold}, ${theme.honey})`,
+                            background: `linear-gradient(135deg, ${theme.gold}, ${theme.accent})`,
                             border: 'none', borderRadius: '10px', color: '#000', cursor: 'pointer',
                             boxShadow: `0 4px 20px ${theme.goldGlow}`
-                        }}>💰 CASH OUT ({currentScore})</button>
+                        }}>{worldTheme?.tileX3 || '💰'} CASH OUT ({currentScore})</button>
                     )}
                 </div>
 
-                <div style={{ marginTop: '15px', color: theme.textMuted, fontSize: '12px', textAlign: 'center' }}>
+                <div style={{ marginTop: '15px', color: theme.textMuted, fontSize: '12px', textAlign: 'center', position: 'relative', zIndex: 10 }}>
                     Click = Flip | Right-click = Mark | Space = Cash Out | ESC = Exit
                 </div>
 
@@ -1351,7 +1723,7 @@ const HoneyGrid = () => {
                         {showSolution && (
                             <div style={{ marginBottom: '20px', padding: '15px', background: theme.bgPanel, borderRadius: '12px' }}>
                                 <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '10px', textAlign: 'center' }}>
-                                    Solution (x2=🟡, x3=⭐, trap=💥)
+                                    Solution ({worldTheme?.tileX2 || 'x2'}=x2, {worldTheme?.tileX3 || 'x3'}=x3, {worldTheme?.trap || '💥'}=trap)
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     {grid.map((row, y) => (
@@ -1361,10 +1733,13 @@ const HoneyGrid = () => {
                                                     width: '30px', height: '30px', display: 'flex',
                                                     alignItems: 'center', justifyContent: 'center',
                                                     background: val === 0 ? theme.error : val === 3 ? theme.gold : val === 2 ? theme.honey : theme.bgDark,
-                                                    borderRadius: '4px', fontSize: '12px',
+                                                    borderRadius: '4px', fontSize: '14px',
                                                     color: val === 0 ? '#fff' : val > 1 ? '#000' : theme.textMuted
                                                 }}>
-                                                    {val === 0 ? '💥' : val === 3 ? '⭐' : val === 2 ? '🟡' : 'x1'}
+                                                    {val === 0 ? (worldTheme?.trap || '💥') :
+                                                     val === 3 ? (worldTheme?.tileX3 || '⭐') :
+                                                     val === 2 ? (worldTheme?.tileX2 || '🟡') :
+                                                     (worldTheme?.tileX1 || 'x1')}
                                                 </div>
                                             ))}
                                         </div>
