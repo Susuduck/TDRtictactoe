@@ -147,6 +147,8 @@ const BreakoutGame = () => {
   const isChargingRef = useRef(false);
   const chargeLevelRef = useRef(0);
   const ballsRef = useRef([]);
+  const bricksRef = useRef([]);
+  const paddleRef = useRef(paddle);
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -323,6 +325,8 @@ const BreakoutGame = () => {
   useEffect(() => { isChargingRef.current = isCharging; }, [isCharging]);
   useEffect(() => { chargeLevelRef.current = chargeLevel; }, [chargeLevel]);
   useEffect(() => { ballsRef.current = balls; }, [balls]);
+  useEffect(() => { bricksRef.current = bricks; }, [bricks]);
+  useEffect(() => { paddleRef.current = paddle; }, [paddle]);
 
   // Keyboard controls with dash and Teddy abilities - stable event handlers
   useEffect(() => {
@@ -462,7 +466,9 @@ const BreakoutGame = () => {
         const targetX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, mouseX - prev.width / 2));
         // Calculate velocity for spin effect
         const vx = (targetX - prev.x) * 2;
-        return { ...prev, x: targetX, vx };
+        const nextPaddle = { ...prev, x: targetX, vx };
+        paddleRef.current = nextPaddle;
+        return nextPaddle;
       });
     };
 
@@ -900,21 +906,22 @@ const BreakoutGame = () => {
 
       // Move paddle with velocity tracking for spin
       if (!activeEffects.includes('frozen')) {
-        setPaddle(prev => {
-          let newX = prev.x;
-          const speed = isDashing ? DASH_SPEED : 8;
+        const currentPaddle = paddleRef.current;
+        let newX = currentPaddle.x;
+        const speed = isDashing ? DASH_SPEED : 8;
 
-          if (keysRef.current.left) newX -= speed * deltaTime;
-          if (keysRef.current.right) newX += speed * deltaTime;
+        if (keysRef.current.left) newX -= speed * deltaTime;
+        if (keysRef.current.right) newX += speed * deltaTime;
 
-          newX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, newX));
+        newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
 
-          // Calculate velocity for spin
-          const vx = (newX - paddleLastX.current) / deltaTime;
-          paddleLastX.current = newX;
+        // Calculate velocity for spin
+        const vx = (newX - paddleLastX.current) / deltaTime;
+        paddleLastX.current = newX;
 
-          return { ...prev, x: newX, vx };
-        });
+        const nextPaddle = { ...currentPaddle, x: newX, vx };
+        paddleRef.current = nextPaddle;
+        setPaddle(nextPaddle);
       }
 
       // Move balls
@@ -925,6 +932,8 @@ const BreakoutGame = () => {
           }
 
           let { x, y, vx, vy, burning } = ball;
+          let attached = ball.attached;
+          let wasAttached = ball.wasAttached;
 
           // Speed modifier
           const speedMod = activeEffects.includes('fast') ? 1.3 :
@@ -943,69 +952,65 @@ const BreakoutGame = () => {
             y = BALL_RADIUS;
           }
 
+          const paddleSnapshot = paddleRef.current;
+
           // Paddle collision (main paddle)
-          setPaddle(paddle => {
-            if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
-                y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
-                x >= paddle.x && x <= paddle.x + paddle.width) {
+          if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+              y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
+              x >= paddleSnapshot.x && x <= paddleSnapshot.x + paddleSnapshot.width) {
 
-              // Calculate bounce angle based on hit position
-              const hitPos = (x - paddle.x) / paddle.width;
-              const angle = (hitPos - 0.5) * Math.PI * 0.7;
-              const speed = Math.sqrt(vx * vx + vy * vy);
+            // Calculate bounce angle based on hit position
+            const hitPos = (x - paddleSnapshot.x) / paddleSnapshot.width;
+            const angle = (hitPos - 0.5) * Math.PI * 0.7;
+            const speed = Math.sqrt(vx * vx + vy * vy);
 
-              // === SPIN CONTROL: Add paddle velocity to ball ===
-              const spinFactor = paddle.vx * 0.15; // Paddle velocity affects ball
-              vx = Math.sin(angle) * speed + spinFactor;
-              vy = -Math.abs(Math.cos(angle) * speed);
-              y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
+            // === SPIN CONTROL: Add paddle velocity to ball ===
+            const spinFactor = paddleSnapshot.vx * 0.15; // Paddle velocity affects ball
+            vx = Math.sin(angle) * speed + spinFactor;
+            vy = -Math.abs(Math.cos(angle) * speed);
+            y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
 
-              // Magnet catch (from upgrade or power-up or enemy gimmick)
-              const hasMagnet = stats.upgrades.magnetCatch ||
-                               activeEffects.includes('magnet') ||
-                               selectedEnemy?.gimmick === 'magnet_paddle';
-              if (hasMagnet && !ball.wasAttached) {
-                // Ball sticks - will launch on space
-                ball.attached = true;
-                ball.wasAttached = true;
-              }
-
-              // Build Teddy Meter on paddle hits
-              const meterGain = 5 * (1 + stats.upgrades.teddyPower * 0.1);
-              setTeddyMeter(prev => Math.min(TEDDY_METER_MAX, prev + meterGain));
-
-              createParticles(x, y, isDashing ? '#ffd700' : '#50c878', isDashing ? 10 : 5);
-
-              // Dash hit bonus
-              if (isDashing) {
-                addFloatingText(x, y - 20, 'DASH HIT!', '#ffd700');
-                setScore(s => s + 25);
-              }
+            // Magnet catch (from upgrade or power-up or enemy gimmick)
+            const hasMagnet = stats.upgrades.magnetCatch ||
+                             activeEffects.includes('magnet') ||
+                             selectedEnemy?.gimmick === 'magnet_paddle';
+            if (hasMagnet && !wasAttached) {
+              // Ball sticks - will launch on space
+              attached = true;
+              wasAttached = true;
             }
-            return paddle;
-          });
+
+            // Build Teddy Meter on paddle hits
+            const meterGain = 5 * (1 + stats.upgrades.teddyPower * 0.1);
+            setTeddyMeter(prev => Math.min(TEDDY_METER_MAX, prev + meterGain));
+
+            createParticles(x, y, isDashing ? '#ffd700' : '#50c878', isDashing ? 10 : 5);
+
+            // Dash hit bonus
+            if (isDashing) {
+              addFloatingText(x, y - 20, 'DASH HIT!', '#ffd700');
+              setScore(s => s + 25);
+            }
+          }
 
           // Twin paddle collision (Teddy Twins ability)
           if (twinPaddle?.active) {
-            setPaddle(paddle => {
-              // Twin is mirrored on opposite side
-              const twinX = CANVAS_WIDTH - paddle.x - paddle.width;
-              if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
-                  y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
-                  x >= twinX && x <= twinX + paddle.width) {
+            // Twin is mirrored on opposite side
+            const twinX = CANVAS_WIDTH - paddleSnapshot.x - paddleSnapshot.width;
+            if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+                y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
+                x >= twinX && x <= twinX + paddleSnapshot.width) {
 
-                const hitPos = (x - twinX) / paddle.width;
-                const angle = (hitPos - 0.5) * Math.PI * 0.7;
-                const speed = Math.sqrt(vx * vx + vy * vy);
+              const hitPos = (x - twinX) / paddleSnapshot.width;
+              const angle = (hitPos - 0.5) * Math.PI * 0.7;
+              const speed = Math.sqrt(vx * vx + vy * vy);
 
-                vx = Math.sin(angle) * speed - (paddle.vx * 0.15); // Inverse spin
-                vy = -Math.abs(Math.cos(angle) * speed);
-                y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
+              vx = Math.sin(angle) * speed - (paddleSnapshot.vx * 0.15); // Inverse spin
+              vy = -Math.abs(Math.cos(angle) * speed);
+              y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
 
-                createParticles(x, y, '#ff80ff', 8);
-              }
-              return paddle;
-            });
+              createParticles(x, y, '#ff80ff', 8);
+            }
           }
 
           // Portal collision
@@ -1021,7 +1026,7 @@ const BreakoutGame = () => {
             });
           }
 
-          return { ...ball, x, y, vx, vy };
+          return { ...ball, x, y, vx, vy, attached, wasAttached };
         });
 
         // Check if ball is lost
@@ -1062,7 +1067,48 @@ const BreakoutGame = () => {
           if (ball.attached) return ball;
 
           let { x, y, vx, vy, burning } = ball;
-          let brickHit = false;
+          const bricksSnapshot = bricksRef.current;
+
+          for (const brick of bricksSnapshot) {
+            if (brick.health <= 0) continue;
+            if (x + BALL_RADIUS > brick.x &&
+                x - BALL_RADIUS < brick.x + brick.width &&
+                y + BALL_RADIUS > brick.y &&
+                y - BALL_RADIUS < brick.y + brick.height) {
+              // Determine bounce direction
+              const overlapLeft = (x + BALL_RADIUS) - brick.x;
+              const overlapRight = (brick.x + brick.width) - (x - BALL_RADIUS);
+              const overlapTop = (y + BALL_RADIUS) - brick.y;
+              const overlapBottom = (brick.y + brick.height) - (y - BALL_RADIUS);
+
+              const minOverlapX = Math.min(overlapLeft, overlapRight);
+              const minOverlapY = Math.min(overlapTop, overlapBottom);
+
+              // Obstacles and burning balls have special bounce rules
+              // Obstacles ALWAYS bounce the ball (they're solid)
+              // Burning balls pass through normal bricks but bounce off obstacles and bosses
+              if (!burning || brick.type === 'boss' || brick.type === 'obstacle') {
+                if (minOverlapX < minOverlapY) {
+                  vx = -vx;
+                  x = overlapLeft < overlapRight
+                    ? brick.x - BALL_RADIUS
+                    : brick.x + brick.width + BALL_RADIUS;
+                } else {
+                  vy = -vy;
+                  y = overlapTop < overlapBottom
+                    ? brick.y - BALL_RADIUS
+                    : brick.y + brick.height + BALL_RADIUS;
+                }
+
+                // Chaos clown random bounce
+                if (selectedEnemy?.gimmick === 'random_bounces' && Math.random() < 0.3) {
+                  vx += (Math.random() - 0.5) * 3;
+                  vy += (Math.random() - 0.5) * 2;
+                }
+              }
+              break;
+            }
+          }
 
           setBricks(prevBricks => {
             return prevBricks.map(brick => {
@@ -1073,36 +1119,6 @@ const BreakoutGame = () => {
                   x - BALL_RADIUS < brick.x + brick.width &&
                   y + BALL_RADIUS > brick.y &&
                   y - BALL_RADIUS < brick.y + brick.height) {
-
-                if (!brickHit) {
-                  // Determine bounce direction
-                  const overlapLeft = (x + BALL_RADIUS) - brick.x;
-                  const overlapRight = (brick.x + brick.width) - (x - BALL_RADIUS);
-                  const overlapTop = (y + BALL_RADIUS) - brick.y;
-                  const overlapBottom = (brick.y + brick.height) - (y - BALL_RADIUS);
-
-                  const minOverlapX = Math.min(overlapLeft, overlapRight);
-                  const minOverlapY = Math.min(overlapTop, overlapBottom);
-
-                  // Obstacles and burning balls have special bounce rules
-                  // Obstacles ALWAYS bounce the ball (they're solid)
-                  // Burning balls pass through normal bricks but bounce off obstacles and bosses
-                  if (!burning || brick.type === 'boss' || brick.type === 'obstacle') {
-                    if (minOverlapX < minOverlapY) {
-                      vx = -vx;
-                    } else {
-                      vy = -vy;
-                    }
-
-                    // Chaos clown random bounce
-                    if (selectedEnemy?.gimmick === 'random_bounces' && Math.random() < 0.3) {
-                      vx += (Math.random() - 0.5) * 3;
-                      vy += (Math.random() - 0.5) * 2;
-                    }
-                  }
-
-                  brickHit = true;
-                }
 
                 // Obstacles are indestructible - just bounce and create particles
                 if (brick.type === 'obstacle') {
@@ -1530,7 +1546,9 @@ const BreakoutGame = () => {
     setCurrentLevel(1);
     setCombo(0);
     setMaxCombo(0);
-    setPaddle({ x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 });
+    const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
+    setPaddle(nextPaddle);
+    paddleRef.current = nextPaddle;
     setBalls([createBall(1)]);
     setBricks(createBricks(1, enemy));
     setPowerUps([]);
