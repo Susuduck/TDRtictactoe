@@ -7,7 +7,7 @@ const { useState, useEffect, useCallback, useRef } = React;
  * - 10 Worlds (Opponents), each with 10 Levels
  * - Each level earns up to 1 star (0.5 for completion, 1.0 for excellence)
  * - Worlds unlock when previous world has 10 stars
- * - World N Level 10 is easier than World N+1 Level 1
+ * - Difficulty STEPS UP when entering a new world (World N+1 Level 1 > World N Level 10)
  * - Each level has specific difficulty parameters and objectives
  */
 
@@ -48,6 +48,9 @@ const CookOff = () => {
 
     // World definitions with base parameters
     // Each world introduces a unique mechanic and has base difficulty settings
+    // IMPORTANT: Each world's Level 1 must be HARDER than the previous world's Level 10
+    // This creates a clear "step up" feeling when entering a new world
+    // Note: Timer formula adds (recipeSize - 2) * 0.6s, so actual times are higher for larger recipes
     const worlds = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
@@ -56,16 +59,12 @@ const CookOff = () => {
             winQuote: "Hop hop, delicious!", loseQuote: "You're learning!",
             special: 'none',
             specialDesc: 'Master the basics - no special mechanics',
-            // Base parameters for this world
-            baseTime: 12,        // Starting timer for level 1
-            minTime: 8,          // Minimum timer at level 10
-            baseRecipeMin: 2,    // Min recipe size at level 1
-            baseRecipeMax: 2,    // Max recipe size at level 1
-            maxRecipeSize: 3,    // Max recipe size at level 10
-            baseIngredients: 4,  // Ingredient pool at level 1
-            maxIngredients: 6,   // Ingredient pool at level 10
-            baseTarget: 300,     // Score target for level 1
-            targetGrowth: 40     // Score increase per level
+            // World 1: Very forgiving, teaches the basics
+            baseTime: 12,        // L1: 12s (comfortable learning)
+            minTime: 9,          // L10: 9s (still relaxed)
+            baseRecipeMin: 2, baseRecipeMax: 2, maxRecipeSize: 2,
+            baseIngredients: 4, maxIngredients: 5,
+            baseTarget: 300, targetGrowth: 25
         },
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
@@ -74,10 +73,11 @@ const CookOff = () => {
             winQuote: "Egg-cellent!", loseQuote: "Cluck cluck, nice try!",
             special: 'bonus_time',
             specialDesc: 'Combos grant +2 seconds - keep the streak alive!',
-            baseTime: 10, minTime: 7,
-            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 4,
-            baseIngredients: 5, maxIngredients: 7,
-            baseTarget: 400, targetGrowth: 50
+            // World 2: L1 at 8.5s (HARDER than W1 L10's 9s), introduces 3-ingredient recipes
+            baseTime: 8.5, minTime: 6.5,
+            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 3,
+            baseIngredients: 5, maxIngredients: 6,
+            baseTarget: 350, targetGrowth: 30
         },
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
@@ -86,10 +86,11 @@ const CookOff = () => {
             winQuote: "Groovy!", loseQuote: "You've got rhythm!",
             special: 'rhythm_bonus',
             specialDesc: 'Complete orders on the golden beat for 2x points!',
-            baseTime: 10, minTime: 7,
-            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 4,
-            baseIngredients: 5, maxIngredients: 8,
-            baseTarget: 450, targetGrowth: 50
+            // World 3: L1 at 6s (HARDER than W2 L10's 6.5s)
+            baseTime: 6, minTime: 4.8,
+            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 3,
+            baseIngredients: 6, maxIngredients: 7,
+            baseTarget: 400, targetGrowth: 35
         },
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
@@ -98,10 +99,11 @@ const CookOff = () => {
             winQuote: "Resourceful!", loseQuote: "Good scrapping!",
             special: 'wild_card',
             specialDesc: 'Wild card substitutes any ingredient - use it strategically!',
-            baseTime: 9, minTime: 6,
-            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 4,
-            baseIngredients: 6, maxIngredients: 9,
-            baseTarget: 500, targetGrowth: 55
+            // World 4: L1 at 4.5s (HARDER than W3 L10's 4.8s), wild card helps offset
+            baseTime: 4.5, minTime: 3.5,
+            baseRecipeMin: 3, baseRecipeMax: 3, maxRecipeSize: 4,
+            baseIngredients: 7, maxIngredients: 8,
+            baseTarget: 450, targetGrowth: 40
         },
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
@@ -110,10 +112,11 @@ const CookOff = () => {
             winQuote: "Shockingly fast!", loseQuote: "Quick thinking!",
             special: 'speed_surge',
             specialDesc: 'Speed rounds appear - faster timer but 1.5x points!',
-            baseTime: 8, minTime: 5,
-            baseRecipeMin: 3, baseRecipeMax: 3, maxRecipeSize: 5,
-            baseIngredients: 6, maxIngredients: 10,
-            baseTarget: 550, targetGrowth: 60
+            // World 5: L1 at 3.3s (HARDER than W4 L10's 3.5s) - this world is about speed
+            baseTime: 3.3, minTime: 2.8,
+            baseRecipeMin: 3, baseRecipeMax: 3, maxRecipeSize: 4,
+            baseIngredients: 7, maxIngredients: 9,
+            baseTarget: 500, targetGrowth: 45
         },
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
@@ -122,10 +125,11 @@ const CookOff = () => {
             winQuote: "Mystery solved!", loseQuote: "Sharp memory!",
             special: 'hidden_ingredient',
             specialDesc: 'One ingredient is hidden briefly - memorize the recipe!',
-            baseTime: 9, minTime: 6,
-            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
-            baseIngredients: 7, maxIngredients: 10,
-            baseTarget: 600, targetGrowth: 60
+            // World 6: L1 at 2.6s (HARDER than W5 L10's 2.8s) + hidden ingredient challenge
+            baseTime: 2.6, minTime: 2.2,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 4,
+            baseIngredients: 8, maxIngredients: 10,
+            baseTarget: 400, targetGrowth: 35
         },
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
@@ -134,10 +138,12 @@ const CookOff = () => {
             winQuote: "Precisely!", loseQuote: "Scientific approach!",
             special: 'strict_order',
             specialDesc: 'Wrong ingredient = order failed, but 2x point rewards!',
-            baseTime: 9, minTime: 6,
-            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
+            // World 7: L1 at 2s (HARDER than W6 L10's 2.2s) + strict order = punishing
+            // 2x points compensate for the brutal precision requirement
+            baseTime: 2, minTime: 1.7,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 4,
             baseIngredients: 8, maxIngredients: 11,
-            baseTarget: 650, targetGrowth: 65
+            baseTarget: 300, targetGrowth: 30  // Lower targets - strict mode is very hard
         },
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
@@ -146,10 +152,11 @@ const CookOff = () => {
             winQuote: "Sssslippery!", loseQuote: "Sssharp eyes!",
             special: 'decoy_ingredients',
             specialDesc: 'Decoy ingredients appear - avoid the fakes!',
-            baseTime: 8, minTime: 5,
+            // World 8: L1 at 1.5s (HARDER than W7 L10's 1.7s) + decoys = dangerous
+            baseTime: 1.5, minTime: 1.2,
             baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
-            baseIngredients: 8, maxIngredients: 12,
-            baseTarget: 700, targetGrowth: 70
+            baseIngredients: 9, maxIngredients: 12,
+            baseTarget: 350, targetGrowth: 35
         },
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
@@ -158,10 +165,11 @@ const CookOff = () => {
             winQuote: "Pack satisfied!", loseQuote: "Alpha material!",
             special: 'multi_order',
             specialDesc: 'Two orders at once - complete either one!',
-            baseTime: 8, minTime: 5,
-            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 6,
+            // World 9: L1 at 1s (HARDER than W8 L10's 1.2s) - 2 order options help
+            baseTime: 1, minTime: 0.8,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
             baseIngredients: 9, maxIngredients: 13,
-            baseTarget: 750, targetGrowth: 75
+            baseTarget: 400, targetGrowth: 40
         },
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
@@ -170,10 +178,13 @@ const CookOff = () => {
             winQuote: "Legendary!", loseQuote: "True chef spirit!",
             special: 'all_challenges',
             specialDesc: 'All mechanics combined - the ultimate test!',
-            baseTime: 7, minTime: 4,
-            baseRecipeMin: 4, baseRecipeMax: 5, maxRecipeSize: 6,
+            // World 10: L1 at 0.6s (HARDER than W9 L10's 0.8s)
+            // BRUTAL finale - but multi-order + wild card + large recipes give buffer
+            // Recipe size bonus: (5-2)*0.6 = 1.8s extra, so actual time ~2.4-2.8s
+            baseTime: 0.6, minTime: 0.4,
+            baseRecipeMin: 4, baseRecipeMax: 5, maxRecipeSize: 5,
             baseIngredients: 10, maxIngredients: 14,
-            baseTarget: 800, targetGrowth: 80
+            baseTarget: 450, targetGrowth: 45
         }
     ];
 
@@ -231,11 +242,7 @@ const CookOff = () => {
             ordersNeeded,
             mechanicIntensity,
             levelName: levelVariants[level].name,
-            levelDesc: levelVariants[level].desc,
-            // Bonus time for first 2 levels of each world (training wheels)
-            hasTrainingWheels: level <= 2,
-            // Extra time bonus for training levels
-            trainingBonus: level === 1 ? 3 : level === 2 ? 1.5 : 0
+            levelDesc: levelVariants[level].desc
         };
     }, []);
 
@@ -417,9 +424,6 @@ const CookOff = () => {
 
         // Add time for recipe size
         time += (size - 2) * 0.6;
-
-        // Training wheels bonus
-        time += config.trainingBonus;
 
         // Speed round reduction
         if (speedRound) time = Math.max(3, time * 0.65);
