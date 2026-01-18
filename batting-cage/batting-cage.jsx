@@ -252,7 +252,15 @@ const BattingCage = () => {
                         const unlocked = isOpponentUnlocked(idx);
                         const mastered = isOpponentMastered(idx);
                         return (
-                            <div key={opp.id} onClick={() => unlocked && setSelectedOpponent(opp) && setGameState('level_select')} style={{ background: unlocked ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})` : theme.bgDark, border: `2px solid ${unlocked ? opp.color : theme.border}`, borderRadius: '12px', padding: '15px', cursor: unlocked ? 'pointer' : 'not-allowed', opacity: unlocked ? 1 : 0.5, position: 'relative' }}>
+                            <div
+                                key={opp.id}
+                                onClick={() => {
+                                    if (!unlocked) return;
+                                    setSelectedOpponent(opp);
+                                    setGameState('level_select');
+                                }}
+                                style={{ background: unlocked ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})` : theme.bgDark, border: `2px solid ${unlocked ? opp.color : theme.border}`, borderRadius: '12px', padding: '15px', cursor: unlocked ? 'pointer' : 'not-allowed', opacity: unlocked ? 1 : 0.5, position: 'relative' }}
+                            >
                                 {!unlocked && <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '20px' }}>🔒</div>}
                                 {mastered && <div style={{ position: 'absolute', top: '10px', right: '10px', background: theme.success, padding: '2px 8px', borderRadius: '10px', fontSize: '12px' }}>✓ MASTERED</div>}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
