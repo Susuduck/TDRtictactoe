@@ -1,307 +1,772 @@
-const { useState, useEffect, useCallback, useMemo } = React;
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
 /**
- * HONEY GRID - Voltorb Flip Style Deduction Puzzle
+ * HONEY GRID - Professional Voltorb Flip-Style Deduction Puzzle
  *
- * Design Principles:
- * - Deduction: Use row/column hints to determine safe tiles
- * - Risk/Reward: Flip tiles to multiply score, but traps end the round
- * - Learning: Each opponent introduces different trap densities and hint styles
- * - Strategic: Mark tiles as safe/trap to help your deduction
+ * Progression System:
+ * - 10 Worlds (opponents), each with 10 Levels
+ * - Each level awards up to 1 star (in increments of 0.25)
+ * - Need 10 stars to unlock next world
+ * - World N Level 10 is easier than World N+1 Level 1 (difficulty steps between worlds)
+ * - Stars: 0.25 (cash out ≥4), 0.5 (cash out ≥8), 0.75 (complete), 1.0 (perfect - only multipliers flipped)
+ *
+ * Visual Theming:
+ * - Each world has unique color palette, background, tile styles, trap icons, and ambient effects
  */
 
 const HoneyGrid = () => {
-    // Theme - Dark Orchid
-    const theme = {
-        bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#1a1020',
-        border: '#4a4468', borderLight: '#5a5478',
-        text: '#ffffff', textSecondary: '#b8b0c8', textMuted: '#8880a0',
-        accent: '#9932cc', accentBright: '#b050e0',
-        gold: '#f4c542', goldGlow: 'rgba(244, 197, 66, 0.4)',
-        error: '#e85a50', success: '#50c878',
-        honey: '#f4a020', trap: '#e85a50'
+    // Base theme (used as fallback and for menus)
+    const baseTheme = {
+        bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#151020',
+        bgLight: '#3a3460', bgHover: '#4a4480',
+        border: '#5a5488', borderLight: '#6a64a8', borderBright: '#8a84c8',
+        text: '#ffffff', textSecondary: '#c8c0d8', textMuted: '#9890a8',
+        accent: '#9932cc', accentBright: '#b050e0', accentDim: '#7722aa',
+        gold: '#ffd700', goldGlow: 'rgba(255, 215, 0, 0.5)', goldDim: '#cc9900',
+        honey: '#ffaa00', honeyGlow: 'rgba(255, 170, 0, 0.4)',
+        error: '#ff4444', errorGlow: 'rgba(255, 68, 68, 0.4)', errorDim: '#cc2222',
+        success: '#44dd88', successGlow: 'rgba(68, 221, 136, 0.4)',
+        safe: '#44aaff', safeGlow: 'rgba(68, 170, 255, 0.3)',
+        bronze: '#cd7f32', silver: '#c0c0c0', platinum: '#e5e4e2'
     };
 
-    // Opponents with different trap densities and mechanics
+    /**
+     * WORLD THEMES - Each world has a unique visual identity
+     */
+    const worldThemes = {
+        // World 0: Funky Frog - Swamp/Pond theme
+        0: {
+            name: 'Swamp',
+            bg: '#1a2a1a', bgPanel: '#2a3a2a', bgDark: '#0f1f0f',
+            bgLight: '#3a4a3a', bgHover: '#4a5a4a',
+            border: '#4a6a4a', borderLight: '#5a7a5a', borderBright: '#7a9a7a',
+            accent: '#50c878', accentBright: '#70e898', accentDim: '#308858',
+            gradient: 'linear-gradient(135deg, #1a2a1a 0%, #2a4a2a 30%, #1a3a2a 70%, #0f2f1f 100%)',
+            pattern: 'radial-gradient(circle at 20% 80%, rgba(80, 200, 120, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(80, 200, 120, 0.08) 0%, transparent 40%)',
+            tileHidden: '🌿', tileX2: '🍀', tileX3: '💎', tileX1: '🌱', trap: '🪰',
+            particles: { emoji: '🌿', count: 8, color: '#50c878' },
+            ambient: 'bubbles'
+        },
+        // World 1: Cheeky Chicken - Barn/Farm theme
+        1: {
+            name: 'Farm',
+            bg: '#2a2015', bgPanel: '#3a3025', bgDark: '#1a1008',
+            bgLight: '#4a4035', bgHover: '#5a5045',
+            border: '#6a5030', borderLight: '#8a7050', borderBright: '#aa9070',
+            accent: '#e8a840', accentBright: '#ffc860', accentDim: '#c88820',
+            gradient: 'linear-gradient(135deg, #2a2015 0%, #3a2a18 30%, #4a3520 70%, #2a1a10 100%)',
+            pattern: 'repeating-linear-gradient(90deg, rgba(232, 168, 64, 0.03) 0px, rgba(232, 168, 64, 0.03) 2px, transparent 2px, transparent 20px)',
+            tileHidden: '🥚', tileX2: '🌽', tileX3: '🌟', tileX1: '🌾', trap: '🦊',
+            particles: { emoji: '🪶', count: 6, color: '#e8a840' },
+            ambient: 'feathers'
+        },
+        // World 2: Disco Dinosaur - Prehistoric/Volcanic theme
+        2: {
+            name: 'Volcano',
+            bg: '#2a1520', bgPanel: '#3a2530', bgDark: '#1a0810',
+            bgLight: '#4a3540', bgHover: '#5a4550',
+            border: '#6a3050', borderLight: '#8a5070', borderBright: '#aa7090',
+            accent: '#a080c0', accentBright: '#c0a0e0', accentDim: '#8060a0',
+            gradient: 'linear-gradient(135deg, #2a1520 0%, #3a1525 30%, #4a2030 70%, #2a0a15 100%)',
+            pattern: 'radial-gradient(ellipse at 50% 100%, rgba(255, 100, 50, 0.15) 0%, transparent 50%)',
+            tileHidden: '🪨', tileX2: '💜', tileX3: '💎', tileX1: '🦴', trap: '☄️',
+            particles: { emoji: '🔥', count: 10, color: '#ff6633' },
+            ambient: 'embers'
+        },
+        // World 3: Radical Raccoon - Urban/Night theme
+        3: {
+            name: 'City',
+            bg: '#1a1a20', bgPanel: '#2a2a35', bgDark: '#101015',
+            bgLight: '#3a3a45', bgHover: '#4a4a55',
+            border: '#505060', borderLight: '#606575', borderBright: '#808595',
+            accent: '#808090', accentBright: '#a0a0b0', accentDim: '#606070',
+            gradient: 'linear-gradient(180deg, #1a1a25 0%, #252530 50%, #1a1a20 100%)',
+            pattern: 'repeating-linear-gradient(0deg, transparent 0px, transparent 40px, rgba(255,255,255,0.02) 40px, rgba(255,255,255,0.02) 42px)',
+            tileHidden: '🗑️', tileX2: '📦', tileX3: '💰', tileX1: '📰', trap: '🚗',
+            particles: { emoji: '✨', count: 12, color: '#ffff88' },
+            ambient: 'stars'
+        },
+        // World 4: Electric Eel - Underwater theme
+        4: {
+            name: 'Ocean',
+            bg: '#0a1a2a', bgPanel: '#1a2a3a', bgDark: '#050f1a',
+            bgLight: '#2a3a4a', bgHover: '#3a4a5a',
+            border: '#305080', borderLight: '#4070a0', borderBright: '#60a0d0',
+            accent: '#50a8e8', accentBright: '#70c8ff', accentDim: '#3088c8',
+            gradient: 'linear-gradient(180deg, #0a1a2a 0%, #0a2a4a 50%, #051530 100%)',
+            pattern: 'radial-gradient(ellipse at 30% 20%, rgba(80, 168, 232, 0.1) 0%, transparent 40%), radial-gradient(ellipse at 70% 80%, rgba(80, 168, 232, 0.08) 0%, transparent 50%)',
+            tileHidden: '🫧', tileX2: '🐚', tileX3: '🔱', tileX1: '🌊', trap: '🦈',
+            particles: { emoji: '🫧', count: 15, color: '#88ccff' },
+            ambient: 'bubbles'
+        },
+        // World 5: Mysterious Moth - Night Forest theme
+        5: {
+            name: 'Forest',
+            bg: '#151520', bgPanel: '#252530', bgDark: '#0a0a10',
+            bgLight: '#353540', bgHover: '#454550',
+            border: '#504560', borderLight: '#706580', borderBright: '#9085a0',
+            accent: '#c090a0', accentBright: '#e0b0c0', accentDim: '#a07080',
+            gradient: 'linear-gradient(135deg, #151520 0%, #1a1525 30%, #201a30 70%, #100a18 100%)',
+            pattern: 'radial-gradient(circle at 15% 15%, rgba(255, 255, 150, 0.05) 0%, transparent 20%), radial-gradient(circle at 85% 30%, rgba(255, 255, 150, 0.04) 0%, transparent 15%), radial-gradient(circle at 45% 85%, rgba(255, 255, 150, 0.03) 0%, transparent 25%)',
+            tileHidden: '🍄', tileX2: '🌸', tileX3: '🌙', tileX1: '🍂', trap: '🕷️',
+            particles: { emoji: '✨', count: 20, color: '#ffff99' },
+            ambient: 'fireflies'
+        },
+        // World 6: Professor Penguin - Arctic theme
+        6: {
+            name: 'Arctic',
+            bg: '#1a2025', bgPanel: '#2a3540', bgDark: '#0f1518',
+            bgLight: '#3a4550', bgHover: '#4a5560',
+            border: '#506070', borderLight: '#708090', borderBright: '#a0b0c0',
+            accent: '#4080a0', accentBright: '#60a0c0', accentDim: '#306080',
+            gradient: 'linear-gradient(180deg, #1a2530 0%, #253545 30%, #1a2535 70%, #101820 100%)',
+            pattern: 'radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 30%), radial-gradient(circle at 80% 70%, rgba(200, 230, 255, 0.06) 0%, transparent 40%)',
+            tileHidden: '❄️', tileX2: '🧊', tileX3: '💠', tileX1: '🌨️', trap: '🐻‍❄️',
+            particles: { emoji: '❄️', count: 18, color: '#ffffff' },
+            ambient: 'snow'
+        },
+        // World 7: Sly Snake - Desert theme
+        7: {
+            name: 'Desert',
+            bg: '#2a2518', bgPanel: '#3a3528', bgDark: '#1a1508',
+            bgLight: '#4a4538', bgHover: '#5a5548',
+            border: '#6a6040', borderLight: '#8a8060', borderBright: '#aaa080',
+            accent: '#60a060', accentBright: '#80c080', accentDim: '#408040',
+            gradient: 'linear-gradient(180deg, #3a3020 0%, #4a4030 40%, #3a3525 70%, #2a2015 100%)',
+            pattern: 'repeating-linear-gradient(135deg, rgba(255, 200, 100, 0.02) 0px, rgba(255, 200, 100, 0.02) 1px, transparent 1px, transparent 10px)',
+            tileHidden: '🌵', tileX2: '💛', tileX3: '👑', tileX1: '🏜️', trap: '🦂',
+            particles: { emoji: '🌙', count: 5, color: '#ffcc66' },
+            ambient: 'dust'
+        },
+        // World 8: Wolf Warrior - Dark Mountain theme
+        8: {
+            name: 'Mountain',
+            bg: '#181820', bgPanel: '#282835', bgDark: '#0c0c10',
+            bgLight: '#383845', bgHover: '#484855',
+            border: '#404050', borderLight: '#505065', borderBright: '#707085',
+            accent: '#606080', accentBright: '#8080a0', accentDim: '#404060',
+            gradient: 'linear-gradient(180deg, #181820 0%, #202030 30%, #252535 60%, #151520 100%)',
+            pattern: 'linear-gradient(135deg, rgba(100, 100, 120, 0.05) 25%, transparent 25%, transparent 75%, rgba(100, 100, 120, 0.05) 75%)',
+            tileHidden: '🦴', tileX2: '⚔️', tileX3: '🏆', tileX1: '🪨', trap: '🪤',
+            particles: { emoji: '🌫️', count: 8, color: '#666688' },
+            ambient: 'mist'
+        },
+        // World 9: Grand Master Grizzly - Royal/Gold theme
+        9: {
+            name: 'Palace',
+            bg: '#1a1510', bgPanel: '#2a2520', bgDark: '#100a05',
+            bgLight: '#3a3530', bgHover: '#4a4540',
+            border: '#6a5530', borderLight: '#8a7550', borderBright: '#cca050',
+            accent: '#d4a840', accentBright: '#ffc860', accentDim: '#b48820',
+            gradient: 'linear-gradient(135deg, #1a1510 0%, #2a2015 30%, #3a2a1a 60%, #201508 100%)',
+            pattern: 'repeating-linear-gradient(45deg, rgba(212, 168, 64, 0.03) 0px, rgba(212, 168, 64, 0.03) 1px, transparent 1px, transparent 8px), repeating-linear-gradient(-45deg, rgba(212, 168, 64, 0.03) 0px, rgba(212, 168, 64, 0.03) 1px, transparent 1px, transparent 8px)',
+            tileHidden: '🎴', tileX2: '💎', tileX3: '👑', tileX1: '🃏', trap: '🐉',
+            particles: { emoji: '✨', count: 25, color: '#ffd700' },
+            ambient: 'sparkles'
+        }
+    };
+
+    // Game state - declare early so theme can use it
+    const [gameState, setGameState] = useState('menu');
+    const [selectedOpponent, setSelectedOpponent] = useState(null);
+    const [currentLevel, setCurrentLevel] = useState(1);
+    const [showTutorial, setShowTutorial] = useState(false);
+    const [tutorialStep, setTutorialStep] = useState(0);
+
+    // Get active theme based on selected opponent
+    const getActiveTheme = useCallback((opponentId) => {
+        if (opponentId === null || opponentId === undefined) return baseTheme;
+        const worldTheme = worldThemes[opponentId] || {};
+        return { ...baseTheme, ...worldTheme };
+    }, []);
+
+    const theme = useMemo(() => {
+        return getActiveTheme(selectedOpponent?.id);
+    }, [selectedOpponent, getActiveTheme]);
+
+    // Get world theme data for tile rendering
+    const worldTheme = useMemo(() => {
+        if (selectedOpponent === null) return null;
+        return worldThemes[selectedOpponent.id] || null;
+    }, [selectedOpponent]);
+
+    /**
+     * LEVEL CONFIGURATIONS
+     * Each world has 10 levels with specific configurations
+     * Difficulty increases within world, then jumps at new world
+     * World N Level 10 < World N+1 Level 1 in difficulty
+     */
+    const levelConfigs = {
+        // World 0: Funky Frog - Tutorial (Learning basics)
+        0: [
+            { traps: 1, mults: 3, x3Chance: 0, safeRows: 2, safeCols: 1, targetScore: 8 },   // L1: Super easy
+            { traps: 1, mults: 3, x3Chance: 0, safeRows: 2, safeCols: 0, targetScore: 8 },   // L2
+            { traps: 1, mults: 4, x3Chance: 0, safeRows: 2, safeCols: 0, targetScore: 12 },  // L3
+            { traps: 2, mults: 3, x3Chance: 0, safeRows: 2, safeCols: 0, targetScore: 8 },   // L4
+            { traps: 2, mults: 4, x3Chance: 0, safeRows: 1, safeCols: 1, targetScore: 12 },  // L5
+            { traps: 2, mults: 4, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 16 },  // L6
+            { traps: 2, mults: 5, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 24 },  // L7
+            { traps: 3, mults: 4, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 16 },  // L8
+            { traps: 3, mults: 5, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 24 },  // L9
+            { traps: 3, mults: 5, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 32 },  // L10: Comfortable
+        ],
+        // World 1: Cheeky Chicken - x3 tiles introduced (jump: 3→4 traps, adds x3)
+        1: [
+            { traps: 4, mults: 4, x3Chance: 0.25, safeRows: 1, safeCols: 0, targetScore: 24 },  // L1: Step up!
+            { traps: 4, mults: 4, x3Chance: 0.30, safeRows: 1, safeCols: 0, targetScore: 32 },
+            { traps: 4, mults: 5, x3Chance: 0.30, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 4, mults: 5, x3Chance: 0.35, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 5, mults: 5, x3Chance: 0.35, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 5, mults: 5, x3Chance: 0.35, safeRows: 0, safeCols: 1, targetScore: 64 },
+            { traps: 5, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 1, targetScore: 72 },
+            { traps: 5, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 5, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 5, mults: 7, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 128 }, // L10
+        ],
+        // World 2: Disco Dinosaur - More traps, tighter play (jump: 5→6 traps)
+        2: [
+            { traps: 6, mults: 5, x3Chance: 0.35, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 6, mults: 5, x3Chance: 0.35, safeRows: 0, safeCols: 1, targetScore: 64 },
+            { traps: 6, mults: 6, x3Chance: 0.35, safeRows: 0, safeCols: 1, targetScore: 72 },
+            { traps: 6, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 7, mults: 5, x3Chance: 0.40, safeRows: 0, safeCols: 1, targetScore: 64 },
+            { traps: 7, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 7, mults: 6, x3Chance: 0.45, safeRows: 0, safeCols: 0, targetScore: 128 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, targetScore: 144 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, targetScore: 192 },
+            { traps: 7, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, targetScore: 192 },
+        ],
+        // World 3: Radical Raccoon - Fuzzy hints introduced (jump: adds fuzzy mechanic)
+        3: [
+            { traps: 6, mults: 6, x3Chance: 0.40, safeRows: 1, safeCols: 0, fuzzyChance: 0.20, targetScore: 72 },
+            { traps: 6, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 1, fuzzyChance: 0.25, targetScore: 96 },
+            { traps: 7, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 1, fuzzyChance: 0.25, targetScore: 96 },
+            { traps: 7, mults: 6, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, targetScore: 128 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, targetScore: 144 },
+            { traps: 8, mults: 6, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, targetScore: 128 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, targetScore: 216 },
+            { traps: 8, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, fuzzyChance: 0.40, targetScore: 256 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, fuzzyChance: 0.40, targetScore: 288 },
+        ],
+        // World 4: Electric Eel - Hidden hints (jump: adds hidden hints)
+        4: [
+            { traps: 7, mults: 6, x3Chance: 0.40, safeRows: 1, safeCols: 0, hiddenChance: 0.15, targetScore: 96 },
+            { traps: 7, mults: 7, x3Chance: 0.40, safeRows: 0, safeCols: 1, hiddenChance: 0.20, targetScore: 144 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, hiddenChance: 0.20, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, hiddenChance: 0.25, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, hiddenChance: 0.25, targetScore: 216 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.25, targetScore: 256 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.30, targetScore: 288 },
+            { traps: 9, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.30, targetScore: 256 },
+            { traps: 9, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.30, targetScore: 324 },
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, hiddenChance: 0.35, targetScore: 384 },
+        ],
+        // World 5: Mysterious Moth - Clustered traps (jump: adds clustering)
+        5: [
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 1, safeCols: 0, clustered: true, targetScore: 144 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 1, clustered: true, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 216 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 256 },
+            { traps: 9, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 256 },
+            { traps: 9, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 288 },
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, clustered: true, targetScore: 324 },
+            { traps: 10, mults: 7, x3Chance: 0.55, safeRows: 0, safeCols: 0, clustered: true, targetScore: 288 },
+            { traps: 10, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, clustered: true, targetScore: 384 },
+            { traps: 10, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, clustered: true, targetScore: 432 },
+        ],
+        // World 6: Professor Penguin - High reward density (jump: more x3s, more mults)
+        6: [
+            { traps: 8, mults: 9, x3Chance: 0.55, safeRows: 0, safeCols: 1, targetScore: 432 },
+            { traps: 8, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 486 },
+            { traps: 9, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 512 },
+            { traps: 9, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 576 },
+            { traps: 9, mults: 10, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 648 },
+            { traps: 10, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 576 },
+            { traps: 10, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 648 },
+            { traps: 10, mults: 10, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 729 },
+            { traps: 10, mults: 10, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 864 },
+            { traps: 11, mults: 10, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 972 },
+        ],
+        // World 7: Sly Snake - Diagonal patterns (jump: adds diagonal mechanic)
+        7: [
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 1, diagonal: true, targetScore: 384 },
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 432 },
+            { traps: 9, mults: 9, x3Chance: 0.55, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 486 },
+            { traps: 10, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 432 },
+            { traps: 10, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 512 },
+            { traps: 10, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 576 },
+            { traps: 10, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 648 },
+            { traps: 11, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 512 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 648 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 729 },
+        ],
+        // World 8: Wolf Warrior - Heavy trap density (jump: 11→12 traps)
+        8: [
+            { traps: 12, mults: 7, x3Chance: 0.55, safeRows: 0, safeCols: 1, targetScore: 324 },
+            { traps: 12, mults: 7, x3Chance: 0.55, safeRows: 0, safeCols: 0, targetScore: 384 },
+            { traps: 12, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, targetScore: 432 },
+            { traps: 12, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 486 },
+            { traps: 12, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 512 },
+            { traps: 12, mults: 8, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 576 },
+            { traps: 12, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 648 },
+            { traps: 12, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 729 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 864 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 972 },
+        ],
+        // World 9: Grand Master Grizzly - All mechanics combined (jump: all mechanics)
+        9: [
+            { traps: 10, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 1, fuzzyChance: 0.15, hiddenChance: 0.10, clustered: true, targetScore: 512 },
+            { traps: 10, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, fuzzyChance: 0.20, hiddenChance: 0.15, clustered: true, targetScore: 576 },
+            { traps: 11, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, fuzzyChance: 0.20, hiddenChance: 0.15, diagonal: true, targetScore: 576 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.25, hiddenChance: 0.15, clustered: true, targetScore: 729 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.25, hiddenChance: 0.20, diagonal: true, targetScore: 864 },
+            { traps: 12, mults: 8, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.25, hiddenChance: 0.20, clustered: true, targetScore: 729 },
+            { traps: 12, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, hiddenChance: 0.20, diagonal: true, targetScore: 972 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, hiddenChance: 0.25, clustered: true, diagonal: true, targetScore: 1024 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, hiddenChance: 0.25, clustered: true, diagonal: true, targetScore: 1296 },
+            { traps: 12, mults: 10, x3Chance: 0.75, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, hiddenChance: 0.30, clustered: true, diagonal: true, targetScore: 1536 },
+        ],
+    };
+
+    // Opponents/Worlds - with environment theming
     const opponents = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
-            title: 'The Groovy Beginner',
-            mechanic: 'Few traps - learn the basics!',
-            trapDensity: 0.15, hintClarity: 1.0, maxMultiplier: 2,
-            special: 'none'
+            title: 'The Friendly Beginner',
+            description: 'Learn the basics with simple puzzles',
+            mechanic: 'Tutorial - Safe rows guaranteed!',
+            environment: 'Lily Pond', envEmoji: '🪷'
         },
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
             title: 'The Cunning Clucker',
-            mechanic: 'x3 multipliers appear!',
-            trapDensity: 0.18, hintClarity: 1.0, maxMultiplier: 3,
-            special: 'none'
+            description: 'x3 multipliers appear for bigger scores!',
+            mechanic: 'x3 tiles introduced!',
+            environment: 'Sunny Farm', envEmoji: '🌾'
         },
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Groovy Giant',
-            mechanic: 'More traps to dodge!',
-            trapDensity: 0.22, hintClarity: 1.0, maxMultiplier: 3,
-            special: 'none'
+            description: 'More traps, tighter deductions needed',
+            mechanic: 'Denser trap fields!',
+            environment: 'Volcanic Plains', envEmoji: '🌋'
         },
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Trash Tactician',
-            mechanic: 'Fuzzy hints - sums shown as ranges',
-            trapDensity: 0.20, hintClarity: 0.7, maxMultiplier: 3,
-            special: 'fuzzy_hints'
+            description: 'Some sums shown as ranges (±1)',
+            mechanic: 'Fuzzy hints (~) appear!',
+            environment: 'Night City', envEmoji: '🌃'
         },
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Shocking Strategist',
-            mechanic: 'Some hints are hidden!',
-            trapDensity: 0.22, hintClarity: 0.8, maxMultiplier: 3,
-            special: 'hidden_hints'
+            description: 'Some hints hidden until you reveal tiles',
+            mechanic: 'Hidden hints (?) appear!',
+            environment: 'Deep Ocean', envEmoji: '🌊'
         },
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
             title: 'The Light Seeker',
-            mechanic: 'Traps cluster together!',
-            trapDensity: 0.24, hintClarity: 1.0, maxMultiplier: 3,
-            special: 'clustered_traps'
+            description: 'Traps cluster together in groups',
+            mechanic: 'Clustered trap patterns!',
+            environment: 'Twilight Forest', envEmoji: '🌲'
         },
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
             title: 'The Antarctic Academic',
-            mechanic: 'Dense grids with x3 tiles!',
-            trapDensity: 0.26, hintClarity: 1.0, maxMultiplier: 3,
-            special: 'high_reward'
+            description: 'Dense grids with high-value tiles',
+            mechanic: 'High reward density!',
+            environment: 'Frozen Tundra', envEmoji: '🏔️'
         },
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Slithering Schemer',
-            mechanic: 'Traps form diagonal lines!',
-            trapDensity: 0.25, hintClarity: 0.9, maxMultiplier: 3,
-            special: 'diagonal_traps'
+            description: 'Traps form diagonal patterns',
+            mechanic: 'Diagonal trap lines!',
+            environment: 'Scorching Desert', envEmoji: '🏜️'
         },
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Pack Leader',
-            mechanic: 'Heavy trap density!',
-            trapDensity: 0.30, hintClarity: 1.0, maxMultiplier: 3,
-            special: 'heavy_traps'
+            description: 'Maximum trap density - every move counts',
+            mechanic: 'Heavy trap fields!',
+            environment: 'Dark Mountains', envEmoji: '⛰️'
         },
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Champion',
-            mechanic: 'Master challenge - all mechanics!',
-            trapDensity: 0.28, hintClarity: 0.75, maxMultiplier: 3,
-            special: 'all'
+            description: 'All mechanics combined - prove mastery!',
+            mechanic: 'Master challenge!',
+            environment: 'Royal Palace', envEmoji: '🏰'
         }
     ];
-
-    // Game state
-    const [gameState, setGameState] = useState('menu');
-    const [selectedOpponent, setSelectedOpponent] = useState(null);
-    const [currentLevel, setCurrentLevel] = useState(1);
 
     // Board state
     const [grid, setGrid] = useState([]);
     const [revealed, setRevealed] = useState([]);
-    const [marks, setMarks] = useState([]); // 'none', 'safe', 'trap'
+    const [marks, setMarks] = useState([]);
     const [rowHints, setRowHints] = useState([]);
     const [colHints, setColHints] = useState([]);
-    const [hiddenHints, setHiddenHints] = useState({ rows: [], cols: [] });
+    const [hiddenHints, setHiddenHints] = useState({ rows: new Set(), cols: new Set() });
+    const [revealedHints, setRevealedHints] = useState({ rows: new Set(), cols: new Set() });
+    const [levelConfig, setLevelConfig] = useState(null);
+
+    // Interaction state
+    const [hoveredTile, setHoveredTile] = useState(null);
+    const [hoveredHint, setHoveredHint] = useState(null);
 
     // Game progress
     const [currentScore, setCurrentScore] = useState(1);
-    const [roundResult, setRoundResult] = useState(null); // 'win', 'lose', null
+    const [roundResult, setRoundResult] = useState(null);
     const [totalMultipliers, setTotalMultipliers] = useState(0);
     const [foundMultipliers, setFoundMultipliers] = useState(0);
+    const [x1sFlipped, setX1sFlipped] = useState(0);
+    const [moveHistory, setMoveHistory] = useState([]);
+    const [showSolution, setShowSolution] = useState(false);
 
-    // Progression
+    // Animation states
+    const [flipAnimation, setFlipAnimation] = useState(null);
+    const [shakeAnimation, setShakeAnimation] = useState(false);
+    const [celebrateAnimation, setCelebrateAnimation] = useState(false);
+    const [particles, setParticles] = useState([]);
+    const [ambientParticles, setAmbientParticles] = useState([]);
+
+    // Progression - now stores stars per level (0, 0.25, 0.5, 0.75, or 1)
     const [progression, setProgression] = useState(() => {
-        const saved = localStorage.getItem('honeygrid_progression_v1');
+        const saved = localStorage.getItem('honeygrid_progression_v3');
         if (saved) return JSON.parse(saved);
-        return { starPoints: Array(10).fill(0) };
+        return {
+            levelStars: Array(10).fill(null).map(() => Array(10).fill(0)), // [world][level] = stars (0-1)
+            totalWins: 0,
+            perfectClears: 0,
+        };
     });
 
     // Save progression
     useEffect(() => {
-        localStorage.setItem('honeygrid_progression_v1', JSON.stringify(progression));
+        localStorage.setItem('honeygrid_progression_v3', JSON.stringify(progression));
     }, [progression]);
 
-    // Helper functions
-    const getStars = (idx) => Math.floor(progression.starPoints[idx] / 4);
-    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 40;
-    const isOpponentMastered = (idx) => progression.starPoints[idx] >= 40;
+    // Calculate world stars (sum of all level stars in that world)
+    const getWorldStars = (worldIdx) => {
+        return progression.levelStars[worldIdx].reduce((sum, stars) => sum + stars, 0);
+    };
 
-    // Generate a new grid
-    const generateGrid = useCallback((opponent, level) => {
+    // Check if world is unlocked (need 10 stars from previous world)
+    const isWorldUnlocked = (worldIdx) => {
+        if (worldIdx === 0) return true;
+        return getWorldStars(worldIdx - 1) >= 10;
+    };
+
+    // Check if level is unlocked (previous level must have at least 0.25 stars, or it's level 1)
+    const isLevelUnlocked = (worldIdx, levelIdx) => {
+        if (!isWorldUnlocked(worldIdx)) return false;
+        if (levelIdx === 0) return true;
+        return progression.levelStars[worldIdx][levelIdx - 1] >= 0.25;
+    };
+
+    // Get star rating for display
+    const getLevelStars = (worldIdx, levelIdx) => {
+        return progression.levelStars[worldIdx][levelIdx];
+    };
+
+    // Spawn celebration particles
+    const spawnParticles = useCallback((x, y, count, color) => {
+        const newParticles = [];
+        for (let i = 0; i < count; i++) {
+            newParticles.push({
+                id: Date.now() + i,
+                x, y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: (Math.random() - 0.5) * 10 - 5,
+                life: 1,
+                color,
+                size: Math.random() * 8 + 4
+            });
+        }
+        setParticles(prev => [...prev, ...newParticles]);
+    }, []);
+
+    // Animate particles
+    useEffect(() => {
+        if (particles.length === 0) return;
+        const interval = setInterval(() => {
+            setParticles(prev => prev
+                .map(p => ({
+                    ...p,
+                    x: p.x + p.vx,
+                    y: p.y + p.vy,
+                    vy: p.vy + 0.5,
+                    life: p.life - 0.02
+                }))
+                .filter(p => p.life > 0)
+            );
+        }, 16);
+        return () => clearInterval(interval);
+    }, [particles.length]);
+
+    // Ambient particle system - world-themed floating effects
+    useEffect(() => {
+        if (gameState !== 'playing' || !worldTheme) {
+            setAmbientParticles([]);
+            return;
+        }
+
+        const particleConfig = worldTheme.particles || { emoji: '✨', count: 10, color: '#ffffff' };
+        const ambientType = worldTheme.ambient || 'sparkles';
+
+        // Create initial ambient particles
+        const createAmbientParticle = (index) => {
+            const baseSpeed = ambientType === 'snow' ? 0.3 : ambientType === 'bubbles' ? -0.5 : 0.2;
+            const drift = ambientType === 'fireflies' ? (Math.random() - 0.5) * 2 : (Math.random() - 0.5) * 0.5;
+
+            return {
+                id: Date.now() + index + Math.random(),
+                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
+                y: ambientType === 'bubbles' ? (typeof window !== 'undefined' ? window.innerHeight + 50 : 700) :
+                   ambientType === 'snow' ? -50 :
+                   Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600),
+                vx: drift,
+                vy: baseSpeed + Math.random() * 0.3,
+                emoji: particleConfig.emoji,
+                size: 12 + Math.random() * 12,
+                opacity: 0.3 + Math.random() * 0.4,
+                wobble: Math.random() * Math.PI * 2,
+                wobbleSpeed: 0.02 + Math.random() * 0.03
+            };
+        };
+
+        // Initialize particles
+        const initial = Array(particleConfig.count).fill(0).map((_, i) => createAmbientParticle(i));
+        setAmbientParticles(initial);
+
+        // Animate ambient particles
+        const interval = setInterval(() => {
+            setAmbientParticles(prev => prev.map(p => {
+                let newX = p.x + p.vx;
+                let newY = p.y + p.vy;
+
+                // Add wobble for fireflies
+                if (ambientType === 'fireflies') {
+                    newX += Math.sin(p.wobble) * 0.5;
+                    p.wobble += p.wobbleSpeed;
+                }
+
+                // Wrap around screen
+                const maxW = typeof window !== 'undefined' ? window.innerWidth : 800;
+                const maxH = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+                if (ambientType === 'bubbles' && newY < -50) {
+                    return createAmbientParticle(p.id);
+                }
+                if (ambientType === 'snow' && newY > maxH + 50) {
+                    return createAmbientParticle(p.id);
+                }
+                if (newX < -50) newX = maxW + 50;
+                if (newX > maxW + 50) newX = -50;
+
+                return { ...p, x: newX, y: newY };
+            }));
+        }, 50);
+
+        return () => clearInterval(interval);
+    }, [gameState, worldTheme]);
+
+    // Generate grid based on level config
+    const generateGrid = useCallback((config) => {
         const size = 5;
-        const newGrid = Array(size).fill(null).map(() => Array(size).fill(1));
+        const grid = Array(size).fill(null).map(() => Array(size).fill(1));
 
-        const levelMod = 1 + (level - 1) * 0.08;
-        const trapCount = Math.floor(size * size * opponent.trapDensity * levelMod);
-        const multiplierCount = Math.floor((size * size - trapCount) * 0.4);
+        // Determine safe rows/cols
+        const safeRows = new Set();
+        const safeCols = new Set();
 
-        // Place traps based on special patterns
+        while (safeRows.size < (config.safeRows || 0)) {
+            safeRows.add(Math.floor(Math.random() * size));
+        }
+        while (safeCols.size < (config.safeCols || 0)) {
+            safeCols.add(Math.floor(Math.random() * size));
+        }
+
+        // Place traps
         let trapPositions = [];
 
-        if (opponent.special === 'clustered_traps' || opponent.special === 'all') {
+        if (config.clustered) {
             // Cluster traps together
-            const clusterCenters = Math.ceil(trapCount / 3);
-            for (let c = 0; c < clusterCenters; c++) {
-                const cx = Math.floor(Math.random() * size);
-                const cy = Math.floor(Math.random() * size);
-                trapPositions.push([cx, cy]);
+            const clusterCount = Math.ceil(config.traps / 4);
+            for (let c = 0; c < clusterCount && trapPositions.length < config.traps; c++) {
+                let cx, cy, attempts = 0;
+                do {
+                    cx = Math.floor(Math.random() * size);
+                    cy = Math.floor(Math.random() * size);
+                    attempts++;
+                } while ((safeRows.has(cy) || safeCols.has(cx)) && attempts < 50);
 
-                // Add adjacent positions
+                if (!trapPositions.some(([px, py]) => px === cx && py === cy)) {
+                    trapPositions.push([cx, cy]);
+                }
+
                 const neighbors = [
-                    [cx-1, cy], [cx+1, cy], [cx, cy-1], [cx, cy+1]
-                ].filter(([x, y]) => x >= 0 && x < size && y >= 0 && y < size);
+                    [cx-1, cy], [cx+1, cy], [cx, cy-1], [cx, cy+1],
+                    [cx-1, cy-1], [cx+1, cy+1], [cx-1, cy+1], [cx+1, cy-1]
+                ].filter(([x, y]) =>
+                    x >= 0 && x < size && y >= 0 && y < size &&
+                    !safeRows.has(y) && !safeCols.has(x)
+                );
 
                 for (const [nx, ny] of neighbors) {
-                    if (trapPositions.length < trapCount && Math.random() < 0.6) {
-                        if (!trapPositions.some(([px, py]) => px === nx && py === ny)) {
-                            trapPositions.push([nx, ny]);
-                        }
+                    if (trapPositions.length >= config.traps) break;
+                    if (Math.random() < 0.5 && !trapPositions.some(([px, py]) => px === nx && py === ny)) {
+                        trapPositions.push([nx, ny]);
                     }
                 }
             }
-        } else if (opponent.special === 'diagonal_traps' || opponent.special === 'all') {
-            // Diagonal line of traps
+        } else if (config.diagonal) {
+            // Diagonal pattern
             const startX = Math.floor(Math.random() * 3);
             const startY = Math.floor(Math.random() * 3);
             const dir = Math.random() < 0.5 ? 1 : -1;
 
-            for (let i = 0; i < Math.min(trapCount, size); i++) {
+            for (let i = 0; i < size && trapPositions.length < config.traps; i++) {
                 const x = (startX + i) % size;
                 const y = (startY + i * dir + size) % size;
-                trapPositions.push([x, y]);
+                if (!safeRows.has(y) && !safeCols.has(x)) {
+                    trapPositions.push([x, y]);
+                }
             }
         }
 
         // Fill remaining traps randomly
-        while (trapPositions.length < trapCount) {
+        let attempts = 0;
+        while (trapPositions.length < config.traps && attempts < 200) {
             const x = Math.floor(Math.random() * size);
             const y = Math.floor(Math.random() * size);
-            if (!trapPositions.some(([px, py]) => px === x && py === y)) {
-                trapPositions.push([x, y]);
-            }
+            attempts++;
+
+            if (safeRows.has(y) || safeCols.has(x)) continue;
+            if (trapPositions.some(([px, py]) => px === x && py === y)) continue;
+            trapPositions.push([x, y]);
         }
 
         // Place traps on grid
         for (const [x, y] of trapPositions) {
-            newGrid[y][x] = 0; // TRAP
+            grid[y][x] = 0;
         }
 
-        // Place multipliers
-        let multipliersPlaced = 0;
-        const positions = [];
+        // Collect non-trap positions for multipliers
+        const nonTrapPositions = [];
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
-                if (newGrid[y][x] !== 0) {
-                    positions.push([x, y]);
+                if (grid[y][x] !== 0) {
+                    nonTrapPositions.push([x, y]);
                 }
             }
         }
 
-        // Shuffle positions
-        positions.sort(() => Math.random() - 0.5);
+        // Shuffle and place multipliers
+        nonTrapPositions.sort(() => Math.random() - 0.5);
 
-        for (const [x, y] of positions) {
-            if (multipliersPlaced >= multiplierCount) break;
-
-            const multiplier = opponent.maxMultiplier === 3 && Math.random() < 0.3 ? 3 : 2;
-            newGrid[y][x] = multiplier;
-            multipliersPlaced++;
+        let placed = 0;
+        for (const [x, y] of nonTrapPositions) {
+            if (placed >= config.mults) break;
+            const value = Math.random() < (config.x3Chance || 0) ? 3 : 2;
+            grid[y][x] = value;
+            placed++;
         }
 
         // Calculate hints
-        const newRowHints = [];
-        const newColHints = [];
+        const rowHints = [];
+        const colHints = [];
 
         for (let i = 0; i < size; i++) {
-            // Row hint
-            let rowSum = 0;
-            let rowTraps = 0;
+            let rowSum = 0, rowTraps = 0;
             for (let j = 0; j < size; j++) {
-                if (newGrid[i][j] === 0) rowTraps++;
-                else rowSum += newGrid[i][j];
+                if (grid[i][j] === 0) rowTraps++;
+                else rowSum += grid[i][j];
             }
-            newRowHints.push({ sum: rowSum, traps: rowTraps });
 
-            // Column hint
-            let colSum = 0;
-            let colTraps = 0;
+            let rowHint = { sum: rowSum, traps: rowTraps, fuzzy: false };
+            if ((config.fuzzyChance || 0) > 0 && Math.random() < config.fuzzyChance && rowTraps > 0) {
+                rowHint.sum = Math.max(0, rowSum + (Math.random() < 0.5 ? -1 : 1));
+                rowHint.fuzzy = true;
+            }
+            rowHints.push(rowHint);
+
+            let colSum = 0, colTraps = 0;
             for (let j = 0; j < size; j++) {
-                if (newGrid[j][i] === 0) colTraps++;
-                else colSum += newGrid[j][i];
+                if (grid[j][i] === 0) colTraps++;
+                else colSum += grid[j][i];
             }
-            newColHints.push({ sum: colSum, traps: colTraps });
+
+            let colHint = { sum: colSum, traps: colTraps, fuzzy: false };
+            if ((config.fuzzyChance || 0) > 0 && Math.random() < config.fuzzyChance && colTraps > 0) {
+                colHint.sum = Math.max(0, colSum + (Math.random() < 0.5 ? -1 : 1));
+                colHint.fuzzy = true;
+            }
+            colHints.push(colHint);
         }
 
-        // Apply fuzzy hints if needed
-        if (opponent.special === 'fuzzy_hints' || opponent.special === 'all') {
+        // Hidden hints
+        const hiddenRows = new Set();
+        const hiddenCols = new Set();
+        if ((config.hiddenChance || 0) > 0) {
             for (let i = 0; i < size; i++) {
-                if (Math.random() > opponent.hintClarity) {
-                    const fuzz = Math.floor(Math.random() * 3) - 1;
-                    newRowHints[i].sum = Math.max(0, newRowHints[i].sum + fuzz);
-                    newRowHints[i].fuzzy = true;
+                if (rowHints[i].traps > 0 && Math.random() < config.hiddenChance) {
+                    hiddenRows.add(i);
                 }
-                if (Math.random() > opponent.hintClarity) {
-                    const fuzz = Math.floor(Math.random() * 3) - 1;
-                    newColHints[i].sum = Math.max(0, newColHints[i].sum + fuzz);
-                    newColHints[i].fuzzy = true;
+                if (colHints[i].traps > 0 && Math.random() < config.hiddenChance) {
+                    hiddenCols.add(i);
                 }
             }
         }
 
-        // Determine hidden hints
-        const newHiddenHints = { rows: [], cols: [] };
-        if (opponent.special === 'hidden_hints' || opponent.special === 'all') {
-            for (let i = 0; i < size; i++) {
-                if (Math.random() > opponent.hintClarity) {
-                    newHiddenHints.rows.push(i);
-                }
-                if (Math.random() > opponent.hintClarity) {
-                    newHiddenHints.cols.push(i);
-                }
-            }
-        }
-
-        // Count total multipliers (x2 and x3 tiles)
+        // Count multipliers
         let totalMult = 0;
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
-                if (newGrid[y][x] > 1) totalMult++;
+                if (grid[y][x] > 1) totalMult++;
             }
         }
 
-        return {
-            grid: newGrid,
-            rowHints: newRowHints,
-            colHints: newColHints,
-            hiddenHints: newHiddenHints,
-            totalMultipliers: totalMult
-        };
+        return { grid, rowHints, colHints, hiddenHints: { rows: hiddenRows, cols: hiddenCols }, totalMultipliers: totalMult };
     }, []);
 
-    // Start a new game
+    // Start game
     const startGame = useCallback((opponent, level) => {
-        const { grid: newGrid, rowHints: newRowHints, colHints: newColHints, hiddenHints: newHiddenHints, totalMultipliers: totalMult } = generateGrid(opponent, level);
+        const config = levelConfigs[opponent.id][level - 1];
+        const result = generateGrid(config);
 
         setSelectedOpponent(opponent);
         setCurrentLevel(level);
-        setGrid(newGrid);
-        setRowHints(newRowHints);
-        setColHints(newColHints);
-        setHiddenHints(newHiddenHints);
+        setLevelConfig(config);
+        setGrid(result.grid);
+        setRowHints(result.rowHints);
+        setColHints(result.colHints);
+        setHiddenHints(result.hiddenHints);
+        setRevealedHints({ rows: new Set(), cols: new Set() });
         setRevealed(Array(5).fill(null).map(() => Array(5).fill(false)));
-        setMarks(Array(5).fill(null).map(() => Array(5).fill('none')));
+        setMarks(Array(5).fill(null).map(() => Array(5).fill(null).map(() => ({ flagged: null }))));
         setCurrentScore(1);
         setRoundResult(null);
-        setTotalMultipliers(totalMult);
+        setTotalMultipliers(result.totalMultipliers);
         setFoundMultipliers(0);
+        setX1sFlipped(0);
+        setMoveHistory([]);
+        setShowSolution(false);
+        setFlipAnimation(null);
+        setShakeAnimation(false);
+        setCelebrateAnimation(false);
+        setParticles([]);
         setGameState('playing');
-    }, [generateGrid]);
+
+        // Tutorial for first time
+        if (opponent.id === 0 && level === 1 && progression.levelStars[0][0] === 0) {
+            setShowTutorial(true);
+            setTutorialStep(0);
+        }
+    }, [generateGrid, progression.levelStars]);
 
     // Handle tile flip
     const flipTile = useCallback((x, y) => {
@@ -309,198 +774,414 @@ const HoneyGrid = () => {
 
         const value = grid[y][x];
 
-        // Update revealed
-        const newRevealed = revealed.map(row => [...row]);
-        newRevealed[y][x] = true;
-        setRevealed(newRevealed);
+        setMoveHistory(prev => [...prev, {
+            x, y, score: currentScore, revealed: revealed.map(r => [...r]),
+            foundMultipliers, x1sFlipped
+        }]);
 
-        if (value === 0) {
-            // Hit a trap!
-            setCurrentScore(0);
-            setRoundResult('lose');
-        } else {
-            // Multiply score
-            const newScore = currentScore * value;
-            setCurrentScore(newScore);
+        setFlipAnimation({ x, y, value });
 
-            if (value > 1) {
-                const newFound = foundMultipliers + 1;
-                setFoundMultipliers(newFound);
+        setTimeout(() => {
+            const newRevealed = revealed.map(row => [...row]);
+            newRevealed[y][x] = true;
+            setRevealed(newRevealed);
 
-                // Check win condition
-                if (newFound >= totalMultipliers) {
-                    setRoundResult('win');
+            setRevealedHints(prev => ({
+                rows: new Set([...prev.rows, y]),
+                cols: new Set([...prev.cols, x])
+            }));
+
+            if (value === 0) {
+                setShakeAnimation(true);
+                setTimeout(() => setShakeAnimation(false), 500);
+                setCurrentScore(0);
+                setRoundResult('lose');
+            } else {
+                const newScore = currentScore * value;
+                setCurrentScore(newScore);
+
+                if (value === 1) {
+                    setX1sFlipped(prev => prev + 1);
+                }
+
+                if (value > 1) {
+                    const tileElement = document.querySelector(`[data-tile="${x}-${y}"]`);
+                    if (tileElement) {
+                        const rect = tileElement.getBoundingClientRect();
+                        spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2, 8,
+                            value === 3 ? theme.gold : theme.honey);
+                    }
+
+                    const newFound = foundMultipliers + 1;
+                    setFoundMultipliers(newFound);
+
+                    if (newFound >= totalMultipliers) {
+                        setCelebrateAnimation(true);
+                        setRoundResult('win');
+                    }
                 }
             }
-        }
-    }, [revealed, roundResult, grid, currentScore, foundMultipliers, totalMultipliers]);
 
-    // Handle tile mark (right-click or long press)
-    const markTile = useCallback((x, y, e) => {
+            setFlipAnimation(null);
+        }, 150);
+    }, [revealed, roundResult, grid, currentScore, foundMultipliers, totalMultipliers, spawnParticles, theme, x1sFlipped]);
+
+    // Mark tile
+    const cycleMark = useCallback((x, y, e) => {
         e.preventDefault();
         if (revealed[y][x] || roundResult) return;
 
-        const currentMark = marks[y][x];
-        const newMark = currentMark === 'none' ? 'safe' : currentMark === 'safe' ? 'trap' : 'none';
+        setMarks(prev => {
+            const newMarks = prev.map(row => row.map(m => ({...m})));
+            const current = newMarks[y][x];
+            current.flagged = current.flagged === null ? 'safe' : current.flagged === 'safe' ? 'trap' : null;
+            return newMarks;
+        });
+    }, [revealed, roundResult]);
 
-        const newMarks = marks.map(row => [...row]);
-        newMarks[y][x] = newMark;
-        setMarks(newMarks);
-    }, [revealed, roundResult, marks]);
+    // Auto-mark safe
+    const autoMarkSafe = useCallback(() => {
+        setMarks(prev => {
+            const newMarks = prev.map(row => row.map(m => ({...m})));
+            for (let i = 0; i < 5; i++) {
+                if (rowHints[i]?.traps === 0) {
+                    for (let j = 0; j < 5; j++) {
+                        if (!revealed[i][j]) newMarks[i][j].flagged = 'safe';
+                    }
+                }
+                if (colHints[i]?.traps === 0) {
+                    for (let j = 0; j < 5; j++) {
+                        if (!revealed[j][i]) newMarks[j][i].flagged = 'safe';
+                    }
+                }
+            }
+            return newMarks;
+        });
+    }, [rowHints, colHints, revealed]);
 
-    // Cash out early
+    // Undo
+    const undoMove = useCallback(() => {
+        if (moveHistory.length === 0 || roundResult) return;
+        const lastMove = moveHistory[moveHistory.length - 1];
+        setRevealed(lastMove.revealed);
+        setCurrentScore(lastMove.score);
+        setFoundMultipliers(lastMove.foundMultipliers);
+        setX1sFlipped(lastMove.x1sFlipped);
+        setMoveHistory(prev => prev.slice(0, -1));
+    }, [moveHistory, roundResult]);
+
+    // Cash out
     const cashOut = useCallback(() => {
         if (roundResult) return;
         setRoundResult('cashout');
     }, [roundResult]);
 
+    // Calculate earned stars based on result
+    const calculateEarnedStars = useCallback(() => {
+        if (roundResult === 'lose') return 0;
+
+        if (roundResult === 'win') {
+            // Perfect clear = 1 star, with x1s = 0.75 stars
+            return x1sFlipped === 0 ? 1 : 0.75;
+        }
+
+        if (roundResult === 'cashout') {
+            // Based on score
+            if (currentScore >= (levelConfig?.targetScore || 8)) return 0.5;
+            if (currentScore >= 8) return 0.5;
+            if (currentScore >= 4) return 0.25;
+            return 0;
+        }
+
+        return 0;
+    }, [roundResult, x1sFlipped, currentScore, levelConfig]);
+
     // Handle round end
     useEffect(() => {
         if (!roundResult || !selectedOpponent) return;
 
-        let points = 0;
-        if (roundResult === 'win') {
-            points = 4; // Full win - cleared all multipliers
-        } else if (roundResult === 'cashout') {
-            // Points based on score achieved
-            if (currentScore >= 8) points = 2;
-            else if (currentScore >= 4) points = 1;
-        }
-        // lose = 0 points
+        const earnedStars = calculateEarnedStars();
 
-        if (points > 0) {
+        if (earnedStars > 0) {
             setProgression(prev => {
-                const newPoints = [...prev.starPoints];
-                newPoints[selectedOpponent.id] = Math.min(40, newPoints[selectedOpponent.id] + points);
-                return { ...prev, starPoints: newPoints };
+                const newLevelStars = prev.levelStars.map(world => [...world]);
+                // Only update if new stars are higher
+                const currentStars = newLevelStars[selectedOpponent.id][currentLevel - 1];
+                if (earnedStars > currentStars) {
+                    newLevelStars[selectedOpponent.id][currentLevel - 1] = earnedStars;
+                }
+                return {
+                    ...prev,
+                    levelStars: newLevelStars,
+                    totalWins: prev.totalWins + (roundResult === 'win' ? 1 : 0),
+                    perfectClears: prev.perfectClears + (roundResult === 'win' && x1sFlipped === 0 ? 1 : 0),
+                };
             });
         }
-    }, [roundResult, currentScore, selectedOpponent]);
+    }, [roundResult, selectedOpponent, currentLevel, calculateEarnedStars, x1sFlipped]);
 
-    // Keyboard handler
+    // Keyboard controls
     useEffect(() => {
         const handleKey = (e) => {
             if (e.code === 'Escape') {
-                if (gameState === 'playing') setGameState('select');
+                if (showTutorial) setShowTutorial(false);
+                else if (gameState === 'playing') setGameState('level_select');
                 else if (gameState !== 'menu') setGameState('menu');
             }
-            if (e.code === 'Space' && gameState === 'playing' && !roundResult) {
-                cashOut();
+            if (gameState === 'playing' && !roundResult) {
+                if (e.code === 'Space') { e.preventDefault(); cashOut(); }
+                if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoMove(); }
+                if (e.code === 'KeyA') autoMarkSafe();
+            }
+            if (showTutorial && (e.code === 'Space' || e.code === 'Enter')) {
+                if (tutorialStep < tutorialSteps.length - 1) setTutorialStep(prev => prev + 1);
+                else setShowTutorial(false);
             }
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [gameState, roundResult, cashOut]);
+    }, [gameState, roundResult, cashOut, undoMove, autoMarkSafe, showTutorial, tutorialStep]);
 
-    // Star bar component
-    const StarBar = ({ points }) => (
-        <div style={{ display: 'flex', gap: '2px' }}>
-            {Array(10).fill(0).map((_, i) => (
-                <div key={i} style={{
-                    width: '12px', height: '12px',
-                    background: i < Math.floor(points / 4) ? theme.gold : theme.bgDark,
-                    borderRadius: '2px',
-                    border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`
-                }} />
-            ))}
-        </div>
-    );
+    // Tutorial
+    const tutorialSteps = [
+        { title: "Welcome to Honey Grid!", content: "Find all honey tiles (x2 and x3) without hitting traps." },
+        { title: "Reading Hints", content: "Each row/column shows the SUM of values and TRAP count (! marks)." },
+        { title: "Safe Rows", content: "A row with 0 traps (✓) means ALL tiles are safe to flip!" },
+        { title: "Using Deduction", content: "Compare hints. If a row has 4 traps, only 1 tile is safe!" },
+        { title: "Marking Tiles", content: "Right-click to mark tiles as SAFE (blue) or TRAP (red)." },
+        { title: "Earning Stars", content: "★ 0.25 = Cash out ≥4 | ★ 0.5 = Cash out ≥8 | ★ 0.75 = Complete | ★ 1.0 = Perfect!" },
+        { title: "You're Ready!", content: "Get 10 stars to unlock the next world. Good luck!" }
+    ];
 
-    // Hint display component
-    const HintDisplay = ({ hint, hidden, direction }) => {
-        if (hidden) {
+    // Star display component
+    const StarDisplay = ({ stars, size = 'normal' }) => {
+        const starSize = size === 'small' ? 14 : 20;
+        const fullStars = Math.floor(stars);
+        const partialStar = stars - fullStars;
+
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                {/* Full star */}
+                {fullStars >= 1 && (
+                    <span style={{ fontSize: `${starSize}px`, color: theme.gold }}>★</span>
+                )}
+                {/* Partial star */}
+                {partialStar > 0 && (
+                    <span style={{
+                        fontSize: `${starSize}px`,
+                        color: partialStar >= 0.75 ? theme.gold : partialStar >= 0.5 ? theme.silver : theme.bronze,
+                        opacity: partialStar >= 0.75 ? 1 : partialStar >= 0.5 ? 0.9 : 0.7
+                    }}>
+                        {partialStar >= 0.75 ? '¾' : partialStar >= 0.5 ? '½' : '¼'}
+                    </span>
+                )}
+                {stars === 0 && <span style={{ fontSize: `${starSize}px`, color: theme.textMuted }}>☆</span>}
+            </div>
+        );
+    };
+
+    // World stars bar
+    const WorldStarsBar = ({ worldIdx }) => {
+        const totalStars = getWorldStars(worldIdx);
+        const starCount = Math.floor(totalStars);
+        const partial = totalStars - starCount;
+
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '1px' }}>
+                    {Array(10).fill(0).map((_, i) => {
+                        let fillColor = theme.bgDark;
+                        let opacity = 0.3;
+
+                        if (i < starCount) {
+                            fillColor = theme.gold;
+                            opacity = 1;
+                        } else if (i === starCount && partial > 0) {
+                            fillColor = partial >= 0.75 ? theme.gold : partial >= 0.5 ? theme.silver : theme.bronze;
+                            opacity = partial >= 0.75 ? 0.9 : partial >= 0.5 ? 0.7 : 0.5;
+                        }
+
+                        return (
+                            <div key={i} style={{
+                                width: '10px', height: '10px',
+                                background: fillColor,
+                                opacity,
+                                borderRadius: '2px',
+                                border: `1px solid ${i < totalStars ? theme.gold : theme.border}`
+                            }} />
+                        );
+                    })}
+                </div>
+                <span style={{ fontSize: '12px', color: theme.textSecondary, marginLeft: '4px' }}>
+                    {totalStars.toFixed(totalStars % 1 === 0 ? 0 : 2)}/10
+                </span>
+            </div>
+        );
+    };
+
+    // Hint display
+    const HintDisplay = ({ hint, hidden, revealed: hintRevealed, direction, index, isHighlighted }) => {
+        const isHidden = hidden && !hintRevealed;
+        const isSafe = hint?.traps === 0;
+        const isDangerous = hint?.traps >= 3;
+
+        if (isHidden) {
             return (
                 <div style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    justifyContent: 'center', gap: '2px',
-                    width: '50px', height: '50px',
-                    background: theme.bgDark, borderRadius: '8px',
-                    border: `1px solid ${theme.border}`
+                    justifyContent: 'center', width: '52px', height: '52px',
+                    background: theme.bgDark, borderRadius: '10px',
+                    border: `2px solid ${theme.border}`
                 }}>
-                    <div style={{ fontSize: '16px' }}>?</div>
+                    <div style={{ fontSize: '20px', opacity: 0.5 }}>?</div>
                 </div>
             );
         }
 
         return (
-            <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', gap: '2px',
-                width: '50px', height: '50px',
-                background: hint.traps === 0 ? `${theme.success}33` :
-                           hint.traps >= 3 ? `${theme.error}33` : theme.bgDark,
-                borderRadius: '8px',
-                border: `1px solid ${hint.traps === 0 ? theme.success : theme.border}`
-            }}>
+            <div
+                onMouseEnter={() => setHoveredHint({ type: direction, index })}
+                onMouseLeave={() => setHoveredHint(null)}
+                style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', gap: '3px', width: '52px', height: '52px',
+                    background: isSafe ? `${theme.safe}33` : isDangerous ? `${theme.error}22` : theme.bgDark,
+                    borderRadius: '10px',
+                    border: `2px solid ${isHighlighted ? theme.accentBright : isSafe ? theme.safe : isDangerous ? theme.error : theme.border}`,
+                    boxShadow: isHighlighted ? `0 0 15px ${theme.accentBright}66` : 'none',
+                    transition: 'all 0.2s ease'
+                }}
+            >
                 <div style={{
-                    fontSize: '16px', fontWeight: 'bold',
-                    color: hint.fuzzy ? theme.textMuted : theme.honey
+                    fontSize: '18px', fontWeight: 'bold',
+                    color: hint?.fuzzy ? theme.textMuted : theme.honey
                 }}>
-                    {hint.fuzzy ? `~${hint.sum}` : hint.sum}
+                    {hint?.fuzzy ? `~${hint.sum}` : hint?.sum}
                 </div>
                 <div style={{
-                    fontSize: '12px',
-                    color: hint.traps === 0 ? theme.success : theme.trap
+                    fontSize: '12px', fontWeight: 'bold',
+                    color: isSafe ? theme.success : theme.error
                 }}>
-                    {hint.traps > 0 && Array(hint.traps).fill('!').join('')}
-                    {hint.traps === 0 && 'SAFE'}
+                    {hint?.traps === 0 ? '✓' : '!'.repeat(hint?.traps || 0)}
                 </div>
             </div>
         );
     };
 
-    // Tile component
+    // Tile component - with world theming
     const Tile = ({ x, y }) => {
         const isRevealed = revealed[y]?.[x];
         const value = grid[y]?.[x];
         const mark = marks[y]?.[x];
+        const isFlipping = flipAnimation?.x === x && flipAnimation?.y === y;
+        const isHighlighted = (hoveredHint?.type === 'row' && hoveredHint?.index === y) ||
+                             (hoveredHint?.type === 'col' && hoveredHint?.index === x);
+        const isInSafeZone = (rowHints[y]?.traps === 0) || (colHints[x]?.traps === 0);
 
-        const getTileContent = () => {
-            if (!isRevealed) {
-                if (mark === 'safe') return { emoji: '?', bg: `${theme.success}44`, border: theme.success };
-                if (mark === 'trap') return { emoji: 'X', bg: `${theme.error}44`, border: theme.error };
-                return { emoji: '?', bg: theme.bgPanel, border: theme.accent };
+        // Get themed tile content
+        const getThemedContent = (val) => {
+            if (!worldTheme) {
+                // Fallback to default
+                switch(val) {
+                    case 0: return '💥';
+                    case 1: return 'x1';
+                    case 2: return 'x2';
+                    case 3: return 'x3';
+                    default: return '?';
+                }
             }
-
-            if (value === 0) return { emoji: '!', bg: theme.error, border: theme.error, isHoney: false };
-            if (value === 1) return { emoji: 'x1', bg: theme.bgDark, border: theme.border, isHoney: false };
-            if (value === 2) return { emoji: 'x2', bg: theme.honey, border: theme.honey, isHoney: true };
-            if (value === 3) return { emoji: 'x3', bg: theme.gold, border: theme.gold, isHoney: true };
-
-            return { emoji: '?', bg: theme.bgPanel, border: theme.accent };
+            switch(val) {
+                case 0: return worldTheme.trap || '💥';
+                case 1: return worldTheme.tileX1 || 'x1';
+                case 2: return worldTheme.tileX2 || 'x2';
+                case 3: return worldTheme.tileX3 || 'x3';
+                default: return '?';
+            }
         };
 
-        const { emoji, bg, border, isHoney } = getTileContent();
+        const getHiddenContent = () => {
+            if (mark?.flagged === 'safe') return '✓';
+            if (mark?.flagged === 'trap') return '✗';
+            return worldTheme?.tileHidden || '?';
+        };
+
+        const getStyle = () => {
+            if (!isRevealed) {
+                const flagColor = mark?.flagged === 'safe' ? theme.safe : mark?.flagged === 'trap' ? theme.error : null;
+                return {
+                    bg: flagColor ? `${flagColor}33` : isHighlighted ? theme.bgHover : theme.bgPanel,
+                    border: flagColor || (isHighlighted ? theme.borderBright : theme.accent),
+                    content: getHiddenContent(),
+                    fontSize: '24px'
+                };
+            }
+            switch(value) {
+                case 0: return {
+                    bg: `linear-gradient(135deg, ${theme.error}, ${theme.errorDim || '#aa2222'})`,
+                    border: theme.error,
+                    content: getThemedContent(0),
+                    glow: theme.errorGlow,
+                    fontSize: '26px'
+                };
+                case 1: return {
+                    bg: theme.bgDark,
+                    border: theme.border,
+                    content: getThemedContent(1),
+                    textColor: theme.textMuted,
+                    fontSize: '18px'
+                };
+                case 2: return {
+                    bg: `linear-gradient(135deg, ${theme.honey}, ${theme.accent})`,
+                    border: theme.honey,
+                    content: getThemedContent(2),
+                    textColor: '#000',
+                    glow: theme.honeyGlow,
+                    fontSize: '24px'
+                };
+                case 3: return {
+                    bg: `linear-gradient(135deg, ${theme.gold}, ${theme.honey})`,
+                    border: theme.gold,
+                    content: getThemedContent(3),
+                    textColor: '#000',
+                    glow: theme.goldGlow,
+                    fontSize: '24px'
+                };
+                default: return { bg: theme.bgPanel, border: theme.border, content: '?', fontSize: '20px' };
+            }
+        };
+
+        const style = getStyle();
 
         return (
             <div
+                data-tile={`${x}-${y}`}
                 onClick={() => flipTile(x, y)}
-                onContextMenu={(e) => markTile(x, y, e)}
+                onContextMenu={(e) => cycleMark(x, y, e)}
+                onMouseEnter={() => !isRevealed && setHoveredTile({ x, y })}
+                onMouseLeave={() => setHoveredTile(null)}
                 style={{
-                    width: '55px', height: '55px',
-                    background: bg,
-                    border: `2px solid ${border}`,
-                    borderRadius: '10px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '56px', height: '56px',
+                    background: style.bg, border: `2px solid ${style.border}`,
+                    borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: isRevealed || roundResult ? 'default' : 'pointer',
-                    fontSize: isRevealed ? '20px' : '24px',
-                    fontWeight: 'bold',
-                    color: isHoney ? '#000' : theme.text,
-                    transition: 'transform 0.1s, box-shadow 0.1s',
-                    boxShadow: isHoney ? `0 0 10px ${border}` : 'none'
-                }}
-                onMouseEnter={(e) => {
-                    if (!isRevealed && !roundResult) {
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                        e.currentTarget.style.boxShadow = `0 0 15px ${theme.accent}`;
-                    }
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = isHoney ? `0 0 10px ${border}` : 'none';
+                    fontSize: style.fontSize || '20px', fontWeight: 'bold',
+                    color: style.textColor || theme.text,
+                    transition: 'all 0.15s ease',
+                    transform: isFlipping ? 'rotateY(90deg) scale(1.1)' :
+                               (hoveredTile?.x === x && hoveredTile?.y === y) ? 'scale(1.08)' : 'scale(1)',
+                    boxShadow: style.glow ? `0 0 15px ${style.glow}` :
+                               isHighlighted ? `0 0 12px ${theme.accentBright}44` : 'none',
+                    position: 'relative'
                 }}
             >
-                {emoji}
+                {style.content}
+                {!isRevealed && isInSafeZone && !mark?.flagged && (
+                    <div style={{
+                        position: 'absolute', top: '2px', right: '2px',
+                        width: '8px', height: '8px', background: theme.safe,
+                        borderRadius: '50%', opacity: 0.7
+                    }} />
+                )}
             </div>
         );
     };
@@ -510,80 +1191,113 @@ const HoneyGrid = () => {
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f3f 100%)`,
+                background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f4f 50%, ${theme.bg} 100%)`,
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 padding: '40px 20px', color: theme.text
             }}>
-                <div style={{ fontSize: '64px', marginBottom: '10px' }}>🍯</div>
-                <h1 style={{ fontSize: '36px', marginBottom: '5px', color: theme.accent }}>HONEY GRID</h1>
-                <p style={{ color: theme.textSecondary, marginBottom: '10px', textAlign: 'center' }}>
-                    Flip tiles to multiply your score!
-                </p>
-                <p style={{ color: theme.textMuted, marginBottom: '30px', fontSize: '14px', textAlign: 'center' }}>
-                    Use hints to avoid traps. Flip all multipliers to win!
-                </p>
+                <div style={{ fontSize: '80px', marginBottom: '15px', animation: 'float 3s ease-in-out infinite' }}>🍯</div>
+                <h1 style={{ fontSize: '42px', marginBottom: '8px', color: theme.accent }}>HONEY GRID</h1>
+                <p style={{ color: theme.textSecondary, marginBottom: '30px' }}>A Deduction Puzzle Game</p>
 
                 <button
                     onClick={() => setGameState('select')}
                     style={{
-                        padding: '15px 50px', fontSize: '20px',
+                        padding: '18px 60px', fontSize: '22px',
                         background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                        border: 'none', borderRadius: '10px', color: 'white',
+                        border: 'none', borderRadius: '12px', color: 'white',
                         cursor: 'pointer', fontWeight: 'bold',
-                        boxShadow: `0 4px 15px ${theme.accent}66`
+                        boxShadow: `0 6px 25px ${theme.accent}66`
                     }}
                 >
                     PLAY
                 </button>
 
+                {progression.totalWins > 0 && (
+                    <div style={{
+                        marginTop: '25px', padding: '12px 24px',
+                        background: theme.bgPanel, borderRadius: '10px',
+                        display: 'flex', gap: '30px', fontSize: '14px'
+                    }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ color: theme.gold, fontWeight: 'bold', fontSize: '18px' }}>{progression.totalWins}</div>
+                            <div style={{ color: theme.textMuted }}>Wins</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ color: theme.platinum, fontWeight: 'bold', fontSize: '18px' }}>{progression.perfectClears}</div>
+                            <div style={{ color: theme.textMuted }}>Perfect</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ color: theme.accent, fontWeight: 'bold', fontSize: '18px' }}>
+                                {opponents.filter((_, i) => getWorldStars(i) >= 10).length}/10
+                            </div>
+                            <div style={{ color: theme.textMuted }}>Worlds</div>
+                        </div>
+                    </div>
+                )}
+
                 <div style={{
-                    marginTop: '40px', padding: '20px',
-                    background: theme.bgPanel, borderRadius: '12px',
-                    maxWidth: '400px', textAlign: 'left'
+                    marginTop: '35px', padding: '25px',
+                    background: theme.bgPanel, borderRadius: '16px',
+                    maxWidth: '450px', textAlign: 'left'
                 }}>
-                    <h3 style={{ color: theme.accent, marginBottom: '15px' }}>How to Play</h3>
-                    <ul style={{ color: theme.textSecondary, lineHeight: '1.8', paddingLeft: '20px' }}>
-                        <li>Click tiles to flip them</li>
-                        <li><span style={{ color: theme.honey }}>x2</span> and <span style={{ color: theme.gold }}>x3</span> multiply your score</li>
-                        <li><span style={{ color: theme.error }}>!</span> traps reset your score to 0</li>
-                        <li>Row/column hints show: <span style={{ color: theme.honey }}>sum</span> and <span style={{ color: theme.error }}>trap count</span></li>
-                        <li>Right-click to mark tiles</li>
-                        <li>Cash out anytime to keep points!</li>
-                    </ul>
+                    <h3 style={{ color: theme.accent, marginBottom: '18px' }}>How to Earn Stars</h3>
+                    <div style={{ color: theme.textSecondary, lineHeight: '1.8' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ color: theme.bronze }}>¼★</span> Cash out with score ≥ 4
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ color: theme.silver }}>½★</span> Cash out with score ≥ 8 or target
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ color: theme.gold }}>¾★</span> Complete level (all multipliers)
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: theme.gold }}>★</span> Perfect! (Only flip multipliers)
+                        </div>
+                    </div>
+                    <div style={{ marginTop: '15px', color: theme.textMuted, fontSize: '13px' }}>
+                        Earn 10 stars to unlock the next world!
+                    </div>
                 </div>
 
                 <a href="../menu.html" style={{
-                    marginTop: '20px', color: theme.textMuted,
-                    textDecoration: 'none', fontSize: '14px'
-                }}>Back to Menu</a>
+                    marginTop: '25px', color: theme.textMuted,
+                    textDecoration: 'none', fontSize: '14px',
+                    padding: '10px 20px', borderRadius: '8px',
+                    border: `1px solid ${theme.border}`
+                }}>← Back to Menu</a>
+
+                <style>{`
+                    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+                `}</style>
             </div>
         );
     }
 
-    // OPPONENT SELECT SCREEN
+    // WORLD SELECT
     if (gameState === 'select') {
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f3f 100%)`,
-                padding: '20px', color: theme.text
+                background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f4f 100%)`,
+                padding: '25px', color: theme.text
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', maxWidth: '1200px', margin: '0 auto 25px' }}>
                     <button onClick={() => setGameState('menu')} style={{
                         background: 'transparent', border: `1px solid ${theme.border}`,
-                        color: theme.textSecondary, padding: '8px 16px', borderRadius: '5px', cursor: 'pointer'
-                    }}>Back</button>
-                    <h2 style={{ color: theme.accent }}>Choose Opponent</h2>
-                    <div style={{ width: '80px' }} />
+                        color: theme.textSecondary, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer'
+                    }}>← Back</button>
+                    <h2 style={{ color: theme.accent, fontSize: '24px' }}>Choose World</h2>
+                    <div style={{ width: '100px' }} />
                 </div>
 
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                    gap: '15px', maxWidth: '1200px', margin: '0 auto'
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '18px', maxWidth: '1200px', margin: '0 auto'
                 }}>
                     {opponents.map((opp, idx) => {
-                        const unlocked = isOpponentUnlocked(idx);
-                        const mastered = isOpponentMastered(idx);
+                        const unlocked = isWorldUnlocked(idx);
+                        const completed = getWorldStars(idx) >= 10;
 
                         return (
                             <div
@@ -597,44 +1311,62 @@ const HoneyGrid = () => {
                                 style={{
                                     background: unlocked ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})` : theme.bgDark,
                                     border: `2px solid ${unlocked ? opp.color : theme.border}`,
-                                    borderRadius: '12px', padding: '15px',
+                                    borderRadius: '16px', padding: '18px',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.5,
-                                    transition: 'transform 0.2s',
-                                    position: 'relative'
+                                    transition: 'all 0.2s ease', position: 'relative'
                                 }}
-                                onMouseEnter={(e) => unlocked && (e.currentTarget.style.transform = 'scale(1.02)')}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
-                                {!unlocked && <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '20px' }}>🔒</div>}
-                                {mastered && (
+                                {!unlocked && <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '24px' }}>🔒</div>}
+                                {completed && (
                                     <div style={{
                                         position: 'absolute', top: '10px', right: '10px',
-                                        background: theme.success, padding: '2px 8px',
-                                        borderRadius: '10px', fontSize: '12px'
-                                    }}>MASTERED</div>
+                                        background: theme.success, padding: '4px 12px',
+                                        borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', color: '#000'
+                                    }}>COMPLETE</div>
                                 )}
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <div style={{
-                                        fontSize: '48px', width: '70px', height: '70px',
+                                        fontSize: '50px', width: '75px', height: '75px',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        background: `${opp.color}33`, borderRadius: '50%'
+                                        background: `${opp.color}22`, borderRadius: '50%'
                                     }}>{opp.emoji}</div>
 
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: opp.color }}>{opp.name}</div>
-                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '5px' }}>{opp.title}</div>
+                                        <div style={{ fontSize: '12px', color: baseTheme.textMuted, marginBottom: '2px' }}>World {idx + 1}</div>
+                                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: opp.color, marginBottom: '2px' }}>{opp.name}</div>
+                                        <div style={{ fontSize: '12px', color: baseTheme.textMuted, marginBottom: '6px' }}>{opp.title}</div>
                                         <div style={{
-                                            fontSize: '11px', color: theme.textSecondary,
-                                            background: `${opp.color}22`, padding: '4px 8px',
-                                            borderRadius: '4px', marginBottom: '8px'
+                                            display: 'flex', gap: '8px', marginBottom: '6px'
                                         }}>
-                                            {opp.mechanic}
+                                            <div style={{
+                                                fontSize: '11px', color: baseTheme.textSecondary,
+                                                background: `${opp.color}15`, padding: '4px 8px',
+                                                borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px'
+                                            }}>
+                                                {opp.envEmoji} {opp.environment}
+                                            </div>
+                                            <div style={{
+                                                fontSize: '11px', color: baseTheme.textSecondary,
+                                                background: `${opp.color}15`, padding: '4px 8px',
+                                                borderRadius: '6px'
+                                            }}>
+                                                {opp.mechanic}
+                                            </div>
                                         </div>
-                                        <StarBar points={progression.starPoints[idx]} />
+                                        <WorldStarsBar worldIdx={idx} />
                                     </div>
                                 </div>
+
+                                {!unlocked && idx > 0 && (
+                                    <div style={{
+                                        marginTop: '12px', fontSize: '11px', color: theme.textMuted,
+                                        textAlign: 'center', padding: '6px', background: theme.bgDark, borderRadius: '6px'
+                                    }}>
+                                        Need {(10 - getWorldStars(idx - 1)).toFixed(1)} more stars in World {idx}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -643,48 +1375,76 @@ const HoneyGrid = () => {
         );
     }
 
-    // LEVEL SELECT SCREEN
+    // LEVEL SELECT
     if (gameState === 'level_select' && selectedOpponent) {
-        const currentStars = getStars(selectedOpponent.id);
+        const levelSelectTheme = worldThemes[selectedOpponent.id] || {};
+        const levelSelectBg = levelSelectTheme.gradient || `linear-gradient(135deg, ${baseTheme.bg} 0%, ${selectedOpponent.color}15 50%, ${baseTheme.bg} 100%)`;
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}22 100%)`,
-                padding: '20px', color: theme.text,
-                display: 'flex', flexDirection: 'column', alignItems: 'center'
+                background: levelSelectBg,
+                padding: '25px', color: baseTheme.text,
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                position: 'relative'
             }}>
+                {/* Pattern overlay */}
+                {levelSelectTheme.pattern && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: levelSelectTheme.pattern,
+                        pointerEvents: 'none', zIndex: 0, opacity: 0.5
+                    }} />
+                )}
                 <button onClick={() => setGameState('select')} style={{
-                    alignSelf: 'flex-start',
-                    background: 'transparent', border: `1px solid ${theme.border}`,
-                    color: theme.textSecondary, padding: '8px 16px', borderRadius: '5px', cursor: 'pointer'
-                }}>Back</button>
+                    alignSelf: 'flex-start', background: 'transparent',
+                    border: `1px solid ${theme.border}`, color: theme.textSecondary,
+                    padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px'
+                }}>← Back</button>
 
-                <div style={{ fontSize: '80px', marginTop: '20px' }}>{selectedOpponent.emoji}</div>
-                <h2 style={{ color: selectedOpponent.color, marginTop: '10px' }}>{selectedOpponent.name}</h2>
-                <p style={{ color: theme.textMuted }}>{selectedOpponent.title}</p>
-
-                <div style={{
-                    marginTop: '15px', padding: '10px 20px',
-                    background: `${selectedOpponent.color}22`, borderRadius: '8px',
-                    color: theme.textSecondary
-                }}>
-                    {selectedOpponent.mechanic}
-                </div>
-
-                <div style={{ marginTop: '20px' }}>
-                    <StarBar points={progression.starPoints[selectedOpponent.id]} />
-                </div>
-
-                <h3 style={{ marginTop: '30px', marginBottom: '15px' }}>Select Level</h3>
+                <div style={{ fontSize: '90px', marginBottom: '10px', position: 'relative', zIndex: 1 }}>{selectedOpponent.emoji}</div>
+                <div style={{ fontSize: '14px', color: baseTheme.textMuted, position: 'relative', zIndex: 1 }}>World {selectedOpponent.id + 1}</div>
+                <h2 style={{ color: selectedOpponent.color, fontSize: '32px', marginBottom: '5px', position: 'relative', zIndex: 1 }}>{selectedOpponent.name}</h2>
+                <p style={{ color: baseTheme.textMuted, marginBottom: '10px', position: 'relative', zIndex: 1 }}>{selectedOpponent.title}</p>
 
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
-                    gap: '10px', maxWidth: '400px'
+                    display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 1
                 }}>
+                    <div style={{
+                        padding: '8px 16px', background: `${selectedOpponent.color}20`,
+                        borderRadius: '8px', color: baseTheme.textSecondary, fontSize: '14px',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        border: `1px solid ${selectedOpponent.color}40`
+                    }}>
+                        {selectedOpponent.envEmoji} {selectedOpponent.environment}
+                    </div>
+                    <div style={{
+                        padding: '8px 16px', background: `${selectedOpponent.color}20`,
+                        borderRadius: '8px', color: baseTheme.textSecondary, fontSize: '14px',
+                        border: `1px solid ${selectedOpponent.color}40`
+                    }}>
+                        {selectedOpponent.mechanic}
+                    </div>
+                </div>
+
+                <div style={{
+                    padding: '10px 20px', background: `${selectedOpponent.color}15`,
+                    borderRadius: '10px', color: baseTheme.textSecondary, marginBottom: '15px',
+                    fontSize: '13px', position: 'relative', zIndex: 1
+                }}>{selectedOpponent.description}</div>
+
+                <div style={{ marginBottom: '30px' }}>
+                    <WorldStarsBar worldIdx={selectedOpponent.id} />
+                </div>
+
+                <h3 style={{ marginBottom: '20px', color: theme.textSecondary }}>Select Level</h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', maxWidth: '420px' }}>
                     {Array(10).fill(0).map((_, i) => {
                         const levelNum = i + 1;
-                        const unlocked = i <= currentStars;
+                        const unlocked = isLevelUnlocked(selectedOpponent.id, i);
+                        const stars = getLevelStars(selectedOpponent.id, i);
+                        const config = levelConfigs[selectedOpponent.id][i];
 
                         return (
                             <button
@@ -692,183 +1452,336 @@ const HoneyGrid = () => {
                                 onClick={() => unlocked && startGame(selectedOpponent, levelNum)}
                                 disabled={!unlocked}
                                 style={{
-                                    width: '60px', height: '60px',
-                                    background: unlocked
-                                        ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
-                                        : theme.bgDark,
-                                    border: `2px solid ${unlocked ? selectedOpponent.color : theme.border}`,
-                                    borderRadius: '10px',
-                                    color: unlocked ? 'white' : theme.textMuted,
-                                    fontSize: '20px', fontWeight: 'bold',
+                                    width: '70px', height: '80px',
+                                    background: stars >= 1 ? `linear-gradient(135deg, ${theme.gold}88, ${theme.gold}44)` :
+                                               stars >= 0.75 ? `linear-gradient(135deg, ${theme.gold}66, ${theme.gold}33)` :
+                                               stars > 0 ? `linear-gradient(135deg, ${selectedOpponent.color}88, ${selectedOpponent.color}44)` :
+                                               unlocked ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)` : theme.bgDark,
+                                    border: `2px solid ${stars >= 1 ? theme.gold : stars > 0 ? selectedOpponent.color : unlocked ? selectedOpponent.color : theme.border}`,
+                                    borderRadius: '12px', color: unlocked ? 'white' : theme.textMuted,
+                                    fontSize: '18px', fontWeight: 'bold',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
-                                    opacity: unlocked ? 1 : 0.5
+                                    opacity: unlocked ? 1 : 0.4,
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px'
                                 }}
                             >
-                                {unlocked ? levelNum : '🔒'}
+                                <span>{unlocked ? levelNum : '🔒'}</span>
+                                {unlocked && <StarDisplay stars={stars} size="small" />}
+                                {unlocked && (
+                                    <span style={{ fontSize: '9px', color: baseTheme.textMuted, opacity: 0.8 }}>
+                                        {config.traps}{levelSelectTheme?.trap || '💀'} {config.mults}{levelSelectTheme?.tileX2 || '🍯'}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
+                </div>
+
+                <div style={{
+                    marginTop: '30px', padding: '15px 25px',
+                    background: `${baseTheme.bgPanel}cc`, borderRadius: '10px',
+                    textAlign: 'center', fontSize: '13px', color: baseTheme.textMuted,
+                    position: 'relative', zIndex: 1, backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{ marginBottom: '8px', color: baseTheme.textSecondary }}>Level Difficulty Info</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                        <span>L1: {levelConfigs[selectedOpponent.id][0].traps} {levelSelectTheme?.trap || '💀'}, {levelConfigs[selectedOpponent.id][0].mults} {levelSelectTheme?.tileX2 || '🍯'}</span>
+                        <span>→</span>
+                        <span>L10: {levelConfigs[selectedOpponent.id][9].traps} {levelSelectTheme?.trap || '💀'}, {levelConfigs[selectedOpponent.id][9].mults} {levelSelectTheme?.tileX2 || '🍯'}</span>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // PLAYING SCREEN
+    // PLAYING
     if (gameState === 'playing') {
+        const earnedStars = roundResult ? calculateEarnedStars() : 0;
+        const currentBest = getLevelStars(selectedOpponent.id, currentLevel - 1);
+        const isNewBest = earnedStars > currentBest;
+
+        // Get world-specific background
+        const worldBg = worldTheme?.gradient || `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent?.color}12 50%, ${theme.bg} 100%)`;
+        const worldPattern = worldTheme?.pattern || '';
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}22 100%)`,
+                background: worldBg,
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '20px', color: theme.text
+                padding: '20px', color: theme.text, position: 'relative', overflow: 'hidden'
             }}>
+                {/* World pattern overlay */}
+                {worldPattern && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: worldPattern,
+                        pointerEvents: 'none', zIndex: 0
+                    }} />
+                )}
+
+                {/* Ambient particles */}
+                {ambientParticles.map(p => (
+                    <div key={p.id} style={{
+                        position: 'fixed', left: p.x, top: p.y,
+                        fontSize: `${p.size}px`,
+                        opacity: p.opacity,
+                        pointerEvents: 'none', zIndex: 1,
+                        transform: 'translate(-50%, -50%)',
+                        filter: worldTheme?.ambient === 'fireflies' ? `drop-shadow(0 0 4px ${worldTheme.particles?.color || '#ffff99'})` : 'none'
+                    }}>
+                        {p.emoji}
+                    </div>
+                ))}
+
+                {/* Score particles */}
+                {particles.map(p => (
+                    <div key={p.id} style={{
+                        position: 'fixed', left: p.x, top: p.y,
+                        width: p.size, height: p.size,
+                        background: p.color, borderRadius: '50%',
+                        opacity: p.life, pointerEvents: 'none', zIndex: 1000
+                    }} />
+                ))}
+
                 {/* Header */}
                 <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    width: '100%', maxWidth: '500px', marginBottom: '20px',
-                    padding: '15px 20px', background: theme.bgPanel, borderRadius: '12px'
+                    width: '100%', maxWidth: '520px', marginBottom: '20px',
+                    padding: '15px 20px', background: `${theme.bgPanel}dd`, borderRadius: '14px',
+                    position: 'relative', zIndex: 10, backdropFilter: 'blur(4px)',
+                    border: `1px solid ${theme.border}40`
                 }}>
                     <div>
-                        <div style={{ color: theme.textMuted, fontSize: '12px' }}>Level {currentLevel}</div>
-                        <div style={{ color: selectedOpponent.color, fontWeight: 'bold' }}>
-                            {selectedOpponent.emoji} {selectedOpponent.name}
+                        <div style={{ color: theme.textMuted, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{selectedOpponent?.envEmoji}</span>
+                            World {selectedOpponent.id + 1} - Level {currentLevel}
+                        </div>
+                        <div style={{ color: selectedOpponent?.color, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '20px' }}>{selectedOpponent?.emoji}</span>
+                            {selectedOpponent?.name}
                         </div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '12px' }}>Score</div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>Score</div>
                         <div style={{
-                            fontSize: '28px', fontWeight: 'bold',
-                            color: currentScore > 1 ? theme.gold : theme.text
-                        }}>
-                            {currentScore}
-                        </div>
+                            fontSize: '32px', fontWeight: 'bold',
+                            color: currentScore > 1 ? theme.gold : theme.text,
+                            textShadow: currentScore > 1 ? `0 0 10px ${theme.goldGlow}` : 'none'
+                        }}>{currentScore}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '12px' }}>Progress</div>
-                        <div style={{ color: theme.success }}>
-                            {foundMultipliers}/{totalMultipliers}
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>Target: {levelConfig?.targetScore}</div>
+                        <div style={{ color: theme.honey, fontSize: '18px', fontWeight: 'bold' }}>
+                            {foundMultipliers}/{totalMultipliers} {worldTheme?.tileX2 || '🍯'}
                         </div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted }}>Best: <StarDisplay stars={currentBest} size="small" /></div>
                     </div>
                 </div>
 
-                {/* Game Grid with Hints */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {/* Column hints */}
-                    <div style={{ display: 'flex', gap: '5px', marginLeft: '55px' }}>
+                {/* Grid */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', animation: shakeAnimation ? 'shake 0.5s' : 'none', position: 'relative', zIndex: 10 }}>
+                    <div style={{ display: 'flex', gap: '6px', marginLeft: '58px' }}>
                         {colHints.map((hint, i) => (
-                            <HintDisplay
-                                key={i}
-                                hint={hint}
-                                hidden={hiddenHints.cols.includes(i)}
-                                direction="col"
-                            />
+                            <HintDisplay key={i} hint={hint} hidden={hiddenHints.cols?.has(i)}
+                                revealed={revealedHints.cols?.has(i)} direction="col" index={i}
+                                isHighlighted={hoveredTile?.x === i} />
                         ))}
                     </div>
-
-                    {/* Grid rows with row hints */}
                     {grid.map((row, y) => (
-                        <div key={y} style={{ display: 'flex', gap: '5px' }}>
-                            <HintDisplay
-                                hint={rowHints[y]}
-                                hidden={hiddenHints.rows.includes(y)}
-                                direction="row"
-                            />
-                            {row.map((_, x) => (
-                                <Tile key={x} x={x} y={y} />
-                            ))}
+                        <div key={y} style={{ display: 'flex', gap: '6px' }}>
+                            <HintDisplay hint={rowHints[y]} hidden={hiddenHints.rows?.has(y)}
+                                revealed={revealedHints.rows?.has(y)} direction="row" index={y}
+                                isHighlighted={hoveredTile?.y === y} />
+                            {row.map((_, x) => <Tile key={x} x={x} y={y} />)}
                         </div>
                     ))}
                 </div>
 
-                {/* Cash Out Button */}
-                {!roundResult && currentScore > 1 && (
-                    <button
-                        onClick={cashOut}
-                        style={{
-                            marginTop: '20px', padding: '15px 40px',
-                            fontSize: '18px', fontWeight: 'bold',
-                            background: `linear-gradient(135deg, ${theme.gold}, ${theme.honey})`,
-                            border: 'none', borderRadius: '10px',
-                            color: '#000', cursor: 'pointer',
-                            boxShadow: `0 4px 15px ${theme.gold}66`
-                        }}
-                    >
-                        CASH OUT ({currentScore} pts)
-                    </button>
-                )}
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 10 }}>
+                    <button onClick={autoMarkSafe} disabled={roundResult !== null} style={{
+                        padding: '10px 20px', fontSize: '14px', background: `${theme.bgPanel}88`,
+                        border: `1px solid ${theme.safe}`, borderRadius: '8px', color: theme.safe,
+                        cursor: roundResult ? 'not-allowed' : 'pointer', opacity: roundResult ? 0.5 : 1,
+                        backdropFilter: 'blur(4px)'
+                    }}>Auto-Mark Safe (A)</button>
 
-                {/* Instructions */}
-                <div style={{
-                    marginTop: '15px', color: theme.textMuted, fontSize: '12px',
-                    textAlign: 'center'
-                }}>
-                    Click to flip | Right-click to mark | SPACE to cash out
+                    {moveHistory.length > 0 && !roundResult && (
+                        <button onClick={undoMove} style={{
+                            padding: '10px 20px', fontSize: '14px', background: `${theme.bgPanel}88`,
+                            border: `1px solid ${theme.border}`, borderRadius: '8px',
+                            color: theme.textSecondary, cursor: 'pointer', backdropFilter: 'blur(4px)'
+                        }}>Undo (Ctrl+Z)</button>
+                    )}
+
+                    {!roundResult && currentScore > 1 && (
+                        <button onClick={cashOut} style={{
+                            padding: '12px 30px', fontSize: '16px', fontWeight: 'bold',
+                            background: `linear-gradient(135deg, ${theme.gold}, ${theme.accent})`,
+                            border: 'none', borderRadius: '10px', color: '#000', cursor: 'pointer',
+                            boxShadow: `0 4px 20px ${theme.goldGlow}`
+                        }}>{worldTheme?.tileX3 || '💰'} CASH OUT ({currentScore})</button>
+                    )}
                 </div>
 
-                {/* Result Overlay */}
+                <div style={{ marginTop: '15px', color: theme.textMuted, fontSize: '12px', textAlign: 'center', position: 'relative', zIndex: 10 }}>
+                    Click = Flip | Right-click = Mark | Space = Cash Out | ESC = Exit
+                </div>
+
+                {/* Tutorial */}
+                {showTutorial && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '20px'
+                    }}>
+                        <div style={{
+                            background: theme.bgPanel, borderRadius: '20px', padding: '30px',
+                            maxWidth: '450px', textAlign: 'center', border: `2px solid ${theme.accent}`
+                        }}>
+                            <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '10px' }}>
+                                Tutorial {tutorialStep + 1}/{tutorialSteps.length}
+                            </div>
+                            <h2 style={{ color: theme.accent, marginBottom: '15px', fontSize: '24px' }}>
+                                {tutorialSteps[tutorialStep].title}
+                            </h2>
+                            <p style={{ color: theme.textSecondary, lineHeight: '1.6', marginBottom: '25px', fontSize: '16px' }}>
+                                {tutorialSteps[tutorialStep].content}
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                <button onClick={() => setShowTutorial(false)} style={{
+                                    padding: '12px 24px', fontSize: '14px', background: 'transparent',
+                                    border: `1px solid ${theme.border}`, borderRadius: '8px',
+                                    color: theme.textMuted, cursor: 'pointer'
+                                }}>Skip</button>
+                                <button onClick={() => {
+                                    if (tutorialStep < tutorialSteps.length - 1) setTutorialStep(prev => prev + 1);
+                                    else setShowTutorial(false);
+                                }} style={{
+                                    padding: '12px 24px', fontSize: '14px',
+                                    background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
+                                    border: 'none', borderRadius: '8px', color: 'white',
+                                    cursor: 'pointer', fontWeight: 'bold'
+                                }}>{tutorialStep < tutorialSteps.length - 1 ? 'Next →' : 'Start!'}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Result */}
                 {roundResult && (
                     <div style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.8)',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
-                        zIndex: 100
+                        background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 100
                     }}>
-                        <div style={{
-                            fontSize: '80px', marginBottom: '20px'
-                        }}>
-                            {roundResult === 'win' ? '🏆' : roundResult === 'cashout' ? '💰' : '💥'}
+                        <div style={{ fontSize: '100px', marginBottom: '20px' }}>
+                            {roundResult === 'win' ? (x1sFlipped === 0 ? '💎' : '🏆') : roundResult === 'cashout' ? '💰' : '💥'}
                         </div>
+
                         <h2 style={{
-                            fontSize: '36px', marginBottom: '10px',
+                            fontSize: '40px', marginBottom: '15px',
                             color: roundResult === 'lose' ? theme.error : theme.gold
                         }}>
-                            {roundResult === 'win' ? 'PERFECT CLEAR!' :
+                            {roundResult === 'win' ? (x1sFlipped === 0 ? 'PERFECT CLEAR!' : 'LEVEL COMPLETE!') :
                              roundResult === 'cashout' ? 'CASHED OUT!' : 'TRAP HIT!'}
                         </h2>
 
                         {roundResult !== 'lose' && (
-                            <div style={{ fontSize: '48px', color: theme.gold, marginBottom: '20px' }}>
-                                +{roundResult === 'win' ? 4 : currentScore >= 8 ? 2 : currentScore >= 4 ? 1 : 0} Points
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
+                                <div style={{ fontSize: '48px', color: theme.gold }}>
+                                    {earnedStars === 1 ? '★' : earnedStars === 0.75 ? '¾★' : earnedStars === 0.5 ? '½★' : earnedStars === 0.25 ? '¼★' : '☆'}
+                                </div>
+                                {isNewBest && <span style={{ color: theme.success, fontSize: '18px' }}>NEW BEST!</span>}
+                            </div>
+                        )}
+
+                        {roundResult === 'win' && x1sFlipped > 0 && (
+                            <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '10px' }}>
+                                Flip only multipliers for a perfect ★ star!
+                            </div>
+                        )}
+
+                        {roundResult === 'cashout' && (
+                            <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '10px' }}>
+                                Score: {currentScore} | Target: {levelConfig?.targetScore}
                             </div>
                         )}
 
                         {roundResult === 'lose' && (
-                            <div style={{ fontSize: '24px', color: theme.error, marginBottom: '20px' }}>
-                                Score reset to 0
+                            <>
+                                <div style={{ fontSize: '20px', color: theme.error, marginBottom: '20px' }}>No stars earned</div>
+                                <button onClick={() => setShowSolution(true)} style={{
+                                    padding: '10px 20px', fontSize: '14px', background: 'transparent',
+                                    border: `1px solid ${theme.border}`, borderRadius: '8px',
+                                    color: theme.textMuted, cursor: 'pointer', marginBottom: '20px'
+                                }}>Show Solution</button>
+                            </>
+                        )}
+
+                        {showSolution && (
+                            <div style={{ marginBottom: '20px', padding: '15px', background: theme.bgPanel, borderRadius: '12px' }}>
+                                <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '10px', textAlign: 'center' }}>
+                                    Solution ({worldTheme?.tileX2 || 'x2'}=x2, {worldTheme?.tileX3 || 'x3'}=x3, {worldTheme?.trap || '💥'}=trap)
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {grid.map((row, y) => (
+                                        <div key={y} style={{ display: 'flex', gap: '4px' }}>
+                                            {row.map((val, x) => (
+                                                <div key={x} style={{
+                                                    width: '30px', height: '30px', display: 'flex',
+                                                    alignItems: 'center', justifyContent: 'center',
+                                                    background: val === 0 ? theme.error : val === 3 ? theme.gold : val === 2 ? theme.honey : theme.bgDark,
+                                                    borderRadius: '4px', fontSize: '14px',
+                                                    color: val === 0 ? '#fff' : val > 1 ? '#000' : theme.textMuted
+                                                }}>
+                                                    {val === 0 ? (worldTheme?.trap || '💥') :
+                                                     val === 3 ? (worldTheme?.tileX3 || '⭐') :
+                                                     val === 2 ? (worldTheme?.tileX2 || '🟡') :
+                                                     (worldTheme?.tileX1 || 'x1')}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-                            <button
-                                onClick={() => startGame(selectedOpponent, currentLevel)}
-                                style={{
-                                    padding: '15px 30px', fontSize: '18px',
-                                    background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                                    border: 'none', borderRadius: '10px', color: 'white',
+                        <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+                            <button onClick={() => startGame(selectedOpponent, currentLevel)} style={{
+                                padding: '15px 35px', fontSize: '18px',
+                                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
+                                border: 'none', borderRadius: '12px', color: 'white',
+                                cursor: 'pointer', fontWeight: 'bold'
+                            }}>Play Again</button>
+
+                            {roundResult === 'win' && currentLevel < 10 && (
+                                <button onClick={() => startGame(selectedOpponent, currentLevel + 1)} style={{
+                                    padding: '15px 35px', fontSize: '18px',
+                                    background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
+                                    border: 'none', borderRadius: '12px', color: '#000',
                                     cursor: 'pointer', fontWeight: 'bold'
-                                }}
-                            >
-                                Play Again
-                            </button>
-                            <button
-                                onClick={() => setGameState('level_select')}
-                                style={{
-                                    padding: '15px 30px', fontSize: '18px',
-                                    background: 'transparent',
-                                    border: `2px solid ${theme.border}`,
-                                    borderRadius: '10px', color: theme.textSecondary,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Level Select
-                            </button>
+                                }}>Next Level →</button>
+                            )}
+
+                            <button onClick={() => setGameState('level_select')} style={{
+                                padding: '15px 35px', fontSize: '18px', background: 'transparent',
+                                border: `2px solid ${theme.border}`, borderRadius: '12px',
+                                color: theme.textSecondary, cursor: 'pointer'
+                            }}>Level Select</button>
                         </div>
                     </div>
                 )}
+
+                <style>{`
+                    @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+                `}</style>
             </div>
         );
     }
 
     return null;
 };
+
+ReactDOM.render(<HoneyGrid />, document.getElementById('root'));
