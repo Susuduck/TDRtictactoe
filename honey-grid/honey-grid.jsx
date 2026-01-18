@@ -3,16 +3,16 @@ const { useState, useEffect, useCallback, useMemo, useRef } = React;
 /**
  * HONEY GRID - Professional Voltorb Flip-Style Deduction Puzzle
  *
- * Design Principles Applied:
- * - Flow State: Challenge scales with skill, immediate feedback, clear goals
- * - Pattern Learning: Every puzzle solvable through logic (Koster)
- * - Four Keys: Hard Fun (fiero), Serious Fun (progression), Easy Fun (discovery)
- * - Player Agency: Meaningful choices, skill-based outcomes, no luck dependency
- * - Anti-Pattern Avoidance: No random failures, visible progress, fair difficulty
+ * Progression System:
+ * - 10 Worlds (opponents), each with 10 Levels
+ * - Each level awards up to 1 star (in increments of 0.25)
+ * - Need 10 stars to unlock next world
+ * - World N Level 10 is easier than World N+1 Level 1 (difficulty steps between worlds)
+ * - Stars: 0.25 (cash out ≥4), 0.5 (cash out ≥8), 0.75 (complete), 1.0 (perfect - only multipliers flipped)
  */
 
 const HoneyGrid = () => {
-    // Theme - Enhanced Dark Orchid with better contrast
+    // Theme
     const theme = {
         bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#151020',
         bgLight: '#3a3460', bgHover: '#4a4480',
@@ -24,116 +24,209 @@ const HoneyGrid = () => {
         error: '#ff4444', errorGlow: 'rgba(255, 68, 68, 0.4)', errorDim: '#cc2222',
         success: '#44dd88', successGlow: 'rgba(68, 221, 136, 0.4)',
         safe: '#44aaff', safeGlow: 'rgba(68, 170, 255, 0.3)',
-        x1: '#666688', x2: '#ffaa00', x3: '#ffd700'
+        bronze: '#cd7f32', silver: '#c0c0c0', platinum: '#e5e4e2'
     };
 
-    // Opponents with carefully tuned difficulty progression
-    // Each introduces ONE new mechanic clearly (learning curve = experience)
+    /**
+     * LEVEL CONFIGURATIONS
+     * Each world has 10 levels with specific configurations
+     * Difficulty increases within world, then jumps at new world
+     * World N Level 10 < World N+1 Level 1 in difficulty
+     */
+    const levelConfigs = {
+        // World 0: Funky Frog - Tutorial (Learning basics)
+        0: [
+            { traps: 1, mults: 3, x3Chance: 0, safeRows: 2, safeCols: 1, targetScore: 8 },   // L1: Super easy
+            { traps: 1, mults: 3, x3Chance: 0, safeRows: 2, safeCols: 0, targetScore: 8 },   // L2
+            { traps: 1, mults: 4, x3Chance: 0, safeRows: 2, safeCols: 0, targetScore: 12 },  // L3
+            { traps: 2, mults: 3, x3Chance: 0, safeRows: 2, safeCols: 0, targetScore: 8 },   // L4
+            { traps: 2, mults: 4, x3Chance: 0, safeRows: 1, safeCols: 1, targetScore: 12 },  // L5
+            { traps: 2, mults: 4, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 16 },  // L6
+            { traps: 2, mults: 5, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 24 },  // L7
+            { traps: 3, mults: 4, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 16 },  // L8
+            { traps: 3, mults: 5, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 24 },  // L9
+            { traps: 3, mults: 5, x3Chance: 0, safeRows: 1, safeCols: 0, targetScore: 32 },  // L10: Comfortable
+        ],
+        // World 1: Cheeky Chicken - x3 tiles introduced (jump: 3→4 traps, adds x3)
+        1: [
+            { traps: 4, mults: 4, x3Chance: 0.25, safeRows: 1, safeCols: 0, targetScore: 24 },  // L1: Step up!
+            { traps: 4, mults: 4, x3Chance: 0.30, safeRows: 1, safeCols: 0, targetScore: 32 },
+            { traps: 4, mults: 5, x3Chance: 0.30, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 4, mults: 5, x3Chance: 0.35, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 5, mults: 5, x3Chance: 0.35, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 5, mults: 5, x3Chance: 0.35, safeRows: 0, safeCols: 1, targetScore: 64 },
+            { traps: 5, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 1, targetScore: 72 },
+            { traps: 5, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 5, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 5, mults: 7, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 128 }, // L10
+        ],
+        // World 2: Disco Dinosaur - More traps, tighter play (jump: 5→6 traps)
+        2: [
+            { traps: 6, mults: 5, x3Chance: 0.35, safeRows: 1, safeCols: 0, targetScore: 48 },
+            { traps: 6, mults: 5, x3Chance: 0.35, safeRows: 0, safeCols: 1, targetScore: 64 },
+            { traps: 6, mults: 6, x3Chance: 0.35, safeRows: 0, safeCols: 1, targetScore: 72 },
+            { traps: 6, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 7, mults: 5, x3Chance: 0.40, safeRows: 0, safeCols: 1, targetScore: 64 },
+            { traps: 7, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 0, targetScore: 96 },
+            { traps: 7, mults: 6, x3Chance: 0.45, safeRows: 0, safeCols: 0, targetScore: 128 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, targetScore: 144 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, targetScore: 192 },
+            { traps: 7, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, targetScore: 192 },
+        ],
+        // World 3: Radical Raccoon - Fuzzy hints introduced (jump: adds fuzzy mechanic)
+        3: [
+            { traps: 6, mults: 6, x3Chance: 0.40, safeRows: 1, safeCols: 0, fuzzyChance: 0.20, targetScore: 72 },
+            { traps: 6, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 1, fuzzyChance: 0.25, targetScore: 96 },
+            { traps: 7, mults: 6, x3Chance: 0.40, safeRows: 0, safeCols: 1, fuzzyChance: 0.25, targetScore: 96 },
+            { traps: 7, mults: 6, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, targetScore: 128 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, targetScore: 144 },
+            { traps: 8, mults: 6, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, targetScore: 128 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, targetScore: 216 },
+            { traps: 8, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, fuzzyChance: 0.40, targetScore: 256 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, fuzzyChance: 0.40, targetScore: 288 },
+        ],
+        // World 4: Electric Eel - Hidden hints (jump: adds hidden hints)
+        4: [
+            { traps: 7, mults: 6, x3Chance: 0.40, safeRows: 1, safeCols: 0, hiddenChance: 0.15, targetScore: 96 },
+            { traps: 7, mults: 7, x3Chance: 0.40, safeRows: 0, safeCols: 1, hiddenChance: 0.20, targetScore: 144 },
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, hiddenChance: 0.20, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, hiddenChance: 0.25, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 0, hiddenChance: 0.25, targetScore: 216 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.25, targetScore: 256 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.30, targetScore: 288 },
+            { traps: 9, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.30, targetScore: 256 },
+            { traps: 9, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, hiddenChance: 0.30, targetScore: 324 },
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, hiddenChance: 0.35, targetScore: 384 },
+        ],
+        // World 5: Mysterious Moth - Clustered traps (jump: adds clustering)
+        5: [
+            { traps: 7, mults: 7, x3Chance: 0.45, safeRows: 1, safeCols: 0, clustered: true, targetScore: 144 },
+            { traps: 8, mults: 7, x3Chance: 0.45, safeRows: 0, safeCols: 1, clustered: true, targetScore: 192 },
+            { traps: 8, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 216 },
+            { traps: 8, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 256 },
+            { traps: 9, mults: 7, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 256 },
+            { traps: 9, mults: 8, x3Chance: 0.50, safeRows: 0, safeCols: 0, clustered: true, targetScore: 288 },
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, clustered: true, targetScore: 324 },
+            { traps: 10, mults: 7, x3Chance: 0.55, safeRows: 0, safeCols: 0, clustered: true, targetScore: 288 },
+            { traps: 10, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, clustered: true, targetScore: 384 },
+            { traps: 10, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, clustered: true, targetScore: 432 },
+        ],
+        // World 6: Professor Penguin - High reward density (jump: more x3s, more mults)
+        6: [
+            { traps: 8, mults: 9, x3Chance: 0.55, safeRows: 0, safeCols: 1, targetScore: 432 },
+            { traps: 8, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 486 },
+            { traps: 9, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 512 },
+            { traps: 9, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 576 },
+            { traps: 9, mults: 10, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 648 },
+            { traps: 10, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 576 },
+            { traps: 10, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 648 },
+            { traps: 10, mults: 10, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 729 },
+            { traps: 10, mults: 10, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 864 },
+            { traps: 11, mults: 10, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 972 },
+        ],
+        // World 7: Sly Snake - Diagonal patterns (jump: adds diagonal mechanic)
+        7: [
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 1, diagonal: true, targetScore: 384 },
+            { traps: 9, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 432 },
+            { traps: 9, mults: 9, x3Chance: 0.55, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 486 },
+            { traps: 10, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 432 },
+            { traps: 10, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 512 },
+            { traps: 10, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 576 },
+            { traps: 10, mults: 9, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 648 },
+            { traps: 11, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 512 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 648 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, diagonal: true, targetScore: 729 },
+        ],
+        // World 8: Wolf Warrior - Heavy trap density (jump: 11→12 traps)
+        8: [
+            { traps: 12, mults: 7, x3Chance: 0.55, safeRows: 0, safeCols: 1, targetScore: 324 },
+            { traps: 12, mults: 7, x3Chance: 0.55, safeRows: 0, safeCols: 0, targetScore: 384 },
+            { traps: 12, mults: 8, x3Chance: 0.55, safeRows: 0, safeCols: 0, targetScore: 432 },
+            { traps: 12, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 486 },
+            { traps: 12, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, targetScore: 512 },
+            { traps: 12, mults: 8, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 576 },
+            { traps: 12, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 648 },
+            { traps: 12, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, targetScore: 729 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 864 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, targetScore: 972 },
+        ],
+        // World 9: Grand Master Grizzly - All mechanics combined (jump: all mechanics)
+        9: [
+            { traps: 10, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 1, fuzzyChance: 0.15, hiddenChance: 0.10, clustered: true, targetScore: 512 },
+            { traps: 10, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, fuzzyChance: 0.20, hiddenChance: 0.15, clustered: true, targetScore: 576 },
+            { traps: 11, mults: 8, x3Chance: 0.60, safeRows: 0, safeCols: 0, fuzzyChance: 0.20, hiddenChance: 0.15, diagonal: true, targetScore: 576 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.25, hiddenChance: 0.15, clustered: true, targetScore: 729 },
+            { traps: 11, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.25, hiddenChance: 0.20, diagonal: true, targetScore: 864 },
+            { traps: 12, mults: 8, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.25, hiddenChance: 0.20, clustered: true, targetScore: 729 },
+            { traps: 12, mults: 9, x3Chance: 0.65, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, hiddenChance: 0.20, diagonal: true, targetScore: 972 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, fuzzyChance: 0.30, hiddenChance: 0.25, clustered: true, diagonal: true, targetScore: 1024 },
+            { traps: 12, mults: 9, x3Chance: 0.70, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, hiddenChance: 0.25, clustered: true, diagonal: true, targetScore: 1296 },
+            { traps: 12, mults: 10, x3Chance: 0.75, safeRows: 0, safeCols: 0, fuzzyChance: 0.35, hiddenChance: 0.30, clustered: true, diagonal: true, targetScore: 1536 },
+        ],
+    };
+
+    // Opponents/Worlds
     const opponents = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
             title: 'The Friendly Beginner',
             description: 'Learn the basics with simple puzzles',
-            mechanic: 'Tutorial mode - lots of safe rows!',
-            // Level 1: 1-2 traps, mostly obvious. Level 10: 3-4 traps
-            baseTrapCount: 1, trapPerLevel: 0.3,
-            baseMultiplierCount: 3, multPerLevel: 0.2,
-            guaranteedSafeRows: 2, // Always have 2 rows with 0 traps
-            special: 'tutorial'
+            mechanic: 'Tutorial - Safe rows guaranteed!',
         },
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
             title: 'The Cunning Clucker',
             description: 'x3 multipliers appear for bigger scores!',
             mechanic: 'x3 tiles introduced!',
-            baseTrapCount: 2, trapPerLevel: 0.4,
-            baseMultiplierCount: 4, multPerLevel: 0.3,
-            guaranteedSafeRows: 1,
-            special: 'x3_tiles'
         },
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Groovy Giant',
-            description: 'More traps, but hints are always clear',
-            mechanic: 'More traps to deduce around!',
-            baseTrapCount: 3, trapPerLevel: 0.5,
-            baseMultiplierCount: 5, multPerLevel: 0.3,
-            guaranteedSafeRows: 1,
-            special: 'more_traps'
+            description: 'More traps, tighter deductions needed',
+            mechanic: 'Denser trap fields!',
         },
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Trash Tactician',
             description: 'Some sums shown as ranges (±1)',
-            mechanic: 'Fuzzy hints on some rows!',
-            baseTrapCount: 3, trapPerLevel: 0.4,
-            baseMultiplierCount: 5, multPerLevel: 0.3,
-            guaranteedSafeRows: 1,
-            fuzzyHintChance: 0.3, // 30% of hints are fuzzy
-            special: 'fuzzy_hints'
+            mechanic: 'Fuzzy hints (~) appear!',
         },
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Shocking Strategist',
-            description: 'Some hints start hidden until you reveal nearby tiles',
-            mechanic: 'Hidden hints revealed by play!',
-            baseTrapCount: 4, trapPerLevel: 0.4,
-            baseMultiplierCount: 5, multPerLevel: 0.3,
-            guaranteedSafeRows: 0,
-            hiddenHintChance: 0.25,
-            special: 'hidden_hints'
+            description: 'Some hints hidden until you reveal tiles',
+            mechanic: 'Hidden hints (?) appear!',
         },
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
             title: 'The Light Seeker',
-            description: 'Traps cluster together - find one, find them all!',
+            description: 'Traps cluster together in groups',
             mechanic: 'Clustered trap patterns!',
-            baseTrapCount: 4, trapPerLevel: 0.5,
-            baseMultiplierCount: 6, multPerLevel: 0.3,
-            guaranteedSafeRows: 0,
-            special: 'clustered_traps'
         },
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
             title: 'The Antarctic Academic',
-            description: 'Dense grids with high-value tiles - big risk, big reward!',
+            description: 'Dense grids with high-value tiles',
             mechanic: 'High reward density!',
-            baseTrapCount: 5, trapPerLevel: 0.4,
-            baseMultiplierCount: 8, multPerLevel: 0.4,
-            guaranteedSafeRows: 0,
-            special: 'high_reward'
         },
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Slithering Schemer',
-            description: 'Traps form diagonal patterns you can predict!',
+            description: 'Traps form diagonal patterns',
             mechanic: 'Diagonal trap lines!',
-            baseTrapCount: 5, trapPerLevel: 0.5,
-            baseMultiplierCount: 6, multPerLevel: 0.3,
-            guaranteedSafeRows: 0,
-            special: 'diagonal_traps'
         },
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Pack Leader',
-            description: 'Heavy trap density - every deduction counts!',
-            mechanic: 'Dense trap fields!',
-            baseTrapCount: 6, trapPerLevel: 0.5,
-            baseMultiplierCount: 6, multPerLevel: 0.3,
-            guaranteedSafeRows: 0,
-            special: 'heavy_traps'
+            description: 'Maximum trap density - every move counts',
+            mechanic: 'Heavy trap fields!',
         },
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Champion',
-            description: 'All mechanics combined - prove your mastery!',
+            description: 'All mechanics combined - prove mastery!',
             mechanic: 'Master challenge!',
-            baseTrapCount: 5, trapPerLevel: 0.6,
-            baseMultiplierCount: 7, multPerLevel: 0.4,
-            guaranteedSafeRows: 0,
-            fuzzyHintChance: 0.2,
-            hiddenHintChance: 0.15,
-            special: 'master'
         }
     ];
 
@@ -147,24 +240,24 @@ const HoneyGrid = () => {
     // Board state
     const [grid, setGrid] = useState([]);
     const [revealed, setRevealed] = useState([]);
-    const [marks, setMarks] = useState([]); // Now stores arrays of possible values per tile
+    const [marks, setMarks] = useState([]);
     const [rowHints, setRowHints] = useState([]);
     const [colHints, setColHints] = useState([]);
     const [hiddenHints, setHiddenHints] = useState({ rows: new Set(), cols: new Set() });
     const [revealedHints, setRevealedHints] = useState({ rows: new Set(), cols: new Set() });
+    const [levelConfig, setLevelConfig] = useState(null);
 
     // Interaction state
     const [hoveredTile, setHoveredTile] = useState(null);
-    const [hoveredHint, setHoveredHint] = useState(null); // {type: 'row'|'col', index: n}
-    const [selectedForMarking, setSelectedForMarking] = useState(null);
+    const [hoveredHint, setHoveredHint] = useState(null);
 
     // Game progress
     const [currentScore, setCurrentScore] = useState(1);
     const [roundResult, setRoundResult] = useState(null);
     const [totalMultipliers, setTotalMultipliers] = useState(0);
     const [foundMultipliers, setFoundMultipliers] = useState(0);
+    const [x1sFlipped, setX1sFlipped] = useState(0);
     const [moveHistory, setMoveHistory] = useState([]);
-    const [streak, setStreak] = useState(0);
     const [showSolution, setShowSolution] = useState(false);
 
     // Animation states
@@ -173,35 +266,43 @@ const HoneyGrid = () => {
     const [celebrateAnimation, setCelebrateAnimation] = useState(false);
     const [particles, setParticles] = useState([]);
 
-    // Progression
+    // Progression - now stores stars per level (0, 0.25, 0.5, 0.75, or 1)
     const [progression, setProgression] = useState(() => {
-        const saved = localStorage.getItem('honeygrid_progression_v2');
+        const saved = localStorage.getItem('honeygrid_progression_v3');
         if (saved) return JSON.parse(saved);
         return {
-            starPoints: Array(10).fill(0),
-            levelsCompleted: Array(10).fill(null).map(() => Array(10).fill(false)),
+            levelStars: Array(10).fill(null).map(() => Array(10).fill(0)), // [world][level] = stars (0-1)
             totalWins: 0,
             perfectClears: 0,
-            currentStreak: 0,
-            bestStreak: 0
         };
     });
 
     // Save progression
     useEffect(() => {
-        localStorage.setItem('honeygrid_progression_v2', JSON.stringify(progression));
+        localStorage.setItem('honeygrid_progression_v3', JSON.stringify(progression));
     }, [progression]);
 
-    // Helper functions
-    const getStars = (idx) => Math.floor(progression.starPoints[idx] / 4);
-    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 40;
-    const isOpponentMastered = (idx) => progression.starPoints[idx] >= 40;
-    const getLevelUnlocked = (oppIdx, level) => {
-        if (level === 1) return true;
-        // Unlock next level after completing previous OR having enough stars
-        const completedPrev = progression.levelsCompleted[oppIdx]?.[level - 2];
-        const hasStars = getStars(oppIdx) >= level - 1;
-        return completedPrev || hasStars;
+    // Calculate world stars (sum of all level stars in that world)
+    const getWorldStars = (worldIdx) => {
+        return progression.levelStars[worldIdx].reduce((sum, stars) => sum + stars, 0);
+    };
+
+    // Check if world is unlocked (need 10 stars from previous world)
+    const isWorldUnlocked = (worldIdx) => {
+        if (worldIdx === 0) return true;
+        return getWorldStars(worldIdx - 1) >= 10;
+    };
+
+    // Check if level is unlocked (previous level must have at least 0.25 stars, or it's level 1)
+    const isLevelUnlocked = (worldIdx, levelIdx) => {
+        if (!isWorldUnlocked(worldIdx)) return false;
+        if (levelIdx === 0) return true;
+        return progression.levelStars[worldIdx][levelIdx - 1] >= 0.25;
+    };
+
+    // Get star rating for display
+    const getLevelStars = (worldIdx, levelIdx) => {
+        return progression.levelStars[worldIdx][levelIdx];
     };
 
     // Spawn celebration particles
@@ -239,68 +340,40 @@ const HoneyGrid = () => {
         return () => clearInterval(interval);
     }, [particles.length]);
 
-    /**
-     * SOLVABLE GRID GENERATION
-     * Core principle: Every puzzle must be solvable through pure logic
-     * Uses constraint propagation to ensure at least one deducible move exists
-     */
-    const generateSolvableGrid = useCallback((opponent, level) => {
+    // Generate grid based on level config
+    const generateGrid = useCallback((config) => {
         const size = 5;
-        const maxAttempts = 50;
-
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            const result = generateGridAttempt(opponent, level, size);
-            if (result && isGridSolvable(result.grid, result.rowHints, result.colHints)) {
-                return result;
-            }
-        }
-
-        // Fallback: generate an easy grid that's definitely solvable
-        return generateEasyGrid(opponent, level, size);
-    }, []);
-
-    const generateGridAttempt = (opponent, level, size) => {
         const grid = Array(size).fill(null).map(() => Array(size).fill(1));
 
-        // Calculate trap count based on opponent and level
-        const trapCount = Math.min(
-            Math.floor(opponent.baseTrapCount + (level - 1) * opponent.trapPerLevel),
-            12 // Cap at 12 traps (almost half the grid)
-        );
-
-        const multiplierCount = Math.min(
-            Math.floor(opponent.baseMultiplierCount + (level - 1) * opponent.multPerLevel),
-            size * size - trapCount - 2 // Leave some x1 tiles
-        );
-
-        // Ensure some rows/columns are completely safe (0 traps) for deduction entry points
+        // Determine safe rows/cols
         const safeRows = new Set();
         const safeCols = new Set();
 
-        if (opponent.guaranteedSafeRows > 0) {
-            while (safeRows.size < opponent.guaranteedSafeRows) {
-                safeRows.add(Math.floor(Math.random() * size));
-            }
+        while (safeRows.size < (config.safeRows || 0)) {
+            safeRows.add(Math.floor(Math.random() * size));
+        }
+        while (safeCols.size < (config.safeCols || 0)) {
+            safeCols.add(Math.floor(Math.random() * size));
         }
 
-        // Place traps based on special patterns
+        // Place traps
         let trapPositions = [];
 
-        if (opponent.special === 'clustered_traps' || opponent.special === 'master') {
-            // Cluster traps together in 2-3 groups
-            const clusterCount = Math.ceil(trapCount / 4);
-            for (let c = 0; c < clusterCount && trapPositions.length < trapCount; c++) {
-                let cx, cy;
+        if (config.clustered) {
+            // Cluster traps together
+            const clusterCount = Math.ceil(config.traps / 4);
+            for (let c = 0; c < clusterCount && trapPositions.length < config.traps; c++) {
+                let cx, cy, attempts = 0;
                 do {
                     cx = Math.floor(Math.random() * size);
                     cy = Math.floor(Math.random() * size);
-                } while (safeRows.has(cy) || safeCols.has(cx));
+                    attempts++;
+                } while ((safeRows.has(cy) || safeCols.has(cx)) && attempts < 50);
 
                 if (!trapPositions.some(([px, py]) => px === cx && py === cy)) {
                     trapPositions.push([cx, cy]);
                 }
 
-                // Add adjacent positions
                 const neighbors = [
                     [cx-1, cy], [cx+1, cy], [cx, cy-1], [cx, cy+1],
                     [cx-1, cy-1], [cx+1, cy+1], [cx-1, cy+1], [cx+1, cy-1]
@@ -310,19 +383,19 @@ const HoneyGrid = () => {
                 );
 
                 for (const [nx, ny] of neighbors) {
-                    if (trapPositions.length >= trapCount) break;
+                    if (trapPositions.length >= config.traps) break;
                     if (Math.random() < 0.5 && !trapPositions.some(([px, py]) => px === nx && py === ny)) {
                         trapPositions.push([nx, ny]);
                     }
                 }
             }
-        } else if (opponent.special === 'diagonal_traps') {
-            // Create diagonal line(s) of traps
+        } else if (config.diagonal) {
+            // Diagonal pattern
             const startX = Math.floor(Math.random() * 3);
             const startY = Math.floor(Math.random() * 3);
             const dir = Math.random() < 0.5 ? 1 : -1;
 
-            for (let i = 0; i < size && trapPositions.length < trapCount; i++) {
+            for (let i = 0; i < size && trapPositions.length < config.traps; i++) {
                 const x = (startX + i) % size;
                 const y = (startY + i * dir + size) % size;
                 if (!safeRows.has(y) && !safeCols.has(x)) {
@@ -333,23 +406,22 @@ const HoneyGrid = () => {
 
         // Fill remaining traps randomly
         let attempts = 0;
-        while (trapPositions.length < trapCount && attempts < 100) {
+        while (trapPositions.length < config.traps && attempts < 200) {
             const x = Math.floor(Math.random() * size);
             const y = Math.floor(Math.random() * size);
             attempts++;
 
             if (safeRows.has(y) || safeCols.has(x)) continue;
             if (trapPositions.some(([px, py]) => px === x && py === y)) continue;
-
             trapPositions.push([x, y]);
         }
 
         // Place traps on grid
         for (const [x, y] of trapPositions) {
-            grid[y][x] = 0; // TRAP
+            grid[y][x] = 0;
         }
 
-        // Collect non-trap positions for multiplier placement
+        // Collect non-trap positions for multipliers
         const nonTrapPositions = [];
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
@@ -362,20 +434,10 @@ const HoneyGrid = () => {
         // Shuffle and place multipliers
         nonTrapPositions.sort(() => Math.random() - 0.5);
 
-        const hasX3 = opponent.special !== 'tutorial';
         let placed = 0;
-
         for (const [x, y] of nonTrapPositions) {
-            if (placed >= multiplierCount) break;
-
-            // Determine multiplier value
-            let value;
-            if (hasX3 && Math.random() < 0.35) {
-                value = 3;
-            } else {
-                value = 2;
-            }
-
+            if (placed >= config.mults) break;
+            const value = Math.random() < (config.x3Chance || 0) ? 3 : 2;
             grid[y][x] = value;
             placed++;
         }
@@ -385,53 +447,42 @@ const HoneyGrid = () => {
         const colHints = [];
 
         for (let i = 0; i < size; i++) {
-            // Row hint
             let rowSum = 0, rowTraps = 0;
             for (let j = 0; j < size; j++) {
                 if (grid[i][j] === 0) rowTraps++;
                 else rowSum += grid[i][j];
             }
 
-            let rowHint = { sum: rowSum, traps: rowTraps, fuzzy: false, original: rowSum };
-
-            // Apply fuzzy hints if applicable
-            if ((opponent.fuzzyHintChance || 0) > 0 && Math.random() < opponent.fuzzyHintChance) {
-                const fuzz = Math.random() < 0.5 ? -1 : 1;
-                rowHint.sum = Math.max(0, rowSum + fuzz);
+            let rowHint = { sum: rowSum, traps: rowTraps, fuzzy: false };
+            if ((config.fuzzyChance || 0) > 0 && Math.random() < config.fuzzyChance && rowTraps > 0) {
+                rowHint.sum = Math.max(0, rowSum + (Math.random() < 0.5 ? -1 : 1));
                 rowHint.fuzzy = true;
             }
-
             rowHints.push(rowHint);
 
-            // Column hint
             let colSum = 0, colTraps = 0;
             for (let j = 0; j < size; j++) {
                 if (grid[j][i] === 0) colTraps++;
                 else colSum += grid[j][i];
             }
 
-            let colHint = { sum: colSum, traps: colTraps, fuzzy: false, original: colSum };
-
-            if ((opponent.fuzzyHintChance || 0) > 0 && Math.random() < opponent.fuzzyHintChance) {
-                const fuzz = Math.random() < 0.5 ? -1 : 1;
-                colHint.sum = Math.max(0, colSum + fuzz);
+            let colHint = { sum: colSum, traps: colTraps, fuzzy: false };
+            if ((config.fuzzyChance || 0) > 0 && Math.random() < config.fuzzyChance && colTraps > 0) {
+                colHint.sum = Math.max(0, colSum + (Math.random() < 0.5 ? -1 : 1));
                 colHint.fuzzy = true;
             }
-
             colHints.push(colHint);
         }
 
-        // Determine hidden hints
+        // Hidden hints
         const hiddenRows = new Set();
         const hiddenCols = new Set();
-
-        if ((opponent.hiddenHintChance || 0) > 0) {
+        if ((config.hiddenChance || 0) > 0) {
             for (let i = 0; i < size; i++) {
-                // Don't hide hints for safe rows (0 traps) - that would be unfair
-                if (rowHints[i].traps > 0 && Math.random() < opponent.hiddenHintChance) {
+                if (rowHints[i].traps > 0 && Math.random() < config.hiddenChance) {
                     hiddenRows.add(i);
                 }
-                if (colHints[i].traps > 0 && Math.random() < opponent.hiddenHintChance) {
+                if (colHints[i].traps > 0 && Math.random() < config.hiddenChance) {
                     hiddenCols.add(i);
                 }
             }
@@ -445,154 +496,29 @@ const HoneyGrid = () => {
             }
         }
 
-        return {
-            grid,
-            rowHints,
-            colHints,
-            hiddenHints: { rows: hiddenRows, cols: hiddenCols },
-            totalMultipliers: totalMult
-        };
-    };
+        return { grid, rowHints, colHints, hiddenHints: { rows: hiddenRows, cols: hiddenCols }, totalMultipliers: totalMult };
+    }, []);
 
-    // Generate an easy, definitely-solvable grid as fallback
-    const generateEasyGrid = (opponent, level, size) => {
-        const grid = Array(size).fill(null).map(() => Array(size).fill(1));
-
-        // Place just 2-3 traps in predictable positions
-        const trapCount = Math.min(3, Math.floor(opponent.baseTrapCount));
-        const trapRow = Math.floor(size / 2);
-
-        for (let i = 0; i < trapCount; i++) {
-            grid[trapRow][i] = 0;
-        }
-
-        // Place some multipliers
-        const multiplierPositions = [
-            [0, 0], [0, 4], [4, 0], [4, 4], [2, 2]
-        ];
-
-        for (const [x, y] of multiplierPositions) {
-            if (grid[y][x] !== 0) {
-                grid[y][x] = 2;
-            }
-        }
-
-        // Calculate hints
-        const rowHints = [];
-        const colHints = [];
-
-        for (let i = 0; i < size; i++) {
-            let rowSum = 0, rowTraps = 0;
-            for (let j = 0; j < size; j++) {
-                if (grid[i][j] === 0) rowTraps++;
-                else rowSum += grid[i][j];
-            }
-            rowHints.push({ sum: rowSum, traps: rowTraps, fuzzy: false });
-
-            let colSum = 0, colTraps = 0;
-            for (let j = 0; j < size; j++) {
-                if (grid[j][i] === 0) colTraps++;
-                else colSum += grid[j][i];
-            }
-            colHints.push({ sum: colSum, traps: colTraps, fuzzy: false });
-        }
-
-        let totalMult = 0;
-        for (let y = 0; y < size; y++) {
-            for (let x = 0; x < size; x++) {
-                if (grid[y][x] > 1) totalMult++;
-            }
-        }
-
-        return {
-            grid,
-            rowHints,
-            colHints,
-            hiddenHints: { rows: new Set(), cols: new Set() },
-            totalMultipliers: totalMult
-        };
-    };
-
-    /**
-     * SOLVABILITY CHECK
-     * Verifies that at least one tile can be logically deduced
-     * without guessing. Uses constraint propagation.
-     */
-    const isGridSolvable = (grid, rowHints, colHints) => {
-        const size = 5;
-
-        // Check 1: Any row/column with 0 traps = all tiles safe
-        for (let i = 0; i < size; i++) {
-            if (rowHints[i].traps === 0) return true;
-            if (colHints[i].traps === 0) return true;
-        }
-
-        // Check 2: Any row/column where traps = non-multiplier count
-        // (meaning all non-trap tiles must be multipliers)
-        for (let i = 0; i < size; i++) {
-            // Row check
-            let rowMultCount = 0;
-            for (let j = 0; j < size; j++) {
-                if (grid[i][j] > 1) rowMultCount++;
-            }
-            if (size - rowHints[i].traps === rowMultCount && rowMultCount > 0) {
-                return true; // All safe tiles are multipliers - can deduce
-            }
-
-            // Column check
-            let colMultCount = 0;
-            for (let j = 0; j < size; j++) {
-                if (grid[j][i] > 1) colMultCount++;
-            }
-            if (size - colHints[i].traps === colMultCount && colMultCount > 0) {
-                return true;
-            }
-        }
-
-        // Check 3: Row/column with (size - traps) = 1 means only 1 safe tile
-        // If that tile is a multiplier, it can be found by elimination
-        for (let i = 0; i < size; i++) {
-            if (size - rowHints[i].traps === 1) return true;
-            if (size - colHints[i].traps === 1) return true;
-        }
-
-        // Check 4: Sum constraints that force specific values
-        for (let i = 0; i < size; i++) {
-            const safeTiles = size - rowHints[i].traps;
-            const sum = rowHints[i].sum;
-
-            // If sum equals number of safe tiles, all must be 1s
-            if (sum === safeTiles && safeTiles > 0) return true;
-
-            // If sum is much higher than safeTiles, must have multipliers
-            if (sum >= safeTiles * 2 && safeTiles > 0) return true;
-        }
-
-        // If no obvious deductions, still allow - player might find patterns
-        return true;
-    };
-
-    // Start a new game
+    // Start game
     const startGame = useCallback((opponent, level) => {
-        const result = generateSolvableGrid(opponent, level);
+        const config = levelConfigs[opponent.id][level - 1];
+        const result = generateGrid(config);
 
         setSelectedOpponent(opponent);
         setCurrentLevel(level);
+        setLevelConfig(config);
         setGrid(result.grid);
         setRowHints(result.rowHints);
         setColHints(result.colHints);
         setHiddenHints(result.hiddenHints);
         setRevealedHints({ rows: new Set(), cols: new Set() });
         setRevealed(Array(5).fill(null).map(() => Array(5).fill(false)));
-        // Enhanced marking: each tile can have multiple possible values marked
-        setMarks(Array(5).fill(null).map(() => Array(5).fill(null).map(() => ({
-            possible: new Set([1, 2, 3]), // What values are possible
-            flagged: null // 'safe', 'trap', or null
-        }))));
+        setMarks(Array(5).fill(null).map(() => Array(5).fill(null).map(() => ({ flagged: null }))));
         setCurrentScore(1);
         setRoundResult(null);
         setTotalMultipliers(result.totalMultipliers);
         setFoundMultipliers(0);
+        setX1sFlipped(0);
         setMoveHistory([]);
         setShowSolution(false);
         setFlipAnimation(null);
@@ -601,55 +527,50 @@ const HoneyGrid = () => {
         setParticles([]);
         setGameState('playing');
 
-        // Show tutorial for first-time players on level 1 of Funky Frog
-        if (opponent.id === 0 && level === 1 && !progression.levelsCompleted[0][0]) {
+        // Tutorial for first time
+        if (opponent.id === 0 && level === 1 && progression.levelStars[0][0] === 0) {
             setShowTutorial(true);
             setTutorialStep(0);
         }
-    }, [generateSolvableGrid, progression.levelsCompleted]);
+    }, [generateGrid, progression.levelStars]);
 
-    // Handle tile flip with animation
+    // Handle tile flip
     const flipTile = useCallback((x, y) => {
         if (revealed[y][x] || roundResult) return;
 
         const value = grid[y][x];
 
-        // Save state for undo
         setMoveHistory(prev => [...prev, {
-            x, y,
-            score: currentScore,
-            revealed: revealed.map(r => [...r]),
-            foundMultipliers
+            x, y, score: currentScore, revealed: revealed.map(r => [...r]),
+            foundMultipliers, x1sFlipped
         }]);
 
-        // Trigger flip animation
         setFlipAnimation({ x, y, value });
 
-        // Update revealed after short delay for animation
         setTimeout(() => {
             const newRevealed = revealed.map(row => [...row]);
             newRevealed[y][x] = true;
             setRevealed(newRevealed);
 
-            // Reveal any hidden hints in this row/column
             setRevealedHints(prev => ({
                 rows: new Set([...prev.rows, y]),
                 cols: new Set([...prev.cols, x])
             }));
 
             if (value === 0) {
-                // Hit a trap!
                 setShakeAnimation(true);
                 setTimeout(() => setShakeAnimation(false), 500);
                 setCurrentScore(0);
                 setRoundResult('lose');
-                setStreak(0);
             } else {
                 const newScore = currentScore * value;
                 setCurrentScore(newScore);
 
+                if (value === 1) {
+                    setX1sFlipped(prev => prev + 1);
+                }
+
                 if (value > 1) {
-                    // Found a multiplier - celebrate!
                     const tileElement = document.querySelector(`[data-tile="${x}-${y}"]`);
                     if (tileElement) {
                         const rect = tileElement.getBoundingClientRect();
@@ -660,97 +581,58 @@ const HoneyGrid = () => {
                     const newFound = foundMultipliers + 1;
                     setFoundMultipliers(newFound);
 
-                    // Check win condition
                     if (newFound >= totalMultipliers) {
                         setCelebrateAnimation(true);
                         setRoundResult('win');
-                        setStreak(prev => prev + 1);
                     }
                 }
             }
 
             setFlipAnimation(null);
         }, 150);
-    }, [revealed, roundResult, grid, currentScore, foundMultipliers, totalMultipliers, spawnParticles, theme]);
+    }, [revealed, roundResult, grid, currentScore, foundMultipliers, totalMultipliers, spawnParticles, theme, x1sFlipped]);
 
-    // Enhanced marking system
+    // Mark tile
     const cycleMark = useCallback((x, y, e) => {
         e.preventDefault();
         if (revealed[y][x] || roundResult) return;
 
         setMarks(prev => {
-            const newMarks = prev.map(row => row.map(m => ({...m, possible: new Set(m.possible)})));
+            const newMarks = prev.map(row => row.map(m => ({...m})));
             const current = newMarks[y][x];
-
-            // Cycle through: none -> safe -> trap -> none
-            if (current.flagged === null) {
-                current.flagged = 'safe';
-            } else if (current.flagged === 'safe') {
-                current.flagged = 'trap';
-            } else {
-                current.flagged = null;
-            }
-
+            current.flagged = current.flagged === null ? 'safe' : current.flagged === 'safe' ? 'trap' : null;
             return newMarks;
         });
     }, [revealed, roundResult]);
 
-    // Mark specific possible values (for advanced players)
-    const togglePossibleValue = useCallback((x, y, value) => {
-        if (revealed[y][x] || roundResult) return;
-
-        setMarks(prev => {
-            const newMarks = prev.map(row => row.map(m => ({...m, possible: new Set(m.possible)})));
-            const current = newMarks[y][x];
-
-            if (current.possible.has(value)) {
-                current.possible.delete(value);
-            } else {
-                current.possible.add(value);
-            }
-
-            return newMarks;
-        });
-        setSelectedForMarking(null);
-    }, [revealed, roundResult]);
-
-    // Auto-mark safe rows/columns
+    // Auto-mark safe
     const autoMarkSafe = useCallback(() => {
         setMarks(prev => {
-            const newMarks = prev.map(row => row.map(m => ({...m, possible: new Set(m.possible)})));
-
-            // Mark all tiles in 0-trap rows as safe
+            const newMarks = prev.map(row => row.map(m => ({...m})));
             for (let i = 0; i < 5; i++) {
                 if (rowHints[i]?.traps === 0) {
                     for (let j = 0; j < 5; j++) {
-                        if (!revealed[i][j]) {
-                            newMarks[i][j].flagged = 'safe';
-                            newMarks[i][j].possible.delete(0); // Can't be trap
-                        }
+                        if (!revealed[i][j]) newMarks[i][j].flagged = 'safe';
                     }
                 }
                 if (colHints[i]?.traps === 0) {
                     for (let j = 0; j < 5; j++) {
-                        if (!revealed[j][i]) {
-                            newMarks[j][i].flagged = 'safe';
-                            newMarks[j][i].possible.delete(0);
-                        }
+                        if (!revealed[j][i]) newMarks[j][i].flagged = 'safe';
                     }
                 }
             }
-
             return newMarks;
         });
     }, [rowHints, colHints, revealed]);
 
-    // Undo last move
+    // Undo
     const undoMove = useCallback(() => {
         if (moveHistory.length === 0 || roundResult) return;
-
         const lastMove = moveHistory[moveHistory.length - 1];
         setRevealed(lastMove.revealed);
         setCurrentScore(lastMove.score);
         setFoundMultipliers(lastMove.foundMultipliers);
+        setX1sFlipped(lastMove.x1sFlipped);
         setMoveHistory(prev => prev.slice(0, -1));
     }, [moveHistory, roundResult]);
 
@@ -760,203 +642,163 @@ const HoneyGrid = () => {
         setRoundResult('cashout');
     }, [roundResult]);
 
-    // Handle round end - award points
+    // Calculate earned stars based on result
+    const calculateEarnedStars = useCallback(() => {
+        if (roundResult === 'lose') return 0;
+
+        if (roundResult === 'win') {
+            // Perfect clear = 1 star, with x1s = 0.75 stars
+            return x1sFlipped === 0 ? 1 : 0.75;
+        }
+
+        if (roundResult === 'cashout') {
+            // Based on score
+            if (currentScore >= (levelConfig?.targetScore || 8)) return 0.5;
+            if (currentScore >= 8) return 0.5;
+            if (currentScore >= 4) return 0.25;
+            return 0;
+        }
+
+        return 0;
+    }, [roundResult, x1sFlipped, currentScore, levelConfig]);
+
+    // Handle round end
     useEffect(() => {
         if (!roundResult || !selectedOpponent) return;
 
-        let points = 0;
-        if (roundResult === 'win') {
-            points = 4; // Perfect clear
+        const earnedStars = calculateEarnedStars();
 
-            // Bonus for streaks
-            if (streak >= 3) points += 1;
-            if (streak >= 5) points += 1;
-        } else if (roundResult === 'cashout') {
-            // More forgiving cash-out scoring
-            if (currentScore >= 16) points = 3;
-            else if (currentScore >= 8) points = 2;
-            else if (currentScore >= 4) points = 1;
-            else if (currentScore >= 2) points = 1; // Even small progress counts
-        }
-        // lose = 0 points, but we track the attempt
-
-        if (points > 0 || roundResult === 'win') {
+        if (earnedStars > 0) {
             setProgression(prev => {
-                const newPoints = [...prev.starPoints];
-                const newLevels = prev.levelsCompleted.map(l => [...l]);
-
-                newPoints[selectedOpponent.id] = Math.min(40, newPoints[selectedOpponent.id] + points);
-
-                if (roundResult === 'win') {
-                    newLevels[selectedOpponent.id][currentLevel - 1] = true;
+                const newLevelStars = prev.levelStars.map(world => [...world]);
+                // Only update if new stars are higher
+                const currentStars = newLevelStars[selectedOpponent.id][currentLevel - 1];
+                if (earnedStars > currentStars) {
+                    newLevelStars[selectedOpponent.id][currentLevel - 1] = earnedStars;
                 }
-
                 return {
                     ...prev,
-                    starPoints: newPoints,
-                    levelsCompleted: newLevels,
+                    levelStars: newLevelStars,
                     totalWins: prev.totalWins + (roundResult === 'win' ? 1 : 0),
-                    perfectClears: prev.perfectClears + (roundResult === 'win' ? 1 : 0),
-                    currentStreak: roundResult === 'win' ? prev.currentStreak + 1 : 0,
-                    bestStreak: Math.max(prev.bestStreak, roundResult === 'win' ? prev.currentStreak + 1 : prev.currentStreak)
+                    perfectClears: prev.perfectClears + (roundResult === 'win' && x1sFlipped === 0 ? 1 : 0),
                 };
             });
         }
-    }, [roundResult, currentScore, selectedOpponent, currentLevel, streak]);
+    }, [roundResult, selectedOpponent, currentLevel, calculateEarnedStars, x1sFlipped]);
 
     // Keyboard controls
     useEffect(() => {
         const handleKey = (e) => {
             if (e.code === 'Escape') {
-                if (showTutorial) {
-                    setShowTutorial(false);
-                } else if (gameState === 'playing') {
-                    setGameState('level_select');
-                } else if (gameState !== 'menu') {
-                    setGameState('menu');
-                }
+                if (showTutorial) setShowTutorial(false);
+                else if (gameState === 'playing') setGameState('level_select');
+                else if (gameState !== 'menu') setGameState('menu');
             }
             if (gameState === 'playing' && !roundResult) {
-                if (e.code === 'Space') {
-                    e.preventDefault();
-                    cashOut();
-                }
-                if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    undoMove();
-                }
-                if (e.code === 'KeyA') {
-                    autoMarkSafe();
-                }
+                if (e.code === 'Space') { e.preventDefault(); cashOut(); }
+                if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoMove(); }
+                if (e.code === 'KeyA') autoMarkSafe();
             }
-            if (showTutorial) {
-                if (e.code === 'Space' || e.code === 'Enter') {
-                    if (tutorialStep < tutorialSteps.length - 1) {
-                        setTutorialStep(prev => prev + 1);
-                    } else {
-                        setShowTutorial(false);
-                    }
-                }
+            if (showTutorial && (e.code === 'Space' || e.code === 'Enter')) {
+                if (tutorialStep < tutorialSteps.length - 1) setTutorialStep(prev => prev + 1);
+                else setShowTutorial(false);
             }
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [gameState, roundResult, cashOut, undoMove, autoMarkSafe, showTutorial, tutorialStep]);
 
-    // Tutorial steps
+    // Tutorial
     const tutorialSteps = [
-        {
-            title: "Welcome to Honey Grid!",
-            content: "Your goal is to find all the honey tiles (x2 and x3) without hitting any traps.",
-            highlight: null
-        },
-        {
-            title: "Reading the Hints",
-            content: "Each row and column shows TWO numbers: the SUM of all values, and the TRAP count (shown as ! marks).",
-            highlight: 'hints'
-        },
-        {
-            title: "Safe Rows",
-            content: "A row with 0 traps (no ! marks) means ALL tiles in that row are safe to flip!",
-            highlight: 'safeRow'
-        },
-        {
-            title: "Using Deduction",
-            content: "Compare hints across rows and columns. If a row has 4 traps, only 1 tile is safe!",
-            highlight: null
-        },
-        {
-            title: "Marking Tiles",
-            content: "Right-click to mark tiles as SAFE (blue) or TRAP (red). This helps track your deductions.",
-            highlight: null
-        },
-        {
-            title: "Cashing Out",
-            content: "If you're unsure, press SPACE to cash out and keep your current score. Don't get greedy!",
-            highlight: null
-        },
-        {
-            title: "You're Ready!",
-            content: "Start with the safe rows, use the hints, and think before you click. Good luck!",
-            highlight: null
-        }
+        { title: "Welcome to Honey Grid!", content: "Find all honey tiles (x2 and x3) without hitting traps." },
+        { title: "Reading Hints", content: "Each row/column shows the SUM of values and TRAP count (! marks)." },
+        { title: "Safe Rows", content: "A row with 0 traps (✓) means ALL tiles are safe to flip!" },
+        { title: "Using Deduction", content: "Compare hints. If a row has 4 traps, only 1 tile is safe!" },
+        { title: "Marking Tiles", content: "Right-click to mark tiles as SAFE (blue) or TRAP (red)." },
+        { title: "Earning Stars", content: "★ 0.25 = Cash out ≥4 | ★ 0.5 = Cash out ≥8 | ★ 0.75 = Complete | ★ 1.0 = Perfect!" },
+        { title: "You're Ready!", content: "Get 10 stars to unlock the next world. Good luck!" }
     ];
 
-    // Star bar component with enhanced visuals
-    const StarBar = ({ points, size = 'normal' }) => {
-        const starSize = size === 'small' ? 10 : 14;
+    // Star display component
+    const StarDisplay = ({ stars, size = 'normal' }) => {
+        const starSize = size === 'small' ? 14 : 20;
+        const fullStars = Math.floor(stars);
+        const partialStar = stars - fullStars;
+
         return (
-            <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-                {Array(10).fill(0).map((_, i) => (
-                    <div key={i} style={{
-                        width: `${starSize}px`,
-                        height: `${starSize}px`,
-                        background: i < Math.floor(points / 4)
-                            ? `linear-gradient(135deg, ${theme.gold}, ${theme.goldDim})`
-                            : theme.bgDark,
-                        borderRadius: '3px',
-                        border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`,
-                        boxShadow: i < Math.floor(points / 4) ? `0 0 6px ${theme.goldGlow}` : 'none',
-                        transition: 'all 0.3s ease'
-                    }} />
-                ))}
-                <span style={{
-                    marginLeft: '8px',
-                    fontSize: size === 'small' ? '11px' : '13px',
-                    color: theme.textSecondary
-                }}>
-                    {Math.floor(points / 4)}/10
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                {/* Full star */}
+                {fullStars >= 1 && (
+                    <span style={{ fontSize: `${starSize}px`, color: theme.gold }}>★</span>
+                )}
+                {/* Partial star */}
+                {partialStar > 0 && (
+                    <span style={{
+                        fontSize: `${starSize}px`,
+                        color: partialStar >= 0.75 ? theme.gold : partialStar >= 0.5 ? theme.silver : theme.bronze,
+                        opacity: partialStar >= 0.75 ? 1 : partialStar >= 0.5 ? 0.9 : 0.7
+                    }}>
+                        {partialStar >= 0.75 ? '¾' : partialStar >= 0.5 ? '½' : '¼'}
+                    </span>
+                )}
+                {stars === 0 && <span style={{ fontSize: `${starSize}px`, color: theme.textMuted }}>☆</span>}
+            </div>
+        );
+    };
+
+    // World stars bar
+    const WorldStarsBar = ({ worldIdx }) => {
+        const totalStars = getWorldStars(worldIdx);
+        const starCount = Math.floor(totalStars);
+        const partial = totalStars - starCount;
+
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '1px' }}>
+                    {Array(10).fill(0).map((_, i) => {
+                        let fillColor = theme.bgDark;
+                        let opacity = 0.3;
+
+                        if (i < starCount) {
+                            fillColor = theme.gold;
+                            opacity = 1;
+                        } else if (i === starCount && partial > 0) {
+                            fillColor = partial >= 0.75 ? theme.gold : partial >= 0.5 ? theme.silver : theme.bronze;
+                            opacity = partial >= 0.75 ? 0.9 : partial >= 0.5 ? 0.7 : 0.5;
+                        }
+
+                        return (
+                            <div key={i} style={{
+                                width: '10px', height: '10px',
+                                background: fillColor,
+                                opacity,
+                                borderRadius: '2px',
+                                border: `1px solid ${i < totalStars ? theme.gold : theme.border}`
+                            }} />
+                        );
+                    })}
+                </div>
+                <span style={{ fontSize: '12px', color: theme.textSecondary, marginLeft: '4px' }}>
+                    {totalStars.toFixed(totalStars % 1 === 0 ? 0 : 2)}/10
                 </span>
             </div>
         );
     };
 
-    // Enhanced hint display
+    // Hint display
     const HintDisplay = ({ hint, hidden, revealed: hintRevealed, direction, index, isHighlighted }) => {
         const isHidden = hidden && !hintRevealed;
         const isSafe = hint?.traps === 0;
         const isDangerous = hint?.traps >= 3;
 
-        // Calculate if this row/column is "complete" (all multipliers found)
-        const isComplete = useMemo(() => {
-            if (!grid.length) return false;
-
-            let foundMults = 0;
-            let totalMults = 0;
-
-            if (direction === 'row') {
-                for (let x = 0; x < 5; x++) {
-                    if (grid[index]?.[x] > 1) {
-                        totalMults++;
-                        if (revealed[index]?.[x]) foundMults++;
-                    }
-                }
-            } else {
-                for (let y = 0; y < 5; y++) {
-                    if (grid[y]?.[index] > 1) {
-                        totalMults++;
-                        if (revealed[y]?.[index]) foundMults++;
-                    }
-                }
-            }
-
-            return totalMults > 0 && foundMults === totalMults;
-        }, [grid, revealed, direction, index]);
-
         if (isHidden) {
             return (
-                <div
-                    style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        justifyContent: 'center', gap: '2px',
-                        width: '52px', height: '52px',
-                        background: `linear-gradient(135deg, ${theme.bgDark}, ${theme.bgPanel})`,
-                        borderRadius: '10px',
-                        border: `2px solid ${theme.border}`,
-                        cursor: 'help'
-                    }}
-                    title="Reveal tiles in this row/column to see the hint"
-                >
+                <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', width: '52px', height: '52px',
+                    background: theme.bgDark, borderRadius: '10px',
+                    border: `2px solid ${theme.border}`
+                }}>
                     <div style={{ fontSize: '20px', opacity: 0.5 }}>?</div>
                 </div>
             );
@@ -968,40 +810,23 @@ const HoneyGrid = () => {
                 onMouseLeave={() => setHoveredHint(null)}
                 style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    justifyContent: 'center', gap: '3px',
-                    width: '52px', height: '52px',
-                    background: isComplete
-                        ? `linear-gradient(135deg, ${theme.success}44, ${theme.success}22)`
-                        : isSafe
-                            ? `linear-gradient(135deg, ${theme.safe}33, ${theme.safe}11)`
-                            : isDangerous
-                                ? `linear-gradient(135deg, ${theme.error}22, ${theme.error}11)`
-                                : `linear-gradient(135deg, ${theme.bgDark}, ${theme.bgPanel})`,
+                    justifyContent: 'center', gap: '3px', width: '52px', height: '52px',
+                    background: isSafe ? `${theme.safe}33` : isDangerous ? `${theme.error}22` : theme.bgDark,
                     borderRadius: '10px',
-                    border: `2px solid ${
-                        isHighlighted ? theme.accentBright :
-                        isComplete ? theme.success :
-                        isSafe ? theme.safe :
-                        isDangerous ? theme.error :
-                        theme.border
-                    }`,
-                    boxShadow: isHighlighted ? `0 0 15px ${theme.accentBright}66` :
-                               isComplete ? `0 0 10px ${theme.successGlow}` : 'none',
-                    cursor: 'pointer',
+                    border: `2px solid ${isHighlighted ? theme.accentBright : isSafe ? theme.safe : isDangerous ? theme.error : theme.border}`,
+                    boxShadow: isHighlighted ? `0 0 15px ${theme.accentBright}66` : 'none',
                     transition: 'all 0.2s ease'
                 }}
             >
                 <div style={{
                     fontSize: '18px', fontWeight: 'bold',
-                    color: hint?.fuzzy ? theme.textMuted : theme.honey,
-                    textShadow: hint?.fuzzy ? 'none' : `0 0 8px ${theme.honeyGlow}`
+                    color: hint?.fuzzy ? theme.textMuted : theme.honey
                 }}>
                     {hint?.fuzzy ? `~${hint.sum}` : hint?.sum}
                 </div>
                 <div style={{
                     fontSize: '12px', fontWeight: 'bold',
-                    color: isSafe ? theme.success : theme.error,
-                    letterSpacing: '1px'
+                    color: isSafe ? theme.success : theme.error
                 }}>
                     {hint?.traps === 0 ? '✓' : '!'.repeat(hint?.traps || 0)}
                 </div>
@@ -1009,77 +834,35 @@ const HoneyGrid = () => {
         );
     };
 
-    // Enhanced tile component with animations
+    // Tile component
     const Tile = ({ x, y }) => {
         const isRevealed = revealed[y]?.[x];
         const value = grid[y]?.[x];
         const mark = marks[y]?.[x];
         const isFlipping = flipAnimation?.x === x && flipAnimation?.y === y;
-
-        // Check if this tile is highlighted by hovered hint
-        const isHighlighted = useMemo(() => {
-            if (!hoveredHint) return false;
-            if (hoveredHint.type === 'row' && hoveredHint.index === y) return true;
-            if (hoveredHint.type === 'col' && hoveredHint.index === x) return true;
-            return false;
-        }, [hoveredHint, x, y]);
-
-        // Check if this tile is in a safe row/column
+        const isHighlighted = (hoveredHint?.type === 'row' && hoveredHint?.index === y) ||
+                             (hoveredHint?.type === 'col' && hoveredHint?.index === x);
         const isInSafeZone = (rowHints[y]?.traps === 0) || (colHints[x]?.traps === 0);
 
-        const getTileStyle = () => {
-            if (isFlipping) {
-                return {
-                    bg: theme.accent,
-                    border: theme.accentBright,
-                    transform: 'rotateY(90deg)'
-                };
-            }
-
+        const getStyle = () => {
             if (!isRevealed) {
-                const flagColor = mark?.flagged === 'safe' ? theme.safe :
-                                  mark?.flagged === 'trap' ? theme.error : null;
+                const flagColor = mark?.flagged === 'safe' ? theme.safe : mark?.flagged === 'trap' ? theme.error : null;
                 return {
-                    bg: flagColor ? `${flagColor}33` :
-                        isHighlighted ? theme.bgHover : theme.bgPanel,
+                    bg: flagColor ? `${flagColor}33` : isHighlighted ? theme.bgHover : theme.bgPanel,
                     border: flagColor || (isHighlighted ? theme.borderBright : theme.accent),
-                    content: mark?.flagged === 'safe' ? '✓' :
-                             mark?.flagged === 'trap' ? '✗' : '?'
+                    content: mark?.flagged === 'safe' ? '✓' : mark?.flagged === 'trap' ? '✗' : '?'
                 };
             }
-
             switch(value) {
-                case 0: return {
-                    bg: theme.error,
-                    border: theme.error,
-                    content: '💥',
-                    glow: theme.errorGlow
-                };
-                case 1: return {
-                    bg: theme.bgDark,
-                    border: theme.border,
-                    content: 'x1',
-                    textColor: theme.textMuted
-                };
-                case 2: return {
-                    bg: `linear-gradient(135deg, ${theme.honey}, ${theme.x2})`,
-                    border: theme.honey,
-                    content: 'x2',
-                    textColor: '#000',
-                    glow: theme.honeyGlow
-                };
-                case 3: return {
-                    bg: `linear-gradient(135deg, ${theme.gold}, ${theme.goldDim})`,
-                    border: theme.gold,
-                    content: 'x3',
-                    textColor: '#000',
-                    glow: theme.goldGlow
-                };
+                case 0: return { bg: theme.error, border: theme.error, content: '💥', glow: theme.errorGlow };
+                case 1: return { bg: theme.bgDark, border: theme.border, content: 'x1', textColor: theme.textMuted };
+                case 2: return { bg: theme.honey, border: theme.honey, content: 'x2', textColor: '#000', glow: theme.honeyGlow };
+                case 3: return { bg: theme.gold, border: theme.gold, content: 'x3', textColor: '#000', glow: theme.goldGlow };
                 default: return { bg: theme.bgPanel, border: theme.border, content: '?' };
             }
         };
 
-        const style = getTileStyle();
+        const style = getStyle();
 
         return (
             <div
@@ -1090,34 +873,25 @@ const HoneyGrid = () => {
                 onMouseLeave={() => setHoveredTile(null)}
                 style={{
                     width: '56px', height: '56px',
-                    background: style.bg,
-                    border: `2px solid ${style.border}`,
-                    borderRadius: '12px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: style.bg, border: `2px solid ${style.border}`,
+                    borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: isRevealed || roundResult ? 'default' : 'pointer',
-                    fontSize: isRevealed ? '20px' : '22px',
-                    fontWeight: 'bold',
+                    fontSize: isRevealed ? '20px' : '22px', fontWeight: 'bold',
                     color: style.textColor || theme.text,
                     transition: 'all 0.15s ease',
                     transform: isFlipping ? 'rotateY(90deg) scale(1.1)' :
                                (hoveredTile?.x === x && hoveredTile?.y === y) ? 'scale(1.08)' : 'scale(1)',
                     boxShadow: style.glow ? `0 0 15px ${style.glow}` :
-                               isHighlighted ? `0 0 12px ${theme.accentBright}44` :
-                               (hoveredTile?.x === x && hoveredTile?.y === y) ? `0 0 20px ${theme.accent}66` : 'none',
+                               isHighlighted ? `0 0 12px ${theme.accentBright}44` : 'none',
                     position: 'relative'
                 }}
             >
                 {style.content}
-
-                {/* Safe zone indicator */}
                 {!isRevealed && isInSafeZone && !mark?.flagged && (
                     <div style={{
-                        position: 'absolute',
-                        top: '2px', right: '2px',
-                        width: '8px', height: '8px',
-                        background: theme.safe,
-                        borderRadius: '50%',
-                        opacity: 0.7
+                        position: 'absolute', top: '2px', right: '2px',
+                        width: '8px', height: '8px', background: theme.safe,
+                        borderRadius: '50%', opacity: 0.7
                     }} />
                 )}
             </div>
@@ -1133,41 +907,9 @@ const HoneyGrid = () => {
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 padding: '40px 20px', color: theme.text
             }}>
-                {/* Animated honey emoji */}
-                <div style={{
-                    fontSize: '80px',
-                    marginBottom: '15px',
-                    animation: 'float 3s ease-in-out infinite',
-                    filter: 'drop-shadow(0 0 20px rgba(255, 170, 0, 0.5))'
-                }}>🍯</div>
-
-                <h1 style={{
-                    fontSize: '42px',
-                    marginBottom: '8px',
-                    color: theme.accent,
-                    textShadow: `0 0 30px ${theme.accent}66`
-                }}>
-                    HONEY GRID
-                </h1>
-
-                <p style={{
-                    color: theme.textSecondary,
-                    marginBottom: '8px',
-                    textAlign: 'center',
-                    fontSize: '18px'
-                }}>
-                    A Deduction Puzzle Game
-                </p>
-
-                <p style={{
-                    color: theme.textMuted,
-                    marginBottom: '30px',
-                    fontSize: '14px',
-                    textAlign: 'center',
-                    maxWidth: '400px'
-                }}>
-                    Use logic to find the honey tiles and avoid the traps!
-                </p>
+                <div style={{ fontSize: '80px', marginBottom: '15px', animation: 'float 3s ease-in-out infinite' }}>🍯</div>
+                <h1 style={{ fontSize: '42px', marginBottom: '8px', color: theme.accent }}>HONEY GRID</h1>
+                <p style={{ color: theme.textSecondary, marginBottom: '30px' }}>A Deduction Puzzle Game</p>
 
                 <button
                     onClick={() => setGameState('select')}
@@ -1176,126 +918,75 @@ const HoneyGrid = () => {
                         background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
                         border: 'none', borderRadius: '12px', color: 'white',
                         cursor: 'pointer', fontWeight: 'bold',
-                        boxShadow: `0 6px 25px ${theme.accent}66`,
-                        transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = `0 8px 30px ${theme.accent}88`;
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = `0 6px 25px ${theme.accent}66`;
+                        boxShadow: `0 6px 25px ${theme.accent}66`
                     }}
                 >
                     PLAY
                 </button>
 
-                {/* Stats summary */}
                 {progression.totalWins > 0 && (
                     <div style={{
-                        marginTop: '25px',
-                        padding: '12px 24px',
-                        background: theme.bgPanel,
-                        borderRadius: '10px',
-                        display: 'flex',
-                        gap: '30px',
-                        fontSize: '14px'
+                        marginTop: '25px', padding: '12px 24px',
+                        background: theme.bgPanel, borderRadius: '10px',
+                        display: 'flex', gap: '30px', fontSize: '14px'
                     }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ color: theme.gold, fontWeight: 'bold', fontSize: '18px' }}>
-                                {progression.totalWins}
-                            </div>
+                            <div style={{ color: theme.gold, fontWeight: 'bold', fontSize: '18px' }}>{progression.totalWins}</div>
                             <div style={{ color: theme.textMuted }}>Wins</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ color: theme.success, fontWeight: 'bold', fontSize: '18px' }}>
-                                {progression.bestStreak}
-                            </div>
-                            <div style={{ color: theme.textMuted }}>Best Streak</div>
+                            <div style={{ color: theme.platinum, fontWeight: 'bold', fontSize: '18px' }}>{progression.perfectClears}</div>
+                            <div style={{ color: theme.textMuted }}>Perfect</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ color: theme.accent, fontWeight: 'bold', fontSize: '18px' }}>
-                                {opponents.filter((_, i) => isOpponentMastered(i)).length}/10
+                                {opponents.filter((_, i) => getWorldStars(i) >= 10).length}/10
                             </div>
-                            <div style={{ color: theme.textMuted }}>Mastered</div>
+                            <div style={{ color: theme.textMuted }}>Worlds</div>
                         </div>
                     </div>
                 )}
 
-                {/* How to play */}
                 <div style={{
                     marginTop: '35px', padding: '25px',
                     background: theme.bgPanel, borderRadius: '16px',
-                    maxWidth: '450px', textAlign: 'left',
-                    border: `1px solid ${theme.border}`
+                    maxWidth: '450px', textAlign: 'left'
                 }}>
-                    <h3 style={{ color: theme.accent, marginBottom: '18px', fontSize: '18px' }}>
-                        How to Play
-                    </h3>
-                    <ul style={{
-                        color: theme.textSecondary,
-                        lineHeight: '2',
-                        paddingLeft: '20px',
-                        margin: 0
-                    }}>
-                        <li>Click tiles to reveal them</li>
-                        <li>
-                            <span style={{ color: theme.honey }}>x2</span> and
-                            <span style={{ color: theme.gold }}> x3</span> tiles multiply your score
-                        </li>
-                        <li><span style={{ color: theme.error }}>Traps</span> end your round instantly</li>
-                        <li>
-                            <span style={{ color: theme.honey }}>Hints</span> show the sum and
-                            <span style={{ color: theme.error }}> trap count</span> for each row/column
-                        </li>
-                        <li>Right-click to mark tiles as safe or dangerous</li>
-                        <li>Find ALL multipliers for a perfect clear!</li>
-                    </ul>
-
-                    <div style={{
-                        marginTop: '18px',
-                        padding: '12px',
-                        background: `${theme.safe}22`,
-                        borderRadius: '8px',
-                        fontSize: '13px',
-                        color: theme.textSecondary
-                    }}>
-                        <strong style={{ color: theme.safe }}>Pro Tip:</strong> Start with rows that have 0 traps - they're completely safe!
+                    <h3 style={{ color: theme.accent, marginBottom: '18px' }}>How to Earn Stars</h3>
+                    <div style={{ color: theme.textSecondary, lineHeight: '1.8' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ color: theme.bronze }}>¼★</span> Cash out with score ≥ 4
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ color: theme.silver }}>½★</span> Cash out with score ≥ 8 or target
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ color: theme.gold }}>¾★</span> Complete level (all multipliers)
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: theme.gold }}>★</span> Perfect! (Only flip multipliers)
+                        </div>
+                    </div>
+                    <div style={{ marginTop: '15px', color: theme.textMuted, fontSize: '13px' }}>
+                        Earn 10 stars to unlock the next world!
                     </div>
                 </div>
 
                 <a href="../menu.html" style={{
                     marginTop: '25px', color: theme.textMuted,
                     textDecoration: 'none', fontSize: '14px',
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    border: `1px solid ${theme.border}`,
-                    transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.background = theme.bgPanel;
-                    e.currentTarget.style.color = theme.textSecondary;
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = theme.textMuted;
-                }}
-                >
-                    ← Back to Menu
-                </a>
+                    padding: '10px 20px', borderRadius: '8px',
+                    border: `1px solid ${theme.border}`
+                }}>← Back to Menu</a>
 
                 <style>{`
-                    @keyframes float {
-                        0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-10px); }
-                    }
+                    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
                 `}</style>
             </div>
         );
     }
 
-    // OPPONENT SELECT SCREEN
+    // WORLD SELECT
     if (gameState === 'select') {
         return (
             <div style={{
@@ -1303,48 +994,22 @@ const HoneyGrid = () => {
                 background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f4f 100%)`,
                 padding: '25px', color: theme.text
             }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '25px',
-                    maxWidth: '1200px',
-                    margin: '0 auto 25px'
-                }}>
-                    <button
-                        onClick={() => setGameState('menu')}
-                        style={{
-                            background: 'transparent',
-                            border: `1px solid ${theme.border}`,
-                            color: theme.textSecondary,
-                            padding: '10px 20px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = theme.bgPanel;
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                        }}
-                    >
-                        ← Back
-                    </button>
-                    <h2 style={{ color: theme.accent, fontSize: '24px' }}>Choose Your Opponent</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', maxWidth: '1200px', margin: '0 auto 25px' }}>
+                    <button onClick={() => setGameState('menu')} style={{
+                        background: 'transparent', border: `1px solid ${theme.border}`,
+                        color: theme.textSecondary, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer'
+                    }}>← Back</button>
+                    <h2 style={{ color: theme.accent, fontSize: '24px' }}>Choose World</h2>
                     <div style={{ width: '100px' }} />
                 </div>
 
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                    gap: '18px',
-                    maxWidth: '1200px',
-                    margin: '0 auto'
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '18px', maxWidth: '1200px', margin: '0 auto'
                 }}>
                     {opponents.map((opp, idx) => {
-                        const unlocked = isOpponentUnlocked(idx);
-                        const mastered = isOpponentMastered(idx);
+                        const unlocked = isWorldUnlocked(idx);
+                        const completed = getWorldStars(idx) >= 10;
 
                         return (
                             <div
@@ -1356,112 +1021,49 @@ const HoneyGrid = () => {
                                     }
                                 }}
                                 style={{
-                                    background: unlocked
-                                        ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`
-                                        : theme.bgDark,
+                                    background: unlocked ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})` : theme.bgDark,
                                     border: `2px solid ${unlocked ? opp.color : theme.border}`,
-                                    borderRadius: '16px',
-                                    padding: '18px',
+                                    borderRadius: '16px', padding: '18px',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.5,
-                                    transition: 'all 0.2s ease',
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (unlocked) {
-                                        e.currentTarget.style.transform = 'translateY(-3px)';
-                                        e.currentTarget.style.boxShadow = `0 8px 25px ${opp.color}33`;
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    transition: 'all 0.2s ease', position: 'relative'
                                 }}
                             >
-                                {/* Lock/Master badge */}
-                                {!unlocked && (
+                                {!unlocked && <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '24px' }}>🔒</div>}
+                                {completed && (
                                     <div style={{
-                                        position: 'absolute',
-                                        top: '12px',
-                                        right: '12px',
-                                        fontSize: '24px'
-                                    }}>🔒</div>
-                                )}
-                                {mastered && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '10px',
-                                        right: '10px',
-                                        background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
-                                        padding: '4px 12px',
-                                        borderRadius: '12px',
-                                        fontSize: '11px',
-                                        fontWeight: 'bold',
-                                        color: '#000'
-                                    }}>
-                                        MASTERED
-                                    </div>
+                                        position: 'absolute', top: '10px', right: '10px',
+                                        background: theme.success, padding: '4px 12px',
+                                        borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', color: '#000'
+                                    }}>COMPLETE</div>
                                 )}
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <div style={{
-                                        fontSize: '50px',
-                                        width: '75px',
-                                        height: '75px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        background: `${opp.color}22`,
-                                        borderRadius: '50%',
-                                        border: `2px solid ${opp.color}44`
-                                    }}>
-                                        {opp.emoji}
-                                    </div>
+                                        fontSize: '50px', width: '75px', height: '75px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: `${opp.color}22`, borderRadius: '50%'
+                                    }}>{opp.emoji}</div>
 
                                     <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '2px' }}>World {idx + 1}</div>
+                                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: opp.color, marginBottom: '2px' }}>{opp.name}</div>
+                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '6px' }}>{opp.title}</div>
                                         <div style={{
-                                            fontSize: '20px',
-                                            fontWeight: 'bold',
-                                            color: opp.color,
-                                            marginBottom: '2px'
-                                        }}>
-                                            {opp.name}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '12px',
-                                            color: theme.textMuted,
-                                            marginBottom: '6px'
-                                        }}>
-                                            {opp.title}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '12px',
-                                            color: theme.textSecondary,
-                                            background: `${opp.color}15`,
-                                            padding: '5px 10px',
-                                            borderRadius: '6px',
-                                            marginBottom: '10px',
-                                            border: `1px solid ${opp.color}33`
-                                        }}>
-                                            {opp.mechanic}
-                                        </div>
-                                        <StarBar points={progression.starPoints[idx]} size="small" />
+                                            fontSize: '12px', color: theme.textSecondary,
+                                            background: `${opp.color}15`, padding: '5px 10px',
+                                            borderRadius: '6px', marginBottom: '10px'
+                                        }}>{opp.mechanic}</div>
+                                        <WorldStarsBar worldIdx={idx} />
                                     </div>
                                 </div>
 
-                                {/* Unlock requirement */}
                                 {!unlocked && idx > 0 && (
                                     <div style={{
-                                        marginTop: '12px',
-                                        fontSize: '11px',
-                                        color: theme.textMuted,
-                                        textAlign: 'center',
-                                        padding: '6px',
-                                        background: theme.bgDark,
-                                        borderRadius: '6px'
+                                        marginTop: '12px', fontSize: '11px', color: theme.textMuted,
+                                        textAlign: 'center', padding: '6px', background: theme.bgDark, borderRadius: '6px'
                                     }}>
-                                        Earn 10 stars with {opponents[idx - 1].name} to unlock
+                                        Need {(10 - getWorldStars(idx - 1)).toFixed(1)} more stars in World {idx}
                                     </div>
                                 )}
                             </div>
@@ -1472,82 +1074,43 @@ const HoneyGrid = () => {
         );
     }
 
-    // LEVEL SELECT SCREEN
+    // LEVEL SELECT
     if (gameState === 'level_select' && selectedOpponent) {
         return (
             <div style={{
                 minHeight: '100vh',
                 background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}15 50%, ${theme.bg} 100%)`,
-                padding: '25px',
-                color: theme.text,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center'
+                padding: '25px', color: theme.text,
+                display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}>
-                <button
-                    onClick={() => setGameState('select')}
-                    style={{
-                        alignSelf: 'flex-start',
-                        background: 'transparent',
-                        border: `1px solid ${theme.border}`,
-                        color: theme.textSecondary,
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        marginBottom: '20px'
-                    }}
-                >
-                    ← Back
-                </button>
+                <button onClick={() => setGameState('select')} style={{
+                    alignSelf: 'flex-start', background: 'transparent',
+                    border: `1px solid ${theme.border}`, color: theme.textSecondary,
+                    padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px'
+                }}>← Back</button>
+
+                <div style={{ fontSize: '90px', marginBottom: '10px' }}>{selectedOpponent.emoji}</div>
+                <div style={{ fontSize: '14px', color: theme.textMuted }}>World {selectedOpponent.id + 1}</div>
+                <h2 style={{ color: selectedOpponent.color, fontSize: '32px', marginBottom: '5px' }}>{selectedOpponent.name}</h2>
+                <p style={{ color: theme.textMuted, marginBottom: '10px' }}>{selectedOpponent.title}</p>
 
                 <div style={{
-                    fontSize: '90px',
-                    marginBottom: '10px',
-                    filter: `drop-shadow(0 0 25px ${selectedOpponent.color}66)`
-                }}>
-                    {selectedOpponent.emoji}
-                </div>
-
-                <h2 style={{
-                    color: selectedOpponent.color,
-                    fontSize: '32px',
-                    marginBottom: '5px',
-                    textShadow: `0 0 20px ${selectedOpponent.color}44`
-                }}>
-                    {selectedOpponent.name}
-                </h2>
-
-                <p style={{ color: theme.textMuted, marginBottom: '10px' }}>
-                    {selectedOpponent.title}
-                </p>
-
-                <div style={{
-                    padding: '12px 24px',
-                    background: `${selectedOpponent.color}15`,
-                    borderRadius: '10px',
-                    color: theme.textSecondary,
-                    marginBottom: '15px',
-                    border: `1px solid ${selectedOpponent.color}33`
-                }}>
-                    {selectedOpponent.description}
-                </div>
+                    padding: '12px 24px', background: `${selectedOpponent.color}15`,
+                    borderRadius: '10px', color: theme.textSecondary, marginBottom: '15px'
+                }}>{selectedOpponent.description}</div>
 
                 <div style={{ marginBottom: '30px' }}>
-                    <StarBar points={progression.starPoints[selectedOpponent.id]} />
+                    <WorldStarsBar worldIdx={selectedOpponent.id} />
                 </div>
 
                 <h3 style={{ marginBottom: '20px', color: theme.textSecondary }}>Select Level</h3>
 
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(5, 1fr)',
-                    gap: '12px',
-                    maxWidth: '420px'
-                }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', maxWidth: '420px' }}>
                     {Array(10).fill(0).map((_, i) => {
                         const levelNum = i + 1;
-                        const unlocked = getLevelUnlocked(selectedOpponent.id, levelNum);
-                        const completed = progression.levelsCompleted[selectedOpponent.id]?.[i];
+                        const unlocked = isLevelUnlocked(selectedOpponent.id, i);
+                        const stars = getLevelStars(selectedOpponent.id, i);
+                        const config = levelConfigs[selectedOpponent.id][i];
 
                         return (
                             <button
@@ -1555,490 +1118,239 @@ const HoneyGrid = () => {
                                 onClick={() => unlocked && startGame(selectedOpponent, levelNum)}
                                 disabled={!unlocked}
                                 style={{
-                                    width: '70px',
-                                    height: '70px',
-                                    background: completed
-                                        ? `linear-gradient(135deg, ${theme.success}88, ${theme.success}44)`
-                                        : unlocked
-                                            ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
-                                            : theme.bgDark,
-                                    border: `2px solid ${
-                                        completed ? theme.success :
-                                        unlocked ? selectedOpponent.color :
-                                        theme.border
-                                    }`,
-                                    borderRadius: '12px',
-                                    color: unlocked ? 'white' : theme.textMuted,
-                                    fontSize: '22px',
-                                    fontWeight: 'bold',
+                                    width: '70px', height: '80px',
+                                    background: stars >= 1 ? `linear-gradient(135deg, ${theme.gold}88, ${theme.gold}44)` :
+                                               stars >= 0.75 ? `linear-gradient(135deg, ${theme.gold}66, ${theme.gold}33)` :
+                                               stars > 0 ? `linear-gradient(135deg, ${selectedOpponent.color}88, ${selectedOpponent.color}44)` :
+                                               unlocked ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)` : theme.bgDark,
+                                    border: `2px solid ${stars >= 1 ? theme.gold : stars > 0 ? selectedOpponent.color : unlocked ? selectedOpponent.color : theme.border}`,
+                                    borderRadius: '12px', color: unlocked ? 'white' : theme.textMuted,
+                                    fontSize: '18px', fontWeight: 'bold',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.4,
-                                    transition: 'all 0.2s ease',
-                                    position: 'relative'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (unlocked) {
-                                        e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.boxShadow = `0 5px 20px ${selectedOpponent.color}44`;
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'scale(1)';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px'
                                 }}
                             >
-                                {unlocked ? levelNum : '🔒'}
-                                {completed && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '-5px',
-                                        right: '-5px',
-                                        fontSize: '14px'
-                                    }}>⭐</div>
+                                <span>{unlocked ? levelNum : '🔒'}</span>
+                                {unlocked && <StarDisplay stars={stars} size="small" />}
+                                {unlocked && (
+                                    <span style={{ fontSize: '9px', color: theme.textMuted, opacity: 0.8 }}>
+                                        {config.traps}💀 {config.mults}🍯
+                                    </span>
                                 )}
                             </button>
                         );
                     })}
                 </div>
 
-                {/* Difficulty preview */}
                 <div style={{
-                    marginTop: '30px',
-                    padding: '15px 25px',
-                    background: theme.bgPanel,
-                    borderRadius: '10px',
-                    textAlign: 'center',
-                    fontSize: '13px',
-                    color: theme.textMuted,
-                    maxWidth: '400px'
+                    marginTop: '30px', padding: '15px 25px',
+                    background: theme.bgPanel, borderRadius: '10px',
+                    textAlign: 'center', fontSize: '13px', color: theme.textMuted
                 }}>
-                    <div style={{ marginBottom: '8px', color: theme.textSecondary }}>
-                        Difficulty scales from Level 1 to 10
-                    </div>
+                    <div style={{ marginBottom: '8px', color: theme.textSecondary }}>Level Difficulty Info</div>
                     <div>
-                        Level 1: ~{selectedOpponent.baseTrapCount} traps |
-                        Level 10: ~{Math.floor(selectedOpponent.baseTrapCount + 9 * selectedOpponent.trapPerLevel)} traps
+                        L1: {levelConfigs[selectedOpponent.id][0].traps} traps, {levelConfigs[selectedOpponent.id][0].mults} mults →
+                        L10: {levelConfigs[selectedOpponent.id][9].traps} traps, {levelConfigs[selectedOpponent.id][9].mults} mults
                     </div>
                 </div>
             </div>
         );
     }
 
-    // PLAYING SCREEN
+    // PLAYING
     if (gameState === 'playing') {
+        const earnedStars = roundResult ? calculateEarnedStars() : 0;
+        const currentBest = getLevelStars(selectedOpponent.id, currentLevel - 1);
+        const isNewBest = earnedStars > currentBest;
+
         return (
             <div style={{
                 minHeight: '100vh',
                 background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent?.color}12 50%, ${theme.bg} 100%)`,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: '20px',
-                color: theme.text,
-                position: 'relative',
-                overflow: 'hidden'
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '20px', color: theme.text, position: 'relative', overflow: 'hidden'
             }}>
                 {/* Particles */}
                 {particles.map(p => (
                     <div key={p.id} style={{
-                        position: 'fixed',
-                        left: p.x,
-                        top: p.y,
-                        width: p.size,
-                        height: p.size,
-                        background: p.color,
-                        borderRadius: '50%',
-                        opacity: p.life,
-                        pointerEvents: 'none',
-                        zIndex: 1000
+                        position: 'fixed', left: p.x, top: p.y,
+                        width: p.size, height: p.size,
+                        background: p.color, borderRadius: '50%',
+                        opacity: p.life, pointerEvents: 'none', zIndex: 1000
                     }} />
                 ))}
 
                 {/* Header */}
                 <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    width: '100%',
-                    maxWidth: '520px',
-                    marginBottom: '20px',
-                    padding: '15px 20px',
-                    background: theme.bgPanel,
-                    borderRadius: '14px',
-                    border: `1px solid ${theme.border}`
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    width: '100%', maxWidth: '520px', marginBottom: '20px',
+                    padding: '15px 20px', background: theme.bgPanel, borderRadius: '14px'
                 }}>
                     <div>
-                        <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>
-                            Level {currentLevel}
-                        </div>
-                        <div style={{
-                            color: selectedOpponent?.color,
-                            fontWeight: 'bold',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>World {selectedOpponent.id + 1} - Level {currentLevel}</div>
+                        <div style={{ color: selectedOpponent?.color, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ fontSize: '20px' }}>{selectedOpponent?.emoji}</span>
                             {selectedOpponent?.name}
                         </div>
                     </div>
-
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>
-                            Score
-                        </div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>Score</div>
                         <div style={{
-                            fontSize: '32px',
-                            fontWeight: 'bold',
-                            color: currentScore > 1 ? theme.gold : theme.text,
-                            textShadow: currentScore > 1 ? `0 0 15px ${theme.goldGlow}` : 'none',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            {currentScore}
-                        </div>
+                            fontSize: '32px', fontWeight: 'bold',
+                            color: currentScore > 1 ? theme.gold : theme.text
+                        }}>{currentScore}</div>
                     </div>
-
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>
-                            Multipliers
-                        </div>
-                        <div style={{
-                            color: foundMultipliers === totalMultipliers ? theme.success : theme.honey,
-                            fontSize: '18px',
-                            fontWeight: 'bold'
-                        }}>
-                            {foundMultipliers}/{totalMultipliers}
-                        </div>
-                        {streak > 1 && (
-                            <div style={{
-                                color: theme.gold,
-                                fontSize: '11px',
-                                marginTop: '2px'
-                            }}>
-                                🔥 {streak} streak
-                            </div>
-                        )}
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>Target: {levelConfig?.targetScore}</div>
+                        <div style={{ color: theme.honey, fontSize: '18px', fontWeight: 'bold' }}>{foundMultipliers}/{totalMultipliers}</div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted }}>Best: <StarDisplay stars={currentBest} size="small" /></div>
                     </div>
                 </div>
 
-                {/* Game Grid with Hints */}
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        animation: shakeAnimation ? 'shake 0.5s ease-in-out' : 'none'
-                    }}
-                >
-                    {/* Column hints */}
+                {/* Grid */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', animation: shakeAnimation ? 'shake 0.5s' : 'none' }}>
                     <div style={{ display: 'flex', gap: '6px', marginLeft: '58px' }}>
                         {colHints.map((hint, i) => (
-                            <HintDisplay
-                                key={i}
-                                hint={hint}
-                                hidden={hiddenHints.cols?.has(i)}
-                                revealed={revealedHints.cols?.has(i)}
-                                direction="col"
-                                index={i}
-                                isHighlighted={hoveredTile?.x === i}
-                            />
+                            <HintDisplay key={i} hint={hint} hidden={hiddenHints.cols?.has(i)}
+                                revealed={revealedHints.cols?.has(i)} direction="col" index={i}
+                                isHighlighted={hoveredTile?.x === i} />
                         ))}
                     </div>
-
-                    {/* Grid rows with row hints */}
                     {grid.map((row, y) => (
                         <div key={y} style={{ display: 'flex', gap: '6px' }}>
-                            <HintDisplay
-                                hint={rowHints[y]}
-                                hidden={hiddenHints.rows?.has(y)}
-                                revealed={revealedHints.rows?.has(y)}
-                                direction="row"
-                                index={y}
-                                isHighlighted={hoveredTile?.y === y}
-                            />
-                            {row.map((_, x) => (
-                                <Tile key={x} x={x} y={y} />
-                            ))}
+                            <HintDisplay hint={rowHints[y]} hidden={hiddenHints.rows?.has(y)}
+                                revealed={revealedHints.rows?.has(y)} direction="row" index={y}
+                                isHighlighted={hoveredTile?.y === y} />
+                            {row.map((_, x) => <Tile key={x} x={x} y={y} />)}
                         </div>
                     ))}
                 </div>
 
-                {/* Action buttons */}
-                <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    marginTop: '20px',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center'
-                }}>
-                    {/* Auto-mark safe button */}
-                    <button
-                        onClick={autoMarkSafe}
-                        disabled={roundResult !== null}
-                        style={{
-                            padding: '10px 20px',
-                            fontSize: '14px',
-                            background: 'transparent',
-                            border: `1px solid ${theme.safe}`,
-                            borderRadius: '8px',
-                            color: theme.safe,
-                            cursor: roundResult ? 'not-allowed' : 'pointer',
-                            opacity: roundResult ? 0.5 : 1
-                        }}
-                    >
-                        Auto-Mark Safe (A)
-                    </button>
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button onClick={autoMarkSafe} disabled={roundResult !== null} style={{
+                        padding: '10px 20px', fontSize: '14px', background: 'transparent',
+                        border: `1px solid ${theme.safe}`, borderRadius: '8px', color: theme.safe,
+                        cursor: roundResult ? 'not-allowed' : 'pointer', opacity: roundResult ? 0.5 : 1
+                    }}>Auto-Mark Safe (A)</button>
 
-                    {/* Undo button */}
                     {moveHistory.length > 0 && !roundResult && (
-                        <button
-                            onClick={undoMove}
-                            style={{
-                                padding: '10px 20px',
-                                fontSize: '14px',
-                                background: 'transparent',
-                                border: `1px solid ${theme.border}`,
-                                borderRadius: '8px',
-                                color: theme.textSecondary,
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Undo (Ctrl+Z)
-                        </button>
+                        <button onClick={undoMove} style={{
+                            padding: '10px 20px', fontSize: '14px', background: 'transparent',
+                            border: `1px solid ${theme.border}`, borderRadius: '8px',
+                            color: theme.textSecondary, cursor: 'pointer'
+                        }}>Undo (Ctrl+Z)</button>
                     )}
 
-                    {/* Cash Out button */}
                     {!roundResult && currentScore > 1 && (
-                        <button
-                            onClick={cashOut}
-                            style={{
-                                padding: '12px 30px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                background: `linear-gradient(135deg, ${theme.gold}, ${theme.honey})`,
-                                border: 'none',
-                                borderRadius: '10px',
-                                color: '#000',
-                                cursor: 'pointer',
-                                boxShadow: `0 4px 20px ${theme.goldGlow}`,
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'scale(1.05)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'scale(1)';
-                            }}
-                        >
-                            💰 CASH OUT ({currentScore} pts)
-                        </button>
+                        <button onClick={cashOut} style={{
+                            padding: '12px 30px', fontSize: '16px', fontWeight: 'bold',
+                            background: `linear-gradient(135deg, ${theme.gold}, ${theme.honey})`,
+                            border: 'none', borderRadius: '10px', color: '#000', cursor: 'pointer',
+                            boxShadow: `0 4px 20px ${theme.goldGlow}`
+                        }}>💰 CASH OUT ({currentScore})</button>
                     )}
                 </div>
 
-                {/* Controls help */}
-                <div style={{
-                    marginTop: '15px',
-                    color: theme.textMuted,
-                    fontSize: '12px',
-                    textAlign: 'center',
-                    display: 'flex',
-                    gap: '20px',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center'
-                }}>
-                    <span>Click = Flip</span>
-                    <span>Right-click = Mark</span>
-                    <span>Space = Cash Out</span>
-                    <span>ESC = Exit</span>
+                <div style={{ marginTop: '15px', color: theme.textMuted, fontSize: '12px', textAlign: 'center' }}>
+                    Click = Flip | Right-click = Mark | Space = Cash Out | ESC = Exit
                 </div>
 
-                {/* Tutorial Overlay */}
+                {/* Tutorial */}
                 {showTutorial && (
                     <div style={{
-                        position: 'fixed',
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.85)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 200,
-                        padding: '20px'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '20px'
                     }}>
                         <div style={{
-                            background: theme.bgPanel,
-                            borderRadius: '20px',
-                            padding: '30px',
-                            maxWidth: '450px',
-                            textAlign: 'center',
-                            border: `2px solid ${theme.accent}`
+                            background: theme.bgPanel, borderRadius: '20px', padding: '30px',
+                            maxWidth: '450px', textAlign: 'center', border: `2px solid ${theme.accent}`
                         }}>
-                            <div style={{
-                                fontSize: '14px',
-                                color: theme.textMuted,
-                                marginBottom: '10px'
-                            }}>
+                            <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '10px' }}>
                                 Tutorial {tutorialStep + 1}/{tutorialSteps.length}
                             </div>
-
-                            <h2 style={{
-                                color: theme.accent,
-                                marginBottom: '15px',
-                                fontSize: '24px'
-                            }}>
+                            <h2 style={{ color: theme.accent, marginBottom: '15px', fontSize: '24px' }}>
                                 {tutorialSteps[tutorialStep].title}
                             </h2>
-
-                            <p style={{
-                                color: theme.textSecondary,
-                                lineHeight: '1.6',
-                                marginBottom: '25px',
-                                fontSize: '16px'
-                            }}>
+                            <p style={{ color: theme.textSecondary, lineHeight: '1.6', marginBottom: '25px', fontSize: '16px' }}>
                                 {tutorialSteps[tutorialStep].content}
                             </p>
-
                             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                <button
-                                    onClick={() => setShowTutorial(false)}
-                                    style={{
-                                        padding: '12px 24px',
-                                        fontSize: '14px',
-                                        background: 'transparent',
-                                        border: `1px solid ${theme.border}`,
-                                        borderRadius: '8px',
-                                        color: theme.textMuted,
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Skip Tutorial
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (tutorialStep < tutorialSteps.length - 1) {
-                                            setTutorialStep(prev => prev + 1);
-                                        } else {
-                                            setShowTutorial(false);
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '12px 24px',
-                                        fontSize: '14px',
-                                        background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        color: 'white',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    {tutorialStep < tutorialSteps.length - 1 ? 'Next →' : 'Start Playing!'}
-                                </button>
+                                <button onClick={() => setShowTutorial(false)} style={{
+                                    padding: '12px 24px', fontSize: '14px', background: 'transparent',
+                                    border: `1px solid ${theme.border}`, borderRadius: '8px',
+                                    color: theme.textMuted, cursor: 'pointer'
+                                }}>Skip</button>
+                                <button onClick={() => {
+                                    if (tutorialStep < tutorialSteps.length - 1) setTutorialStep(prev => prev + 1);
+                                    else setShowTutorial(false);
+                                }} style={{
+                                    padding: '12px 24px', fontSize: '14px',
+                                    background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
+                                    border: 'none', borderRadius: '8px', color: 'white',
+                                    cursor: 'pointer', fontWeight: 'bold'
+                                }}>{tutorialStep < tutorialSteps.length - 1 ? 'Next →' : 'Start!'}</button>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Result Overlay */}
+                {/* Result */}
                 {roundResult && (
                     <div style={{
-                        position: 'fixed',
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.88)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 100,
-                        animation: celebrateAnimation ? 'celebrate 0.5s ease-out' : 'none'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 100
                     }}>
-                        <div style={{
-                            fontSize: '100px',
-                            marginBottom: '20px',
-                            animation: roundResult === 'win' ? 'bounce 0.5s ease infinite alternate' :
-                                       roundResult === 'lose' ? 'shake 0.3s ease' : 'none'
-                        }}>
-                            {roundResult === 'win' ? '🏆' : roundResult === 'cashout' ? '💰' : '💥'}
+                        <div style={{ fontSize: '100px', marginBottom: '20px' }}>
+                            {roundResult === 'win' ? (x1sFlipped === 0 ? '💎' : '🏆') : roundResult === 'cashout' ? '💰' : '💥'}
                         </div>
 
                         <h2 style={{
-                            fontSize: '40px',
-                            marginBottom: '15px',
-                            color: roundResult === 'lose' ? theme.error : theme.gold,
-                            textShadow: `0 0 30px ${roundResult === 'lose' ? theme.errorGlow : theme.goldGlow}`
+                            fontSize: '40px', marginBottom: '15px',
+                            color: roundResult === 'lose' ? theme.error : theme.gold
                         }}>
-                            {roundResult === 'win' ? 'PERFECT CLEAR!' :
+                            {roundResult === 'win' ? (x1sFlipped === 0 ? 'PERFECT CLEAR!' : 'LEVEL COMPLETE!') :
                              roundResult === 'cashout' ? 'CASHED OUT!' : 'TRAP HIT!'}
                         </h2>
 
                         {roundResult !== 'lose' && (
-                            <div style={{
-                                fontSize: '56px',
-                                color: theme.gold,
-                                marginBottom: '10px',
-                                fontWeight: 'bold',
-                                textShadow: `0 0 25px ${theme.goldGlow}`
-                            }}>
-                                +{roundResult === 'win'
-                                    ? 4 + (streak >= 3 ? 1 : 0) + (streak >= 5 ? 1 : 0)
-                                    : currentScore >= 16 ? 3
-                                    : currentScore >= 8 ? 2
-                                    : currentScore >= 4 ? 1
-                                    : currentScore >= 2 ? 1 : 0} Stars
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
+                                <div style={{ fontSize: '48px', color: theme.gold }}>
+                                    {earnedStars === 1 ? '★' : earnedStars === 0.75 ? '¾★' : earnedStars === 0.5 ? '½★' : earnedStars === 0.25 ? '¼★' : '☆'}
+                                </div>
+                                {isNewBest && <span style={{ color: theme.success, fontSize: '18px' }}>NEW BEST!</span>}
                             </div>
                         )}
 
-                        {roundResult === 'win' && streak > 1 && (
-                            <div style={{
-                                fontSize: '20px',
-                                color: theme.honey,
-                                marginBottom: '10px'
-                            }}>
-                                🔥 {streak} Win Streak! {streak >= 3 && '+1 Bonus'}
+                        {roundResult === 'win' && x1sFlipped > 0 && (
+                            <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '10px' }}>
+                                Flip only multipliers for a perfect ★ star!
+                            </div>
+                        )}
+
+                        {roundResult === 'cashout' && (
+                            <div style={{ fontSize: '14px', color: theme.textMuted, marginBottom: '10px' }}>
+                                Score: {currentScore} | Target: {levelConfig?.targetScore}
                             </div>
                         )}
 
                         {roundResult === 'lose' && (
                             <>
-                                <div style={{
-                                    fontSize: '20px',
-                                    color: theme.error,
-                                    marginBottom: '20px'
-                                }}>
-                                    Score reset to 0
-                                </div>
-                                <button
-                                    onClick={() => setShowSolution(true)}
-                                    style={{
-                                        padding: '10px 20px',
-                                        fontSize: '14px',
-                                        background: 'transparent',
-                                        border: `1px solid ${theme.border}`,
-                                        borderRadius: '8px',
-                                        color: theme.textMuted,
-                                        cursor: 'pointer',
-                                        marginBottom: '20px'
-                                    }}
-                                >
-                                    Show Solution
-                                </button>
+                                <div style={{ fontSize: '20px', color: theme.error, marginBottom: '20px' }}>No stars earned</div>
+                                <button onClick={() => setShowSolution(true)} style={{
+                                    padding: '10px 20px', fontSize: '14px', background: 'transparent',
+                                    border: `1px solid ${theme.border}`, borderRadius: '8px',
+                                    color: theme.textMuted, cursor: 'pointer', marginBottom: '20px'
+                                }}>Show Solution</button>
                             </>
                         )}
 
-                        {/* Show solution grid */}
                         {showSolution && (
-                            <div style={{
-                                marginBottom: '20px',
-                                padding: '15px',
-                                background: theme.bgPanel,
-                                borderRadius: '12px'
-                            }}>
-                                <div style={{
-                                    fontSize: '12px',
-                                    color: theme.textMuted,
-                                    marginBottom: '10px',
-                                    textAlign: 'center'
-                                }}>
+                            <div style={{ marginBottom: '20px', padding: '15px', background: theme.bgPanel, borderRadius: '12px' }}>
+                                <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '10px', textAlign: 'center' }}>
                                     Solution (x2=🟡, x3=⭐, trap=💥)
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -2046,16 +1358,10 @@ const HoneyGrid = () => {
                                         <div key={y} style={{ display: 'flex', gap: '4px' }}>
                                             {row.map((val, x) => (
                                                 <div key={x} style={{
-                                                    width: '30px',
-                                                    height: '30px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    background: val === 0 ? theme.error :
-                                                               val === 3 ? theme.gold :
-                                                               val === 2 ? theme.honey : theme.bgDark,
-                                                    borderRadius: '4px',
-                                                    fontSize: '12px',
+                                                    width: '30px', height: '30px', display: 'flex',
+                                                    alignItems: 'center', justifyContent: 'center',
+                                                    background: val === 0 ? theme.error : val === 3 ? theme.gold : val === 2 ? theme.honey : theme.bgDark,
+                                                    borderRadius: '4px', fontSize: '12px',
                                                     color: val === 0 ? '#fff' : val > 1 ? '#000' : theme.textMuted
                                                 }}>
                                                     {val === 0 ? '💥' : val === 3 ? '⭐' : val === 2 ? '🟡' : 'x1'}
@@ -2068,76 +1374,33 @@ const HoneyGrid = () => {
                         )}
 
                         <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
-                            <button
-                                onClick={() => startGame(selectedOpponent, currentLevel)}
-                                style={{
-                                    padding: '15px 35px',
-                                    fontSize: '18px',
-                                    background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    boxShadow: `0 4px 20px ${theme.accent}66`
-                                }}
-                            >
-                                Play Again
-                            </button>
+                            <button onClick={() => startGame(selectedOpponent, currentLevel)} style={{
+                                padding: '15px 35px', fontSize: '18px',
+                                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
+                                border: 'none', borderRadius: '12px', color: 'white',
+                                cursor: 'pointer', fontWeight: 'bold'
+                            }}>Play Again</button>
 
                             {roundResult === 'win' && currentLevel < 10 && (
-                                <button
-                                    onClick={() => startGame(selectedOpponent, currentLevel + 1)}
-                                    style={{
-                                        padding: '15px 35px',
-                                        fontSize: '18px',
-                                        background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        color: '#000',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold',
-                                        boxShadow: `0 4px 20px ${theme.successGlow}`
-                                    }}
-                                >
-                                    Next Level →
-                                </button>
+                                <button onClick={() => startGame(selectedOpponent, currentLevel + 1)} style={{
+                                    padding: '15px 35px', fontSize: '18px',
+                                    background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
+                                    border: 'none', borderRadius: '12px', color: '#000',
+                                    cursor: 'pointer', fontWeight: 'bold'
+                                }}>Next Level →</button>
                             )}
 
-                            <button
-                                onClick={() => setGameState('level_select')}
-                                style={{
-                                    padding: '15px 35px',
-                                    fontSize: '18px',
-                                    background: 'transparent',
-                                    border: `2px solid ${theme.border}`,
-                                    borderRadius: '12px',
-                                    color: theme.textSecondary,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Level Select
-                            </button>
+                            <button onClick={() => setGameState('level_select')} style={{
+                                padding: '15px 35px', fontSize: '18px', background: 'transparent',
+                                border: `2px solid ${theme.border}`, borderRadius: '12px',
+                                color: theme.textSecondary, cursor: 'pointer'
+                            }}>Level Select</button>
                         </div>
                     </div>
                 )}
 
                 <style>{`
-                    @keyframes shake {
-                        0%, 100% { transform: translateX(0); }
-                        20% { transform: translateX(-10px); }
-                        40% { transform: translateX(10px); }
-                        60% { transform: translateX(-10px); }
-                        80% { transform: translateX(10px); }
-                    }
-                    @keyframes bounce {
-                        from { transform: translateY(0); }
-                        to { transform: translateY(-15px); }
-                    }
-                    @keyframes celebrate {
-                        0% { transform: scale(0.8); opacity: 0; }
-                        100% { transform: scale(1); opacity: 1; }
-                    }
+                    @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
                 `}</style>
             </div>
         );
@@ -2146,5 +1409,4 @@ const HoneyGrid = () => {
     return null;
 };
 
-// Render the app
 ReactDOM.render(<HoneyGrid />, document.getElementById('root'));
