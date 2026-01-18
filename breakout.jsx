@@ -1270,10 +1270,8 @@ const BreakoutGame = () => {
                          brick.type === 'explosive' ? '#ff4400' :
                          newColor
                 };
-              }
-              return brick;
+              });
             });
-          });
           }
 
           return { ...ball, x, y, vx, vy, charged: usedChargedBonus ? false : ball.charged };
