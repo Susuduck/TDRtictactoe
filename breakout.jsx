@@ -424,20 +424,22 @@ const BreakoutGame = () => {
         if (isChargingRef.current) {
           const power = Math.min(chargeLevelRef.current / 100, 1);
           const currentPaddle = paddleRef.current;
-          setBalls(prev => prev.map(ball => {
-            if (ball.attached) {
-              const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
-              return {
-                ...ball,
-                x: currentPaddle.x + currentPaddle.width / 2, // Launch from paddle position
-                attached: false,
-                vy: -speed,
-                charged: power > 0.5, // Charged shot if held long enough
-                damage: 1 + Math.floor(power * 2), // Up to 3x damage
-              };
-            }
-            return ball;
-          }));
+          if (currentPaddle) {
+            setBalls(prev => prev.map(ball => {
+              if (ball.attached) {
+                const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
+                return {
+                  ...ball,
+                  x: currentPaddle.x + currentPaddle.width / 2, // Launch from paddle position
+                  attached: false,
+                  vy: -speed,
+                  charged: power > 0.5, // Charged shot if held long enough
+                  damage: 1 + Math.floor(power * 2), // Up to 3x damage
+                };
+              }
+              return ball;
+            }));
+          }
           setIsCharging(false);
           setChargeLevel(0);
         }
@@ -501,13 +503,13 @@ const BreakoutGame = () => {
       if (clientX >= rect.left && clientX <= rect.right &&
           clientY >= rect.top && clientY <= rect.bottom) {
         // Launch attached ball on click - use paddle position
-        const paddleX = paddleRef.current.x;
-        const paddleWidth = paddleRef.current.width;
+        const currentPaddle = paddleRef.current;
+        if (!currentPaddle) return;
         setBalls(prev => prev.map(ball => {
           if (ball.attached) {
             return {
               ...ball,
-              x: paddleX + paddleWidth / 2,
+              x: currentPaddle.x + currentPaddle.width / 2,
               attached: false,
               vy: -ball.baseSpeed,
               vx: (Math.random() - 0.5) * 2,
@@ -739,7 +741,8 @@ const BreakoutGame = () => {
     return newBricks;
   }, []);
 
-  // Create particles
+  // Create particles (with limit to prevent memory issues)
+  const MAX_PARTICLES = 200;
   const createParticles = useCallback((x, y, color, count = 8) => {
     const newParticles = [];
     for (let i = 0; i < count; i++) {
@@ -753,7 +756,7 @@ const BreakoutGame = () => {
         life: 1,
       });
     }
-    setParticles(p => [...p, ...newParticles]);
+    setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
   // Create cracking armor particles - fall downward with angular shapes
@@ -771,18 +774,20 @@ const BreakoutGame = () => {
         size: 4 + Math.random() * 6, // Larger chunks
         life: 1.5, // Last longer
         isShard: true, // Mark as shard for different rendering
+        rotation: Math.random() * 45, // Fixed rotation at creation time
       });
     }
-    setParticles(p => [...p, ...newParticles]);
+    setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Add floating text
+  // Add floating text (with limit to prevent memory issues)
+  const MAX_FLOATING_TEXTS = 30;
   const addFloatingText = useCallback((x, y, text, color) => {
     setFloatingTexts(prev => [...prev, {
       id: Date.now() + Math.random(),
       x, y, text, color,
       life: 1,
-    }]);
+    }].slice(-MAX_FLOATING_TEXTS));
   }, []);
 
   // Show prominent powerup announcement
@@ -1108,6 +1113,7 @@ const BreakoutGame = () => {
           let { x, y, vx, vy, burning } = ball;
           const bricksSnapshot = bricksRef.current;
           let hitBrickId = null;
+          let usedChargedBonus = false;
 
           for (const brick of bricksSnapshot) {
             if (brick.health <= 0) continue;
@@ -1199,10 +1205,10 @@ const BreakoutGame = () => {
                   setScore(s => s + 5);
                 }
 
-                // Charged shot bonus
-                if (ball.charged) {
+                // Charged shot bonus (one-time, tracked via usedChargedBonus)
+                if (ball.charged && !usedChargedBonus) {
                   setScore(s => s + points * 0.5);
-                  ball.charged = false; // One-time bonus
+                  usedChargedBonus = true;
                 }
 
                 // Build Teddy Meter on brick hits
@@ -1252,16 +1258,14 @@ const BreakoutGame = () => {
                   if (brick.type === 'powerup' || Math.random() < 0.15) {
                     spawnPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
                   }
-
-                  // Reveal invisible brick
-                  brick.invisible = false;
                 }
 
-                // Update brick with new health, color, and hit flash
+                // Update brick with new health, color, hit flash, and reveal if invisible
                 return {
                   ...brick,
                   health: newHealth,
                   hitFlash: 1, // Start flash effect
+                  invisible: false, // Reveal on hit (no mutation)
                   color: brick.type === 'boss' ? '#ffd700' :
                          brick.type === 'explosive' ? '#ff4400' :
                          newColor
@@ -1272,28 +1276,30 @@ const BreakoutGame = () => {
           });
           }
 
-          return { ...ball, x, y, vx, vy };
+          return { ...ball, x, y, vx, vy, charged: usedChargedBonus ? false : ball.charged };
         });
       });
 
-      // Move power-ups
+      // Move power-ups (use paddleRef for current position, avoid state mutation)
       setPowerUps(prev => {
-        return prev.filter(pu => {
-          pu.y += pu.vy * deltaTime;
+        const currentPaddle = paddleRef.current;
+        return prev
+          .map(pu => ({ ...pu, y: pu.y + pu.vy * deltaTime }))
+          .filter(pu => {
+            // Check paddle collision
+            if (pu.y + 15 >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+                currentPaddle &&
+                pu.x >= currentPaddle.x && pu.x <= currentPaddle.x + currentPaddle.width) {
 
-          // Check paddle collision
-          if (pu.y + 15 >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
-              pu.x >= paddle.x && pu.x <= paddle.x + paddle.width) {
+              // Apply power-up effect
+              applyPowerUp(pu.type);
+              createParticles(pu.x, pu.y, pu.color, 10);
+              addFloatingText(pu.x, pu.y, pu.effect, pu.color);
+              return false;
+            }
 
-            // Apply power-up effect
-            applyPowerUp(pu.type);
-            createParticles(pu.x, pu.y, pu.color, 10);
-            addFloatingText(pu.x, pu.y, pu.effect, pu.color);
-            return false;
-          }
-
-          return pu.y < CANVAS_HEIGHT;
-        });
+            return pu.y < CANVAS_HEIGHT;
+          });
       });
 
       // Apply gimmicks
@@ -2058,7 +2064,7 @@ const BreakoutGame = () => {
               borderRadius: p.isShard ? '2px' : '50%',
               opacity: Math.min(p.life, 1),
               pointerEvents: 'none',
-              transform: p.isShard ? `rotate(${Math.random() * 45}deg)` : 'none',
+              transform: p.isShard ? `rotate(${p.rotation || 0}deg)` : 'none',
               boxShadow: p.isShard ? `0 2px 4px rgba(0,0,0,0.3)` : 'none',
             }}
           />
