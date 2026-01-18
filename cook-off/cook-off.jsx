@@ -3,16 +3,16 @@ const { useState, useEffect, useCallback, useRef } = React;
 /**
  * COOK-OFF - Kitchen Chaos
  *
- * A professionally designed cooking game applying core game design principles:
- * - Flow State: Challenge/skill balance with 40-60% success rate target
- * - Four Keys to Fun: Hard Fun (fiero), Easy Fun (variety), Serious Fun (progress)
- * - Immediate Feedback: Screen shake, particles, visual juice
- * - Visible Progress: Score targets, milestones, encouragement
- * - Anti-pattern avoidance: No unfair spikes, clear learning, fair challenge
+ * Professional progression system:
+ * - 10 Worlds (Opponents), each with 10 Levels
+ * - Each level earns up to 1 star (0.5 for completion, 1.0 for excellence)
+ * - Worlds unlock when previous world has 10 stars
+ * - World N Level 10 is easier than World N+1 Level 1
+ * - Each level has specific difficulty parameters and objectives
  */
 
 const CookOff = () => {
-    // Theme - Warm Kitchen Orange
+    // Theme
     const theme = {
         bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#1a1020',
         border: '#4a4468', borderLight: '#5a5478',
@@ -20,137 +20,236 @@ const CookOff = () => {
         accent: '#ff4500', accentBright: '#ff6633',
         gold: '#f4c542', goldGlow: 'rgba(244, 197, 66, 0.4)',
         error: '#e85a50', success: '#50c878',
-        timerGreen: '#50c878', timerYellow: '#f4c542', timerOrange: '#ff8c00', timerRed: '#e85a50'
+        timerGreen: '#50c878', timerYellow: '#f4c542', timerOrange: '#ff8c00', timerRed: '#e85a50',
+        starEmpty: '#3a3450', starHalf: '#8a7a40', starFull: '#f4c542'
     };
 
-    // Ingredient definitions with visual categories for variety
+    // Ingredients
     const allIngredients = [
-        { id: 'tomato', emoji: '🍅', name: 'Tomato', category: 'veggie' },
-        { id: 'lettuce', emoji: '🥬', name: 'Lettuce', category: 'veggie' },
-        { id: 'cheese', emoji: '🧀', name: 'Cheese', category: 'dairy' },
-        { id: 'meat', emoji: '🥩', name: 'Meat', category: 'protein' },
-        { id: 'bread', emoji: '🍞', name: 'Bread', category: 'grain' },
-        { id: 'egg', emoji: '🥚', name: 'Egg', category: 'protein' },
-        { id: 'onion', emoji: '🧅', name: 'Onion', category: 'veggie' },
-        { id: 'pepper', emoji: '🌶️', name: 'Pepper', category: 'spice' },
-        { id: 'mushroom', emoji: '🍄', name: 'Mushroom', category: 'veggie' },
-        { id: 'fish', emoji: '🐟', name: 'Fish', category: 'protein' },
-        { id: 'shrimp', emoji: '🦐', name: 'Shrimp', category: 'protein' },
-        { id: 'carrot', emoji: '🥕', name: 'Carrot', category: 'veggie' },
-        { id: 'potato', emoji: '🥔', name: 'Potato', category: 'veggie' },
-        { id: 'rice', emoji: '🍚', name: 'Rice', category: 'grain' },
-        { id: 'noodle', emoji: '🍜', name: 'Noodles', category: 'grain' },
-        { id: 'avocado', emoji: '🥑', name: 'Avocado', category: 'veggie' }
+        { id: 'tomato', emoji: '🍅', name: 'Tomato' },
+        { id: 'lettuce', emoji: '🥬', name: 'Lettuce' },
+        { id: 'cheese', emoji: '🧀', name: 'Cheese' },
+        { id: 'meat', emoji: '🥩', name: 'Meat' },
+        { id: 'bread', emoji: '🍞', name: 'Bread' },
+        { id: 'egg', emoji: '🥚', name: 'Egg' },
+        { id: 'onion', emoji: '🧅', name: 'Onion' },
+        { id: 'pepper', emoji: '🌶️', name: 'Pepper' },
+        { id: 'mushroom', emoji: '🍄', name: 'Mushroom' },
+        { id: 'fish', emoji: '🐟', name: 'Fish' },
+        { id: 'shrimp', emoji: '🦐', name: 'Shrimp' },
+        { id: 'carrot', emoji: '🥕', name: 'Carrot' },
+        { id: 'potato', emoji: '🥔', name: 'Potato' },
+        { id: 'rice', emoji: '🍚', name: 'Rice' },
+        { id: 'noodle', emoji: '🍜', name: 'Noodles' },
+        { id: 'avocado', emoji: '🥑', name: 'Avocado' }
     ];
 
-    // Dish visuals for completed orders (adds Easy Fun - variety)
     const dishEmojis = ['🍔', '🌮', '🍕', '🥗', '🍜', '🍛', '🥘', '🍲', '🥙', '🌯', '🍱', '🥡'];
 
-    // Opponents with REBALANCED difficulty curves
-    // Design principle: Smooth progression, no arbitrary spikes
-    const opponents = [
+    // World definitions with base parameters
+    // Each world introduces a unique mechanic and has base difficulty settings
+    const worlds = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
             title: 'The Beginner Chef',
-            taunt: "Ribbit! Let's cook something simple!",
-            winQuote: "Hop hop, delicious!", loseQuote: "You're a natural!",
-            recipeSize: [2, 2], baseTime: 12, ingredientPool: 4, // Very generous start
-            special: 'none', specialDesc: 'Simple recipes to learn the basics',
-            targetBase: 400 // Easy to beat
+            taunt: "Ribbit! Let's start simple!",
+            winQuote: "Hop hop, delicious!", loseQuote: "You're learning!",
+            special: 'none',
+            specialDesc: 'Master the basics - no special mechanics',
+            // Base parameters for this world
+            baseTime: 12,        // Starting timer for level 1
+            minTime: 8,          // Minimum timer at level 10
+            baseRecipeMin: 2,    // Min recipe size at level 1
+            baseRecipeMax: 2,    // Max recipe size at level 1
+            maxRecipeSize: 3,    // Max recipe size at level 10
+            baseIngredients: 4,  // Ingredient pool at level 1
+            maxIngredients: 6,   // Ingredient pool at level 10
+            baseTarget: 300,     // Score target for level 1
+            targetGrowth: 40     // Score increase per level
         },
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
             title: 'The Breakfast Master',
-            taunt: "Bawk! Time for eggs and toast!",
-            winQuote: "Breakfast is served!", loseQuote: "Impressive scramble!",
-            recipeSize: [2, 3], baseTime: 10, ingredientPool: 5,
-            special: 'bonus_time', specialDesc: 'Combos grant +3 seconds bonus time',
-            targetBase: 500
+            taunt: "Bawk! Keep that combo going!",
+            winQuote: "Egg-cellent!", loseQuote: "Cluck cluck, nice try!",
+            special: 'bonus_time',
+            specialDesc: 'Combos grant +2 seconds - keep the streak alive!',
+            baseTime: 10, minTime: 7,
+            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 4,
+            baseIngredients: 5, maxIngredients: 7,
+            baseTarget: 400, targetGrowth: 50
         },
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Rhythm Cook',
-            taunt: "Cook to the beat, baby!",
-            winQuote: "Groovy grub!", loseQuote: "You've got the groove!",
-            recipeSize: [2, 3], baseTime: 9, ingredientPool: 6,
-            special: 'rhythm_bonus', specialDesc: 'Tap on the golden beat for 2x points!',
-            targetBase: 600
+            taunt: "Feel the beat, baby!",
+            winQuote: "Groovy!", loseQuote: "You've got rhythm!",
+            special: 'rhythm_bonus',
+            specialDesc: 'Complete orders on the golden beat for 2x points!',
+            baseTime: 10, minTime: 7,
+            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 4,
+            baseIngredients: 5, maxIngredients: 8,
+            baseTarget: 450, targetGrowth: 50
         },
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Scrappy Chef',
-            taunt: "Let's make something from nothing!",
-            winQuote: "Trash to treasure!", loseQuote: "Creative cooking!",
-            recipeSize: [2, 4], baseTime: 9, ingredientPool: 7,
-            special: 'wild_card', specialDesc: 'Wild card can substitute any ingredient',
-            targetBase: 700
+            taunt: "Use that wild card wisely!",
+            winQuote: "Resourceful!", loseQuote: "Good scrapping!",
+            special: 'wild_card',
+            specialDesc: 'Wild card substitutes any ingredient - use it strategically!',
+            baseTime: 9, minTime: 6,
+            baseRecipeMin: 2, baseRecipeMax: 3, maxRecipeSize: 4,
+            baseIngredients: 6, maxIngredients: 9,
+            baseTarget: 500, targetGrowth: 55
         },
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Speed Demon',
-            taunt: "Zap! Fast food coming up!",
-            winQuote: "Lightning fast!", loseQuote: "Shocking speed!",
-            recipeSize: [3, 4], baseTime: 8, ingredientPool: 8,
-            special: 'speed_surge', specialDesc: 'Speed rounds give 1.5x points!',
-            targetBase: 800
+            taunt: "Lightning reflexes required!",
+            winQuote: "Shockingly fast!", loseQuote: "Quick thinking!",
+            special: 'speed_surge',
+            specialDesc: 'Speed rounds appear - faster timer but 1.5x points!',
+            baseTime: 8, minTime: 5,
+            baseRecipeMin: 3, baseRecipeMax: 3, maxRecipeSize: 5,
+            baseIngredients: 6, maxIngredients: 10,
+            baseTarget: 550, targetGrowth: 60
         },
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
             title: 'The Secret Recipe Keeper',
-            taunt: "Can you guess the hidden ingredient?",
-            winQuote: "Mystery solved!", loseQuote: "Keen intuition!",
-            recipeSize: [3, 4], baseTime: 9, ingredientPool: 9,
-            special: 'hidden_ingredient', specialDesc: 'One ingredient reveals after 1.5 seconds',
-            targetBase: 900
+            taunt: "Can you remember the hidden one?",
+            winQuote: "Mystery solved!", loseQuote: "Sharp memory!",
+            special: 'hidden_ingredient',
+            specialDesc: 'One ingredient is hidden briefly - memorize the recipe!',
+            baseTime: 9, minTime: 6,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
+            baseIngredients: 7, maxIngredients: 10,
+            baseTarget: 600, targetGrowth: 60
         },
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
             title: 'The Precision Chef',
-            taunt: "Exact measurements required!",
-            winQuote: "Scientifically delicious!", loseQuote: "Perfect precision!",
-            recipeSize: [3, 4], baseTime: 8, ingredientPool: 10,
-            special: 'strict_order', specialDesc: 'Wrong ingredient fails order, but 2x rewards!',
-            targetBase: 1000
+            taunt: "No mistakes allowed!",
+            winQuote: "Precisely!", loseQuote: "Scientific approach!",
+            special: 'strict_order',
+            specialDesc: 'Wrong ingredient = order failed, but 2x point rewards!',
+            baseTime: 9, minTime: 6,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
+            baseIngredients: 8, maxIngredients: 11,
+            baseTarget: 650, targetGrowth: 65
         },
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Tricky Chef',
-            taunt: "Ssssome ingredients are fake!",
-            winQuote: "Sssslippery!", loseQuote: "You avoided my trapsss!",
-            recipeSize: [3, 5], baseTime: 8, ingredientPool: 11,
-            special: 'decoy_ingredients', specialDesc: 'Decoys have a subtle shimmer - avoid them!',
-            targetBase: 1100
+            taunt: "Watch for my tricksss!",
+            winQuote: "Sssslippery!", loseQuote: "Sssharp eyes!",
+            special: 'decoy_ingredients',
+            specialDesc: 'Decoy ingredients appear - avoid the fakes!',
+            baseTime: 8, minTime: 5,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 5,
+            baseIngredients: 8, maxIngredients: 12,
+            baseTarget: 700, targetGrowth: 70
         },
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Pack Feeder',
-            taunt: "The pack is hungry! AWOO!",
-            winQuote: "The pack is satisfied!", loseQuote: "A worthy alpha!",
-            recipeSize: [3, 5], baseTime: 7, ingredientPool: 12,
-            special: 'multi_order', specialDesc: 'Two orders at once - complete either one!',
-            targetBase: 1200
+            taunt: "The pack needs feeding! AWOO!",
+            winQuote: "Pack satisfied!", loseQuote: "Alpha material!",
+            special: 'multi_order',
+            specialDesc: 'Two orders at once - complete either one!',
+            baseTime: 8, minTime: 5,
+            baseRecipeMin: 3, baseRecipeMax: 4, maxRecipeSize: 6,
+            baseIngredients: 9, maxIngredients: 13,
+            baseTarget: 750, targetGrowth: 75
         },
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Chef',
-            taunt: "You dare challenge the master?",
-            winQuote: "Impossible!", loseQuote: "A true culinary master!",
-            recipeSize: [4, 5], baseTime: 7, ingredientPool: 14,
-            special: 'all_challenges', specialDesc: 'All challenges combined - the ultimate test!',
-            targetBase: 1400
+            taunt: "Face all challenges combined!",
+            winQuote: "Legendary!", loseQuote: "True chef spirit!",
+            special: 'all_challenges',
+            specialDesc: 'All mechanics combined - the ultimate test!',
+            baseTime: 7, minTime: 4,
+            baseRecipeMin: 4, baseRecipeMax: 5, maxRecipeSize: 6,
+            baseIngredients: 10, maxIngredients: 14,
+            baseTarget: 800, targetGrowth: 80
         }
     ];
 
+    // Level configuration generator
+    // Creates specific parameters for each level within a world
+    const getLevelConfig = useCallback((worldId, level) => {
+        const world = worlds[worldId];
+        const progress = (level - 1) / 9; // 0 to 1 across 10 levels
+
+        // Time decreases as levels progress
+        const timer = world.baseTime - (world.baseTime - world.minTime) * progress;
+
+        // Recipe size increases
+        const recipeMin = Math.floor(world.baseRecipeMin + (world.maxRecipeSize - world.baseRecipeMin) * progress * 0.5);
+        const recipeMax = Math.floor(world.baseRecipeMax + (world.maxRecipeSize - world.baseRecipeMax) * progress);
+
+        // Ingredient pool grows
+        const ingredientPool = Math.floor(world.baseIngredients + (world.maxIngredients - world.baseIngredients) * progress);
+
+        // Target score for this level
+        const targetScore = world.baseTarget + world.targetGrowth * (level - 1);
+
+        // Orders needed to have a fair shot at the target (based on ~120-180 points per order average)
+        const ordersNeeded = Math.ceil(targetScore / 150);
+
+        // Special mechanic intensity (how often it appears)
+        // Levels 1-3: 20%, Levels 4-6: 40%, Levels 7-10: 60%
+        let mechanicIntensity = 0;
+        if (world.special !== 'none') {
+            if (level <= 3) mechanicIntensity = 0.2;
+            else if (level <= 6) mechanicIntensity = 0.4;
+            else mechanicIntensity = 0.6;
+        }
+
+        // Level-specific modifiers for variety
+        const levelVariants = {
+            1: { name: 'Introduction', desc: 'Get comfortable with the basics' },
+            2: { name: 'Warm Up', desc: 'Building speed and confidence' },
+            3: { name: 'Getting Started', desc: 'Finding your rhythm' },
+            4: { name: 'Picking Up Pace', desc: 'Time to push a bit harder' },
+            5: { name: 'Midpoint', desc: 'Halfway through this world' },
+            6: { name: 'Stepping Up', desc: 'The challenge increases' },
+            7: { name: 'Advanced', desc: 'Serious cooking territory' },
+            8: { name: 'Expert', desc: 'Only skilled chefs make it here' },
+            9: { name: 'Intense', desc: 'Near-mastery required' },
+            10: { name: 'Mastery', desc: 'Prove your worth to advance' }
+        };
+
+        return {
+            timer: Math.round(timer * 10) / 10,
+            recipeMin,
+            recipeMax: Math.max(recipeMin, recipeMax),
+            ingredientPool,
+            targetScore,
+            ordersNeeded,
+            mechanicIntensity,
+            levelName: levelVariants[level].name,
+            levelDesc: levelVariants[level].desc,
+            // Bonus time for first 2 levels of each world (training wheels)
+            hasTrainingWheels: level <= 2,
+            // Extra time bonus for training levels
+            trainingBonus: level === 1 ? 3 : level === 2 ? 1.5 : 0
+        };
+    }, []);
+
     // Game state
     const [gameState, setGameState] = useState('menu');
-    const [selectedOpponent, setSelectedOpponent] = useState(null);
+    const [selectedWorld, setSelectedWorld] = useState(null);
     const [currentLevel, setCurrentLevel] = useState(1);
+    const [levelConfig, setLevelConfig] = useState(null);
 
     // Match state
     const [score, setScore] = useState(0);
     const [mistakes, setMistakes] = useState(0);
     const [currentOrder, setCurrentOrder] = useState(null);
-    const [secondOrder, setSecondOrder] = useState(null); // For Wolf Warrior
+    const [secondOrder, setSecondOrder] = useState(null);
     const [selectedIngredients, setSelectedIngredients] = useState([]);
     const [availableIngredients, setAvailableIngredients] = useState([]);
     const [orderTimer, setOrderTimer] = useState(0);
@@ -158,7 +257,7 @@ const CookOff = () => {
     const [ordersCompleted, setOrdersCompleted] = useState(0);
     const [combo, setCombo] = useState(0);
     const [maxCombo, setMaxCombo] = useState(0);
-    const [streak, setStreak] = useState(0); // Orders without any mistakes
+    const [streak, setStreak] = useState(0);
     const [gameTime, setGameTime] = useState(0);
     const [showFeedback, setShowFeedback] = useState(null);
     const [beatPhase, setBeatPhase] = useState(0);
@@ -171,8 +270,6 @@ const CookOff = () => {
     const [completedDish, setCompletedDish] = useState(null);
     const [perfectBonus, setPerfectBonus] = useState(false);
     const [onFire, setOnFire] = useState(false);
-    const [milestoneReached, setMilestoneReached] = useState(null);
-    const [targetScore, setTargetScore] = useState(0);
     const [encouragement, setEncouragement] = useState(null);
 
     // Refs
@@ -181,99 +278,79 @@ const CookOff = () => {
     const beatRef = useRef(null);
     const hiddenRevealRef = useRef(null);
 
-    // Progression
+    // Progression - stores star count per level (0, 0.5, or 1)
     const [progression, setProgression] = useState(() => {
-        const saved = localStorage.getItem('cookoff_progression_v2');
-        if (saved) return JSON.parse(saved);
-        return { starPoints: Array(10).fill(0), bestScores: Array(10).fill(0) };
+        const saved = localStorage.getItem('cookoff_progression_v3');
+        if (saved) {
+            const data = JSON.parse(saved);
+            // Ensure structure is correct
+            if (data.levelStars && data.levelStars.length === 10) {
+                return data;
+            }
+        }
+        // Initialize: 10 worlds, each with 10 levels, each level can have 0, 0.5, or 1 star
+        return {
+            levelStars: Array(10).fill(null).map(() => Array(10).fill(0)),
+            bestScores: Array(10).fill(null).map(() => Array(10).fill(0))
+        };
     });
 
     useEffect(() => {
-        localStorage.setItem('cookoff_progression_v2', JSON.stringify(progression));
+        localStorage.setItem('cookoff_progression_v3', JSON.stringify(progression));
     }, [progression]);
 
-    const getStars = (idx) => Math.floor(progression.starPoints[idx] / 4);
-    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 40;
-    const isOpponentMastered = (idx) => progression.starPoints[idx] >= 40;
+    // Calculate total stars for a world
+    const getWorldStars = useCallback((worldId) => {
+        return progression.levelStars[worldId].reduce((sum, stars) => sum + stars, 0);
+    }, [progression]);
 
-    // Calculate target score for current match
-    // Design principle: Achievable targets that scale smoothly
-    const calculateTargetScore = useCallback((opponent, level) => {
-        // Base target from opponent + level scaling
-        // Much gentler scaling than before
-        const base = opponent.targetBase;
-        const levelBonus = (level - 1) * 50; // Only +50 per level, not +100
-        return base + levelBonus;
-    }, []);
+    // Check if world is unlocked (need 10 stars in previous world)
+    const isWorldUnlocked = useCallback((worldId) => {
+        if (worldId === 0) return true;
+        return getWorldStars(worldId - 1) >= 10;
+    }, [getWorldStars]);
 
-    // Get difficulty settings with SMOOTH CURVE
-    // Design principle: No arbitrary spikes, learnable patterns
-    const getDifficulty = useCallback((opponentIdx, level) => {
-        const opp = opponents[opponentIdx];
-        // Gentler level modifier
-        const levelMod = (level - 1) * 0.08; // Reduced from 0.1
+    // Check if world is mastered (all 10 stars)
+    const isWorldMastered = useCallback((worldId) => {
+        return getWorldStars(worldId) >= 10;
+    }, [getWorldStars]);
 
-        // Recipe size scales slowly
-        const minSize = opp.recipeSize[0];
-        const maxSize = Math.min(opp.recipeSize[1], minSize + Math.floor(level / 4)); // Slower scaling
+    // Check if level is unlocked (previous level must have at least 0.5 stars)
+    const isLevelUnlocked = useCallback((worldId, level) => {
+        if (level === 1) return isWorldUnlocked(worldId);
+        return progression.levelStars[worldId][level - 2] >= 0.5;
+    }, [progression, isWorldUnlocked]);
 
-        // Timer is more generous, especially early
-        // Design: Players should succeed 40-60% on first attempt
-        const baseTime = Math.max(4, opp.baseTime - levelMod * 1.5);
+    // Get stars for a specific level
+    const getLevelStars = useCallback((worldId, level) => {
+        return progression.levelStars[worldId][level - 1];
+    }, [progression]);
 
-        return {
-            minRecipeSize: minSize,
-            maxRecipeSize: maxSize,
-            baseTime: baseTime,
-            ingredientPool: Math.min(allIngredients.length, opp.ingredientPool + Math.floor(level / 3)),
-            // Warmup: First 3 orders are easier
-            warmupOrders: 3,
-            // Breather: Every 5th order is easier
-            breatherInterval: 5
-        };
-    }, []);
-
-    // Generate dish name with more variety (Easy Fun - surprise)
+    // Generate dish name
     const generateDishName = useCallback((recipe) => {
         const adjectives = ['Sizzling', 'Crispy', 'Zesty', 'Savory', 'Golden', 'Gourmet', 'Supreme', 'Deluxe',
                           'Smoky', 'Tangy', 'Hearty', 'Fresh', 'Spicy', 'Sweet', 'Rustic', 'Classic'];
         const styles = ['Delight', 'Surprise', 'Special', 'Fusion', 'Creation', 'Masterpiece',
                        'Bowl', 'Platter', 'Stack', 'Feast', 'Treat', 'Wonder'];
-
-        // Use recipe to seed some consistency
-        const adjIdx = recipe.length + recipe[0]?.id.length || 0;
-        const styleIdx = recipe.length * 2;
-
-        return `${adjectives[adjIdx % adjectives.length]} ${styles[styleIdx % styles.length]}`;
+        const adjIdx = (recipe.length + (recipe[0]?.id.length || 0)) % adjectives.length;
+        const styleIdx = (recipe.length * 2) % styles.length;
+        return `${adjectives[adjIdx]} ${styles[styleIdx]}`;
     }, []);
 
-    // Generate new order with warmup/breather system
+    // Generate order based on level config
     const generateOrder = useCallback((isSecondary = false) => {
-        if (!selectedOpponent) return null;
+        if (!selectedWorld || !levelConfig) return null;
 
-        const diff = getDifficulty(selectedOpponent.id, currentLevel);
-        const opp = selectedOpponent;
+        const world = selectedWorld;
+        const config = levelConfig;
 
-        // Determine if this is a warmup or breather order (easier)
-        const isWarmup = ordersCompleted < diff.warmupOrders;
-        const isBreather = ordersCompleted > 0 && ordersCompleted % diff.breatherInterval === 0;
-        const isEasyOrder = isWarmup || isBreather;
+        // Determine recipe size
+        const size = config.recipeMin + Math.floor(Math.random() * (config.recipeMax - config.recipeMin + 1));
 
-        // Recipe size - smaller for easy orders
-        let minSize = diff.minRecipeSize;
-        let maxSize = diff.maxRecipeSize;
-        if (isEasyOrder) {
-            minSize = Math.max(2, minSize - 1);
-            maxSize = Math.max(2, maxSize - 1);
-        }
+        // Get ingredient pool
+        const pool = allIngredients.slice(0, config.ingredientPool);
 
-        const size = minSize + Math.floor(Math.random() * (maxSize - minSize + 1));
-
-        // Get available ingredients
-        const poolSize = isEasyOrder ? Math.min(diff.ingredientPool, 6) : diff.ingredientPool;
-        const pool = allIngredients.slice(0, poolSize);
-
-        // Generate recipe (no duplicates for easier recognition)
+        // Generate recipe (prefer no duplicates for clarity)
         const recipe = [];
         const usedIds = new Set();
         for (let i = 0; i < size; i++) {
@@ -287,67 +364,72 @@ const CookOff = () => {
             recipe.push(ing);
         }
 
-        // Set up available ingredients (clear visual distinction)
-        const extraCount = isEasyOrder ? 4 : Math.min(5 + Math.floor(currentLevel / 3), 8);
+        // Available ingredients (recipe + extras)
+        const extraCount = Math.min(config.ingredientPool, 4 + Math.floor(currentLevel / 3));
         const available = [...new Set(recipe.map(r => r.id))];
-        while (available.length < extraCount && available.length < poolSize) {
+        while (available.length < extraCount && available.length < pool.length) {
             const extra = pool[Math.floor(Math.random() * pool.length)];
             if (!available.includes(extra.id)) {
                 available.push(extra.id);
             }
         }
 
-        // Shuffle available
         const shuffledAvailable = available
             .map(id => pool.find(ing => ing.id === id))
             .sort(() => Math.random() - 0.5);
 
-        // Handle special mechanics (reduced frequency for fairness)
+        // Apply special mechanics based on intensity
         let hidden = -1;
         let decoy = null;
         let hasWildCard = false;
         let speedRound = false;
 
-        // Only apply specials after warmup and not on breathers
-        if (!isEasyOrder) {
-            if (opp.special === 'hidden_ingredient' || (opp.special === 'all_challenges' && Math.random() < 0.25)) {
-                hidden = Math.floor(Math.random() * recipe.length);
-            }
+        const shouldApplyMechanic = Math.random() < config.mechanicIntensity;
 
-            if (opp.special === 'decoy_ingredients' || (opp.special === 'all_challenges' && Math.random() < 0.25)) {
-                const notInRecipe = pool.filter(ing => !recipe.find(r => r.id === ing.id));
-                if (notInRecipe.length > 0) {
-                    decoy = notInRecipe[Math.floor(Math.random() * notInRecipe.length)];
-                    shuffledAvailable.push(decoy);
+        if (shouldApplyMechanic) {
+            if (world.special === 'hidden_ingredient' || world.special === 'all_challenges') {
+                if (world.special === 'hidden_ingredient' || Math.random() < 0.3) {
+                    hidden = Math.floor(Math.random() * recipe.length);
                 }
             }
 
-            hasWildCard = opp.special === 'wild_card' || (opp.special === 'all_challenges' && Math.random() < 0.3);
-            speedRound = (opp.special === 'speed_surge' || opp.special === 'all_challenges') && Math.random() < 0.25;
+            if (world.special === 'decoy_ingredients' || world.special === 'all_challenges') {
+                if (world.special === 'decoy_ingredients' || Math.random() < 0.3) {
+                    const notInRecipe = pool.filter(ing => !recipe.find(r => r.id === ing.id));
+                    if (notInRecipe.length > 0) {
+                        decoy = notInRecipe[Math.floor(Math.random() * notInRecipe.length)];
+                        shuffledAvailable.push(decoy);
+                    }
+                }
+            }
+
+            if (world.special === 'wild_card' || world.special === 'all_challenges') {
+                hasWildCard = world.special === 'wild_card' || Math.random() < 0.3;
+            }
+
+            if (world.special === 'speed_surge' || world.special === 'all_challenges') {
+                speedRound = world.special === 'speed_surge' ? Math.random() < 0.3 : Math.random() < 0.2;
+            }
         }
 
-        // Calculate timer - MORE GENEROUS
-        // Design: Time should feel tight but achievable
-        let time = diff.baseTime;
+        // Calculate timer
+        let time = config.timer;
 
-        // Add time based on recipe size (0.8s per ingredient beyond 2)
-        time += Math.max(0, (size - 2) * 0.8);
+        // Add time for recipe size
+        time += (size - 2) * 0.6;
 
-        // Speed round reduces time but not too harshly
-        if (speedRound) time = Math.max(4, time * 0.7);
+        // Training wheels bonus
+        time += config.trainingBonus;
 
-        // Gradual acceleration (very gentle - 0.05s per order, capped)
-        const acceleration = Math.min(ordersCompleted * 0.05, 2);
-        time = Math.max(4, time - acceleration);
+        // Speed round reduction
+        if (speedRound) time = Math.max(3, time * 0.65);
 
-        // Easy orders get bonus time
-        if (isEasyOrder) time += 2;
+        // Gradual acceleration within match (very gentle)
+        time = Math.max(3, time - ordersCompleted * 0.03);
 
         const order = {
             recipe,
             name: generateDishName(recipe),
-            isWarmup,
-            isBreather,
             hidden,
             decoy,
             hasWildCard,
@@ -366,7 +448,6 @@ const CookOff = () => {
             setIsSpeedRound(speedRound);
             setWildCardActive(hasWildCard);
 
-            // Reveal hidden ingredient after delay
             if (hidden >= 0) {
                 clearTimeout(hiddenRevealRef.current);
                 hiddenRevealRef.current = setTimeout(() => setHiddenIndex(-1), 1500);
@@ -374,16 +455,14 @@ const CookOff = () => {
         }
 
         return order;
-    }, [selectedOpponent, currentLevel, ordersCompleted, getDifficulty, generateDishName]);
+    }, [selectedWorld, levelConfig, currentLevel, ordersCompleted, generateDishName]);
 
     // Generate second order for Wolf Warrior
     const generateSecondOrder = useCallback(() => {
-        if (!selectedOpponent || selectedOpponent.special !== 'multi_order') return;
+        if (!selectedWorld || selectedWorld.special !== 'multi_order') return;
+        if (!levelConfig) return;
 
-        const diff = getDifficulty(selectedOpponent.id, currentLevel);
-        const pool = allIngredients.slice(0, diff.ingredientPool);
-
-        // Smaller recipe for second order
+        const pool = allIngredients.slice(0, levelConfig.ingredientPool);
         const size = 2 + Math.floor(Math.random() * 2);
         const recipe = [];
         for (let i = 0; i < size; i++) {
@@ -394,12 +473,14 @@ const CookOff = () => {
             recipe,
             name: generateDishName(recipe)
         });
-    }, [selectedOpponent, currentLevel, getDifficulty, generateDishName]);
+    }, [selectedWorld, levelConfig, generateDishName]);
 
     // Start match
-    const startMatch = useCallback((opponent, level) => {
-        setSelectedOpponent(opponent);
+    const startMatch = useCallback((world, level) => {
+        const config = getLevelConfig(world.id, level);
+        setSelectedWorld(world);
         setCurrentLevel(level);
+        setLevelConfig(config);
         setScore(0);
         setMistakes(0);
         setOrdersCompleted(0);
@@ -412,25 +493,23 @@ const CookOff = () => {
         setCompletedDish(null);
         setPerfectBonus(false);
         setOnFire(false);
-        setMilestoneReached(null);
         setEncouragement(null);
         setCurrentOrder(null);
         setSecondOrder(null);
-        setTargetScore(calculateTargetScore(opponent, level));
         setGameState('playing');
-    }, [calculateTargetScore]);
+    }, [getLevelConfig]);
 
-    // Initialize first order when playing starts
+    // Initialize first order
     useEffect(() => {
-        if (gameState === 'playing' && !currentOrder) {
+        if (gameState === 'playing' && !currentOrder && levelConfig) {
             generateOrder();
-            if (selectedOpponent?.special === 'multi_order') {
+            if (selectedWorld?.special === 'multi_order') {
                 generateSecondOrder();
             }
         }
-    }, [gameState, currentOrder, generateOrder, generateSecondOrder, selectedOpponent]);
+    }, [gameState, currentOrder, levelConfig, generateOrder, generateSecondOrder, selectedWorld]);
 
-    // Order timer countdown with grace period
+    // Order timer
     useEffect(() => {
         if (gameState !== 'playing' || !currentOrder) return;
 
@@ -464,160 +543,139 @@ const CookOff = () => {
         return () => clearInterval(gameTimerRef.current);
     }, [gameState]);
 
-    // Beat timer for rhythm bonus (clearer visual)
+    // Beat timer
     useEffect(() => {
-        if (gameState !== 'playing') return;
-        if (!selectedOpponent) return;
-        if (selectedOpponent.special !== 'rhythm_bonus' && selectedOpponent.special !== 'all_challenges') return;
+        if (gameState !== 'playing' || !selectedWorld) return;
+        if (selectedWorld.special !== 'rhythm_bonus' && selectedWorld.special !== 'all_challenges') return;
 
         beatRef.current = setInterval(() => {
             setBeatPhase(p => (p + 1) % 4);
-        }, 600); // Slightly slower for easier timing
+        }, 600);
 
         return () => clearInterval(beatRef.current);
-    }, [gameState, selectedOpponent]);
+    }, [gameState, selectedWorld]);
 
-    // Check milestones and show encouragement
+    // Check milestones
     useEffect(() => {
-        if (gameState !== 'playing' || !targetScore) return;
+        if (gameState !== 'playing' || !levelConfig) return;
 
-        const percentage = score / targetScore;
+        const percentage = score / levelConfig.targetScore;
 
-        // Milestone celebrations
-        if (percentage >= 1 && milestoneReached !== 'win') {
-            setMilestoneReached('win');
-            setEncouragement('TARGET REACHED! Keep going for a high score!');
+        if (percentage >= 1 && !encouragement) {
+            setEncouragement('TARGET REACHED! Keep going for excellence!');
             setTimeout(() => setEncouragement(null), 2000);
-        } else if (percentage >= 0.75 && milestoneReached !== '75' && milestoneReached !== 'win') {
-            setMilestoneReached('75');
-            setEncouragement('Almost there! 75% complete!');
+        } else if (percentage >= 0.75 && percentage < 1 && !encouragement) {
+            setEncouragement('Almost there! 75%');
             setTimeout(() => setEncouragement(null), 1500);
-        } else if (percentage >= 0.5 && !milestoneReached) {
-            setMilestoneReached('50');
-            setEncouragement('Halfway there!');
+        } else if (percentage >= 0.5 && percentage < 0.75 && !encouragement) {
+            setEncouragement('Halfway to completion!');
             setTimeout(() => setEncouragement(null), 1500);
         }
-    }, [score, targetScore, gameState, milestoneReached]);
+    }, [score, levelConfig, gameState, encouragement]);
 
-    // Screen shake effect
+    // Screen shake
     const triggerShake = useCallback(() => {
         setScreenShake(true);
         setTimeout(() => setScreenShake(false), 300);
     }, []);
 
-    // Handle ingredient selection with better feedback
+    // Handle ingredient click
     const handleIngredientClick = useCallback((ingredient) => {
         if (gameState !== 'playing' || !currentOrder) return;
 
-        const opp = selectedOpponent;
+        const world = selectedWorld;
         const recipe = currentOrder.recipe;
         const currentIndex = selectedIngredients.length;
 
-        // Visual feedback for click
         setLastClickedIngredient(ingredient.id);
         setTimeout(() => setLastClickedIngredient(null), 150);
 
-        // Check for decoy
+        // Check decoy
         if (decoyIngredient && ingredient.id === decoyIngredient.id) {
             triggerShake();
             handleOrderFailed('decoy');
             return;
         }
 
-        // Wild card matches anything
+        // Wild card
         if (wildCardActive && ingredient.id === 'wild') {
             const newSelected = [...selectedIngredients, recipe[currentIndex]];
             setSelectedIngredients(newSelected);
-
             if (newSelected.length === recipe.length) {
                 handleOrderComplete();
             }
             return;
         }
 
-        // Check if correct ingredient
+        // Check correct ingredient
         const expected = recipe[currentIndex];
         if (ingredient.id === expected.id) {
-            // Correct! Satisfying feedback
             const newSelected = [...selectedIngredients, ingredient];
             setSelectedIngredients(newSelected);
-
-            // Check if order complete
             if (newSelected.length === recipe.length) {
                 handleOrderComplete();
             }
         } else {
-            // Wrong ingredient
             triggerShake();
-
-            if (opp.special === 'strict_order') {
+            if (world.special === 'strict_order') {
                 handleOrderFailed('wrong');
             } else {
-                // Reset streak but continue
                 setStreak(0);
                 setOnFire(false);
                 setShowFeedback({ type: 'wrong', message: 'Wrong!' });
                 setTimeout(() => setShowFeedback(null), 400);
             }
         }
-    }, [gameState, currentOrder, selectedIngredients, selectedOpponent, decoyIngredient, wildCardActive, triggerShake]);
+    }, [gameState, currentOrder, selectedIngredients, selectedWorld, decoyIngredient, wildCardActive, triggerShake]);
 
-    // Handle order completion with rich feedback
+    // Handle order complete
     const handleOrderComplete = useCallback(() => {
-        const opp = selectedOpponent;
+        const world = selectedWorld;
         let points = 100;
         let bonusMessages = [];
 
-        // Time remaining bonus (rewarding speed)
+        // Time bonus
         const timePercent = orderTimer / maxOrderTime;
-        const timeBonus = Math.floor(orderTimer * 15);
-        points += timeBonus;
+        points += Math.floor(orderTimer * 15);
 
-        // Perfect bonus: >70% time remaining
-        const isPerfect = timePercent > 0.7;
-        if (isPerfect) {
+        // Perfect bonus
+        if (timePercent > 0.7) {
             points += 50;
             bonusMessages.push('PERFECT!');
             setPerfectBonus(true);
             setTimeout(() => setPerfectBonus(false), 500);
         }
 
-        // Combo bonus (starts at 2)
+        // Combo
         const newCombo = combo + 1;
         setCombo(newCombo);
         setMaxCombo(m => Math.max(m, newCombo));
         if (newCombo >= 2) {
-            const comboBonus = newCombo * 15;
-            points += comboBonus;
+            points += newCombo * 15;
         }
 
-        // Streak bonus (orders without ANY wrong clicks)
+        // Streak
         const newStreak = streak + 1;
         setStreak(newStreak);
-
-        // "On Fire" state after 5 streak
         if (newStreak >= 5 && !onFire) {
             setOnFire(true);
             bonusMessages.push('ON FIRE!');
         }
-
         if (onFire) {
-            points = Math.floor(points * 1.25); // 25% bonus while on fire
+            points = Math.floor(points * 1.25);
         }
 
-        // Rhythm bonus (clearer timing window)
-        if ((opp.special === 'rhythm_bonus' || opp.special === 'all_challenges') && beatPhase === 0) {
+        // World-specific bonuses
+        if ((world.special === 'rhythm_bonus' || world.special === 'all_challenges') && beatPhase === 0) {
             points = Math.floor(points * 2);
             bonusMessages.push('RHYTHM 2X!');
         }
 
-        // Strict order bonus
-        if (opp.special === 'strict_order') {
+        if (world.special === 'strict_order') {
             points = Math.floor(points * 2);
             bonusMessages.push('PRECISION 2X!');
         }
 
-        // Speed round bonus
         if (isSpeedRound) {
             points = Math.floor(points * 1.5);
             bonusMessages.push('SPEED 1.5X!');
@@ -626,23 +684,21 @@ const CookOff = () => {
         setScore(s => s + points);
         setOrdersCompleted(o => o + 1);
 
-        // Bonus time for Cheeky Chicken
-        if (opp.special === 'bonus_time' && newCombo >= 2) {
-            setGameTime(t => Math.min(90, t + 3));
-            bonusMessages.push('+3s TIME!');
+        // Bonus time
+        if (world.special === 'bonus_time' && newCombo >= 2) {
+            setGameTime(t => Math.min(90, t + 2));
+            bonusMessages.push('+2s!');
         }
 
-        // Show completed dish
         const dish = dishEmojis[Math.floor(Math.random() * dishEmojis.length)];
         setCompletedDish(dish);
 
-        // Rich feedback
         setShowFeedback({
             type: 'success',
             message: `+${points}!`,
             combo: newCombo,
             bonuses: bonusMessages,
-            dish: dish
+            dish
         });
 
         setTimeout(() => {
@@ -651,13 +707,13 @@ const CookOff = () => {
             setCurrentOrder(null);
             setSecondOrder(null);
             generateOrder();
-            if (opp.special === 'multi_order') {
+            if (world.special === 'multi_order') {
                 generateSecondOrder();
             }
-        }, 600); // Faster to maintain flow
-    }, [combo, streak, onFire, orderTimer, maxOrderTime, selectedOpponent, beatPhase, isSpeedRound, generateOrder, generateSecondOrder]);
+        }, 600);
+    }, [combo, streak, onFire, orderTimer, maxOrderTime, selectedWorld, beatPhase, isSpeedRound, generateOrder, generateSecondOrder]);
 
-    // Handle order failure with clear feedback
+    // Handle order failed
     const handleOrderFailed = useCallback((reason) => {
         setMistakes(m => {
             const newMistakes = m + 1;
@@ -684,18 +740,16 @@ const CookOff = () => {
             setSecondOrder(null);
             if (mistakes + 1 < 3) {
                 generateOrder();
-                if (selectedOpponent?.special === 'multi_order') {
+                if (selectedWorld?.special === 'multi_order') {
                     generateSecondOrder();
                 }
             }
         }, 600);
-    }, [mistakes, generateOrder, generateSecondOrder, selectedOpponent]);
+    }, [mistakes, generateOrder, generateSecondOrder, selectedWorld]);
 
-    // Handle switching to second order (Wolf Warrior)
+    // Switch to second order
     const switchToSecondOrder = useCallback(() => {
         if (!secondOrder) return;
-
-        // Swap orders
         const temp = currentOrder;
         setCurrentOrder({
             ...secondOrder,
@@ -713,27 +767,51 @@ const CookOff = () => {
         setIsSpeedRound(false);
     }, [currentOrder, secondOrder, maxOrderTime]);
 
-    // Handle result with fair evaluation
+    // Handle result
     useEffect(() => {
-        if (gameState !== 'result') return;
+        if (gameState !== 'result' || !levelConfig || !selectedWorld) return;
 
-        const percentage = score / targetScore;
+        const percentage = score / levelConfig.targetScore;
+        const hadNoMistakes = mistakes === 0;
 
-        // More generous win condition
-        if (percentage >= 0.5 && mistakes < 3) {
-            // 50% = 1 point, 80% = 2 points, 100%+ = 3 points
-            const points = percentage >= 1 ? 3 : percentage >= 0.8 ? 2 : 1;
+        // Calculate stars earned
+        // 0.5 stars: Complete level (50% of target, less than 3 mistakes)
+        // 1.0 stars: Excellence (100% of target OR 0 mistakes)
+        let starsEarned = 0;
+
+        if (mistakes < 3 && percentage >= 0.5) {
+            starsEarned = 0.5; // Completion
+            if (percentage >= 1 || hadNoMistakes) {
+                starsEarned = 1; // Excellence
+            }
+        }
+
+        // Only update if we earned more stars than before
+        const currentStars = getLevelStars(selectedWorld.id, currentLevel);
+        if (starsEarned > currentStars) {
             setProgression(prev => {
-                const newPoints = [...prev.starPoints];
-                const newBest = [...(prev.bestScores || Array(10).fill(0))];
-                newPoints[selectedOpponent.id] = Math.min(40, newPoints[selectedOpponent.id] + points);
-                newBest[selectedOpponent.id] = Math.max(newBest[selectedOpponent.id] || 0, score);
-                return { ...prev, starPoints: newPoints, bestScores: newBest };
+                const newLevelStars = prev.levelStars.map((world, wIdx) =>
+                    world.map((stars, lIdx) => {
+                        if (wIdx === selectedWorld.id && lIdx === currentLevel - 1) {
+                            return starsEarned;
+                        }
+                        return stars;
+                    })
+                );
+                const newBestScores = prev.bestScores.map((world, wIdx) =>
+                    world.map((best, lIdx) => {
+                        if (wIdx === selectedWorld.id && lIdx === currentLevel - 1) {
+                            return Math.max(best, score);
+                        }
+                        return best;
+                    })
+                );
+                return { levelStars: newLevelStars, bestScores: newBestScores };
             });
         }
-    }, [gameState, score, targetScore, selectedOpponent, mistakes]);
+    }, [gameState, score, levelConfig, selectedWorld, currentLevel, mistakes, getLevelStars]);
 
-    // Keyboard handling
+    // Keyboard
     useEffect(() => {
         const handleKey = (e) => {
             if (e.code === 'Escape') {
@@ -750,7 +828,7 @@ const CookOff = () => {
         return () => window.removeEventListener('keydown', handleKey);
     }, [gameState]);
 
-    // Cleanup on unmount
+    // Cleanup
     useEffect(() => {
         return () => {
             clearInterval(timerRef.current);
@@ -760,49 +838,77 @@ const CookOff = () => {
         };
     }, []);
 
-    // Star bar component
-    const StarBar = ({ points }) => (
-        <div style={{ display: 'flex', gap: '3px' }}>
-            {Array(10).fill(0).map((_, i) => (
-                <div key={i} style={{
-                    width: '14px', height: '14px',
-                    background: i < Math.floor(points / 4)
-                        ? `linear-gradient(135deg, ${theme.gold}, ${theme.accent})`
-                        : theme.bgDark,
-                    borderRadius: '3px',
-                    border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`,
-                    boxShadow: i < Math.floor(points / 4) ? `0 0 5px ${theme.goldGlow}` : 'none'
-                }} />
-            ))}
+    // Star display component
+    const StarIcon = ({ filled }) => (
+        <div style={{
+            width: '18px',
+            height: '18px',
+            position: 'relative',
+            display: 'inline-block'
+        }}>
+            {/* Empty star background */}
+            <div style={{
+                position: 'absolute',
+                top: 0, left: 0,
+                width: '100%',
+                height: '100%',
+                color: theme.starEmpty,
+                fontSize: '16px',
+                lineHeight: '18px',
+                textAlign: 'center'
+            }}>★</div>
+            {/* Filled portion */}
+            {filled > 0 && (
+                <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0,
+                    width: filled === 1 ? '100%' : '50%',
+                    height: '100%',
+                    overflow: 'hidden',
+                    color: theme.starFull,
+                    fontSize: '16px',
+                    lineHeight: '18px',
+                    textAlign: 'center',
+                    textShadow: filled === 1 ? `0 0 8px ${theme.gold}` : 'none'
+                }}>★</div>
+            )}
         </div>
     );
 
-    // Progress bar component
-    const ProgressBar = ({ current, target }) => {
-        const percentage = Math.min(100, (current / target) * 100);
-        const color = percentage >= 100 ? theme.success : percentage >= 50 ? theme.gold : theme.accent;
-
+    // World star bar
+    const WorldStarBar = ({ worldId }) => {
+        const stars = getWorldStars(worldId);
         return (
-            <div style={{
-                width: '100%',
-                height: '8px',
-                background: theme.bgDark,
-                borderRadius: '4px',
-                overflow: 'hidden',
-                border: `1px solid ${theme.border}`
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <div style={{
-                    width: `${percentage}%`,
-                    height: '100%',
-                    background: `linear-gradient(90deg, ${color}, ${color}88)`,
-                    transition: 'width 0.3s ease-out',
-                    boxShadow: percentage >= 100 ? `0 0 10px ${theme.success}` : 'none'
-                }} />
+                    width: '100px',
+                    height: '8px',
+                    background: theme.bgDark,
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    border: `1px solid ${theme.border}`
+                }}>
+                    <div style={{
+                        width: `${(stars / 10) * 100}%`,
+                        height: '100%',
+                        background: stars >= 10
+                            ? `linear-gradient(90deg, ${theme.gold}, ${theme.accent})`
+                            : `linear-gradient(90deg, ${theme.gold}, ${theme.gold}88)`,
+                        transition: 'width 0.3s'
+                    }} />
+                </div>
+                <span style={{
+                    fontSize: '12px',
+                    color: stars >= 10 ? theme.gold : theme.textMuted,
+                    minWidth: '40px'
+                }}>
+                    {stars}/10 ★
+                </span>
             </div>
         );
     };
 
-    // Timer color based on urgency
+    // Timer color
     const getTimerColor = (timer, maxTime) => {
         const percent = timer / maxTime;
         if (percent > 0.6) return theme.timerGreen;
@@ -811,7 +917,7 @@ const CookOff = () => {
         return theme.timerRed;
     };
 
-    // Menu screen
+    // MENU SCREEN
     if (gameState === 'menu') {
         return (
             <div style={{
@@ -826,8 +932,7 @@ const CookOff = () => {
                 </h1>
                 <p style={{ color: theme.textSecondary, marginBottom: '10px', fontSize: '22px' }}>Kitchen Chaos</p>
                 <p style={{ color: theme.textMuted, marginBottom: '30px', textAlign: 'center', maxWidth: '450px', lineHeight: '1.6' }}>
-                    Race against the clock to match orders by tapping ingredients in sequence!
-                    Build combos, earn bonuses, and become the ultimate chef!
+                    Master 10 worlds of culinary chaos! Complete levels to earn stars and unlock new challenges!
                 </p>
 
                 <button
@@ -854,12 +959,8 @@ const CookOff = () => {
 
                 <a href="../menu.html" style={{
                     marginTop: '25px', color: theme.textMuted,
-                    textDecoration: 'none', fontSize: '14px',
-                    transition: 'color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.color = theme.text}
-                onMouseLeave={(e) => e.currentTarget.style.color = theme.textMuted}
-                >← Back to Menu</a>
+                    textDecoration: 'none', fontSize: '14px'
+                }}>← Back to Menu</a>
 
                 <style>{`
                     @keyframes bounce {
@@ -871,7 +972,7 @@ const CookOff = () => {
         );
     }
 
-    // Select screen
+    // WORLD SELECT SCREEN
     if (gameState === 'select') {
         return (
             <div style={{
@@ -882,13 +983,9 @@ const CookOff = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
                     <button onClick={() => setGameState('menu')} style={{
                         background: 'transparent', border: `1px solid ${theme.border}`,
-                        color: theme.textSecondary, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer',
-                        transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.borderColor = theme.accent}
-                    onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.border}
-                    >← Back</button>
-                    <h2 style={{ color: theme.accent, fontSize: '24px' }}>Choose Your Rival Chef</h2>
+                        color: theme.textSecondary, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer'
+                    }}>← Back</button>
+                    <h2 style={{ color: theme.accent, fontSize: '24px' }}>Choose Your World</h2>
                     <div style={{ width: '100px' }} />
                 </div>
 
@@ -896,78 +993,83 @@ const CookOff = () => {
                     display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                     gap: '18px', maxWidth: '1300px', margin: '0 auto'
                 }}>
-                    {opponents.map((opp, idx) => {
-                        const unlocked = isOpponentUnlocked(idx);
-                        const mastered = isOpponentMastered(idx);
-                        const stars = getStars(idx);
+                    {worlds.map((world, idx) => {
+                        const unlocked = isWorldUnlocked(idx);
+                        const mastered = isWorldMastered(idx);
+                        const stars = getWorldStars(idx);
+                        const needsStars = idx > 0 ? 10 - getWorldStars(idx - 1) : 0;
 
                         return (
                             <div
-                                key={opp.id}
-                                onClick={() => {
-                                    if (unlocked) {
-                                        setSelectedOpponent(opp);
-                                        setGameState('level_select');
-                                    }
-                                }}
+                                key={world.id}
+                                onClick={() => unlocked && (setSelectedWorld(world), setGameState('level_select'))}
                                 style={{
                                     background: unlocked
                                         ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`
                                         : theme.bgDark,
-                                    border: `2px solid ${unlocked ? opp.color : theme.border}`,
+                                    border: `2px solid ${unlocked ? world.color : theme.border}`,
                                     borderRadius: '15px', padding: '18px',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.5,
                                     transition: 'all 0.2s',
                                     position: 'relative',
-                                    boxShadow: unlocked ? `0 4px 15px ${opp.color}22` : 'none'
+                                    boxShadow: unlocked ? `0 4px 15px ${world.color}22` : 'none'
                                 }}
                                 onMouseEnter={(e) => {
                                     if (unlocked) {
                                         e.currentTarget.style.transform = 'translateY(-3px)';
-                                        e.currentTarget.style.boxShadow = `0 8px 25px ${opp.color}44`;
+                                        e.currentTarget.style.boxShadow = `0 8px 25px ${world.color}44`;
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = unlocked ? `0 4px 15px ${opp.color}22` : 'none';
+                                    e.currentTarget.style.boxShadow = unlocked ? `0 4px 15px ${world.color}22` : 'none';
                                 }}
                             >
-                                {!unlocked && <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '22px' }}>🔒</div>}
+                                {/* Lock or mastery badge */}
+                                {!unlocked && (
+                                    <div style={{
+                                        position: 'absolute', top: '12px', right: '12px',
+                                        background: theme.bgDark, padding: '4px 10px',
+                                        borderRadius: '8px', fontSize: '11px', color: theme.textMuted
+                                    }}>
+                                        🔒 Need {needsStars} more ★
+                                    </div>
+                                )}
                                 {mastered && (
                                     <div style={{
                                         position: 'absolute', top: '12px', right: '12px',
-                                        background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
-                                        padding: '4px 10px',
-                                        borderRadius: '12px', fontSize: '11px', fontWeight: 'bold',
-                                        boxShadow: `0 2px 8px ${theme.success}44`
-                                    }}>★ MASTERED</div>
+                                        background: `linear-gradient(135deg, ${theme.gold}, ${theme.accent})`,
+                                        padding: '4px 10px', borderRadius: '8px',
+                                        fontSize: '11px', fontWeight: 'bold', color: 'white'
+                                    }}>
+                                        ★ MASTERED
+                                    </div>
                                 )}
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <div style={{
                                         fontSize: '52px', width: '75px', height: '75px',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        background: `linear-gradient(135deg, ${opp.color}44, ${opp.color}22)`,
-                                        borderRadius: '50%',
-                                        border: `2px solid ${opp.color}66`
-                                    }}>{opp.emoji}</div>
+                                        background: `linear-gradient(135deg, ${world.color}44, ${world.color}22)`,
+                                        borderRadius: '50%', border: `2px solid ${world.color}66`
+                                    }}>{world.emoji}</div>
 
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: opp.color }}>{opp.name}</div>
-                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '6px' }}>{opp.title}</div>
+                                        <div style={{
+                                            fontSize: '11px', color: theme.textMuted, marginBottom: '2px'
+                                        }}>World {idx + 1}</div>
+                                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: world.color }}>{world.name}</div>
+                                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '6px' }}>{world.title}</div>
                                         <div style={{
                                             fontSize: '11px', color: theme.textSecondary,
-                                            background: `${opp.color}22`, padding: '5px 10px',
+                                            background: `${world.color}22`, padding: '5px 10px',
                                             borderRadius: '6px', marginBottom: '10px',
-                                            border: `1px solid ${opp.color}33`
+                                            border: `1px solid ${world.color}33`
                                         }}>
-                                            ✨ {opp.specialDesc}
+                                            ✨ {world.specialDesc}
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <StarBar points={progression.starPoints[idx]} />
-                                            <span style={{ fontSize: '12px', color: theme.textMuted }}>{stars}/10</span>
-                                        </div>
+                                        <WorldStarBar worldId={idx} />
                                     </div>
                                 </div>
                             </div>
@@ -978,15 +1080,14 @@ const CookOff = () => {
         );
     }
 
-    // Level select
-    if (gameState === 'level_select' && selectedOpponent) {
-        const currentStars = getStars(selectedOpponent.id);
-        const bestScore = progression.bestScores?.[selectedOpponent.id] || 0;
+    // LEVEL SELECT SCREEN
+    if (gameState === 'level_select' && selectedWorld) {
+        const worldStars = getWorldStars(selectedWorld.id);
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}22 100%)`,
+                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedWorld.color}22 100%)`,
                 padding: '20px', color: theme.text,
                 display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}>
@@ -994,214 +1095,179 @@ const CookOff = () => {
                     alignSelf: 'flex-start',
                     background: 'transparent', border: `1px solid ${theme.border}`,
                     color: theme.textSecondary, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer'
-                }}>← Back</button>
+                }}>← Back to Worlds</button>
+
+                <div style={{ fontSize: '80px', marginTop: '15px' }}>{selectedWorld.emoji}</div>
+                <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '5px' }}>World {selectedWorld.id + 1}</div>
+                <h2 style={{ color: selectedWorld.color, marginTop: '5px', fontSize: '28px' }}>{selectedWorld.name}</h2>
+                <p style={{ color: theme.textMuted }}>{selectedWorld.title}</p>
+                <p style={{ color: theme.textSecondary, fontStyle: 'italic', marginTop: '8px' }}>"{selectedWorld.taunt}"</p>
 
                 <div style={{
-                    fontSize: '90px', marginTop: '20px',
-                    filter: 'drop-shadow(0 4px 15px rgba(0,0,0,0.3))'
-                }}>{selectedOpponent.emoji}</div>
-                <h2 style={{
-                    color: selectedOpponent.color, marginTop: '10px', fontSize: '28px',
-                    textShadow: `0 0 20px ${selectedOpponent.color}44`
-                }}>{selectedOpponent.name}</h2>
-                <p style={{ color: theme.textMuted, fontSize: '14px' }}>{selectedOpponent.title}</p>
-                <p style={{
-                    color: theme.textSecondary, fontStyle: 'italic',
-                    marginTop: '10px', fontSize: '16px'
-                }}>"{selectedOpponent.taunt}"</p>
-
-                <div style={{
-                    marginTop: '15px', padding: '12px 24px',
-                    background: `linear-gradient(135deg, ${selectedOpponent.color}33, ${selectedOpponent.color}11)`,
-                    borderRadius: '10px',
-                    color: theme.textSecondary,
-                    border: `1px solid ${selectedOpponent.color}44`
+                    marginTop: '12px', padding: '10px 20px',
+                    background: `${selectedWorld.color}22`, borderRadius: '8px',
+                    border: `1px solid ${selectedWorld.color}44`
                 }}>
-                    ✨ {selectedOpponent.specialDesc}
+                    ✨ {selectedWorld.specialDesc}
                 </div>
 
-                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <StarBar points={progression.starPoints[selectedOpponent.id]} />
-                    <span style={{ color: theme.textMuted }}>{currentStars}/10 stars</span>
+                <div style={{ marginTop: '15px' }}>
+                    <WorldStarBar worldId={selectedWorld.id} />
                 </div>
 
-                {bestScore > 0 && (
-                    <div style={{ marginTop: '10px', color: theme.gold, fontSize: '14px' }}>
-                        Best Score: {bestScore}
-                    </div>
-                )}
+                <h3 style={{ marginTop: '25px', marginBottom: '15px', color: theme.textSecondary }}>Select Level</h3>
 
-                <h3 style={{ marginTop: '30px', marginBottom: '15px', color: theme.textSecondary }}>Select Level</h3>
-
+                {/* Level grid */}
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
-                    gap: '12px', maxWidth: '420px'
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(5, 1fr)',
+                    gap: '10px',
+                    maxWidth: '500px',
+                    width: '100%'
                 }}>
                     {Array(10).fill(0).map((_, i) => {
-                        const levelNum = i + 1;
-                        const unlocked = i <= currentStars;
-                        const target = calculateTargetScore(selectedOpponent, levelNum);
+                        const level = i + 1;
+                        const unlocked = isLevelUnlocked(selectedWorld.id, level);
+                        const stars = getLevelStars(selectedWorld.id, level);
+                        const config = getLevelConfig(selectedWorld.id, level);
+                        const bestScore = progression.bestScores[selectedWorld.id][i];
 
                         return (
-                            <button
+                            <div
                                 key={i}
-                                onClick={() => unlocked && startMatch(selectedOpponent, levelNum)}
-                                disabled={!unlocked}
-                                title={unlocked ? `Target: ${target} points` : 'Locked'}
+                                onClick={() => unlocked && startMatch(selectedWorld, level)}
                                 style={{
-                                    width: '70px', height: '70px',
                                     background: unlocked
-                                        ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
+                                        ? `linear-gradient(135deg, ${selectedWorld.color}88, ${selectedWorld.color}44)`
                                         : theme.bgDark,
-                                    border: `3px solid ${unlocked ? selectedOpponent.color : theme.border}`,
+                                    border: `2px solid ${unlocked ? selectedWorld.color : theme.border}`,
                                     borderRadius: '12px',
-                                    color: unlocked ? 'white' : theme.textMuted,
-                                    fontSize: '24px', fontWeight: 'bold',
+                                    padding: '12px 8px',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.4,
                                     transition: 'all 0.2s',
-                                    boxShadow: unlocked ? `0 4px 12px ${selectedOpponent.color}44` : 'none'
+                                    textAlign: 'center'
                                 }}
                                 onMouseEnter={(e) => {
                                     if (unlocked) {
-                                        e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.boxShadow = `0 6px 18px ${selectedOpponent.color}66`;
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.boxShadow = `0 4px 15px ${selectedWorld.color}44`;
                                     }
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'scale(1)';
-                                    e.currentTarget.style.boxShadow = unlocked ? `0 4px 12px ${selectedOpponent.color}44` : 'none';
+                                    e.currentTarget.style.boxShadow = 'none';
                                 }}
                             >
-                                {unlocked ? levelNum : '🔒'}
-                            </button>
+                                <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '4px' }}>
+                                    {unlocked ? level : '🔒'}
+                                </div>
+                                <div style={{ fontSize: '10px', color: theme.textMuted, marginBottom: '6px' }}>
+                                    {unlocked ? config.levelName : 'Locked'}
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                                    <StarIcon filled={stars >= 0.5 ? (stars >= 1 ? 1 : 0.5) : 0} />
+                                </div>
+                                {unlocked && (
+                                    <div style={{ fontSize: '9px', color: theme.textMuted, marginTop: '4px' }}>
+                                        Target: {config.targetScore}
+                                    </div>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
 
-                <p style={{ marginTop: '20px', color: theme.textMuted, fontSize: '12px' }}>
-                    Earn stars to unlock higher levels!
-                </p>
+                {/* Star requirements legend */}
+                <div style={{
+                    marginTop: '20px', padding: '15px',
+                    background: theme.bgPanel, borderRadius: '10px',
+                    fontSize: '12px', color: theme.textSecondary,
+                    maxWidth: '400px', textAlign: 'center'
+                }}>
+                    <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>How to earn stars:</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+                        <div>
+                            <StarIcon filled={0.5} />
+                            <span style={{ marginLeft: '5px' }}>Complete level</span>
+                        </div>
+                        <div>
+                            <StarIcon filled={1} />
+                            <span style={{ marginLeft: '5px' }}>100% target OR 0 mistakes</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
 
-    // Playing screen
-    if (gameState === 'playing') {
-        const opp = selectedOpponent;
-        const showBeat = opp?.special === 'rhythm_bonus' || opp?.special === 'all_challenges';
+    // PLAYING SCREEN
+    if (gameState === 'playing' && levelConfig) {
+        const world = selectedWorld;
+        const showBeat = world?.special === 'rhythm_bonus' || world?.special === 'all_challenges';
         const timerColor = getTimerColor(orderTimer, maxOrderTime);
         const timerPercent = (orderTimer / maxOrderTime) * 100;
-        const scorePercent = Math.min(100, (score / targetScore) * 100);
+        const scorePercent = Math.min(100, (score / levelConfig.targetScore) * 100);
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${opp?.color}15 100%)`,
+                background: `linear-gradient(135deg, ${theme.bg} 0%, ${world?.color}15 100%)`,
                 display: 'flex', flexDirection: 'column',
                 padding: '15px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(5px)' : 'none',
                 transition: screenShake ? 'none' : 'transform 0.1s'
             }}>
-                {/* Header with stats */}
+                {/* Header */}
                 <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: '12px', padding: '12px 20px',
-                    background: `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`,
-                    borderRadius: '12px',
-                    border: `1px solid ${theme.border}`
+                    marginBottom: '10px', padding: '10px 15px',
+                    background: theme.bgPanel, borderRadius: '10px'
                 }}>
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                        {/* Game Timer */}
+                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                         <div>
-                            <span style={{ color: theme.textMuted, fontSize: '11px' }}>TIME </span>
+                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>TIME </span>
                             <span style={{
-                                color: gameTime <= 15 ? theme.error : gameTime <= 30 ? theme.timerYellow : theme.text,
-                                fontWeight: 'bold',
-                                fontSize: '20px',
-                                fontFamily: 'monospace'
+                                color: gameTime <= 15 ? theme.error : theme.text,
+                                fontWeight: 'bold', fontSize: '18px', fontFamily: 'monospace'
                             }}>{gameTime}s</span>
                         </div>
-
-                        {/* Score with target */}
                         <div>
-                            <span style={{ color: theme.textMuted, fontSize: '11px' }}>SCORE </span>
+                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>SCORE </span>
                             <span style={{
-                                color: score >= targetScore ? theme.success : theme.gold,
-                                fontWeight: 'bold',
-                                fontSize: '20px'
+                                color: score >= levelConfig.targetScore ? theme.success : theme.gold,
+                                fontWeight: 'bold', fontSize: '18px'
                             }}>{score}</span>
-                            <span style={{ color: theme.textMuted, fontSize: '12px' }}>/{targetScore}</span>
+                            <span style={{ color: theme.textMuted, fontSize: '11px' }}>/{levelConfig.targetScore}</span>
                         </div>
-
-                        {/* Combo */}
                         {combo >= 2 && (
-                            <div style={{
-                                color: onFire ? theme.accent : theme.success,
-                                fontWeight: 'bold',
-                                animation: 'pulse 0.5s infinite',
-                                fontSize: '16px'
-                            }}>
+                            <div style={{ color: onFire ? theme.accent : theme.success, fontWeight: 'bold' }}>
                                 {onFire ? '🔥' : '⚡'} x{combo}
-                            </div>
-                        )}
-
-                        {/* On Fire indicator */}
-                        {onFire && (
-                            <div style={{
-                                background: `linear-gradient(135deg, ${theme.accent}, ${theme.gold})`,
-                                padding: '3px 10px',
-                                borderRadius: '12px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                animation: 'pulse 0.3s infinite'
-                            }}>
-                                ON FIRE! +25%
                             </div>
                         )}
                     </div>
 
-                    {/* Opponent info */}
-                    <div style={{
-                        color: opp?.color,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        fontSize: '14px'
-                    }}>
-                        <span style={{ fontSize: '24px' }}>{opp?.emoji}</span>
-                        <span style={{ fontWeight: 'bold' }}>{opp?.name}</span>
-                        <span style={{ color: theme.textMuted }}>Lv.{currentLevel}</span>
-
-                        {/* Rhythm beat indicator */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: world?.color }}>
+                        <span style={{ fontSize: '20px' }}>{world?.emoji}</span>
+                        <span style={{ fontWeight: 'bold', fontSize: '13px' }}>{world?.name}</span>
+                        <span style={{ color: theme.textMuted, fontSize: '12px' }}>Lv.{currentLevel}</span>
                         {showBeat && (
                             <div style={{
-                                width: '24px', height: '24px',
-                                background: beatPhase === 0
-                                    ? `linear-gradient(135deg, ${theme.gold}, ${theme.accent})`
-                                    : theme.bgDark,
-                                borderRadius: '50%',
-                                transition: 'all 0.15s',
-                                border: `2px solid ${beatPhase === 0 ? theme.gold : theme.border}`,
-                                boxShadow: beatPhase === 0 ? `0 0 15px ${theme.gold}` : 'none',
-                                marginLeft: '5px'
+                                width: '20px', height: '20px',
+                                background: beatPhase === 0 ? theme.gold : theme.bgDark,
+                                borderRadius: '50%', border: `2px solid ${beatPhase === 0 ? theme.gold : theme.border}`,
+                                boxShadow: beatPhase === 0 ? `0 0 12px ${theme.gold}` : 'none'
                             }} />
                         )}
                     </div>
 
-                    {/* Hearts */}
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '5px' }}>
                         {[0, 1, 2].map(i => (
                             <div key={i} style={{
-                                width: '28px', height: '28px',
-                                background: i < mistakes
-                                    ? `linear-gradient(135deg, ${theme.error}, ${theme.error}88)`
-                                    : `linear-gradient(135deg, ${theme.success}, ${theme.success}88)`,
-                                borderRadius: '50%',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '14px',
-                                border: `2px solid ${i < mistakes ? theme.error : theme.success}`,
-                                transition: 'all 0.3s'
+                                width: '24px', height: '24px',
+                                background: i < mistakes ? theme.error : theme.success,
+                                borderRadius: '50%', display: 'flex',
+                                alignItems: 'center', justifyContent: 'center', fontSize: '12px'
                             }}>
                                 {i < mistakes ? '✗' : '❤️'}
                             </div>
@@ -1209,135 +1275,88 @@ const CookOff = () => {
                     </div>
                 </div>
 
-                {/* Progress bar toward target */}
-                <div style={{ marginBottom: '10px', padding: '0 5px' }}>
-                    <ProgressBar current={score} target={targetScore} />
-                    {scorePercent >= 50 && scorePercent < 100 && (
+                {/* Progress bar */}
+                <div style={{ marginBottom: '8px', padding: '0 5px' }}>
+                    <div style={{
+                        width: '100%', height: '6px', background: theme.bgDark,
+                        borderRadius: '3px', overflow: 'hidden'
+                    }}>
                         <div style={{
-                            textAlign: 'center',
-                            fontSize: '11px',
-                            color: theme.success,
-                            marginTop: '3px'
-                        }}>
-                            {scorePercent >= 80 ? '🌟 Excellent pace!' : '✓ On track to win!'}
-                        </div>
-                    )}
+                            width: `${scorePercent}%`, height: '100%',
+                            background: scorePercent >= 100 ? theme.success : theme.gold,
+                            transition: 'width 0.3s'
+                        }} />
+                    </div>
                 </div>
 
                 {/* Speed round indicator */}
                 {isSpeedRound && (
                     <div style={{
-                        textAlign: 'center',
-                        padding: '8px',
-                        background: `linear-gradient(135deg, ${theme.accent}66, ${theme.gold}44)`,
-                        borderRadius: '8px',
-                        marginBottom: '10px',
-                        color: 'white',
-                        fontWeight: 'bold',
-                        animation: 'pulse 0.4s infinite',
-                        border: `2px solid ${theme.accent}`,
-                        fontSize: '14px'
+                        textAlign: 'center', padding: '6px',
+                        background: `${theme.accent}44`, borderRadius: '6px',
+                        marginBottom: '8px', color: 'white', fontWeight: 'bold',
+                        animation: 'pulse 0.4s infinite', fontSize: '13px'
                     }}>
                         ⚡ SPEED ROUND - 1.5x POINTS! ⚡
                     </div>
                 )}
 
-                {/* Encouragement popup */}
+                {/* Encouragement */}
                 {encouragement && (
                     <div style={{
-                        position: 'fixed',
-                        top: '20%',
-                        left: '50%',
+                        position: 'fixed', top: '18%', left: '50%',
                         transform: 'translateX(-50%)',
-                        padding: '15px 30px',
-                        background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
-                        borderRadius: '15px',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        color: 'white',
-                        zIndex: 50,
-                        animation: 'popIn 0.3s ease-out',
-                        boxShadow: `0 8px 30px ${theme.success}66`
+                        padding: '12px 25px', background: theme.success,
+                        borderRadius: '12px', fontSize: '16px', fontWeight: 'bold',
+                        color: 'white', zIndex: 50, animation: 'popIn 0.3s ease-out'
                     }}>
                         {encouragement}
                     </div>
                 )}
 
-                {/* Multi-order indicator for Wolf Warrior */}
+                {/* Second order (Wolf Warrior) */}
                 {secondOrder && (
                     <div
                         onClick={switchToSecondOrder}
                         style={{
-                            background: `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`,
-                            border: `2px dashed ${opp?.color}`,
-                            borderRadius: '10px',
-                            padding: '10px 15px',
-                            marginBottom: '10px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            transition: 'all 0.2s'
+                            background: theme.bgPanel, border: `2px dashed ${world?.color}`,
+                            borderRadius: '8px', padding: '8px 12px', marginBottom: '8px',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                            justifyContent: 'space-between'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderStyle = 'solid'}
-                        onMouseLeave={(e) => e.currentTarget.style.borderStyle = 'dashed'}
                     >
-                        <span style={{ color: theme.textMuted, fontSize: '12px' }}>ALT ORDER:</span>
-                        <div style={{ display: 'flex', gap: '5px' }}>
+                        <span style={{ fontSize: '11px', color: theme.textMuted }}>ALT:</span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
                             {secondOrder.recipe.map((ing, i) => (
-                                <span key={i} style={{ fontSize: '24px' }}>{ing.emoji}</span>
+                                <span key={i} style={{ fontSize: '20px' }}>{ing.emoji}</span>
                             ))}
                         </div>
-                        <span style={{ color: opp?.color, fontSize: '12px' }}>Click to switch →</span>
+                        <span style={{ fontSize: '11px', color: world?.color }}>Switch →</span>
                     </div>
                 )}
 
                 {/* Current Order */}
                 {currentOrder && (
                     <div style={{
-                        background: `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`,
-                        borderRadius: '15px',
-                        padding: '20px',
-                        marginBottom: '15px',
-                        border: `2px solid ${timerPercent < 25 ? theme.error : theme.accent}`,
-                        boxShadow: timerPercent < 25 ? `0 0 20px ${theme.error}44` : 'none',
-                        transition: 'border-color 0.3s, box-shadow 0.3s'
+                        background: theme.bgPanel, borderRadius: '12px',
+                        padding: '15px', marginBottom: '12px',
+                        border: `2px solid ${timerPercent < 25 ? theme.error : theme.accent}`
                     }}>
                         <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '12px'
+                            display: 'flex', justifyContent: 'space-between',
+                            alignItems: 'center', marginBottom: '10px'
                         }}>
                             <div>
-                                <span style={{ color: theme.textMuted, fontSize: '12px' }}>ORDER: </span>
-                                <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '22px' }}>
+                                <span style={{ color: theme.textMuted, fontSize: '11px' }}>ORDER: </span>
+                                <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '18px' }}>
                                     {currentOrder.name}
                                 </span>
-                                {(currentOrder.isWarmup || currentOrder.isBreather) && (
-                                    <span style={{
-                                        marginLeft: '10px',
-                                        background: theme.success + '33',
-                                        color: theme.success,
-                                        padding: '2px 8px',
-                                        borderRadius: '10px',
-                                        fontSize: '11px'
-                                    }}>
-                                        {currentOrder.isWarmup ? 'WARMUP' : 'BREATHER'}
-                                    </span>
-                                )}
                             </div>
-
-                            {/* Order timer */}
                             <div style={{
-                                background: `linear-gradient(135deg, ${timerColor}, ${timerColor}88)`,
-                                padding: '6px 18px',
-                                borderRadius: '20px',
-                                fontWeight: 'bold',
-                                fontSize: '20px',
+                                background: timerColor, padding: '4px 12px',
+                                borderRadius: '15px', fontWeight: 'bold', fontSize: '16px',
                                 fontFamily: 'monospace',
-                                animation: timerPercent < 25 ? 'pulse 0.3s infinite' : 'none',
-                                boxShadow: timerPercent < 25 ? `0 0 15px ${theme.error}` : 'none'
+                                animation: timerPercent < 25 ? 'pulse 0.3s infinite' : 'none'
                             }}>
                                 {orderTimer.toFixed(1)}s
                             </div>
@@ -1345,30 +1364,19 @@ const CookOff = () => {
 
                         {/* Timer bar */}
                         <div style={{
-                            width: '100%',
-                            height: '10px',
-                            background: theme.bgDark,
-                            borderRadius: '5px',
-                            overflow: 'hidden',
-                            marginBottom: '15px',
-                            border: `1px solid ${theme.border}`
+                            width: '100%', height: '8px', background: theme.bgDark,
+                            borderRadius: '4px', overflow: 'hidden', marginBottom: '12px'
                         }}>
                             <div style={{
-                                width: `${timerPercent}%`,
-                                height: '100%',
-                                background: `linear-gradient(90deg, ${timerColor}, ${timerColor}88)`,
-                                transition: 'width 0.1s linear',
-                                boxShadow: timerPercent < 25 ? `0 0 10px ${timerColor}` : 'none'
+                                width: `${timerPercent}%`, height: '100%',
+                                background: timerColor, transition: 'width 0.1s linear'
                             }} />
                         </div>
 
-                        {/* Recipe display */}
+                        {/* Recipe */}
                         <div style={{
-                            display: 'flex',
-                            gap: '12px',
-                            justifyContent: 'center',
-                            flexWrap: 'wrap',
-                            marginBottom: '12px'
+                            display: 'flex', gap: '10px', justifyContent: 'center',
+                            flexWrap: 'wrap', marginBottom: '8px'
                         }}>
                             {currentOrder.recipe.map((ing, i) => {
                                 const isSelected = i < selectedIngredients.length;
@@ -1377,93 +1385,52 @@ const CookOff = () => {
 
                                 return (
                                     <div key={i} style={{
-                                        width: '65px',
-                                        height: '65px',
-                                        background: isSelected
-                                            ? `linear-gradient(135deg, ${theme.success}44, ${theme.success}22)`
-                                            : theme.bgDark,
-                                        border: `3px solid ${
-                                            isSelected ? theme.success
-                                            : isNext ? theme.accent
-                                            : theme.border
-                                        }`,
-                                        borderRadius: '12px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '36px',
-                                        transition: 'all 0.2s',
-                                        boxShadow: isNext ? `0 0 15px ${theme.accent}44` :
-                                                   isSelected ? `0 0 10px ${theme.success}44` : 'none',
+                                        width: '55px', height: '55px',
+                                        background: isSelected ? `${theme.success}44` : theme.bgDark,
+                                        border: `3px solid ${isSelected ? theme.success : isNext ? theme.accent : theme.border}`,
+                                        borderRadius: '10px', display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center', fontSize: '30px',
+                                        boxShadow: isNext ? `0 0 12px ${theme.accent}44` : 'none',
                                         transform: isSelected ? 'scale(0.95)' : 'scale(1)'
                                     }}>
-                                        {isHidden ? (
-                                            <span style={{
-                                                fontSize: '28px',
-                                                animation: 'pulse 0.5s infinite'
-                                            }}>❓</span>
-                                        ) : (
-                                            <span>{ing.emoji}</span>
-                                        )}
+                                        {isHidden ? '❓' : ing.emoji}
                                     </div>
                                 );
                             })}
-
-                            {/* Completed dish preview */}
                             {completedDish && (
                                 <div style={{
-                                    width: '65px',
-                                    height: '65px',
-                                    background: `linear-gradient(135deg, ${theme.gold}44, ${theme.gold}22)`,
-                                    border: `3px solid ${theme.gold}`,
-                                    borderRadius: '12px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '36px',
-                                    marginLeft: '15px',
-                                    animation: 'popIn 0.3s ease-out',
-                                    boxShadow: `0 0 20px ${theme.gold}66`
+                                    width: '55px', height: '55px',
+                                    background: `${theme.gold}44`, border: `3px solid ${theme.gold}`,
+                                    borderRadius: '10px', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', fontSize: '30px',
+                                    marginLeft: '10px', animation: 'popIn 0.3s ease-out'
                                 }}>
                                     {completedDish}
                                 </div>
                             )}
                         </div>
-
-                        <div style={{ textAlign: 'center', color: theme.textMuted, fontSize: '13px' }}>
-                            {selectedIngredients.length} / {currentOrder.recipe.length} ingredients
-                            {perfectBonus && <span style={{ color: theme.gold, marginLeft: '10px' }}>⭐ PERFECT!</span>}
+                        <div style={{ textAlign: 'center', color: theme.textMuted, fontSize: '12px' }}>
+                            {selectedIngredients.length} / {currentOrder.recipe.length}
+                            {perfectBonus && <span style={{ color: theme.gold, marginLeft: '8px' }}>⭐ PERFECT!</span>}
                         </div>
                     </div>
                 )}
 
-                {/* Available Ingredients */}
+                {/* Ingredients */}
                 <div style={{
-                    flex: 1,
-                    background: `linear-gradient(135deg, ${theme.bgDark}, ${theme.bg})`,
-                    borderRadius: '15px',
-                    padding: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    border: `1px solid ${theme.border}`
+                    flex: 1, background: theme.bgDark, borderRadius: '12px',
+                    padding: '15px', display: 'flex', flexDirection: 'column'
                 }}>
-                    <h3 style={{
-                        textAlign: 'center',
-                        marginBottom: '20px',
-                        color: theme.textSecondary,
-                        fontSize: '14px',
-                        fontWeight: 'normal'
+                    <div style={{
+                        textAlign: 'center', marginBottom: '15px',
+                        color: theme.textSecondary, fontSize: '12px'
                     }}>
                         Tap ingredients in order →
-                    </h3>
+                    </div>
 
                     <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        justifyContent: 'center',
-                        flexWrap: 'wrap',
-                        flex: 1,
-                        alignContent: 'center'
+                        display: 'flex', gap: '10px', justifyContent: 'center',
+                        flexWrap: 'wrap', flex: 1, alignContent: 'center'
                     }}>
                         {availableIngredients.map((ing, i) => {
                             const isDecoy = decoyIngredient?.id === ing.id;
@@ -1474,74 +1441,49 @@ const CookOff = () => {
                                     key={`${ing.id}-${i}`}
                                     onClick={() => handleIngredientClick(ing)}
                                     style={{
-                                        width: '85px',
-                                        height: '85px',
+                                        width: '75px', height: '75px',
                                         background: isDecoy
                                             ? `linear-gradient(135deg, ${theme.bgPanel}, #3a2440)`
                                             : `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bg})`,
                                         border: `2px solid ${isDecoy ? '#5a3050' : theme.borderLight}`,
-                                        borderRadius: '15px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.1s',
-                                        fontSize: '38px',
+                                        borderRadius: '12px', display: 'flex',
+                                        flexDirection: 'column', alignItems: 'center',
+                                        justifyContent: 'center', cursor: 'pointer',
+                                        fontSize: '32px', transition: 'all 0.1s',
                                         transform: isClicked ? 'scale(0.9)' : 'scale(1)',
-                                        boxShadow: isClicked ? `0 0 20px ${theme.accent}` : 'none'
+                                        boxShadow: isClicked ? `0 0 15px ${theme.accent}` : 'none'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.boxShadow = `0 0 20px ${theme.accent}44`;
                                         e.currentTarget.style.borderColor = theme.accent;
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.boxShadow = 'none';
                                         e.currentTarget.style.borderColor = isDecoy ? '#5a3050' : theme.borderLight;
                                     }}
                                 >
                                     {ing.emoji}
-                                    <span style={{
-                                        fontSize: '10px',
-                                        color: theme.textMuted,
-                                        marginTop: '3px'
-                                    }}>
+                                    <span style={{ fontSize: '9px', color: theme.textMuted, marginTop: '2px' }}>
                                         {ing.name}
                                     </span>
                                 </button>
                             );
                         })}
 
-                        {/* Wild card */}
                         {wildCardActive && (
                             <button
                                 onClick={() => handleIngredientClick({ id: 'wild', emoji: '🌟', name: 'Wild' })}
                                 style={{
-                                    width: '85px',
-                                    height: '85px',
+                                    width: '75px', height: '75px',
                                     background: `linear-gradient(135deg, ${theme.gold}55, ${theme.gold}22)`,
-                                    border: `3px solid ${theme.gold}`,
-                                    borderRadius: '15px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.1s',
-                                    fontSize: '38px',
-                                    animation: 'pulse 0.8s infinite',
-                                    boxShadow: `0 0 20px ${theme.gold}66`
+                                    border: `3px solid ${theme.gold}`, borderRadius: '12px',
+                                    display: 'flex', flexDirection: 'column',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', fontSize: '32px', animation: 'pulse 0.8s infinite'
                                 }}
                             >
                                 🌟
-                                <span style={{
-                                    fontSize: '10px',
-                                    color: theme.gold,
-                                    marginTop: '3px',
-                                    fontWeight: 'bold'
-                                }}>
+                                <span style={{ fontSize: '9px', color: theme.gold, marginTop: '2px', fontWeight: 'bold' }}>
                                     WILD
                                 </span>
                             </button>
@@ -1552,220 +1494,198 @@ const CookOff = () => {
                 {/* Feedback overlay */}
                 {showFeedback && (
                     <div style={{
-                        position: 'fixed',
-                        top: '50%',
-                        left: '50%',
+                        position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        padding: '25px 45px',
-                        background: showFeedback.type === 'success'
-                            ? `linear-gradient(135deg, ${theme.success}, ${theme.success}dd)`
-                            : showFeedback.type === 'error'
-                            ? `linear-gradient(135deg, ${theme.error}, ${theme.error}dd)`
-                            : `linear-gradient(135deg, ${theme.accent}, ${theme.accent}dd)`,
-                        borderRadius: '20px',
-                        fontSize: '36px',
-                        fontWeight: 'bold',
-                        color: 'white',
-                        zIndex: 100,
-                        animation: 'popIn 0.2s ease-out',
-                        textAlign: 'center',
-                        boxShadow: `0 10px 40px rgba(0,0,0,0.5)`
+                        padding: '20px 40px',
+                        background: showFeedback.type === 'success' ? theme.success
+                            : showFeedback.type === 'error' ? theme.error : theme.accent,
+                        borderRadius: '15px', fontSize: '30px', fontWeight: 'bold',
+                        color: 'white', zIndex: 100, animation: 'popIn 0.2s ease-out',
+                        textAlign: 'center'
                     }}>
                         <div>{showFeedback.message}</div>
                         {showFeedback.combo >= 3 && (
-                            <div style={{ fontSize: '16px', marginTop: '5px', opacity: 0.9 }}>
-                                🔥 {showFeedback.combo}x Combo!
-                            </div>
+                            <div style={{ fontSize: '14px', marginTop: '4px' }}>🔥 {showFeedback.combo}x Combo!</div>
                         )}
-                        {showFeedback.bonuses && showFeedback.bonuses.length > 0 && (
-                            <div style={{ fontSize: '14px', marginTop: '5px', opacity: 0.85 }}>
-                                {showFeedback.bonuses.join(' • ')}
-                            </div>
+                        {showFeedback.bonuses?.length > 0 && (
+                            <div style={{ fontSize: '12px', marginTop: '4px' }}>{showFeedback.bonuses.join(' • ')}</div>
                         )}
                         {showFeedback.dish && (
-                            <div style={{ fontSize: '48px', marginTop: '5px' }}>
-                                {showFeedback.dish}
-                            </div>
+                            <div style={{ fontSize: '40px', marginTop: '4px' }}>{showFeedback.dish}</div>
                         )}
                     </div>
                 )}
 
                 <style>{`
-                    @keyframes pulse {
-                        0%, 100% { transform: scale(1); opacity: 1; }
-                        50% { transform: scale(1.05); opacity: 0.9; }
-                    }
-                    @keyframes popIn {
-                        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-                        70% { transform: translate(-50%, -50%) scale(1.1); }
-                        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-                    }
+                    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+                    @keyframes popIn { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
                 `}</style>
             </div>
         );
     }
 
-    // Result screen
-    if (gameState === 'result') {
-        const percentage = score / targetScore;
-        const won = percentage >= 0.5 && mistakes < 3;
-        const excellent = percentage >= 0.8 && mistakes < 3;
-        const perfect = percentage >= 1 && mistakes < 3;
+    // RESULT SCREEN
+    if (gameState === 'result' && levelConfig && selectedWorld) {
+        const percentage = score / levelConfig.targetScore;
+        const hadNoMistakes = mistakes === 0;
+        const completed = mistakes < 3 && percentage >= 0.5;
+        const excellent = mistakes < 3 && (percentage >= 1 || hadNoMistakes);
 
-        // Points earned
-        const pointsEarned = !won ? 0 : perfect ? 3 : excellent ? 2 : 1;
+        // Stars earned this round
+        let starsEarned = 0;
+        if (completed) starsEarned = 0.5;
+        if (excellent) starsEarned = 1;
+
+        const previousStars = getLevelStars(selectedWorld.id, currentLevel);
+        const newStars = Math.max(previousStars, starsEarned);
+        const gainedStars = newStars - previousStars;
+
+        // Check if next level unlocked
+        const nextLevelUnlocked = currentLevel < 10 && newStars >= 0.5;
+
+        // Check if world completed
+        const worldStars = getWorldStars(selectedWorld.id);
+        const nextWorldId = selectedWorld.id + 1;
+        const nextWorldUnlocked = nextWorldId < 10 && worldStars >= 10;
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${won ? theme.success : theme.error}22 100%)`,
+                background: `linear-gradient(135deg, ${theme.bg} 0%, ${completed ? theme.success : theme.error}22 100%)`,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 color: theme.text, padding: '20px'
             }}>
-                <div style={{
-                    fontSize: '120px',
-                    marginBottom: '15px',
-                    animation: won ? 'bounce 0.5s ease-out' : 'none',
-                    filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.3))'
-                }}>
-                    {mistakes >= 3 ? '💔' : perfect ? '👑' : excellent ? '🏆' : won ? '🍽️' : '😢'}
+                <div style={{ fontSize: '100px', marginBottom: '15px' }}>
+                    {mistakes >= 3 ? '💔' : excellent ? '🌟' : completed ? '✓' : '😢'}
                 </div>
 
                 <h1 style={{
-                    fontSize: '44px',
-                    color: perfect ? theme.gold : excellent ? theme.gold : won ? theme.success : theme.error,
-                    marginBottom: '10px',
-                    textShadow: won ? `0 0 30px ${theme.gold}44` : 'none'
+                    fontSize: '36px',
+                    color: excellent ? theme.gold : completed ? theme.success : theme.error,
+                    marginBottom: '8px'
                 }}>
                     {mistakes >= 3 ? 'KITCHEN DISASTER!'
-                     : perfect ? 'PERFECT SCORE!'
-                     : excellent ? 'MASTER CHEF!'
-                     : won ? 'ORDER UP!'
-                     : 'NEEDS PRACTICE'}
+                     : excellent ? 'EXCELLENCE!'
+                     : completed ? 'LEVEL COMPLETE!'
+                     : 'NOT QUITE...'}
                 </h1>
 
                 <p style={{
-                    color: selectedOpponent?.color,
-                    fontStyle: 'italic',
-                    fontSize: '18px',
-                    marginBottom: '25px'
+                    color: selectedWorld.color, fontStyle: 'italic', fontSize: '16px', marginBottom: '20px'
                 }}>
-                    {selectedOpponent?.emoji} "{won ? selectedOpponent?.loseQuote : selectedOpponent?.winQuote}"
+                    {selectedWorld.emoji} "{completed ? selectedWorld.loseQuote : selectedWorld.winQuote}"
                 </p>
 
                 {/* Stats */}
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '15px',
-                    marginBottom: '25px',
-                    background: `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`,
-                    padding: '25px',
-                    borderRadius: '15px',
-                    border: `1px solid ${theme.border}`,
-                    minWidth: '320px'
+                    display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '12px', marginBottom: '20px',
+                    background: theme.bgPanel, padding: '20px', borderRadius: '12px', minWidth: '280px'
                 }}>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '5px' }}>SCORE</div>
-                        <div style={{ color: theme.gold, fontSize: '32px', fontWeight: 'bold' }}>{score}</div>
-                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>/ {targetScore} target</div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>SCORE</div>
+                        <div style={{ color: theme.gold, fontSize: '26px', fontWeight: 'bold' }}>{score}</div>
+                        <div style={{ color: theme.textMuted, fontSize: '10px' }}>/ {levelConfig.targetScore}</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '5px' }}>ORDERS</div>
-                        <div style={{ color: theme.accent, fontSize: '32px', fontWeight: 'bold' }}>{ordersCompleted}</div>
-                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>completed</div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>ORDERS</div>
+                        <div style={{ color: theme.accent, fontSize: '26px', fontWeight: 'bold' }}>{ordersCompleted}</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '5px' }}>MAX COMBO</div>
-                        <div style={{ color: theme.success, fontSize: '32px', fontWeight: 'bold' }}>{maxCombo}x</div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>MAX COMBO</div>
+                        <div style={{ color: theme.success, fontSize: '26px', fontWeight: 'bold' }}>{maxCombo}x</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '5px' }}>ACCURACY</div>
+                        <div style={{ color: theme.textMuted, fontSize: '11px' }}>MISTAKES</div>
                         <div style={{
                             color: mistakes === 0 ? theme.gold : mistakes < 3 ? theme.text : theme.error,
-                            fontSize: '32px',
-                            fontWeight: 'bold'
-                        }}>
-                            {mistakes === 0 ? '★★★' : mistakes === 1 ? '★★' : mistakes === 2 ? '★' : '—'}
-                        </div>
+                            fontSize: '26px', fontWeight: 'bold'
+                        }}>{mistakes}/3</div>
                     </div>
                 </div>
 
-                {/* Reward display */}
-                {won && (
-                    <div style={{
-                        background: `linear-gradient(135deg, ${theme.gold}33, ${theme.gold}11)`,
-                        border: `2px solid ${theme.gold}`,
-                        padding: '15px 35px',
-                        borderRadius: '12px',
-                        marginBottom: '25px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '20px',
-                        boxShadow: `0 4px 20px ${theme.gold}33`
-                    }}>
-                        <div>
-                            <span style={{ color: theme.gold, fontSize: '24px', fontWeight: 'bold' }}>
-                                +{pointsEarned} Star Point{pointsEarned > 1 ? 's' : ''}!
+                {/* Star reward */}
+                <div style={{
+                    background: theme.bgPanel, padding: '15px 25px', borderRadius: '10px',
+                    marginBottom: '20px', textAlign: 'center'
+                }}>
+                    <div style={{ marginBottom: '8px', color: theme.textSecondary, fontSize: '12px' }}>
+                        Level {currentLevel} Stars:
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
+                        <StarIcon filled={newStars >= 0.5 ? (newStars >= 1 ? 1 : 0.5) : 0} />
+                        {gainedStars > 0 && (
+                            <span style={{ color: theme.gold, fontSize: '14px', fontWeight: 'bold' }}>
+                                +{gainedStars === 0.5 ? '½' : '1'} ★ NEW!
                             </span>
-                        </div>
-                        <div style={{
-                            borderLeft: `1px solid ${theme.gold}44`,
-                            paddingLeft: '20px',
-                            color: theme.textMuted
-                        }}>
-                            {getStars(selectedOpponent?.id || 0)}/10 stars earned
-                        </div>
+                        )}
                     </div>
-                )}
+                    <div style={{ marginTop: '8px', fontSize: '11px', color: theme.textMuted }}>
+                        {excellent
+                            ? '★ Excellence achieved!'
+                            : completed
+                            ? 'Get 100% target OR 0 mistakes for full star'
+                            : 'Reach 50% target to earn half star'}
+                    </div>
+                </div>
 
-                {/* Tip for improvement */}
-                {!won && (
+                {/* Unlock notifications */}
+                {nextLevelUnlocked && currentLevel < 10 && gainedStars > 0 && (
                     <div style={{
-                        background: theme.bgPanel,
-                        padding: '12px 25px',
-                        borderRadius: '10px',
-                        marginBottom: '25px',
-                        color: theme.textSecondary,
-                        fontSize: '14px',
-                        maxWidth: '400px',
-                        textAlign: 'center'
+                        background: `${theme.success}33`, border: `1px solid ${theme.success}`,
+                        padding: '10px 20px', borderRadius: '8px', marginBottom: '15px',
+                        color: theme.success, fontSize: '13px'
                     }}>
-                        💡 Tip: {mistakes >= 3
-                            ? "Take your time - accuracy beats speed!"
-                            : percentage < 0.3
-                            ? "Try an easier level to build your skills"
-                            : "You're close! Keep practicing the ingredient order"}
+                        🔓 Level {currentLevel + 1} Unlocked!
                     </div>
                 )}
 
-                {/* Action buttons */}
-                <div style={{ display: 'flex', gap: '15px' }}>
+                {nextWorldUnlocked && (
+                    <div style={{
+                        background: `${theme.gold}33`, border: `1px solid ${theme.gold}`,
+                        padding: '10px 20px', borderRadius: '8px', marginBottom: '15px',
+                        color: theme.gold, fontSize: '13px'
+                    }}>
+                        🎉 World {nextWorldId + 1}: {worlds[nextWorldId].name} Unlocked!
+                    </div>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button
                         onClick={() => {
                             setCurrentOrder(null);
                             setSecondOrder(null);
-                            startMatch(selectedOpponent, currentLevel);
+                            startMatch(selectedWorld, currentLevel);
                         }}
                         style={{
-                            padding: '16px 35px', fontSize: '18px',
+                            padding: '14px 30px', fontSize: '16px',
                             background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                            border: 'none', borderRadius: '12px', color: 'white',
-                            cursor: 'pointer', fontWeight: 'bold',
-                            boxShadow: '0 4px 15px rgba(255, 69, 0, 0.4)',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.05)';
-                            e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 69, 0, 0.5)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 69, 0, 0.4)';
+                            border: 'none', borderRadius: '10px', color: 'white',
+                            cursor: 'pointer', fontWeight: 'bold'
                         }}
                     >
-                        {won ? 'Play Again' : 'Try Again'}
+                        {completed ? 'Play Again' : 'Try Again'}
                     </button>
+
+                    {completed && currentLevel < 10 && isLevelUnlocked(selectedWorld.id, currentLevel + 1) && (
+                        <button
+                            onClick={() => {
+                                setCurrentOrder(null);
+                                setSecondOrder(null);
+                                startMatch(selectedWorld, currentLevel + 1);
+                            }}
+                            style={{
+                                padding: '14px 30px', fontSize: '16px',
+                                background: `linear-gradient(135deg, ${theme.success}, ${theme.success}cc)`,
+                                border: 'none', borderRadius: '10px', color: 'white',
+                                cursor: 'pointer', fontWeight: 'bold'
+                            }}
+                        >
+                            Next Level →
+                        </button>
+                    )}
+
                     <button
                         onClick={() => {
                             setCurrentOrder(null);
@@ -1773,20 +1693,9 @@ const CookOff = () => {
                             setGameState('level_select');
                         }}
                         style={{
-                            padding: '16px 35px', fontSize: '18px',
-                            background: 'transparent',
-                            border: `2px solid ${theme.border}`,
-                            borderRadius: '12px', color: theme.textSecondary,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = theme.accent;
-                            e.currentTarget.style.color = theme.text;
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = theme.border;
-                            e.currentTarget.style.color = theme.textSecondary;
+                            padding: '14px 30px', fontSize: '16px',
+                            background: 'transparent', border: `2px solid ${theme.border}`,
+                            borderRadius: '10px', color: theme.textSecondary, cursor: 'pointer'
                         }}
                     >
                         Level Select
@@ -1794,11 +1703,7 @@ const CookOff = () => {
                 </div>
 
                 <style>{`
-                    @keyframes bounce {
-                        0% { transform: scale(1); }
-                        50% { transform: scale(1.2); }
-                        100% { transform: scale(1); }
-                    }
+                    @keyframes bounce { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
                 `}</style>
             </div>
         );
