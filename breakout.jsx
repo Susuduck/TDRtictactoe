@@ -673,8 +673,11 @@ const BreakoutGame = () => {
       (r, c) => c < 3 || c > 6, // Side columns
     ];
 
-    const layoutPattern = layoutPatterns[(level - 1) % layoutPatterns.length];
-    const obstacles = obstaclePatterns[(level - 1) % obstaclePatterns.length] || [];
+    // Use enemy index to offset patterns - each world has different layouts
+    const enemyIndex = enemyDefs.findIndex(e => e.id === enemy?.id) || 0;
+    const patternSeed = (level - 1) + enemyIndex * 3; // Offset by 3 per enemy for variety
+    const layoutPattern = layoutPatterns[patternSeed % layoutPatterns.length];
+    const obstacles = obstaclePatterns[patternSeed % obstaclePatterns.length] || [];
     const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
 
     // Level-based scaling for brick health
@@ -2810,7 +2813,7 @@ const BreakoutGame = () => {
   );
 
   // Generate mini preview grid for a level
-  const renderLevelPreview = (level, color, isLocked) => {
+  const renderLevelPreview = (level, color, isLocked, enemyId) => {
     const PREVIEW_ROWS = 5;
     const PREVIEW_COLS = 10;
 
@@ -2838,8 +2841,11 @@ const BreakoutGame = () => {
       [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 1, c: 4}, {r: 1, c: 5}, {r: 2, c: 3}, {r: 2, c: 6}],
     ];
 
-    const layoutPattern = layoutPatterns[(level - 1) % layoutPatterns.length];
-    const obstacles = obstaclePatterns[(level - 1) % obstaclePatterns.length] || [];
+    // Use enemy index to offset patterns - matches createBricks logic
+    const enemyIndex = enemyDefs.findIndex(e => e.id === enemyId) || 0;
+    const patternSeed = (level - 1) + enemyIndex * 3;
+    const layoutPattern = layoutPatterns[patternSeed % layoutPatterns.length];
+    const obstacles = obstaclePatterns[patternSeed % obstaclePatterns.length] || [];
     const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
 
     const cells = [];
@@ -3161,7 +3167,7 @@ const BreakoutGame = () => {
                     </div>
 
                     {/* Mini preview */}
-                    {renderLevelPreview(level, isNext ? '#fff' : enemyColor, false)}
+                    {renderLevelPreview(level, isNext ? '#fff' : enemyColor, false, enemyId)}
 
                     {/* Stars */}
                     <div style={{
@@ -3201,7 +3207,7 @@ const BreakoutGame = () => {
                     </div>
 
                     {/* Locked preview */}
-                    {renderLevelPreview(level, '#333', true)}
+                    {renderLevelPreview(level, '#333', true, enemyId)}
 
                     {/* Lock icon */}
                     <div style={{
