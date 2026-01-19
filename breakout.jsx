@@ -362,77 +362,77 @@ const BreakoutGame = () => {
       ],
     ],
 
-    // MAGNET MAGE - Circular, magnetic, orbital patterns
+    // MAGNET MAGE - Introduces BUMPERS (O)
     magnet_mage: [
-      // Level 1: Magnetic poles
+      // Level 1: Magnetic poles - 2 bumpers intro!
       [
-        '222......222',
+        '222..O...222',
         '222......222',
         '............',
         '............',
         '222......222',
-        '222......222',
+        '222..O...222',
       ],
-      // Level 2: Horseshoe magnet
+      // Level 2: Horseshoe magnet - bumper in center
       [
         '33........33',
         '333......333',
-        '333......333',
+        '333..O...333',
         '333......333',
         '3333333333..',
         '..33333333..',
       ],
-      // Level 3: Circular orbit
+      // Level 3: Circular orbit - bumpers ring
       [
         '...222222...',
-        '..2......2..',
+        '..2..O...2..',
         '.2........2.',
         '.2........2.',
-        '..2......2..',
+        '..2..O...2..',
         '...222222...',
       ],
-      // Level 4: Figure 8
+      // Level 4: Figure 8 - bumper intersection
       [
         '..222..222..',
-        '.2....2....2',
+        '.2....O....2',
         '..222..222..',
         '..222..222..',
-        '.2....2....2',
+        '.2....O....2',
         '..222..222..',
       ],
-      // Level 5: Magnetic field lines
+      // Level 5: Magnetic field - bumper grid
       [
-        '2..2..2..2..',
+        '2..O..2..O..',
         '.2..2..2..2.',
         '..2..2..2..2',
         '2..2..2..2..',
-        '.2..2..2..2.',
+        '.2..O..2..O.',
         '..2..2..2..2',
       ],
-      // Level 6: Repulsion
+      // Level 6: Repulsion - bumpers protect
       [
-        '333......333',
+        '333..O...333',
         '333#....#333',
-        '...#....#...',
+        '...#.O..#...',
         '...#....#...',
         '333#....#333',
-        '333......333',
+        '333..O...333',
       ],
-      // Level 7: Spiral
+      // Level 7: Spiral with bumpers
       [
         '333333333...',
-        '........33..',
+        '....O...33..',
         '.3333333.3..',
-        '.3.......3..',
+        '.3...O...3..',
         '.3.33333.3..',
         '.3.3*..333..',
       ],
-      // Level 8: Atom
+      // Level 8: Atom - bumper nucleus
       [
         '....33......',
-        '.333..333...',
+        '.333.O333...',
         '33..33..33..',
-        '33..33..33..',
+        '33..OO..33..',
         '.333..333...',
         '....33......',
       ],
@@ -456,79 +456,79 @@ const BreakoutGame = () => {
       ],
     ],
 
-    // WIND WITCH - Waves, swirls, wind patterns
+    // WIND WITCH - Introduces PORTALS (@1 pairs)
     wind_witch: [
-      // Level 1: Gentle breeze
+      // Level 1: Gentle breeze - 1 portal pair intro!
       [
-        '2.2.2.2.2.2.',
+        '@12.2.2.2.@1',
         '.2.2.2.2.2.2',
         '2.2.2.2.2.2.',
         '.2.2.2.2.2.2',
         '............',
         '............',
       ],
-      // Level 2: Wave
+      // Level 2: Wave - portal shortcut
       [
-        '22...........',
+        '22.......@1.',
         '..22........',
         '....22......',
         '......22....',
         '........22..',
-        '..........22',
+        '@1........22',
       ],
-      // Level 3: Double wave
+      // Level 3: Double wave - 2 portal pairs
       [
-        '22......22..',
+        '@1......@2..',
         '..22......22',
         '....22......',
-        '22......22..',
+        '@2......@1..',
         '..22......22',
         '....22......',
       ],
-      // Level 4: Tornado
+      // Level 4: Tornado - portal in eye
       [
         '.....33.....',
         '....3333....',
-        '...222222...',
-        '..22222222..',
+        '...22@122...',
+        '..22@12222..',
         '.1111111111.',
         '111111111111',
       ],
-      // Level 5: Swirl
+      // Level 5: Swirl - portal + bumpers
       [
-        '....2222222.',
-        '...2........',
+        '..O.2222222.',
+        '...2....@1..',
         '..2.22222...',
-        '..2.2...2...',
+        '..2.2.O.2...',
         '..2.22222...',
-        '...2222.....',
+        '@1.2222..O..',
       ],
-      // Level 6: Cloud
+      // Level 6: Cloud - hidden portal
       [
         '...2222222..',
-        '..222222222.',
+        '..222@12222.',
         '.22222222222',
         '.22222222222',
-        '..222222222.',
+        '..222@12222.',
         '....22222...',
       ],
-      // Level 7: Lightning bolt
+      // Level 7: Lightning bolt - portal chain
       [
-        '......33333.',
-        '.....333....',
+        '@1....33333.',
+        '.....333.@2.',
         '....333.....',
-        '..33333.....',
+        '@2.33333....',
         '.....333....',
-        '......33333.',
+        '......3333@1',
       ],
-      // Level 8: Gusts
+      // Level 8: Gusts - 3 portal pairs!
       [
-        '#..222..#..2',
+        '@1.222.@2..@3',
         '..222..#..22',
-        '.222..#..222',
+        '@2222.@3.222',
         '222..#..222.',
         '22..#..222..',
-        '2..#..222..#',
+        '@3.#.@1222.@2',
       ],
       // Level 9: Storm
       [
@@ -550,79 +550,79 @@ const BreakoutGame = () => {
       ],
     ],
 
-    // SHADOW SMITH - Mazes, hidden paths, darkness
+    // SHADOW SMITH - Introduces SPAWNERS (S)
     shadow_smith: [
-      // Level 1: Shadows
+      // Level 1: Shadows - 1 spawner intro!
       [
-        '22..22..22..',
+        '22..22.S22..',
         '..22..22..22',
         '22..22..22..',
         '..22..22..22',
         '22..22..22..',
         '..22..22..22',
       ],
-      // Level 2: Corridor
+      // Level 2: Corridor - spawner behind wall
       [
-        '############',
+        '######S#####',
         '#..........#',
         '#.########.#',
         '#.########.#',
         '#..........#',
         '############',
       ],
-      // Level 3: Hidden chamber
+      // Level 3: Hidden chamber - 2 spawners
       [
-        '333333333333',
+        '33333S333333',
         '3..........3',
         '3.333..333.3',
         '3.3.*..*.3.3',
         '3.333..333.3',
-        '333333333333',
+        '33333S333333',
       ],
-      // Level 4: Forge
+      // Level 4: Forge - spawner + bumpers
       [
-        '#..#33#..#..',
+        '#.S#33#S.#..',
         '.333333333..',
-        '.333333333..',
+        '.33O333O33..',
         '.33#33#33...',
         '.333333333..',
         '#..#..#..#..',
       ],
-      // Level 5: Anvil
+      // Level 5: Anvil - protected spawner
       [
-        '....3333....',
+        '....3S33....',
         '...333333...',
         '..33333333..',
         '333333333333',
         '.....##.....',
         '....####....',
       ],
-      // Level 6: Crossed swords
+      // Level 6: Crossed swords - spawner + portals
       [
-        '3........3..',
-        '.3......3...',
+        'S........S..',
+        '.3..@1..3...',
         '..3....3....',
         '...3333.....',
         '..3....3....',
-        '.3......3...',
+        '.3..@1..3...',
       ],
-      // Level 7: Dungeon
+      // Level 7: Dungeon - 3 spawners!
       [
-        '#2#2#2#2#2#2',
+        '#S#2#2#2#S#2',
         '2.........2.',
         '#.22..22..#.',
-        '2.........2.',
+        '2....S....2.',
         '#.22..22..#.',
         '#2#2#2#2#2#2',
       ],
-      // Level 8: Shadow maze
+      // Level 8: Shadow maze - spawner maze
       [
-        '###.###.###.',
+        '###S###.###.',
         '..#...#...#.',
-        '.##.#.#.#.#.',
+        '.##.#.#S#.#.',
         '.#..#.#.#...',
         '.#.##.###.##',
-        '...........#',
+        'S..........#',
       ],
       // Level 9: The void
       [
@@ -644,76 +644,76 @@ const BreakoutGame = () => {
       ],
     ],
 
-    // FIRE PHOENIX - Flames, rising patterns, birds
+    // FIRE PHOENIX - ALL FEATURES COMBINED (midpoint world!)
     fire_phoenix: [
-      // Level 1: Embers
+      // Level 1: Embers - review bumpers
       [
-        '..1...1...1.',
+        '..1.O.1...1.',
         '.1.1.1.1.1..',
         '1...1...1..1',
         '.1.1.1.1.1..',
-        '..1...1...1.',
+        '..1.O.1...1.',
         '............',
       ],
-      // Level 2: Rising flames
+      // Level 2: Rising flames - bumpers + explosives
       [
-        '............',
+        '.....O......',
         '..2......2..',
-        '.222....222.',
+        '.222.O..222.',
         '22222..22222',
         '222222222222',
-        '333333333333',
+        '33X333X33333',
       ],
-      // Level 3: Fireball
+      // Level 3: Fireball - portals
       [
-        '....2222....',
+        '@1..2222..@1',
         '..22222222..',
         '.2222222222.',
         '.2222222222.',
         '..22222222..',
-        '....2222....',
+        '@2..2222..@2',
       ],
-      // Level 4: Candles
+      // Level 4: Candles - spawners!
       [
-        '..1...1...1.',
+        'S.1...1...1S',
         '.222.222.222',
         '.2#2.2#2.2#2',
         '.2#2.2#2.2#2',
         '.2#2.2#2.2#2',
         '.###.###.###',
       ],
-      // Level 5: Wings spread
+      // Level 5: Wings spread - all features!
       [
-        '3..........3',
+        'S..O....O..S',
         '33........33',
-        '333..33..333',
+        '333.@1@1.333',
         '33333333333.',
         '.3333333333.',
         '..33333333..',
       ],
-      // Level 6: Inferno
+      // Level 6: Inferno - intense combo
       [
         '1X1X1X1X1X1X',
-        '2222222222222',
+        '222O2222O222',
+        '33333S333333',
         '333333333333',
-        '333333333333',
-        '2222222222222',
+        '222O2222O222',
         '1X1X1X1X1X1X',
       ],
-      // Level 7: Phoenix rising
+      // Level 7: Phoenix rising - portal wings
       [
-        '....33......',
+        '@1..33..@2..',
         '...3333.....',
-        '..33..33....',
+        '..33O.33....',
         '.33....33...',
-        '333333333...',
+        '@2333333@1..',
         '..333333....',
       ],
-      // Level 8: Fire maze
+      // Level 8: Fire maze - everything!
       [
-        '#.#333#.#333',
-        '.X.333.X.333',
-        '#.#333#.#333',
+        '#S#333#.#333',
+        '.X.3O3.X.333',
+        '#@1333#@1333',
         '333#.#333#.#',
         '333.X.333.X.',
         '333#.#333#.#',
@@ -774,6 +774,11 @@ const BreakoutGame = () => {
   const [enemies, setEnemies] = useState([]);
   const [lastEnemySpawn, setLastEnemySpawn] = useState(0);
   const [difficulty, setDifficulty] = useState(null); // Current difficulty settings
+
+  // === PINBALL FEATURES ===
+  const [bumpers, setBumpers] = useState([]); // Circular bounce objects
+  const [portals, setPortals] = useState([]); // Paired teleporters
+  const [spawners, setSpawners] = useState([]); // Enemy spawn points
 
   // Visual effects
   const [particles, setParticles] = useState([]);
@@ -1367,10 +1372,25 @@ const BreakoutGame = () => {
     return healthTiers.length - 1;
   };
 
+  // Portal pair colors
+  const PORTAL_COLORS = [
+    { primary: '#4488ff', secondary: '#88bbff' }, // Blue
+    { primary: '#ff8844', secondary: '#ffbb88' }, // Orange
+    { primary: '#44ff88', secondary: '#88ffbb' }, // Green
+    { primary: '#ff44ff', secondary: '#ff88ff' }, // Purple
+  ];
+
   // Create brick layout from hand-crafted level definitions
+  // Also creates bumpers, portals, and spawners
   const createBricks = useCallback((level, enemy) => {
     const newBricks = [];
+    const newBumpers = [];
+    const newPortals = [];
+    const newSpawners = [];
+    const portalPairs = {}; // Track portal pairs by number
+
     const enemyId = enemy?.id || 'brick_goblin';
+    const themeColor = ENEMY_THEME_COLORS[enemyId] || ENEMY_THEME_COLORS.brick_goblin;
 
     // Get level definition for this enemy
     const enemyLevels = LEVEL_DEFINITIONS[enemyId] || LEVEL_DEFINITIONS.brick_goblin;
@@ -1390,7 +1410,76 @@ const BreakoutGame = () => {
 
         const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
         const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
+        const centerX = x + BRICK_WIDTH / 2;
+        const centerY = y + BRICK_HEIGHT / 2;
 
+        // === PINBALL FEATURES ===
+
+        // Bumper (O)
+        if (char === 'O') {
+          newBumpers.push({
+            id: `bumper-${row}-${col}`,
+            x: centerX,
+            y: centerY,
+            radius: 18,
+            active: true,
+            hitTimer: 0, // For hit animation
+            points: 25,
+            color: themeColor.primary,
+          });
+          continue;
+        }
+
+        // Portal (@1, @2, @3, @4 - pairs)
+        if (char === '@') {
+          // Check next char for pair number
+          const nextChar = col + 1 < rowStr.length ? rowStr[col + 1] : '1';
+          const pairNum = parseInt(nextChar) || 1;
+          const pairIndex = Math.min(pairNum - 1, 3);
+
+          const portal = {
+            id: `portal-${row}-${col}`,
+            x: centerX,
+            y: centerY,
+            radius: 20,
+            pairId: pairNum,
+            colors: PORTAL_COLORS[pairIndex],
+            animPhase: Math.random() * Math.PI * 2,
+            cooldown: 0, // Prevent instant re-teleport
+          };
+
+          newPortals.push(portal);
+
+          // Track pairs
+          if (!portalPairs[pairNum]) portalPairs[pairNum] = [];
+          portalPairs[pairNum].push(portal);
+          continue;
+        }
+
+        // Portal pair number (skip, handled above)
+        if ('1234'.includes(char) && col > 0 && rowStr[col-1] === '@') {
+          continue;
+        }
+
+        // Spawner (S)
+        if (char === 'S') {
+          newSpawners.push({
+            id: `spawner-${row}-${col}`,
+            x: x,
+            y: y,
+            width: BRICK_WIDTH,
+            height: BRICK_HEIGHT,
+            health: 3 + Math.floor(level / 10), // 3-5 hits based on level
+            maxHealth: 3 + Math.floor(level / 10),
+            lastSpawn: Date.now(),
+            spawnInterval: 6000 - level * 30, // 6s down to 3s
+            shakeAmount: 0,
+            color: themeColor.primary,
+          });
+          continue;
+        }
+
+        // === BRICKS ===
         let health, type, color;
 
         switch (char) {
@@ -1454,6 +1543,20 @@ const BreakoutGame = () => {
         });
       }
     }
+
+    // Link portal pairs
+    newPortals.forEach(portal => {
+      const pair = portalPairs[portal.pairId];
+      if (pair && pair.length === 2) {
+        const other = pair.find(p => p.id !== portal.id);
+        if (other) portal.linkedPortalId = other.id;
+      }
+    });
+
+    // Set pinball feature states
+    setBumpers(newBumpers);
+    setPortals(newPortals);
+    setSpawners(newSpawners);
 
     return newBricks;
   }, []);
@@ -2119,6 +2222,175 @@ const BreakoutGame = () => {
         });
       });
 
+      // === PINBALL FEATURE COLLISIONS ===
+
+      // Ball-Bumper collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached) return ball;
+
+          bumpers.forEach(bumper => {
+            const dx = ball.x - bumper.x;
+            const dy = ball.y - bumper.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < BALL_RADIUS + bumper.radius) {
+              // Hit bumper! Bounce with force
+              const angle = Math.atan2(dy, dx);
+              const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+              const boostSpeed = Math.max(speed * 1.2, ball.baseSpeed * 1.1); // Boost on hit
+
+              ball.vx = Math.cos(angle) * boostSpeed;
+              ball.vy = Math.sin(angle) * boostSpeed;
+
+              // Move ball outside bumper
+              ball.x = bumper.x + Math.cos(angle) * (BALL_RADIUS + bumper.radius + 2);
+              ball.y = bumper.y + Math.sin(angle) * (BALL_RADIUS + bumper.radius + 2);
+
+              // Score and visual feedback
+              setScore(s => s + bumper.points);
+              addFloatingText(bumper.x, bumper.y - 20, `+${bumper.points}`, bumper.color);
+
+              // Trigger hit animation
+              setBumpers(prev => prev.map(b =>
+                b.id === bumper.id ? { ...b, hitTimer: 10 } : b
+              ));
+            }
+          });
+
+          return ball;
+        });
+      });
+
+      // Ball-Portal collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached || ball.portalCooldown > 0) return ball;
+
+          for (const portal of portals) {
+            if (portal.cooldown > 0) continue;
+
+            const dx = ball.x - portal.x;
+            const dy = ball.y - portal.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < BALL_RADIUS + portal.radius * 0.6) {
+              // Find linked portal
+              const linkedPortal = portals.find(p => p.id === portal.linkedPortalId);
+              if (linkedPortal) {
+                // Teleport ball to linked portal
+                const exitAngle = Math.atan2(ball.vy, ball.vx);
+                ball.x = linkedPortal.x + Math.cos(exitAngle) * (linkedPortal.radius + BALL_RADIUS + 5);
+                ball.y = linkedPortal.y + Math.sin(exitAngle) * (linkedPortal.radius + BALL_RADIUS + 5);
+
+                // Set cooldown to prevent instant re-teleport
+                ball.portalCooldown = 30;
+
+                // Visual feedback
+                createParticles(portal.x, portal.y, portal.colors.primary, 8);
+                createParticles(linkedPortal.x, linkedPortal.y, linkedPortal.colors.secondary, 8);
+
+                // Set portal cooldowns
+                setPortals(prev => prev.map(p =>
+                  p.id === portal.id || p.id === linkedPortal.id
+                    ? { ...p, cooldown: 30 }
+                    : p
+                ));
+
+                break; // Only teleport once per frame
+              }
+            }
+          }
+
+          // Decay portal cooldown
+          if (ball.portalCooldown > 0) {
+            ball.portalCooldown--;
+          }
+
+          return ball;
+        });
+      });
+
+      // Ball-Spawner collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached) return ball;
+
+          spawners.forEach(spawner => {
+            if (spawner.health <= 0) return;
+
+            // Rectangle collision
+            const closestX = Math.max(spawner.x, Math.min(ball.x, spawner.x + spawner.width));
+            const closestY = Math.max(spawner.y, Math.min(ball.y, spawner.y + spawner.height));
+            const dx = ball.x - closestX;
+            const dy = ball.y - closestY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < BALL_RADIUS) {
+              // Damage spawner
+              setSpawners(prev => prev.map(s => {
+                if (s.id !== spawner.id) return s;
+                const newHealth = s.health - 1;
+                if (newHealth <= 0) {
+                  // Spawner destroyed!
+                  setScore(sc => sc + 200);
+                  addFloatingText(s.x + s.width/2, s.y, '+200 DESTROYED!', '#ffd700');
+                  createParticles(s.x + s.width/2, s.y + s.height/2, s.color, 20);
+                  return { ...s, health: 0 };
+                }
+                return { ...s, health: newHealth, shakeAmount: 8 };
+              }));
+
+              // Bounce ball
+              if (Math.abs(dx) > Math.abs(dy)) {
+                ball.vx = -ball.vx;
+              } else {
+                ball.vy = -ball.vy;
+              }
+            }
+          });
+
+          return ball;
+        });
+      });
+
+      // Update bumper hit timers
+      setBumpers(prev => prev.map(b => ({
+        ...b,
+        hitTimer: Math.max(0, b.hitTimer - deltaTime)
+      })));
+
+      // Update portal cooldowns
+      setPortals(prev => prev.map(p => ({
+        ...p,
+        cooldown: Math.max(0, p.cooldown - 1),
+        animPhase: p.animPhase + 0.05
+      })));
+
+      // Update spawners - spawn enemies and decay shake
+      setSpawners(prev => prev.map(s => {
+        if (s.health <= 0) return s;
+
+        let updated = { ...s, shakeAmount: Math.max(0, s.shakeAmount - 0.5) };
+
+        // Check if should spawn enemy
+        if (now - s.lastSpawn > s.spawnInterval && enemies.length < (difficulty?.enemyCount || 3) + 2) {
+          // Spawn an enemy from this spawner
+          const newEnemy = spawnEnemy();
+          if (newEnemy) {
+            // Position enemy at spawner
+            newEnemy.x = s.x + s.width / 2 - newEnemy.width / 2;
+            newEnemy.y = s.y + s.height;
+            setEnemies(e => [...e, newEnemy]);
+            updated.lastSpawn = now;
+            // Visual feedback
+            createParticles(s.x + s.width/2, s.y + s.height, s.color, 6);
+          }
+        }
+
+        return updated;
+      }));
+
       // Check level complete (obstacles don't count toward completion)
       setBricks(prev => {
         const remaining = prev.filter(b => b.health > 0 && b.type !== 'boss' && b.type !== 'obstacle');
@@ -2136,7 +2408,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy]);
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners]);
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -3016,6 +3288,143 @@ const BreakoutGame = () => {
                 pointerEvents: 'none',
               }} />
             )}
+          </div>
+        ))}
+
+        {/* === PINBALL FEATURES === */}
+
+        {/* Bumpers */}
+        {bumpers.map(bumper => (
+          <div
+            key={bumper.id}
+            style={{
+              position: 'absolute',
+              left: bumper.x - bumper.radius,
+              top: bumper.y - bumper.radius,
+              width: bumper.radius * 2,
+              height: bumper.radius * 2,
+              borderRadius: '50%',
+              background: `radial-gradient(circle at 30% 30%, ${bumper.color}ff 0%, ${bumper.color}aa 50%, ${bumper.color}66 100%)`,
+              border: `3px solid ${bumper.color}`,
+              boxShadow: bumper.hitTimer > 0
+                ? `0 0 20px ${bumper.color}, 0 0 40px ${bumper.color}, inset 0 0 15px rgba(255,255,255,0.5)`
+                : `0 0 10px ${bumper.color}88, inset 0 -3px 6px rgba(0,0,0,0.3)`,
+              transform: bumper.hitTimer > 0 ? 'scale(1.2)' : 'scale(1)',
+              transition: 'transform 0.1s, box-shadow 0.1s',
+            }}
+          >
+            {/* Inner ring */}
+            <div style={{
+              position: 'absolute',
+              inset: '20%',
+              borderRadius: '50%',
+              background: bumper.hitTimer > 0
+                ? 'radial-gradient(circle, #ffffff 0%, #ffffffaa 100%)'
+                : `radial-gradient(circle, ${bumper.color}dd 0%, ${bumper.color}88 100%)`,
+              boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)',
+            }} />
+          </div>
+        ))}
+
+        {/* Portals */}
+        {portals.map(portal => {
+          if (!portal.linkedPortalId) return null; // Don't render unpaired portals
+          const pulseSize = Math.sin(portal.animPhase) * 3;
+          return (
+            <div
+              key={portal.id}
+              style={{
+                position: 'absolute',
+                left: portal.x - portal.radius - pulseSize,
+                top: portal.y - portal.radius - pulseSize,
+                width: (portal.radius + pulseSize) * 2,
+                height: (portal.radius + pulseSize) * 2,
+                borderRadius: '50%',
+                background: `conic-gradient(from ${portal.animPhase}rad, ${portal.colors.primary}, ${portal.colors.secondary}, ${portal.colors.primary})`,
+                opacity: portal.cooldown > 0 ? 0.5 : 1,
+                boxShadow: `0 0 15px ${portal.colors.primary}, inset 0 0 20px ${portal.colors.secondary}88`,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {/* Inner void */}
+              <div style={{
+                position: 'absolute',
+                inset: '25%',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, #000000 0%, #111122 100%)',
+                boxShadow: 'inset 0 0 10px rgba(0,0,0,0.8)',
+              }} />
+              {/* Swirl effect */}
+              <div style={{
+                position: 'absolute',
+                inset: '10%',
+                borderRadius: '50%',
+                background: `conic-gradient(from ${-portal.animPhase * 2}rad, transparent 0%, ${portal.colors.primary}44 25%, transparent 50%, ${portal.colors.secondary}44 75%, transparent 100%)`,
+              }} />
+            </div>
+          );
+        })}
+
+        {/* Spawners */}
+        {spawners.map(spawner => spawner.health > 0 && (
+          <div
+            key={spawner.id}
+            style={{
+              position: 'absolute',
+              left: spawner.x + (Math.random() - 0.5) * spawner.shakeAmount,
+              top: spawner.y + (Math.random() - 0.5) * spawner.shakeAmount,
+              width: spawner.width,
+              height: spawner.height,
+              borderRadius: '6px',
+              background: `linear-gradient(180deg,
+                ${spawner.health <= 1 ? '#ff4444' : spawner.health <= 2 ? '#ff8844' : '#333'}ee 0%,
+                #1a1a2e 50%,
+                #0a0a1e 100%)`,
+              border: `3px solid ${spawner.health <= 1 ? '#ff4444' : spawner.health <= 2 ? '#ff8844' : spawner.color}`,
+              boxShadow: `0 0 ${spawner.shakeAmount > 0 ? 20 : 10}px ${spawner.health <= 1 ? '#ff4444' : spawner.color}88,
+                         inset 0 -5px 15px rgba(0,0,0,0.5)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Cave/door opening */}
+            <div style={{
+              width: '60%',
+              height: '70%',
+              background: 'radial-gradient(ellipse at center bottom, #000 0%, #111 60%, transparent 100%)',
+              borderRadius: '50% 50% 0 0',
+              boxShadow: 'inset 0 -5px 10px rgba(0,0,0,0.8)',
+            }} />
+            {/* Eyes in the darkness */}
+            <div style={{
+              position: 'absolute',
+              display: 'flex',
+              gap: '8px',
+              top: '30%',
+            }}>
+              <div style={{ width: 6, height: 6, background: spawner.color, borderRadius: '50%', boxShadow: `0 0 6px ${spawner.color}` }} />
+              <div style={{ width: 6, height: 6, background: spawner.color, borderRadius: '50%', boxShadow: `0 0 6px ${spawner.color}` }} />
+            </div>
+            {/* Health indicator */}
+            <div style={{
+              position: 'absolute',
+              bottom: 2,
+              left: '10%',
+              right: '10%',
+              height: 3,
+              background: '#000',
+              borderRadius: 2,
+            }}>
+              <div style={{
+                width: `${(spawner.health / spawner.maxHealth) * 100}%`,
+                height: '100%',
+                background: spawner.health <= 1 ? '#ff4444' : spawner.health <= 2 ? '#ffaa44' : '#44ff44',
+                borderRadius: 2,
+                transition: 'width 0.2s',
+              }} />
+            </div>
           </div>
         ))}
 
