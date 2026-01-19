@@ -2703,86 +2703,176 @@ const BreakoutGame = () => {
     const hasVictory = victoryInfo !== null;
     const nextLevel = hasVictory ? victoryInfo.level + 1 : 1;
     const canContinue = nextLevel <= MAX_LEVELS;
+    const totalStars = getTotalStarsForEnemy(enemyId);
+    const maxStars = MAX_LEVELS * 3;
 
     return (
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '40px',
+        padding: '30px 20px',
         color: '#fff',
         minHeight: '100vh',
+        background: `radial-gradient(ellipse at top, ${enemyColor}15 0%, transparent 50%)`,
       }}>
-        {/* Victory Banner */}
+        {/* Victory Celebration */}
         {hasVictory && (
           <div style={{
-            background: `linear-gradient(135deg, ${enemyColor}33, ${enemyAccent}22)`,
-            border: `2px solid ${enemyColor}`,
-            borderRadius: '16px',
-            padding: '20px 40px',
-            marginBottom: '30px',
+            background: `linear-gradient(180deg, ${enemyColor}22 0%, transparent 100%)`,
+            borderBottom: `2px solid ${enemyColor}44`,
+            padding: '25px 50px',
+            marginBottom: '20px',
             textAlign: 'center',
-            boxShadow: `0 0 30px ${enemyColor}33`,
+            width: '100%',
+            maxWidth: '600px',
+            position: 'relative',
           }}>
-            <h2 style={{ color: '#ffd700', fontSize: '28px', margin: '0 0 10px 0' }}>
-              Level {victoryInfo.level} Complete! 🎉
+            <div style={{
+              position: 'absolute',
+              top: '-10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'linear-gradient(135deg, #ffd700, #ffaa00)',
+              color: '#000',
+              padding: '6px 20px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: '800',
+              letterSpacing: '1px',
+            }}>VICTORY</div>
+            <h2 style={{
+              color: '#fff',
+              fontSize: '32px',
+              margin: '15px 0 20px 0',
+              textShadow: `0 0 30px ${enemyColor}`,
+            }}>
+              Level {victoryInfo.level} Complete!
             </h2>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginBottom: '10px' }}>
-              <div>
-                <div style={{ color: '#888', fontSize: '12px' }}>Score</div>
-                <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: 'bold' }}>{victoryInfo.score}</div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '40px',
+              marginBottom: '15px',
+            }}>
+              <div style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '15px 25px',
+                borderRadius: '12px',
+                minWidth: '100px',
+              }}>
+                <div style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Score</div>
+                <div style={{ color: '#ffd700', fontSize: '28px', fontWeight: '800' }}>{victoryInfo.score}</div>
               </div>
-              <div>
-                <div style={{ color: '#888', fontSize: '12px' }}>Stars Earned</div>
-                <div style={{ fontSize: '24px' }}>
+              <div style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '15px 25px',
+                borderRadius: '12px',
+              }}>
+                <div style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>Rating</div>
+                <div style={{ fontSize: '32px', display: 'flex', gap: '4px' }}>
                   {[1, 2, 3].map(s => (
-                    <span key={s} style={{ color: s <= victoryInfo.stars ? '#ffd700' : '#444' }}>★</span>
+                    <span key={s} style={{
+                      color: s <= victoryInfo.stars ? '#ffd700' : '#333',
+                      textShadow: s <= victoryInfo.stars ? '0 0 10px #ffd700' : 'none',
+                      transform: s <= victoryInfo.stars ? 'scale(1.1)' : 'scale(0.9)',
+                      display: 'inline-block',
+                    }}>★</span>
                   ))}
                 </div>
               </div>
             </div>
             {victoryInfo.isNewBest && (
               <div style={{
-                background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+                background: 'linear-gradient(135deg, #ff6b6b, #ffd700)',
                 color: '#000',
-                padding: '4px 12px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 'bold',
+                padding: '8px 20px',
+                borderRadius: '20px',
+                fontSize: '14px',
+                fontWeight: '800',
                 display: 'inline-block',
-              }}>🏆 NEW BEST!</div>
+                animation: 'pulse 1s infinite',
+              }}>🏆 NEW HIGH SCORE!</div>
             )}
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '10px' }}>
-          <span style={{ fontSize: '48px' }}>{selectedEnemy?.emoji}</span>
+        {/* Enemy Header Card */}
+        <div style={{
+          background: `linear-gradient(135deg, ${enemyColor}33 0%, ${enemyAccent}22 100%)`,
+          border: `2px solid ${enemyColor}66`,
+          borderRadius: '20px',
+          padding: '20px 40px',
+          marginBottom: '25px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          boxShadow: `0 10px 40px ${enemyColor}22`,
+        }}>
+          <div style={{
+            fontSize: '60px',
+            width: '80px',
+            height: '80px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: `radial-gradient(circle, ${enemyColor}44 0%, transparent 70%)`,
+            borderRadius: '50%',
+          }}>{selectedEnemy?.emoji}</div>
           <div>
-            <h2 style={{ color: enemyColor, fontSize: '28px', margin: 0, fontWeight: '800' }}>
+            <h2 style={{
+              color: '#fff',
+              fontSize: '28px',
+              margin: 0,
+              fontWeight: '800',
+              textShadow: `0 2px 10px ${enemyColor}66`,
+            }}>
               {selectedEnemy?.name}
             </h2>
-            <div style={{ color: '#888', fontSize: '14px' }}>{selectedEnemy?.title}</div>
+            <div style={{ color: enemyColor, fontSize: '14px', fontWeight: '600', marginTop: '2px' }}>
+              {selectedEnemy?.title}
+            </div>
+            {/* Star Progress Bar */}
+            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '150px',
+                height: '8px',
+                background: 'rgba(0,0,0,0.4)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${(totalStars / maxStars) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #ffd700, #ffaa00)',
+                  borderRadius: '4px',
+                  boxShadow: '0 0 10px #ffd700',
+                }} />
+              </div>
+              <span style={{ color: '#ffd700', fontSize: '13px', fontWeight: '700' }}>
+                ⭐ {totalStars}/{maxStars}
+              </span>
+            </div>
           </div>
         </div>
-
-        <h3 style={{ color: '#aaa', margin: '20px 0', fontSize: '18px', fontWeight: '400' }}>
-          {hasVictory ? 'Continue or replay a level' : 'Select a level to play'}
-        </h3>
 
         {/* Level Grid */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '12px',
+          gap: '15px',
           marginBottom: '30px',
-          maxWidth: '500px',
+          padding: '25px',
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: '20px',
+          border: '1px solid rgba(255,255,255,0.05)',
         }}>
           {Array.from({ length: MAX_LEVELS }, (_, i) => i + 1).map(level => {
             const isUnlocked = level <= highestLevel;
             const levelData = getLevelStats(enemyId, level);
-            const isNext = level === nextLevel;
+            const isNext = level === nextLevel && (hasVictory || level === highestLevel);
             const isCompleted = levelData.completed;
+            const stars = levelData.stars;
 
             return (
               <button
@@ -2790,44 +2880,94 @@ const BreakoutGame = () => {
                 onClick={() => isUnlocked && startLevel(level, !hasVictory || level !== nextLevel)}
                 disabled={!isUnlocked}
                 style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '12px',
-                  border: isNext ? `3px solid #ffd700` : `2px solid ${isUnlocked ? enemyColor : '#333'}`,
+                  width: '90px',
+                  height: '100px',
+                  borderRadius: '16px',
+                  border: 'none',
                   background: isUnlocked
                     ? isNext
-                      ? `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`
+                      ? `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`
                       : isCompleted
-                        ? `linear-gradient(135deg, ${enemyColor}44, ${enemyAccent}33)`
-                        : 'rgba(30, 30, 50, 0.8)'
-                    : '#1a1a2a',
-                  color: isUnlocked ? '#fff' : '#555',
+                        ? `linear-gradient(180deg, #2a3a5a 0%, #1a2a4a 100%)`
+                        : `linear-gradient(180deg, #252535 0%, #1a1a2a 100%)`
+                    : `linear-gradient(180deg, #151520 0%, #0a0a10 100%)`,
+                  color: isUnlocked ? '#fff' : '#333',
                   cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                  transition: 'transform 0.15s, box-shadow 0.15s',
-                  boxShadow: isNext ? `0 0 20px ${enemyColor}66` : 'none',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isNext
+                    ? `0 0 25px ${enemyColor}88, inset 0 1px 0 rgba(255,255,255,0.2)`
+                    : isUnlocked
+                      ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 15px rgba(0,0,0,0.3)'
+                      : 'inset 0 -2px 5px rgba(0,0,0,0.5)',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '4px',
+                  gap: '6px',
+                  position: 'relative',
+                  overflow: 'hidden',
                 }}
-                onMouseEnter={e => isUnlocked && (e.currentTarget.style.transform = 'scale(1.08)')}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseEnter={e => {
+                  if (isUnlocked) {
+                    e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
+                    e.currentTarget.style.boxShadow = `0 8px 30px ${enemyColor}66, inset 0 1px 0 rgba(255,255,255,0.3)`;
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                  e.currentTarget.style.boxShadow = isNext
+                    ? `0 0 25px ${enemyColor}88, inset 0 1px 0 rgba(255,255,255,0.2)`
+                    : isUnlocked
+                      ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 15px rgba(0,0,0,0.3)'
+                      : 'inset 0 -2px 5px rgba(0,0,0,0.5)';
+                }}
               >
+                {/* Shine effect for next level */}
+                {isNext && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '-100%',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                    animation: 'shine 2s infinite',
+                  }} />
+                )}
                 {isUnlocked ? (
                   <>
-                    <span style={{ fontSize: '22px', fontWeight: 'bold' }}>{level}</span>
-                    <div style={{ fontSize: '14px', letterSpacing: '-1px' }}>
+                    <span style={{
+                      fontSize: '28px',
+                      fontWeight: '800',
+                      textShadow: isNext ? '0 2px 10px rgba(0,0,0,0.5)' : 'none',
+                    }}>{level}</span>
+                    <div style={{ display: 'flex', gap: '2px' }}>
                       {[1, 2, 3].map(s => (
-                        <span key={s} style={{ color: s <= levelData.stars ? '#ffd700' : '#444' }}>★</span>
+                        <span key={s} style={{
+                          fontSize: '16px',
+                          color: s <= stars ? '#ffd700' : 'rgba(255,255,255,0.15)',
+                          textShadow: s <= stars ? '0 0 8px #ffd700' : 'none',
+                        }}>★</span>
                       ))}
                     </div>
                     {levelData.bestScore > 0 && (
-                      <span style={{ fontSize: '9px', color: '#888' }}>{levelData.bestScore}</span>
+                      <span style={{
+                        fontSize: '10px',
+                        color: 'rgba(255,255,255,0.5)',
+                        fontWeight: '600',
+                      }}>{levelData.bestScore} pts</span>
                     )}
                   </>
                 ) : (
-                  <span style={{ fontSize: '24px' }}>🔒</span>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}>
+                    <span style={{ fontSize: '28px', opacity: 0.5 }}>🔒</span>
+                    <span style={{ fontSize: '10px', color: '#444' }}>Locked</span>
+                  </div>
                 )}
               </button>
             );
@@ -2835,72 +2975,110 @@ const BreakoutGame = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          {hasVictory && canContinue && (
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {hasVictory && canContinue ? (
             <button
               onClick={() => startLevel(nextLevel, false)}
               style={{
-                padding: '14px 32px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                background: `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`,
+                padding: '16px 40px',
+                fontSize: '18px',
+                fontWeight: '800',
+                background: `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`,
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '14px',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: `0 4px 20px ${enemyColor}44`,
+                boxShadow: `0 6px 25px ${enemyColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              Continue to Level {nextLevel} →
+              Next Level →
             </button>
-          )}
-          {!hasVictory && (
+          ) : (
             <button
               onClick={() => startLevel(highestLevel, true)}
               style={{
-                padding: '14px 32px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                background: `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`,
+                padding: '16px 40px',
+                fontSize: '18px',
+                fontWeight: '800',
+                background: `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`,
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '14px',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: `0 4px 20px ${enemyColor}44`,
+                boxShadow: `0 6px 25px ${enemyColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              {highestLevel === 1 ? 'Start Game' : `Continue Level ${highestLevel}`}
+              {highestLevel === 1 ? '▶ Play' : `▶ Level ${highestLevel}`}
             </button>
           )}
           <button
             onClick={() => setGameState('select')}
             style={{
-              padding: '14px 24px',
+              padding: '16px 28px',
               fontSize: '14px',
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '10px',
+              fontWeight: '600',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '14px',
               color: '#aaa',
               cursor: 'pointer',
+              backdropFilter: 'blur(10px)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              e.currentTarget.style.color = '#aaa';
             }}
           >
-            ← Back to Enemies
+            ← Enemies
           </button>
           <button
             onClick={() => setGameState('menu')}
             style={{
-              padding: '14px 24px',
+              padding: '16px 28px',
               fontSize: '14px',
+              fontWeight: '600',
               background: 'transparent',
-              border: '1px solid #444',
-              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '14px',
               color: '#666',
               cursor: 'pointer',
             }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+              e.currentTarget.style.color = '#888';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.color = '#666';
+            }}
           >
-            Main Menu
+            Menu
           </button>
         </div>
+
+        {/* CSS Keyframes */}
+        <style>{`
+          @keyframes shine {
+            0% { left: -100%; }
+            50%, 100% { left: 100%; }
+          }
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+        `}</style>
       </div>
     );
   };
