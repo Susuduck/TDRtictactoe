@@ -21,6 +21,490 @@ const BreakoutGame = () => {
   const TEDDY_METER_MAX = 100;
   const KEYBOARD_SPEED = 12;
 
+  // Level definitions - hand-crafted layouts for each enemy
+  // Legend: '.'=empty, '1'=1-hit, '2'=2-hit, '3'=3-hit, '#'=indestructible, '*'=powerup, 'X'=explosive
+  const LEVEL_DEFINITIONS = {
+    // BRICK GOBLIN - Simple shapes, learning levels
+    brick_goblin: [
+      // Level 1: Welcome bars - easiest intro
+      [
+        '111111111111',
+        '............',
+        '222222222222',
+        '............',
+        '111111111111',
+        '............',
+      ],
+      // Level 2: Arrow pointing down
+      [
+        '.....22.....',
+        '....2222....',
+        '...222222...',
+        '..22222222..',
+        '.....22.....',
+        '.....22.....',
+      ],
+      // Level 3: Heart shape
+      [
+        '.22....22...',
+        '2222..2222..',
+        '2222222222..',
+        '.22222222...',
+        '..222222....',
+        '....22......',
+      ],
+      // Level 4: Diamond
+      [
+        '.....11.....',
+        '....2222....',
+        '...222222...',
+        '...222222...',
+        '....2222....',
+        '.....11.....',
+      ],
+      // Level 5: Simple face
+      [
+        '.2222222222.',
+        '.2..2..2..2.',
+        '.2222222222.',
+        '.2........2.',
+        '.2.222222.2.',
+        '.2222222222.',
+      ],
+      // Level 6: Castle
+      [
+        '3.3.3.3.3.3.',
+        '333333333333',
+        '33.#33#.3333',
+        '333333333333',
+        '33333..33333',
+        '33333..33333',
+      ],
+      // Level 7: Goblin (their mascot)
+      [
+        '..333333333.',
+        '.3*322223*3.',
+        '.3333333333.',
+        '..3.3333.3..',
+        '...333333...',
+        '....3..3....',
+      ],
+      // Level 8: Zigzag challenge
+      [
+        '3333........',
+        '..#333......',
+        '....#333....',
+        '......#333..',
+        '........#333',
+        '333333333333',
+      ],
+      // Level 9: Fortress
+      [
+        '#2#2#2#2#2#2',
+        '222222222222',
+        '22.2*22*2.22',
+        '222222222222',
+        '22...22...22',
+        '#2#2#..#2#2#',
+      ],
+      // Level 10: Boss - The Goblin King
+      [
+        '333#3333#333',
+        '3*33333333*3',
+        '33333##33333',
+        '##33333333##',
+        '3333X33X3333',
+        '333333333333',
+      ],
+    ],
+
+    // MAGNET MAGE - Circular, magnetic, orbital patterns
+    magnet_mage: [
+      // Level 1: Magnetic poles
+      [
+        '222......222',
+        '222......222',
+        '............',
+        '............',
+        '222......222',
+        '222......222',
+      ],
+      // Level 2: Horseshoe magnet
+      [
+        '33........33',
+        '333......333',
+        '333......333',
+        '333......333',
+        '3333333333..',
+        '..33333333..',
+      ],
+      // Level 3: Circular orbit
+      [
+        '...222222...',
+        '..2......2..',
+        '.2........2.',
+        '.2........2.',
+        '..2......2..',
+        '...222222...',
+      ],
+      // Level 4: Figure 8
+      [
+        '..222..222..',
+        '.2....2....2',
+        '..222..222..',
+        '..222..222..',
+        '.2....2....2',
+        '..222..222..',
+      ],
+      // Level 5: Magnetic field lines
+      [
+        '2..2..2..2..',
+        '.2..2..2..2.',
+        '..2..2..2..2',
+        '2..2..2..2..',
+        '.2..2..2..2.',
+        '..2..2..2..2',
+      ],
+      // Level 6: Repulsion
+      [
+        '333......333',
+        '333#....#333',
+        '...#....#...',
+        '...#....#...',
+        '333#....#333',
+        '333......333',
+      ],
+      // Level 7: Spiral
+      [
+        '333333333...',
+        '........33..',
+        '.3333333.3..',
+        '.3.......3..',
+        '.3.33333.3..',
+        '.3.3*..333..',
+      ],
+      // Level 8: Atom
+      [
+        '....33......',
+        '.333..333...',
+        '33..33..33..',
+        '33..33..33..',
+        '.333..333...',
+        '....33......',
+      ],
+      // Level 9: Magnetic maze
+      [
+        '#.#.#.#.#.#.',
+        '.222222222.#',
+        '#.........#.',
+        '.#.........#',
+        '#.222222222.',
+        '.#.#.#.#.#.#',
+      ],
+      // Level 10: Magnet Mage Boss
+      [
+        '33#3333#3333',
+        '333*3333*333',
+        '..33333333..',
+        '..33333333..',
+        '333*3333*333',
+        '33#3333#3333',
+      ],
+    ],
+
+    // WIND WITCH - Waves, swirls, wind patterns
+    wind_witch: [
+      // Level 1: Gentle breeze
+      [
+        '2.2.2.2.2.2.',
+        '.2.2.2.2.2.2',
+        '2.2.2.2.2.2.',
+        '.2.2.2.2.2.2',
+        '............',
+        '............',
+      ],
+      // Level 2: Wave
+      [
+        '22...........',
+        '..22........',
+        '....22......',
+        '......22....',
+        '........22..',
+        '..........22',
+      ],
+      // Level 3: Double wave
+      [
+        '22......22..',
+        '..22......22',
+        '....22......',
+        '22......22..',
+        '..22......22',
+        '....22......',
+      ],
+      // Level 4: Tornado
+      [
+        '.....33.....',
+        '....3333....',
+        '...222222...',
+        '..22222222..',
+        '.1111111111.',
+        '111111111111',
+      ],
+      // Level 5: Swirl
+      [
+        '....2222222.',
+        '...2........',
+        '..2.22222...',
+        '..2.2...2...',
+        '..2.22222...',
+        '...2222.....',
+      ],
+      // Level 6: Cloud
+      [
+        '...2222222..',
+        '..222222222.',
+        '.22222222222',
+        '.22222222222',
+        '..222222222.',
+        '....22222...',
+      ],
+      // Level 7: Lightning bolt
+      [
+        '......33333.',
+        '.....333....',
+        '....333.....',
+        '..33333.....',
+        '.....333....',
+        '......33333.',
+      ],
+      // Level 8: Gusts
+      [
+        '#..222..#..2',
+        '..222..#..22',
+        '.222..#..222',
+        '222..#..222.',
+        '22..#..222..',
+        '2..#..222..#',
+      ],
+      // Level 9: Storm
+      [
+        '3X3.3X3.3X3.',
+        '333333333333',
+        '.#.#.#.#.#.#',
+        '333333333333',
+        '3X3.3X3.3X3.',
+        '............',
+      ],
+      // Level 10: Wind Witch Boss
+      [
+        '..3333333...',
+        '.33*3333*33.',
+        '333333333333',
+        '#....33....#',
+        '.333333333..',
+        '..#......#..',
+      ],
+    ],
+
+    // SHADOW SMITH - Mazes, hidden paths, darkness
+    shadow_smith: [
+      // Level 1: Shadows
+      [
+        '22..22..22..',
+        '..22..22..22',
+        '22..22..22..',
+        '..22..22..22',
+        '22..22..22..',
+        '..22..22..22',
+      ],
+      // Level 2: Corridor
+      [
+        '############',
+        '#..........#',
+        '#.########.#',
+        '#.########.#',
+        '#..........#',
+        '############',
+      ],
+      // Level 3: Hidden chamber
+      [
+        '333333333333',
+        '3..........3',
+        '3.333..333.3',
+        '3.3.*..*.3.3',
+        '3.333..333.3',
+        '333333333333',
+      ],
+      // Level 4: Forge
+      [
+        '#..#33#..#..',
+        '.333333333..',
+        '.333333333..',
+        '.33#33#33...',
+        '.333333333..',
+        '#..#..#..#..',
+      ],
+      // Level 5: Anvil
+      [
+        '....3333....',
+        '...333333...',
+        '..33333333..',
+        '333333333333',
+        '.....##.....',
+        '....####....',
+      ],
+      // Level 6: Crossed swords
+      [
+        '3........3..',
+        '.3......3...',
+        '..3....3....',
+        '...3333.....',
+        '..3....3....',
+        '.3......3...',
+      ],
+      // Level 7: Dungeon
+      [
+        '#2#2#2#2#2#2',
+        '2.........2.',
+        '#.22..22..#.',
+        '2.........2.',
+        '#.22..22..#.',
+        '#2#2#2#2#2#2',
+      ],
+      // Level 8: Shadow maze
+      [
+        '###.###.###.',
+        '..#...#...#.',
+        '.##.#.#.#.#.',
+        '.#..#.#.#...',
+        '.#.##.###.##',
+        '...........#',
+      ],
+      // Level 9: The void
+      [
+        '333333333333',
+        '3#3#3#3#3#3#',
+        '333333333333',
+        '3*3*3*3*3*3*',
+        '333333333333',
+        '3#3#3#3#3#3#',
+      ],
+      // Level 10: Shadow Smith Boss
+      [
+        '#33#33#33#33',
+        '3333333333*3',
+        '33########33',
+        '33########33',
+        '3*3333333333',
+        '#33#33#33#33',
+      ],
+    ],
+
+    // FIRE PHOENIX - Flames, rising patterns, birds
+    fire_phoenix: [
+      // Level 1: Embers
+      [
+        '..1...1...1.',
+        '.1.1.1.1.1..',
+        '1...1...1..1',
+        '.1.1.1.1.1..',
+        '..1...1...1.',
+        '............',
+      ],
+      // Level 2: Rising flames
+      [
+        '............',
+        '..2......2..',
+        '.222....222.',
+        '22222..22222',
+        '222222222222',
+        '333333333333',
+      ],
+      // Level 3: Fireball
+      [
+        '....2222....',
+        '..22222222..',
+        '.2222222222.',
+        '.2222222222.',
+        '..22222222..',
+        '....2222....',
+      ],
+      // Level 4: Candles
+      [
+        '..1...1...1.',
+        '.222.222.222',
+        '.2#2.2#2.2#2',
+        '.2#2.2#2.2#2',
+        '.2#2.2#2.2#2',
+        '.###.###.###',
+      ],
+      // Level 5: Wings spread
+      [
+        '3..........3',
+        '33........33',
+        '333..33..333',
+        '33333333333.',
+        '.3333333333.',
+        '..33333333..',
+      ],
+      // Level 6: Inferno
+      [
+        '1X1X1X1X1X1X',
+        '2222222222222',
+        '333333333333',
+        '333333333333',
+        '2222222222222',
+        '1X1X1X1X1X1X',
+      ],
+      // Level 7: Phoenix rising
+      [
+        '....33......',
+        '...3333.....',
+        '..33..33....',
+        '.33....33...',
+        '333333333...',
+        '..333333....',
+      ],
+      // Level 8: Fire maze
+      [
+        '#.#333#.#333',
+        '.X.333.X.333',
+        '#.#333#.#333',
+        '333#.#333#.#',
+        '333.X.333.X.',
+        '333#.#333#.#',
+      ],
+      // Level 9: Volcano
+      [
+        '....XXX.....',
+        '...X333X....',
+        '..X33333X...',
+        '.X3333333X..',
+        '#333333333#.',
+        '############',
+      ],
+      // Level 10: Fire Phoenix Boss
+      [
+        '..*3333*33..',
+        '..33333333..',
+        '.3333##3333.',
+        '333333333333',
+        '3X33X33X33X3',
+        '#3#3#33#3#3#',
+      ],
+    ],
+  };
+
+  // Default fallback pattern for enemies without custom levels
+  const DEFAULT_LEVEL = [
+    '222222222222',
+    '222222222222',
+    '222222222222',
+    '222222222222',
+    '222222222222',
+    '222222222222',
+  ];
+
   // Game state
   const [gameState, setGameState] = useState('menu');
   const [paddle, setPaddle] = useState({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH, vx: 0 });
@@ -634,128 +1118,76 @@ const BreakoutGame = () => {
     return healthTiers.length - 1;
   };
 
-  // Create brick layout with designed obstacle patterns
+  // Create brick layout from hand-crafted level definitions
   const createBricks = useCallback((level, enemy) => {
     const newBricks = [];
+    const enemyId = enemy?.id || 'brick_goblin';
 
-    // Obstacle patterns for each level - these are walls/barriers
-    // Returns positions where obstacles should be placed: [{row, col, health}]
-    const obstaclePatterns = [
-      // Level 1: No obstacles
-      [],
-      // Level 2: Simple horizontal bar
-      [{r: 3, c: 3}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 3, c: 6}],
-      // Level 3: Two pillars
-      [{r: 1, c: 2}, {r: 2, c: 2}, {r: 3, c: 2}, {r: 1, c: 7}, {r: 2, c: 7}, {r: 3, c: 7}],
-      // Level 4: V shape barrier
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 2}, {r: 4, c: 7}],
-      // Level 5: Horizontal bars on sides
-      [{r: 2, c: 0}, {r: 2, c: 1}, {r: 2, c: 2}, {r: 2, c: 7}, {r: 2, c: 8}, {r: 2, c: 9}],
-      // Level 6: Diamond in center
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
-      // Level 7: Maze-like with corridors
-      [{r: 1, c: 3}, {r: 2, c: 3}, {r: 3, c: 3}, {r: 1, c: 6}, {r: 2, c: 6}, {r: 4, c: 6},
-       {r: 4, c: 4}, {r: 4, c: 5}],
-      // Level 8: Cross pattern
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 1, c: 4}, {r: 1, c: 5},
-       {r: 2, c: 3}, {r: 2, c: 6}],
-    ];
+    // Get level definition for this enemy
+    const enemyLevels = LEVEL_DEFINITIONS[enemyId] || LEVEL_DEFINITIONS.brick_goblin;
+    const levelIndex = Math.min(level - 1, enemyLevels.length - 1);
+    const levelDef = enemyLevels[levelIndex] || DEFAULT_LEVEL;
 
-    // Brick layout patterns
-    const layoutPatterns = [
-      () => true, // Full grid
-      (r, c) => (r + c) % 2 === 0, // Checkerboard
-      (r, c) => r < 4, // Top heavy
-      (r, c) => Math.abs(c - 4.5) < (BRICK_ROWS - r), // Pyramid
-      (r, c) => r === 0 || r === BRICK_ROWS - 1 || c === 0 || c === BRICK_COLS - 1, // Border
-      (r, c) => (r < 2) || (r >= 4), // Gap in middle
-      (r, c) => Math.abs(r - 2.5) + Math.abs(c - 4.5) < 5, // Diamond
-      (r, c) => c < 3 || c > 6, // Side columns
-    ];
+    // Level-based difficulty scaling
+    const healthBonus = Math.floor(level / 3); // Extra health at higher levels
 
-    // Use enemy index to offset patterns - each world has different layouts
-    const enemyIndex = enemyDefs.findIndex(e => e.id === enemy?.id) || 0;
-    const patternSeed = (level - 1) + enemyIndex * 3; // Offset by 3 per enemy for variety
-    const layoutPattern = layoutPatterns[patternSeed % layoutPatterns.length];
-    const obstacles = obstaclePatterns[patternSeed % obstaclePatterns.length] || [];
-    const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
+    for (let row = 0; row < levelDef.length; row++) {
+      const rowStr = levelDef[row];
+      for (let col = 0; col < rowStr.length && col < BRICK_COLS; col++) {
+        const char = rowStr[col];
+        if (char === '.') continue; // Empty space
 
-    // Level-based scaling for brick health
-    const baseHealth = 1 + Math.floor(level / 3); // More health at higher levels
-    const maxExtraHealth = Math.min(level, 6); // Cap extra health
-    const powerUpChance = Math.max(0.12 - level * 0.01, 0.04);
-
-    // Add extra rows at higher levels
-    const extraRows = Math.min(Math.floor(level / 3), 2);
-    const totalRows = BRICK_ROWS + extraRows;
-
-    for (let row = 0; row < totalRows; row++) {
-      for (let col = 0; col < BRICK_COLS; col++) {
         const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
         const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
 
-        // Check if this is an obstacle position
-        const isObstacle = obstacleSet.has(`${row}-${col}`);
+        let health, type, color;
 
-        if (isObstacle) {
-          // Create indestructible obstacle
-          newBricks.push({
-            id: `${row}-${col}`,
-            x, y,
-            width: BRICK_WIDTH,
-            height: BRICK_HEIGHT,
-            health: 9999,
-            maxHealth: 9999,
-            type: 'obstacle',
-            color: '#2a2a4e',
-            invisible: false,
-            canRegenerate: false,
-          });
-          continue;
-        }
-
-        // Apply layout pattern (skip if not part of pattern)
-        if (row < BRICK_ROWS && !layoutPattern(row, col)) continue;
-
-        // Determine brick health based on row and level
-        // Top rows are tougher
-        let health = baseHealth + Math.max(0, 3 - row);
-
-        // Add some randomness
-        if (Math.random() < 0.3) {
-          health += Math.floor(Math.random() * maxExtraHealth);
+        switch (char) {
+          case '1': // 1-hit brick
+            health = 1 + healthBonus;
+            type = 'normal';
+            break;
+          case '2': // 2-hit brick
+            health = 2 + healthBonus;
+            type = 'normal';
+            break;
+          case '3': // 3-hit brick (strong)
+            health = 3 + healthBonus;
+            type = 'normal';
+            break;
+          case '#': // Indestructible obstacle
+            health = 9999;
+            type = 'obstacle';
+            break;
+          case '*': // Power-up brick
+            health = 1 + healthBonus;
+            type = 'powerup';
+            break;
+          case 'X': // Explosive brick
+            health = 1;
+            type = 'explosive';
+            break;
+          default:
+            continue; // Unknown character, skip
         }
 
         // Cap health
         health = Math.min(health, 12);
 
-        let type = 'normal';
-
-        // Power-up bricks
-        if (Math.random() < powerUpChance) {
-          type = 'powerup';
+        // Determine color
+        if (type === 'obstacle') {
+          color = '#2a2a4e';
+        } else if (type === 'explosive') {
+          color = '#ff4400';
+        } else if (type === 'powerup') {
+          color = '#ffd700';
+        } else {
+          color = getColorForHealth(health);
         }
 
-        // Explosive bricks at level 4+
-        if (level >= 4 && Math.random() < 0.05 && type !== 'powerup') {
-          type = 'explosive';
-          health = 1; // Explosives are fragile
-        }
-
-        // Boss brick for titan king
-        if (enemy?.gimmick === 'boss_bricks' && row === 0 && col === 4) {
-          health = 10 + level * 3;
-          type = 'boss';
-        }
-
-        // Invisible bricks
-        const invisChance = enemy?.gimmick === 'invisible_bricks' ? Math.min(0.2 + level * 0.05, 0.5) : 0;
-        const isInvisible = Math.random() < invisChance;
-
-        // Color is determined by health
-        const color = type === 'explosive' ? '#ff4400' :
-                      type === 'boss' ? '#ffd700' :
-                      getColorForHealth(health);
+        // Invisible bricks for Shadow Smith
+        const invisChance = enemy?.gimmick === 'invisible_bricks' ? Math.min(0.15 + level * 0.03, 0.4) : 0;
+        const isInvisible = type === 'normal' && Math.random() < invisChance;
 
         newBricks.push({
           id: `${row}-${col}`,
@@ -767,7 +1199,7 @@ const BreakoutGame = () => {
           type,
           color,
           invisible: isInvisible,
-          canRegenerate: enemy?.gimmick === 'regenerating_bricks' && Math.random() < 0.2,
+          canRegenerate: enemy?.gimmick === 'regenerating_bricks' && type === 'normal' && Math.random() < 0.15,
         });
       }
     }
@@ -2814,60 +3246,63 @@ const BreakoutGame = () => {
 
   // Generate mini preview grid for a level
   const renderLevelPreview = (level, color, isLocked, enemyId) => {
-    const PREVIEW_ROWS = 5;
-    const PREVIEW_COLS = 10;
+    // Get level definition from LEVEL_DEFINITIONS
+    const enemyLevels = LEVEL_DEFINITIONS[enemyId] || LEVEL_DEFINITIONS.brick_goblin;
+    const levelIndex = Math.min(level - 1, enemyLevels.length - 1);
+    const levelDef = enemyLevels[levelIndex];
 
-    // Layout patterns matching createBricks
-    const layoutPatterns = [
-      () => true, // Full grid
-      (r, c) => (r + c) % 2 === 0, // Checkerboard
-      (r, c) => r < 4, // Top heavy
-      (r, c) => Math.abs(c - 4.5) < (PREVIEW_ROWS - r), // Pyramid
-      (r, c) => r === 0 || r === PREVIEW_ROWS - 1 || c === 0 || c === PREVIEW_COLS - 1, // Border
-      (r, c) => (r < 2) || (r >= 4), // Gap in middle
-      (r, c) => Math.abs(r - 2.5) + Math.abs(c - 4.5) < 5, // Diamond
-      (r, c) => c < 3 || c > 6, // Side columns
-    ];
+    const PREVIEW_COLS = 12; // Match level definition width
+    const PREVIEW_ROWS = levelDef.length;
 
-    // Obstacle patterns
-    const obstaclePatterns = [
-      [],
-      [{r: 3, c: 3}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 3, c: 6}],
-      [{r: 1, c: 2}, {r: 2, c: 2}, {r: 3, c: 2}, {r: 1, c: 7}, {r: 2, c: 7}, {r: 3, c: 7}],
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 2}, {r: 4, c: 7}],
-      [{r: 2, c: 0}, {r: 2, c: 1}, {r: 2, c: 2}, {r: 2, c: 7}, {r: 2, c: 8}, {r: 2, c: 9}],
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
-      [{r: 1, c: 3}, {r: 2, c: 3}, {r: 3, c: 3}, {r: 1, c: 6}, {r: 2, c: 6}, {r: 4, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 1, c: 4}, {r: 1, c: 5}, {r: 2, c: 3}, {r: 2, c: 6}],
-    ];
+    // Color mapping for brick types
+    const getBrickColor = (char, baseColor) => {
+      if (isLocked) {
+        switch (char) {
+          case '#': return '#222';
+          case 'X': return '#331111';
+          case '*': return '#112211';
+          default: return '#1a1a1a';
+        }
+      }
+      switch (char) {
+        case '1': return baseColor;
+        case '2': return baseColor;
+        case '3': return baseColor;
+        case '#': return '#4a4a6e'; // Indestructible - gray/purple
+        case '*': return '#44cc44'; // Powerup - green
+        case 'X': return '#ff6644'; // Explosive - orange/red
+        default: return 'transparent';
+      }
+    };
 
-    // Use enemy index to offset patterns - matches createBricks logic
-    const enemyIndex = enemyDefs.findIndex(e => e.id === enemyId) || 0;
-    const patternSeed = (level - 1) + enemyIndex * 3;
-    const layoutPattern = layoutPatterns[patternSeed % layoutPatterns.length];
-    const obstacles = obstaclePatterns[patternSeed % obstaclePatterns.length] || [];
-    const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
+    const getBrickOpacity = (char, row) => {
+      if (isLocked) return 0.3;
+      switch (char) {
+        case '1': return 0.5 + row * 0.05;
+        case '2': return 0.7 + row * 0.04;
+        case '3': return 0.85 + row * 0.02;
+        case '#': return 1;
+        case '*': return 0.9;
+        case 'X': return 0.95;
+        default: return 0;
+      }
+    };
 
     const cells = [];
     for (let r = 0; r < PREVIEW_ROWS; r++) {
+      const rowStr = levelDef[r] || '';
       for (let c = 0; c < PREVIEW_COLS; c++) {
-        const isObstacle = obstacleSet.has(`${r}-${c}`);
-        const hasBrick = layoutPattern(r, c);
-
-        let cellColor = 'transparent';
-        if (isObstacle) {
-          cellColor = isLocked ? '#222' : '#4a4a6e';
-        } else if (hasBrick) {
-          cellColor = isLocked ? '#1a1a1a' : color;
-        }
+        const char = c < rowStr.length ? rowStr[c] : '.';
+        const cellColor = getBrickColor(char, color);
+        const opacity = getBrickOpacity(char, r);
 
         cells.push(
           <div key={`${r}-${c}`} style={{
-            width: '6px',
+            width: '5px',
             height: '4px',
             background: cellColor,
             borderRadius: '1px',
-            opacity: isLocked ? 0.3 : (isObstacle ? 1 : 0.7 + (PREVIEW_ROWS - r) * 0.06),
+            opacity: opacity,
           }} />
         );
       }
@@ -2876,7 +3311,7 @@ const BreakoutGame = () => {
     return (
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${PREVIEW_COLS}, 6px)`,
+        gridTemplateColumns: `repeat(${PREVIEW_COLS}, 5px)`,
         gap: '1px',
         padding: '4px',
         background: 'rgba(0,0,0,0.3)',
