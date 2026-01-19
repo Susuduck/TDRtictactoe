@@ -1,25 +1,25 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const BreakoutGame = () => {
-  // Game constants - 2x canvas with properly scaled elements
-  const CANVAS_WIDTH = 1200;
-  const CANVAS_HEIGHT = 1000;
-  const PADDLE_WIDTH = 160;
-  const PADDLE_HEIGHT = 20;
-  const PADDLE_OFFSET_BOTTOM = 30; // Distance from bottom of canvas
-  const BALL_RADIUS = 12;
+  // Game constants - larger play area that fits on screen
+  const CANVAS_WIDTH = 900;
+  const CANVAS_HEIGHT = 650;
+  const PADDLE_WIDTH = 120;
+  const PADDLE_HEIGHT = 16;
+  const PADDLE_OFFSET_BOTTOM = 25;
+  const BALL_RADIUS = 10;
   const BRICK_ROWS = 6;
-  const BRICK_COLS = 10;
-  // Bricks sized to fit nicely: 10*100 + 9*6 = 1054, centered in 1200
-  const BRICK_WIDTH = 100;
-  const BRICK_HEIGHT = 30;
-  const BRICK_PADDING = 6;
-  const BRICK_OFFSET_TOP = 100;
-  const BRICK_OFFSET_LEFT = 73; // (1200 - 1054) / 2
-  const DASH_SPEED = 40;
+  const BRICK_COLS = 12;
+  // Bricks: 12*68 + 11*4 = 816 + 44 = 860, centered in 900
+  const BRICK_WIDTH = 68;
+  const BRICK_HEIGHT = 24;
+  const BRICK_PADDING = 4;
+  const BRICK_OFFSET_TOP = 70;
+  const BRICK_OFFSET_LEFT = 20; // (900 - 860) / 2
+  const DASH_SPEED = 35;
   const DASH_COOLDOWN = 800;
   const TEDDY_METER_MAX = 100;
-  const KEYBOARD_SPEED = 14; // Base keyboard movement speed
+  const KEYBOARD_SPEED = 12;
 
   // Game state
   const [gameState, setGameState] = useState('menu');
@@ -1528,7 +1528,7 @@ const BreakoutGame = () => {
 
   const createBall = (level = 1) => {
     // Ball speed increases with level (scaled for 2x canvas)
-    const baseSpeed = 10;
+    const baseSpeed = 7;
     const speedBonus = Math.min(level * 0.6, 6); // Up to +6 speed at level 10
     const totalSpeed = baseSpeed + speedBonus;
 
