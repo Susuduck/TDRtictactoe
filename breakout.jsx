@@ -2002,13 +2002,23 @@ const BreakoutGame = () => {
         ))}
 
         {/* Balls */}
-        {balls.map(ball => (
+        {balls.map(ball => {
+          // Explicitly calculate positions for attached vs free balls
+          const paddleTop = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
+          const ballTop = ball.attached
+            ? paddleTop - BALL_RADIUS * 2  // Just above paddle
+            : ball.y - BALL_RADIUS;
+          const ballLeft = ball.attached
+            ? paddle.x + paddle.width / 2 - BALL_RADIUS
+            : ball.x - BALL_RADIUS;
+
+          return (
           <div
             key={ball.id}
             style={{
               position: 'absolute',
-              left: ball.attached ? paddle.x + paddle.width / 2 - BALL_RADIUS : ball.x - BALL_RADIUS,
-              top: ball.attached ? CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS * 2 : ball.y - BALL_RADIUS,
+              left: ballLeft,
+              top: ballTop,
               width: BALL_RADIUS * 2,
               height: BALL_RADIUS * 2,
               background: ball.mega
@@ -2030,7 +2040,8 @@ const BreakoutGame = () => {
               transition: 'transform 0.2s',
             }}
           />
-        ))}
+        );
+        })}
 
         {/* Paddle */}
         <div style={{
