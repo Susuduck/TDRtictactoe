@@ -1,22 +1,23 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const BreakoutGame = () => {
-  // Game constants
-  const CANVAS_WIDTH = 600;
-  const CANVAS_HEIGHT = 500;
-  const PADDLE_WIDTH = 100;
-  const PADDLE_HEIGHT = 12;
-  const BALL_RADIUS = 8;
+  // Game constants - 2x size
+  const CANVAS_WIDTH = 1200;
+  const CANVAS_HEIGHT = 1000;
+  const PADDLE_WIDTH = 200;
+  const PADDLE_HEIGHT = 24;
+  const BALL_RADIUS = 16;
   const BRICK_ROWS = 6;
   const BRICK_COLS = 10;
-  const BRICK_WIDTH = 54;
-  const BRICK_HEIGHT = 20;
-  const BRICK_PADDING = 4;
-  const BRICK_OFFSET_TOP = 60;
-  const BRICK_OFFSET_LEFT = 27;
-  const DASH_SPEED = 25;
+  const BRICK_WIDTH = 108;
+  const BRICK_HEIGHT = 40;
+  const BRICK_PADDING = 8;
+  const BRICK_OFFSET_TOP = 120;
+  const BRICK_OFFSET_LEFT = 54;
+  const DASH_SPEED = 50;
   const DASH_COOLDOWN = 800;
   const TEDDY_METER_MAX = 100;
+  const KEYBOARD_SPEED = 16; // Base keyboard movement speed
 
   // Game state
   const [gameState, setGameState] = useState('menu');
@@ -44,6 +45,8 @@ const BreakoutGame = () => {
   const [flashColor, setFlashColor] = useState(null);
   const [floatingTexts, setFloatingTexts] = useState([]);
   const [powerUpAnnouncement, setPowerUpAnnouncement] = useState(null);
+  const [fallingHearts, setFallingHearts] = useState([]); // Heart break animation
+  const [paddleVelocity, setPaddleVelocity] = useState(0); // For keyboard ease-out
 
   // === NEW: Teddyball Player Mechanics ===
   // Dash system
@@ -947,25 +950,43 @@ const BreakoutGame = () => {
         setChargeLevel(prev => Math.min(100, prev + 2 * deltaTime));
       }
 
-      // Move paddle with velocity tracking for spin
+      // Move paddle with keyboard (only when keys pressed) - mouse handled separately
       if (!activeEffects.includes('frozen')) {
         const currentPaddle = paddleRef.current;
-        let newX = currentPaddle.x;
-        // Faster base speed (14), shift for boost (20), dash is fastest (25)
-        const speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 20 : 14;
+        const isKeyboardActive = keysRef.current.left || keysRef.current.right;
 
-        if (keysRef.current.left) newX -= speed * deltaTime;
-        if (keysRef.current.right) newX += speed * deltaTime;
+        if (isKeyboardActive) {
+          // Keyboard movement - constant speed, no acceleration
+          const speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 32 : KEYBOARD_SPEED;
+          let newVelocity = 0;
 
-        newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
+          if (keysRef.current.left) newVelocity = -speed;
+          if (keysRef.current.right) newVelocity = speed;
 
-        // Calculate velocity for spin
-        const vx = (newX - paddleLastX.current) / deltaTime;
-        paddleLastX.current = newX;
+          setPaddleVelocity(newVelocity);
 
-        const nextPaddle = { ...currentPaddle, x: newX, vx };
-        paddleRef.current = nextPaddle;
-        setPaddle(nextPaddle);
+          let newX = currentPaddle.x + newVelocity * deltaTime;
+          newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
+
+          paddleLastX.current = newX;
+          const nextPaddle = { ...currentPaddle, x: newX, vx: newVelocity };
+          paddleRef.current = nextPaddle;
+          setPaddle(nextPaddle);
+        } else if (Math.abs(paddleVelocity) > 0.5) {
+          // Ease-out when keys released - decelerate smoothly
+          const friction = 0.85; // Smooth deceleration
+          const newVelocity = paddleVelocity * friction;
+          setPaddleVelocity(Math.abs(newVelocity) < 0.5 ? 0 : newVelocity);
+
+          let newX = currentPaddle.x + newVelocity * deltaTime;
+          newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
+
+          paddleLastX.current = newX;
+          const nextPaddle = { ...currentPaddle, x: newX, vx: newVelocity };
+          paddleRef.current = nextPaddle;
+          setPaddle(nextPaddle);
+        }
+        // When no keys and no velocity, mouse controls take over (handled in separate useEffect)
       }
 
       // Move balls
@@ -1321,6 +1342,25 @@ const BreakoutGame = () => {
         .filter(t => t.life > 0)
       );
 
+      // Update falling hearts animation
+      setFallingHearts(prev => prev
+        .map(heart => ({
+          ...heart,
+          y: heart.y + heart.vy * deltaTime,
+          vy: heart.vy + 0.5 * deltaTime, // gravity
+          rotation: heart.rotation + heart.rotationSpeed * deltaTime,
+          opacity: heart.opacity - 0.008 * deltaTime,
+          pieces: heart.pieces.map(piece => ({
+            ...piece,
+            x: piece.x + piece.vx * deltaTime,
+            y: piece.y + piece.vy * deltaTime,
+            vy: piece.vy + 0.3 * deltaTime,
+            rotation: piece.rotation + (piece.vx > 0 ? 3 : -3) * deltaTime,
+          }))
+        }))
+        .filter(heart => heart.opacity > 0 && heart.y < CANVAS_HEIGHT + 100)
+      );
+
       // Decay brick hit flash
       setBricks(prev => prev.map(b => b.hitFlash > 0 ? { ...b, hitFlash: b.hitFlash - 0.1 * deltaTime } : b));
 
@@ -1341,7 +1381,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, paddleVelocity, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -1485,9 +1525,9 @@ const BreakoutGame = () => {
   };
 
   const createBall = (level = 1) => {
-    // Ball speed increases with level
-    const baseSpeed = 5;
-    const speedBonus = Math.min(level * 0.3, 3); // Up to +3 speed at level 10
+    // Ball speed increases with level (scaled for 2x canvas)
+    const baseSpeed = 10;
+    const speedBonus = Math.min(level * 0.6, 6); // Up to +6 speed at level 10
     const totalSpeed = baseSpeed + speedBonus;
 
     // Use paddle position from ref for ball spawn location
@@ -1497,8 +1537,8 @@ const BreakoutGame = () => {
     return {
       id: Date.now(),
       x: ballX,
-      y: CANVAS_HEIGHT - PADDLE_HEIGHT - 20 - BALL_RADIUS,
-      vx: (Math.random() - 0.5) * 4,
+      y: CANVAS_HEIGHT - PADDLE_HEIGHT - 40 - BALL_RADIUS,
+      vx: (Math.random() - 0.5) * 8,
       vy: -totalSpeed,
       attached: true,
       burning: false,
@@ -1517,6 +1557,24 @@ const BreakoutGame = () => {
     setCombo(0);
     setScreenShake(true);
     setTimeout(() => setScreenShake(false), 300);
+
+    // Spawn falling broken heart animation
+    const heartX = CANVAS_WIDTH / 2;
+    const heartY = 60;
+    setFallingHearts(prev => [...prev, {
+      id: Date.now(),
+      x: heartX,
+      y: heartY,
+      vy: 0,
+      rotation: 0,
+      rotationSpeed: (Math.random() - 0.5) * 8,
+      opacity: 1,
+      scale: 1.5,
+      pieces: [
+        { x: -15, y: 0, rotation: -20, vx: -2, vy: -3 },
+        { x: 15, y: 0, rotation: 20, vx: 2, vy: -3 },
+      ]
+    }]);
   };
 
   const handleLevelComplete = () => {
@@ -2086,6 +2144,38 @@ const BreakoutGame = () => {
             }}
           >
             {t.text}
+          </div>
+        ))}
+
+        {/* Falling broken hearts animation */}
+        {fallingHearts.map(heart => (
+          <div key={heart.id} style={{ position: 'absolute', left: heart.x, top: heart.y, pointerEvents: 'none' }}>
+            {/* Left heart piece */}
+            <div style={{
+              position: 'absolute',
+              left: heart.pieces[0].x,
+              top: heart.pieces[0].y,
+              fontSize: '48px',
+              opacity: heart.opacity,
+              transform: `rotate(${heart.pieces[0].rotation}deg) scale(${heart.scale})`,
+              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+              clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)',
+            }}>
+              💔
+            </div>
+            {/* Right heart piece */}
+            <div style={{
+              position: 'absolute',
+              left: heart.pieces[1].x,
+              top: heart.pieces[1].y,
+              fontSize: '48px',
+              opacity: heart.opacity,
+              transform: `rotate(${heart.pieces[1].rotation}deg) scale(${heart.scale})`,
+              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+              clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)',
+            }}>
+              💔
+            </div>
           </div>
         ))}
 
