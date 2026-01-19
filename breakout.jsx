@@ -21,6 +21,250 @@ const BreakoutGame = () => {
   const TEDDY_METER_MAX = 100;
   const KEYBOARD_SPEED = 12;
 
+  // === DIFFICULTY SCALING SYSTEM ===
+  // Global level = enemyIndex * 10 + levelNumber (1-100)
+  const getDifficulty = (enemyIndex, level) => {
+    const globalLevel = enemyIndex * 10 + level;
+    const t = (globalLevel - 1) / 99; // 0 to 1 progression
+
+    return {
+      globalLevel,
+      ballSpeed: 7 + t * 8,                    // 7 -> 15
+      brickHealthBonus: Math.floor(t * 6),     // 0 -> 6
+      basePaddleWidth: 120 - t * 40,           // 120 -> 80
+      powerUpChance: 0.15 - t * 0.10,          // 15% -> 5%
+      enemyCount: Math.floor(1 + t * 5),       // 1 -> 6
+      enemySpeed: 1 + t * 2,                   // 1 -> 3 multiplier
+      enemySpawnRate: 8000 - t * 5000,         // 8s -> 3s between spawns
+    };
+  };
+
+  // === PIXEL ART ENEMY SPRITES ===
+  // Each sprite is a 2D array where each value is a color or null (transparent)
+  // Sprites are 16x16 pixels, scaled up when rendered
+  const ENEMY_SPRITES = {
+    // Slime - simple bouncing blob
+    slime: {
+      frames: [
+        // Frame 1 - squished
+        [
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '....GGGGGG......',
+          '...GGGGGGGG.....',
+          '..GGgGGgGGGG....',
+          '..GGGGGGGGGG....',
+          '.GGGGGGGGGGGG...',
+          '.GGGGGGGGGGGG...',
+          '................',
+        ],
+        // Frame 2 - normal
+        [
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '.....GGGG.......',
+          '....GGGGGG......',
+          '...GGGGGGGG.....',
+          '...GGgGGgGG.....',
+          '...GGGGGGGG.....',
+          '..GGGGGGGGGG....',
+          '..GGGGGGGGGG....',
+          '...GGGGGGGG.....',
+          '................',
+          '................',
+        ],
+        // Frame 3 - stretched
+        [
+          '................',
+          '................',
+          '................',
+          '................',
+          '.....GGGG.......',
+          '....GGGGGG......',
+          '....GGGGGG......',
+          '...GGgGGgGG.....',
+          '...GGGGGGGG.....',
+          '...GGGGGGGG.....',
+          '....GGGGGG......',
+          '....GGGGGG......',
+          '.....GGGG.......',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'G': '#44dd44', 'g': '#ffffff' }, // Green body, white eyes
+      width: 16, height: 16, scale: 2,
+      health: 1, points: 50, paddleReward: 5,
+    },
+
+    // Bat - flying enemy with wing flap
+    bat: {
+      frames: [
+        // Wings up
+        [
+          '................',
+          '..P........P....',
+          '..PP......PP....',
+          '..PPP....PPP....',
+          '...PPP..PPP.....',
+          '...PPPPPPPP.....',
+          '....PPPPPP......',
+          '....PrPPrP......',
+          '....PPPPPP......',
+          '.....PPPP.......',
+          '.....P..P.......',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        // Wings down
+        [
+          '................',
+          '................',
+          '................',
+          '....PPPPPP......',
+          '....PrPPrP......',
+          '....PPPPPP......',
+          '...PPPPPPPP.....',
+          '..PPP....PPP....',
+          '..PP......PP....',
+          '..P........P....',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'P': '#8844aa', 'r': '#ff4444' }, // Purple body, red eyes
+      width: 16, height: 16, scale: 2,
+      health: 2, points: 100, paddleReward: 8,
+    },
+
+    // Ghost - spooky phasing enemy
+    ghost: {
+      frames: [
+        // Normal
+        [
+          '................',
+          '................',
+          '.....WWWW.......',
+          '....WWWWWW......',
+          '...WWWWWWWW.....',
+          '...WbWWWbWW.....',
+          '...WWWWWWWW.....',
+          '...WWWWWWWW.....',
+          '...WWWWWWWW.....',
+          '...WWWWWWWW.....',
+          '...WW.WW.WW.....',
+          '....W..W..W.....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        // Faded
+        [
+          '................',
+          '................',
+          '.....wwww.......',
+          '....wwwwww......',
+          '...wwwwwwww.....',
+          '...wbwwwbww.....',
+          '...wwwwwwww.....',
+          '...wwwwwwww.....',
+          '...wwwwwwww.....',
+          '...wwwwwwww.....',
+          '...ww.ww.ww.....',
+          '....w..w..w.....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'W': '#ffffff', 'w': 'rgba(255,255,255,0.4)', 'b': '#222222' },
+      width: 16, height: 16, scale: 2,
+      health: 3, points: 200, paddleReward: 12,
+    },
+
+    // Mini-boss - larger, tougher enemy
+    miniboss: {
+      frames: [
+        // Normal
+        [
+          '....RRRRRR......',
+          '...RRRRRRRR.....',
+          '..RRRRRRRRRR....',
+          '..RRrRRRRrRR....',
+          '..RRRRRRRRRR....',
+          '..RRRRRRRRRR....',
+          '..RR.RRRR.RR....',
+          '..RRRRRRRRRR....',
+          '...RRRRRRRR.....',
+          '...RRR..RRR.....',
+          '..RRRR..RRRR....',
+          '..RRRR..RRRR....',
+          '..RRR....RRR....',
+          '................',
+          '................',
+          '................',
+        ],
+        // Angry
+        [
+          '....RRRRRR......',
+          '...RRRRRRRR.....',
+          '..RRRRRRRRRR....',
+          '..RRrRRRRrRR....',
+          '..RRRRRRRRRR....',
+          '..RR.RRRR.RR....',
+          '..RRRRRRRRRR....',
+          '..RRRRRRRRRR....',
+          '...RRRRRRRR.....',
+          '...RRR..RRR.....',
+          '..RRRR..RRRR....',
+          '..RRRR..RRRR....',
+          '..RRR....RRR....',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'R': '#dd3333', 'r': '#ffff44' }, // Red body, yellow eyes
+      width: 16, height: 16, scale: 3,
+      health: 5, points: 500, paddleReward: 20,
+    },
+  };
+
+  // World-themed color variants for enemies
+  const ENEMY_THEME_COLORS = {
+    brick_goblin: { primary: '#44dd44', secondary: '#22aa22' },  // Green
+    magnet_mage: { primary: '#4488ff', secondary: '#2266dd' },   // Blue
+    wind_witch: { primary: '#88ddaa', secondary: '#55aa77' },    // Teal
+    shadow_smith: { primary: '#aa66cc', secondary: '#7744aa' },  // Purple
+    fire_phoenix: { primary: '#ff6644', secondary: '#dd4422' },  // Orange
+    frost_fairy: { primary: '#66ddff', secondary: '#44aadd' },   // Cyan
+    time_tortoise: { primary: '#ddaa44', secondary: '#aa7722' }, // Gold
+    void_vampire: { primary: '#aa4466', secondary: '#772244' },  // Crimson
+    thunder_titan: { primary: '#ffdd44', secondary: '#ddaa22' }, // Yellow
+    chaos_champion: { primary: '#ff44ff', secondary: '#dd22dd' }, // Magenta
+  };
+
   // Level definitions - hand-crafted layouts for each enemy
   // Legend: '.'=empty, '1'=1-hit, '2'=2-hit, '3'=3-hit, '#'=indestructible, '*'=powerup, 'X'=explosive
   const LEVEL_DEFINITIONS = {
@@ -525,6 +769,11 @@ const BreakoutGame = () => {
 
   // Gimmick state
   const [gimmickData, setGimmickData] = useState({});
+
+  // === ENEMY SYSTEM ===
+  const [enemies, setEnemies] = useState([]);
+  const [lastEnemySpawn, setLastEnemySpawn] = useState(0);
+  const [difficulty, setDifficulty] = useState(null); // Current difficulty settings
 
   // Visual effects
   const [particles, setParticles] = useState([]);
@@ -1128,8 +1377,10 @@ const BreakoutGame = () => {
     const levelIndex = Math.min(level - 1, enemyLevels.length - 1);
     const levelDef = enemyLevels[levelIndex] || DEFAULT_LEVEL;
 
-    // Level-based difficulty scaling
-    const healthBonus = Math.floor(level / 3); // Extra health at higher levels
+    // Global difficulty scaling (1-100)
+    const enemyIndex = enemyDefs.findIndex(e => e.id === enemyId) || 0;
+    const diff = getDifficulty(enemyIndex, level);
+    const healthBonus = diff.brickHealthBonus;
 
     for (let row = 0; row < levelDef.length; row++) {
       const rowStr = levelDef[row];
@@ -1819,6 +2070,55 @@ const BreakoutGame = () => {
       // Decay brick hit flash
       setBricks(prev => prev.map(b => b.hitFlash > 0 ? { ...b, hitFlash: b.hitFlash - 0.1 * deltaTime } : b));
 
+      // === ENEMY SYSTEM UPDATE ===
+      // Spawn enemies based on difficulty
+      if (difficulty && enemies.length < difficulty.enemyCount) {
+        const timeSinceSpawn = now - lastEnemySpawn;
+        if (timeSinceSpawn > difficulty.enemySpawnRate) {
+          const newEnemy = spawnEnemy();
+          if (newEnemy) {
+            setEnemies(prev => [...prev, newEnemy]);
+            setLastEnemySpawn(now);
+          }
+        }
+      }
+
+      // Update enemy positions
+      updateEnemies(deltaTime * 16.67); // Pass actual ms delta
+
+      // Ball-Enemy collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached) return ball;
+
+          enemies.forEach(enemy => {
+            // Skip phased ghosts
+            if (enemy.isPhased) return;
+
+            // Circle-rectangle collision
+            const closestX = Math.max(enemy.x, Math.min(ball.x, enemy.x + enemy.width));
+            const closestY = Math.max(enemy.y, Math.min(ball.y, enemy.y + enemy.height));
+            const distX = ball.x - closestX;
+            const distY = ball.y - closestY;
+            const dist = Math.sqrt(distX * distX + distY * distY);
+
+            if (dist < BALL_RADIUS) {
+              // Hit enemy!
+              damageEnemy(enemy.id, ball.damage || 1);
+
+              // Bounce ball
+              if (Math.abs(distX) > Math.abs(distY)) {
+                ball.vx = -ball.vx;
+              } else {
+                ball.vy = -ball.vy;
+              }
+            }
+          });
+
+          return ball;
+        });
+      });
+
       // Check level complete (obstacles don't count toward completion)
       setBricks(prev => {
         const remaining = prev.filter(b => b.health > 0 && b.type !== 'boss' && b.type !== 'obstacle');
@@ -1836,7 +2136,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy]);
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -1880,8 +2180,16 @@ const BreakoutGame = () => {
         showPowerUpAnnouncement('🐌', 'SLOW DOWN!', '#80c0ff', true);
         break;
       case 'life':
-        setLives(l => l + 1);
-        showPowerUpAnnouncement('❤️', 'EXTRA LIFE!', '#ff4444', true);
+        // Heal paddle (restore width)
+        setPaddle(p => {
+          const healAmount = 20;
+          const maxWidth = 200;
+          const newWidth = Math.min(maxWidth, p.width + healAmount);
+          const newPaddle = { ...p, width: newWidth };
+          paddleRef.current = newPaddle;
+          return newPaddle;
+        });
+        showPowerUpAnnouncement('💚', 'HEAL!', '#44ff66', true);
         break;
       case 'laser':
         setActiveEffects(e => [...e, 'laser']);
@@ -1979,11 +2287,10 @@ const BreakoutGame = () => {
     }
   };
 
-  const createBall = (level = 1) => {
-    // Ball speed increases with level (scaled for 2x canvas)
-    const baseSpeed = 7;
-    const speedBonus = Math.min(level * 0.6, 6); // Up to +6 speed at level 10
-    const totalSpeed = baseSpeed + speedBonus;
+  const createBall = (level = 1, enemyIndex = 0) => {
+    // Use difficulty system for ball speed (scales from level 1-100)
+    const diff = getDifficulty(enemyIndex, level);
+    const totalSpeed = diff.ballSpeed;
 
     // Use paddle position from ref for ball spawn location
     const currentPaddle = paddleRef.current;
@@ -2002,16 +2309,33 @@ const BreakoutGame = () => {
   };
 
   const handleBallLost = () => {
-    setLives(l => {
-      const newLives = l - 1;
-      if (newLives <= 0) {
+    // Paddle-as-health: shrink paddle when ball is lost
+    const PADDLE_DAMAGE = 15; // Pixels lost per ball drop
+    const MIN_PADDLE_WIDTH = 30; // Game over threshold
+
+    setPaddle(p => {
+      const newWidth = Math.max(MIN_PADDLE_WIDTH - 1, p.width - PADDLE_DAMAGE);
+      // Keep paddle centered after shrinking
+      const widthDiff = p.width - newWidth;
+      const newX = Math.max(0, Math.min(CANVAS_WIDTH - newWidth, p.x + widthDiff / 2));
+
+      if (newWidth < MIN_PADDLE_WIDTH) {
+        // Game over!
         handleGameOver();
       }
-      return newLives;
+
+      const newPaddle = { ...p, x: newX, width: newWidth };
+      paddleRef.current = newPaddle;
+      return newPaddle;
     });
+
     setCombo(0);
     setScreenShake(true);
     setTimeout(() => setScreenShake(false), 300);
+
+    // Visual feedback - flash red
+    setFlashColor('#ff4444');
+    setTimeout(() => setFlashColor(null), 150);
 
     // Spawn falling broken heart animation
     const heartX = CANVAS_WIDTH / 2;
@@ -2031,6 +2355,176 @@ const BreakoutGame = () => {
       ]
     }]);
   };
+
+  // === ENEMY SYSTEM ===
+  const spawnEnemy = useCallback(() => {
+    if (!difficulty) return null;
+
+    // Determine enemy type based on difficulty
+    const roll = Math.random();
+    let type;
+    if (difficulty.globalLevel >= 70 && roll < 0.15) {
+      type = 'miniboss';
+    } else if (difficulty.globalLevel >= 40 && roll < 0.35) {
+      type = 'ghost';
+    } else if (difficulty.globalLevel >= 20 && roll < 0.55) {
+      type = 'bat';
+    } else {
+      type = 'slime';
+    }
+
+    const sprite = ENEMY_SPRITES[type];
+    const enemyId = selectedEnemy?.id || 'brick_goblin';
+    const themeColors = ENEMY_THEME_COLORS[enemyId] || ENEMY_THEME_COLORS.brick_goblin;
+
+    // Spawn position - from top or sides
+    const side = Math.random();
+    let x, y, vx, vy;
+    const size = sprite.width * sprite.scale;
+
+    if (side < 0.6) {
+      // Top spawn
+      x = 100 + Math.random() * (CANVAS_WIDTH - 200);
+      y = -size;
+      vx = (Math.random() - 0.5) * 2 * difficulty.enemySpeed;
+      vy = (0.5 + Math.random() * 0.5) * difficulty.enemySpeed;
+    } else if (side < 0.8) {
+      // Left spawn
+      x = -size;
+      y = 100 + Math.random() * 200;
+      vx = (0.5 + Math.random() * 0.5) * difficulty.enemySpeed;
+      vy = (Math.random() - 0.5) * difficulty.enemySpeed;
+    } else {
+      // Right spawn
+      x = CANVAS_WIDTH + size;
+      y = 100 + Math.random() * 200;
+      vx = -(0.5 + Math.random() * 0.5) * difficulty.enemySpeed;
+      vy = (Math.random() - 0.5) * difficulty.enemySpeed;
+    }
+
+    return {
+      id: Date.now() + Math.random(),
+      type,
+      x, y, vx, vy,
+      health: sprite.health,
+      maxHealth: sprite.health,
+      frame: 0,
+      frameTimer: 0,
+      width: size,
+      height: size,
+      themeColors,
+      phaseTimer: 0, // For ghost phasing
+      isPhased: false,
+    };
+  }, [difficulty, selectedEnemy]);
+
+  const updateEnemies = useCallback((deltaTime) => {
+    if (!difficulty) return;
+
+    setEnemies(prevEnemies => {
+      return prevEnemies.map(enemy => {
+        const sprite = ENEMY_SPRITES[enemy.type];
+        let { x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased } = enemy;
+
+        // Update animation frame
+        frameTimer += deltaTime;
+        if (frameTimer > 200) { // 200ms per frame
+          frame = (frame + 1) % sprite.frames.length;
+          frameTimer = 0;
+        }
+
+        // Type-specific AI
+        switch (enemy.type) {
+          case 'slime':
+            // Bounces horizontally, drifts down slowly
+            x += vx;
+            y += vy * 0.3;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) {
+              vx = -vx;
+              x = Math.max(0, Math.min(CANVAS_WIDTH - enemy.width, x));
+            }
+            // Bounce off top area
+            if (y < 60) {
+              vy = Math.abs(vy);
+            }
+            break;
+
+          case 'bat':
+            // Sine wave movement
+            x += vx;
+            y += Math.sin(Date.now() / 300) * 2;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) {
+              vx = -vx;
+            }
+            // Stay in upper half
+            if (y > CANVAS_HEIGHT / 2) {
+              vy = -Math.abs(vy);
+            } else if (y < 60) {
+              vy = Math.abs(vy);
+            }
+            y += vy * 0.2;
+            break;
+
+          case 'ghost':
+            // Phases in and out, drifts toward ball
+            phaseTimer += deltaTime;
+            if (phaseTimer > 2000) {
+              isPhased = !isPhased;
+              phaseTimer = 0;
+            }
+            // Slow drift
+            x += vx * 0.5;
+            y += vy * 0.5;
+            // Bounce off walls
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'miniboss':
+            // Slow, deliberate movement
+            x += vx * 0.3;
+            y += vy * 0.2;
+            // Stay in play area
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2 - 50) vy = -vy;
+            break;
+        }
+
+        // Keep in bounds vertically (don't go below middle of screen)
+        y = Math.max(60, Math.min(CANVAS_HEIGHT / 2, y));
+
+        return { ...enemy, x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased };
+      }).filter(enemy => {
+        // Remove enemies that somehow got way off screen
+        return enemy.y < CANVAS_HEIGHT && enemy.x > -100 && enemy.x < CANVAS_WIDTH + 100;
+      });
+    });
+  }, [difficulty]);
+
+  const damageEnemy = useCallback((enemyId, damage = 1) => {
+    setEnemies(prev => {
+      const updated = prev.map(enemy => {
+        if (enemy.id === enemyId) {
+          const newHealth = enemy.health - damage;
+          if (newHealth <= 0) {
+            // Enemy killed - reward player
+            const sprite = ENEMY_SPRITES[enemy.type];
+            setScore(s => s + sprite.points);
+            setPaddle(p => ({ ...p, width: Math.min(200, p.width + sprite.paddleReward) }));
+            addFloatingText(enemy.x + enemy.width/2, enemy.y, `+${sprite.points}`, '#ffdd44');
+
+            // Spawn particles
+            createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, enemy.themeColors.primary, 15);
+
+            return null; // Mark for removal
+          }
+          return { ...enemy, health: newHealth };
+        }
+        return enemy;
+      });
+      return updated.filter(e => e !== null);
+    });
+  }, [addFloatingText, createParticles]);
 
   const handleLevelComplete = () => {
     const completedLevel = currentLevel;
@@ -2086,6 +2580,11 @@ const BreakoutGame = () => {
 
   // Start a specific level
   const startLevel = (level, fresh = false) => {
+    // Calculate difficulty based on enemy and level
+    const enemyIndex = enemyDefs.findIndex(e => e.id === selectedEnemy?.id) || 0;
+    const diff = getDifficulty(enemyIndex, level);
+    setDifficulty(diff);
+
     // If fresh start (from level select, not continuing), reset everything
     if (fresh || !victoryInfo) {
       setScore(0);
@@ -2103,13 +2602,18 @@ const BreakoutGame = () => {
     setVictoryInfo(null);
     setCurrentLevel(level);
     setBricks(createBricks(level, selectedEnemy));
-    setBalls([createBall(level)]);
+    setBalls([createBall(level, enemyIndex)]);
     setPowerUps([]);
     setActiveEffects([]);
-    const startingWidth = PADDLE_WIDTH + (stats.upgrades.paddleSize * 10);
+    // Paddle width scales with difficulty (smaller at higher levels)
+    const baseWidth = Math.round(diff.basePaddleWidth);
+    const startingWidth = baseWidth + (stats.upgrades.paddleSize * 10);
     const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
     setPaddle(nextPaddle);
     paddleRef.current = nextPaddle;
+    // Reset enemy system
+    setEnemies([]);
+    setLastEnemySpawn(Date.now());
     setGameState('playing');
     setIsPaused(false);
   };
@@ -2253,11 +2757,33 @@ const BreakoutGame = () => {
         </div>
         <div style={{ textAlign: 'center' }}>
           <span style={{ fontSize: '12px', color: '#888' }}>Level {currentLevel}</span>
-          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '4px' }}>
-            {Array.from({ length: lives }).map((_, i) => (
-              <span key={i} style={{ fontSize: '16px' }}>❤️</span>
-            ))}
+          {/* Paddle Health Bar */}
+          <div style={{
+            width: '80px',
+            height: '10px',
+            background: 'rgba(0,0,0,0.5)',
+            borderRadius: '5px',
+            overflow: 'hidden',
+            marginTop: '4px',
+            border: '1px solid rgba(255,255,255,0.2)',
+          }}>
+            {(() => {
+              const healthRatio = Math.min(1, Math.max(0, (paddle.width - 30) / 90));
+              const barColor = healthRatio < 0.33 ? '#ff4444' : healthRatio < 0.66 ? '#ffcc44' : '#44ff66';
+              return (
+                <div style={{
+                  width: `${healthRatio * 100}%`,
+                  height: '100%',
+                  background: barColor,
+                  transition: 'width 0.2s, background 0.3s',
+                  boxShadow: `0 0 6px ${barColor}`,
+                }} />
+              );
+            })()}
           </div>
+          <span style={{ fontSize: '10px', color: '#666', marginTop: '2px', display: 'block' }}>
+            {Math.round(paddle.width)}px
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '24px' }}>{selectedEnemy?.emoji}</span>
@@ -2517,6 +3043,77 @@ const BreakoutGame = () => {
           </div>
         ))}
 
+        {/* Enemies */}
+        {enemies.map(enemy => {
+          const sprite = ENEMY_SPRITES[enemy.type];
+          const frameData = sprite.frames[enemy.frame];
+          const pixelSize = sprite.scale;
+          const themeColor = enemy.themeColors.primary;
+
+          return (
+            <div
+              key={enemy.id}
+              style={{
+                position: 'absolute',
+                left: enemy.x,
+                top: enemy.y,
+                width: enemy.width,
+                height: enemy.height,
+                opacity: enemy.isPhased ? 0.4 : 1,
+                transition: 'opacity 0.3s',
+                filter: enemy.health < enemy.maxHealth ? 'brightness(1.3)' : 'none',
+              }}
+            >
+              {/* Pixel art rendering */}
+              <svg width={enemy.width} height={enemy.height} style={{ display: 'block' }}>
+                {frameData.map((row, y) =>
+                  row.split('').map((char, x) => {
+                    if (char === '.') return null;
+                    // Get color - use theme color for main body, keep special colors
+                    let color = sprite.colors[char];
+                    if (!color) return null;
+                    // Replace primary color with theme
+                    if (char === 'G' || char === 'P' || char === 'R') {
+                      color = themeColor;
+                    }
+                    return (
+                      <rect
+                        key={`${x}-${y}`}
+                        x={x * pixelSize}
+                        y={y * pixelSize}
+                        width={pixelSize}
+                        height={pixelSize}
+                        fill={color}
+                      />
+                    );
+                  })
+                )}
+              </svg>
+              {/* Health bar for multi-hit enemies */}
+              {enemy.maxHealth > 1 && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: enemy.width * 0.8,
+                  height: 4,
+                  background: '#333',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${(enemy.health / enemy.maxHealth) * 100}%`,
+                    height: '100%',
+                    background: enemy.health > enemy.maxHealth / 2 ? '#44dd44' : enemy.health > 1 ? '#dddd44' : '#dd4444',
+                    transition: 'width 0.1s',
+                  }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         {/* Balls */}
         {balls.map(ball => {
           // Explicitly calculate positions for attached vs free balls
@@ -2559,30 +3156,52 @@ const BreakoutGame = () => {
         );
         })}
 
-        {/* Paddle */}
-        <div style={{
-          position: 'absolute',
-          left: paddle.x,
-          top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
-          width: paddle.width,
-          height: PADDLE_HEIGHT,
-          background: activeEffects.includes('frozen')
+        {/* Paddle - color changes based on health (width) */}
+        {(() => {
+          // Calculate paddle health ratio (30px = dead, 120px = full, 200px = max)
+          const healthRatio = Math.min(1, (paddle.width - 30) / 90); // 0-1 scale
+          const isLowHealth = healthRatio < 0.33;
+          const isMedHealth = healthRatio < 0.66;
+
+          // Health-based colors
+          const healthGradient = activeEffects.includes('frozen')
             ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
             : activeEffects.includes('laser')
               ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
               : isDashing
                 ? 'linear-gradient(180deg, #ffd700, #ff8800)'
-                : 'linear-gradient(180deg, #60a0ff, #4080e0)',
-          borderRadius: '6px',
-          boxShadow: activeEffects.includes('frozen')
+                : isLowHealth
+                  ? 'linear-gradient(180deg, #ff6060, #dd4040)'
+                  : isMedHealth
+                    ? 'linear-gradient(180deg, #ffcc60, #ddaa40)'
+                    : 'linear-gradient(180deg, #60ff80, #40dd60)';
+
+          const healthGlow = activeEffects.includes('frozen')
             ? '0 0 20px #80e0ff'
             : activeEffects.includes('laser')
               ? '0 0 20px #ff60ff'
               : isDashing
                 ? '0 0 25px #ffd700'
-                : '0 0 15px rgba(96, 160, 255, 0.5)',
-          transition: isDashing ? 'none' : 'left 0.05s',
-        }} />
+                : isLowHealth
+                  ? '0 0 20px #ff6060'
+                  : isMedHealth
+                    ? '0 0 15px #ffcc60'
+                    : '0 0 15px #60ff80';
+
+          return (
+            <div style={{
+              position: 'absolute',
+              left: paddle.x,
+              top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
+              width: paddle.width,
+              height: PADDLE_HEIGHT,
+              background: healthGradient,
+              borderRadius: '6px',
+              boxShadow: healthGlow,
+              transition: isDashing ? 'none' : 'left 0.05s, width 0.2s, background 0.3s',
+            }} />
+          );
+        })()}
 
         {/* Twin Paddle (Teddy Twins ability) */}
         {twinPaddle?.active && (
