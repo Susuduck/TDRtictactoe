@@ -30,6 +30,7 @@ const BreakoutGame = () => {
   const [lives, setLives] = useState(3);
   const [selectedEnemy, setSelectedEnemy] = useState(null);
   const [currentLevel, setCurrentLevel] = useState(1);
+  const [victoryInfo, setVictoryInfo] = useState(null); // { level, score, stars, isNewBest } - set after completing a level
   const [isPaused, setIsPaused] = useState(false);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
@@ -73,9 +74,11 @@ const BreakoutGame = () => {
       const parsed = JSON.parse(saved);
       return {
         ...parsed,
-        // Ensure enemyStars exists for migration
+        // Ensure fields exist for migration
         enemyStars: parsed.enemyStars || {},
         enemiesDefeated: parsed.enemiesDefeated || {},
+        highestLevels: parsed.highestLevels || {},
+        levelStats: parsed.levelStats || {}, // Per-level stats: levelStats[enemyId][level] = { bestScore, stars, completed }
       };
     }
     return {
@@ -87,6 +90,8 @@ const BreakoutGame = () => {
       // Enemy progression - stars earned per enemy (0-10, need 10 to unlock next)
       enemyStars: {},
       enemiesDefeated: {},
+      highestLevels: {},
+      levelStats: {}, // Per-level stats: levelStats[enemyId][level] = { bestScore, stars, completed }
       unlockedPowerUps: ['expand', 'multi', 'slow', 'life'], // Starting power-ups
       upgrades: {
         paddleSize: 0,      // +10px per level (max 3)
@@ -322,6 +327,27 @@ const BreakoutGame = () => {
   };
 
   const isEnemyComplete = (enemyId) => getEnemyStars(enemyId) >= STARS_TO_UNLOCK;
+
+  // Level star thresholds - score needed for 1/2/3 stars (scales with level)
+  const MAX_LEVELS = 10;
+  const calculateLevelStars = (score, level) => {
+    const baseThresholds = [150, 350, 600]; // Base thresholds for level 1
+    const multiplier = 1 + (level - 1) * 0.3; // 30% harder per level
+    const thresholds = baseThresholds.map(t => Math.floor(t * multiplier));
+    if (score >= thresholds[2]) return 3;
+    if (score >= thresholds[1]) return 2;
+    if (score >= thresholds[0]) return 1;
+    return 0;
+  };
+
+  const getLevelStats = (enemyId, level) => {
+    return stats.levelStats[enemyId]?.[level] || { bestScore: 0, stars: 0, completed: false };
+  };
+
+  const getTotalStarsForEnemy = (enemyId) => {
+    const enemyLevelStats = stats.levelStats[enemyId] || {};
+    return Object.values(enemyLevelStats).reduce((sum, ls) => sum + (ls.stars || 0), 0);
+  };
 
   // Keep refs in sync with state for keyboard handlers
   useEffect(() => { dashCooldownRef.current = dashCooldown; }, [dashCooldown]);
@@ -909,12 +935,17 @@ const BreakoutGame = () => {
         break;
 
       case 'regenerating_bricks':
-        if (Math.random() < 0.01) {
+        // Scale regen chance with level - very rare on level 1
+        const regenChance = currentLevel === 1 ? 0.002 : currentLevel === 2 ? 0.005 : 0.008;
+        if (Math.random() < regenChance) {
           setBricks(prev => {
             const destroyed = prev.filter(b => b.health <= 0 && b.canRegenerate);
             if (destroyed.length > 0) {
               const toRegen = destroyed[Math.floor(Math.random() * destroyed.length)];
-              return prev.map(b => b.id === toRegen.id ? { ...b, health: 1 } : b);
+              // Visual effect for regeneration
+              createParticles(toRegen.x + BRICK_WIDTH/2, toRegen.y + BRICK_HEIGHT/2, '#50ff50', 12);
+              addFloatingText(toRegen.x + BRICK_WIDTH/2, toRegen.y, '🔄', '#50ff50');
+              return prev.map(b => b.id === toRegen.id ? { ...b, health: 1, hitFlash: 0.5 } : b);
             }
             return prev;
           });
@@ -931,7 +962,7 @@ const BreakoutGame = () => {
         }
         break;
     }
-  }, [selectedEnemy, activeEffects, gimmickData]);
+  }, [selectedEnemy, activeEffects, gimmickData, currentLevel, createParticles, addFloatingText]);
 
   // Main game loop
   useEffect(() => {
@@ -952,43 +983,30 @@ const BreakoutGame = () => {
         setChargeLevel(prev => Math.min(100, prev + 2 * deltaTime));
       }
 
-      // Move paddle with keyboard (only when keys pressed) - mouse handled separately
+      // Move paddle with keyboard - direct and responsive
       if (!activeEffects.includes('frozen')) {
         const currentPaddle = paddleRef.current;
-        const isKeyboardActive = keysRef.current.left || keysRef.current.right;
+        const leftPressed = keysRef.current.left;
+        const rightPressed = keysRef.current.right;
 
-        if (isKeyboardActive) {
-          // Keyboard movement - constant speed, no acceleration
-          const speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 32 : KEYBOARD_SPEED;
-          let newVelocity = 0;
+        if (leftPressed || rightPressed) {
+          // Direct movement - constant speed, immediate response
+          const speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 24 : KEYBOARD_SPEED;
 
-          if (keysRef.current.left) newVelocity = -speed;
-          if (keysRef.current.right) newVelocity = speed;
+          let moveAmount = 0;
+          if (leftPressed && !rightPressed) moveAmount = -speed * deltaTime;
+          if (rightPressed && !leftPressed) moveAmount = speed * deltaTime;
 
-          setPaddleVelocity(newVelocity);
+          if (moveAmount !== 0) {
+            let newX = currentPaddle.x + moveAmount;
+            newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
 
-          let newX = currentPaddle.x + newVelocity * deltaTime;
-          newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
-
-          paddleLastX.current = newX;
-          const nextPaddle = { ...currentPaddle, x: newX, vx: newVelocity };
-          paddleRef.current = nextPaddle;
-          setPaddle(nextPaddle);
-        } else if (Math.abs(paddleVelocity) > 0.5) {
-          // Ease-out when keys released - decelerate smoothly
-          const friction = 0.85; // Smooth deceleration
-          const newVelocity = paddleVelocity * friction;
-          setPaddleVelocity(Math.abs(newVelocity) < 0.5 ? 0 : newVelocity);
-
-          let newX = currentPaddle.x + newVelocity * deltaTime;
-          newX = Math.max(0, Math.min(CANVAS_WIDTH - currentPaddle.width, newX));
-
-          paddleLastX.current = newX;
-          const nextPaddle = { ...currentPaddle, x: newX, vx: newVelocity };
-          paddleRef.current = nextPaddle;
-          setPaddle(nextPaddle);
+            const nextPaddle = { ...currentPaddle, x: newX, vx: moveAmount / deltaTime };
+            paddleRef.current = nextPaddle;
+            setPaddle(nextPaddle);
+          }
         }
-        // When no keys and no velocity, mouse controls take over (handled in separate useEffect)
+        // When no keys pressed, mouse controls take over (handled in separate useEffect)
       }
 
       // Move balls
@@ -1383,7 +1401,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, paddleVelocity, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -1580,29 +1598,85 @@ const BreakoutGame = () => {
   };
 
   const handleLevelComplete = () => {
+    const completedLevel = currentLevel;
     const nextLevel = currentLevel + 1;
-    setCurrentLevel(nextLevel);
-    setStats(s => ({ ...s, levelsCompleted: s.levelsCompleted + 1 }));
 
     // Bonus points scale with level
-    const levelBonus = 100 * currentLevel + (currentLevel > 5 ? 50 * (currentLevel - 5) : 0);
-    setScore(s => s + levelBonus);
-    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, `LEVEL ${nextLevel}! +${levelBonus}`, '#ffd700');
+    const levelBonus = 100 * completedLevel + (completedLevel > 5 ? 50 * (completedLevel - 5) : 0);
+    const finalScore = score + levelBonus;
+    setScore(finalScore);
 
-    // Show level info
-    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30,
-      nextLevel >= 7 ? '⚠️ HARD MODE' : nextLevel >= 4 ? '💥 Explosive bricks!' : '', '#ff8800');
+    // Calculate stars earned for this level
+    const earnedStars = calculateLevelStars(finalScore, completedLevel);
+
+    // Update stats - track highest level and per-level stats
+    setStats(s => {
+      const enemyId = selectedEnemy?.id || 'unknown';
+      const currentHighest = s.highestLevels[enemyId] || 0;
+      const existingLevelStats = s.levelStats[enemyId]?.[completedLevel] || { bestScore: 0, stars: 0, completed: false };
+      const isNewBest = finalScore > existingLevelStats.bestScore;
+
+      return {
+        ...s,
+        levelsCompleted: s.levelsCompleted + 1,
+        highestLevels: {
+          ...s.highestLevels,
+          [enemyId]: Math.max(currentHighest, nextLevel)
+        },
+        levelStats: {
+          ...s.levelStats,
+          [enemyId]: {
+            ...s.levelStats[enemyId],
+            [completedLevel]: {
+              bestScore: Math.max(finalScore, existingLevelStats.bestScore),
+              stars: Math.max(earnedStars, existingLevelStats.stars),
+              completed: true,
+            }
+          }
+        }
+      };
+    });
+
+    // Store victory info for level select screen
+    setVictoryInfo({ level: completedLevel, score: finalScore, stars: earnedStars, isNewBest: finalScore > (getLevelStats(selectedEnemy?.id, completedLevel).bestScore || 0) });
 
     setFlashColor('#ffd700');
     setTimeout(() => setFlashColor(null), 500);
 
-    // Setup next level
+    // Show level select after a brief celebration
     setTimeout(() => {
-      setBricks(createBricks(nextLevel, selectedEnemy));
-      setBalls([createBall(nextLevel)]);
-      setPowerUps([]);
-      setPaddle({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH });
-    }, 1000);
+      setGameState('levelSelect');
+    }, 800);
+  };
+
+  // Start a specific level
+  const startLevel = (level, fresh = false) => {
+    // If fresh start (from level select, not continuing), reset everything
+    if (fresh || !victoryInfo) {
+      setScore(0);
+      setLives(3 + stats.upgrades.extraLife);
+      setCombo(0);
+      setMaxCombo(0);
+      setGimmickData({});
+      setTeddyMeter(0);
+      setTeddyAbilityActive(null);
+      setTwinPaddle(null);
+      setChargeLevel(0);
+      setIsCharging(false);
+      setDashCooldown(0);
+    }
+    setVictoryInfo(null);
+    setCurrentLevel(level);
+    setBricks(createBricks(level, selectedEnemy));
+    setBalls([createBall(level)]);
+    setPowerUps([]);
+    setActiveEffects([]);
+    const startingWidth = PADDLE_WIDTH + (stats.upgrades.paddleSize * 10);
+    const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
+    setPaddle(nextPaddle);
+    paddleRef.current = nextPaddle;
+    setGameState('playing');
+    setIsPaused(false);
   };
 
   const handleGameOver = () => {
@@ -1644,6 +1718,13 @@ const BreakoutGame = () => {
         enemiesDefeated: newEnemiesDefeated,
       };
     });
+  };
+
+  // Select an enemy and go to level select
+  const selectEnemy = (enemy) => {
+    setSelectedEnemy(enemy);
+    setVictoryInfo(null); // Clear any previous victory info
+    setGameState('levelSelect');
   };
 
   const startGame = (enemy) => {
@@ -2002,13 +2083,23 @@ const BreakoutGame = () => {
         ))}
 
         {/* Balls */}
-        {balls.map(ball => (
+        {balls.map(ball => {
+          // Explicitly calculate positions for attached vs free balls
+          const paddleTop = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
+          const ballTop = ball.attached
+            ? paddleTop - BALL_RADIUS * 2  // Just above paddle
+            : ball.y - BALL_RADIUS;
+          const ballLeft = ball.attached
+            ? paddle.x + paddle.width / 2 - BALL_RADIUS
+            : ball.x - BALL_RADIUS;
+
+          return (
           <div
             key={ball.id}
             style={{
               position: 'absolute',
-              left: ball.attached ? paddle.x + paddle.width / 2 - BALL_RADIUS : ball.x - BALL_RADIUS,
-              top: ball.attached ? CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS * 2 : ball.y - BALL_RADIUS,
+              left: ballLeft,
+              top: ballTop,
               width: BALL_RADIUS * 2,
               height: BALL_RADIUS * 2,
               background: ball.mega
@@ -2030,7 +2121,8 @@ const BreakoutGame = () => {
               transition: 'transform 0.2s',
             }}
           />
-        ))}
+        );
+        })}
 
         {/* Paddle */}
         <div style={{
@@ -2475,10 +2567,14 @@ const BreakoutGame = () => {
           const isUnlocked = isEnemyUnlocked(idx);
           const stars = getEnemyStars(enemy.id);
           const isComplete = isEnemyComplete(enemy.id);
+          const highestLevel = stats.highestLevels[enemy.id] || 0;
+          const totalLevelStars = getTotalStarsForEnemy(enemy.id);
+          const maxPossibleStars = MAX_LEVELS * 3; // 3 stars per level
+          const isPerfected = totalLevelStars >= maxPossibleStars;
           return (
             <div
               key={enemy.id}
-              onClick={() => isUnlocked && startGame(enemy)}
+              onClick={() => isUnlocked && selectEnemy(enemy)}
               style={{
                 background: !isUnlocked
                   ? 'rgba(40, 40, 40, 0.5)'
@@ -2521,18 +2617,19 @@ const BreakoutGame = () => {
                   justifyContent: 'center',
                 }}>🔒</div>
               )}
-              {isComplete && (
+              {(highestLevel >= MAX_LEVELS || isPerfected) && (
                 <div style={{
                   position: 'absolute',
                   top: '10px',
                   right: '10px',
                   fontSize: '12px',
-                  background: `${enemy.color}40`,
-                  color: enemy.color,
+                  background: isPerfected ? 'linear-gradient(135deg, #ffd700, #ff8c00)' : `${enemy.color}40`,
+                  color: isPerfected ? '#000' : enemy.color,
                   padding: '4px 8px',
                   borderRadius: '4px',
                   fontWeight: '700',
-                }}>✓ MASTERED</div>
+                  boxShadow: isPerfected ? '0 0 10px rgba(255,215,0,0.5)' : 'none',
+                }}>{isPerfected ? '⭐ PERFECTED' : '✓ COMPLETED'}</div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{
@@ -2551,18 +2648,21 @@ const BreakoutGame = () => {
                   <div style={{ fontSize: '11px', color: isUnlocked ? '#666' : '#444', marginTop: '4px' }}>{enemy.gimmickDesc}</div>
                 </div>
               </div>
-              {/* Star progress bar */}
+              {/* Level and star progress */}
               {isUnlocked && (
-                <div style={{ marginTop: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '10px', color: '#888' }}>Progress:</span>
-                    <span style={{ fontSize: '10px', color: enemy.color }}>
-                      {'★'.repeat(stars)}{'☆'.repeat(STARS_TO_UNLOCK - stars)}
-                    </span>
+                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '13px', color: '#aaa' }}>
+                      Level <span style={{ color: enemy.color, fontWeight: '700' }}>{highestLevel}/{MAX_LEVELS}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666' }}>
+                      ⭐ {totalLevelStars}/{maxPossibleStars}
+                    </div>
                   </div>
                   {bestScore > 0 && (
-                    <div style={{ fontSize: '12px', color: '#ffd700' }}>
-                      Best: {bestScore} pts
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '10px', color: '#666' }}>Best Score</div>
+                      <div style={{ fontSize: '14px', color: '#ffd700', fontWeight: '600' }}>{bestScore}</div>
                     </div>
                   )}
                 </div>
@@ -2593,6 +2693,217 @@ const BreakoutGame = () => {
       </button>
     </div>
   );
+
+  // Level Select Screen
+  const renderLevelSelect = () => {
+    const enemyId = selectedEnemy?.id || 'unknown';
+    const highestLevel = stats.highestLevels[enemyId] || 1;
+    const enemyColor = selectedEnemy?.color || '#4080e0';
+    const enemyAccent = selectedEnemy?.accentColor || '#6040a0';
+    const hasVictory = victoryInfo !== null;
+    const nextLevel = hasVictory ? victoryInfo.level + 1 : 1;
+    const canContinue = nextLevel <= MAX_LEVELS;
+
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '40px',
+        color: '#fff',
+        minHeight: '100vh',
+      }}>
+        {/* Victory Banner */}
+        {hasVictory && (
+          <div style={{
+            background: `linear-gradient(135deg, ${enemyColor}33, ${enemyAccent}22)`,
+            border: `2px solid ${enemyColor}`,
+            borderRadius: '16px',
+            padding: '20px 40px',
+            marginBottom: '30px',
+            textAlign: 'center',
+            boxShadow: `0 0 30px ${enemyColor}33`,
+          }}>
+            <h2 style={{ color: '#ffd700', fontSize: '28px', margin: '0 0 10px 0' }}>
+              Level {victoryInfo.level} Complete! 🎉
+            </h2>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginBottom: '10px' }}>
+              <div>
+                <div style={{ color: '#888', fontSize: '12px' }}>Score</div>
+                <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: 'bold' }}>{victoryInfo.score}</div>
+              </div>
+              <div>
+                <div style={{ color: '#888', fontSize: '12px' }}>Stars Earned</div>
+                <div style={{ fontSize: '24px' }}>
+                  {[1, 2, 3].map(s => (
+                    <span key={s} style={{ color: s <= victoryInfo.stars ? '#ffd700' : '#444' }}>★</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {victoryInfo.isNewBest && (
+              <div style={{
+                background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+                color: '#000',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                display: 'inline-block',
+              }}>🏆 NEW BEST!</div>
+            )}
+          </div>
+        )}
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '10px' }}>
+          <span style={{ fontSize: '48px' }}>{selectedEnemy?.emoji}</span>
+          <div>
+            <h2 style={{ color: enemyColor, fontSize: '28px', margin: 0, fontWeight: '800' }}>
+              {selectedEnemy?.name}
+            </h2>
+            <div style={{ color: '#888', fontSize: '14px' }}>{selectedEnemy?.title}</div>
+          </div>
+        </div>
+
+        <h3 style={{ color: '#aaa', margin: '20px 0', fontSize: '18px', fontWeight: '400' }}>
+          {hasVictory ? 'Continue or replay a level' : 'Select a level to play'}
+        </h3>
+
+        {/* Level Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          gap: '12px',
+          marginBottom: '30px',
+          maxWidth: '500px',
+        }}>
+          {Array.from({ length: MAX_LEVELS }, (_, i) => i + 1).map(level => {
+            const isUnlocked = level <= highestLevel;
+            const levelData = getLevelStats(enemyId, level);
+            const isNext = level === nextLevel;
+            const isCompleted = levelData.completed;
+
+            return (
+              <button
+                key={level}
+                onClick={() => isUnlocked && startLevel(level, !hasVictory || level !== nextLevel)}
+                disabled={!isUnlocked}
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '12px',
+                  border: isNext ? `3px solid #ffd700` : `2px solid ${isUnlocked ? enemyColor : '#333'}`,
+                  background: isUnlocked
+                    ? isNext
+                      ? `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`
+                      : isCompleted
+                        ? `linear-gradient(135deg, ${enemyColor}44, ${enemyAccent}33)`
+                        : 'rgba(30, 30, 50, 0.8)'
+                    : '#1a1a2a',
+                  color: isUnlocked ? '#fff' : '#555',
+                  cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                  boxShadow: isNext ? `0 0 20px ${enemyColor}66` : 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+                onMouseEnter={e => isUnlocked && (e.currentTarget.style.transform = 'scale(1.08)')}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {isUnlocked ? (
+                  <>
+                    <span style={{ fontSize: '22px', fontWeight: 'bold' }}>{level}</span>
+                    <div style={{ fontSize: '14px', letterSpacing: '-1px' }}>
+                      {[1, 2, 3].map(s => (
+                        <span key={s} style={{ color: s <= levelData.stars ? '#ffd700' : '#444' }}>★</span>
+                      ))}
+                    </div>
+                    {levelData.bestScore > 0 && (
+                      <span style={{ fontSize: '9px', color: '#888' }}>{levelData.bestScore}</span>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ fontSize: '24px' }}>🔒</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {hasVictory && canContinue && (
+            <button
+              onClick={() => startLevel(nextLevel, false)}
+              style={{
+                padding: '14px 32px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                background: `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`,
+                border: 'none',
+                borderRadius: '10px',
+                color: '#fff',
+                cursor: 'pointer',
+                boxShadow: `0 4px 20px ${enemyColor}44`,
+              }}
+            >
+              Continue to Level {nextLevel} →
+            </button>
+          )}
+          {!hasVictory && (
+            <button
+              onClick={() => startLevel(highestLevel, true)}
+              style={{
+                padding: '14px 32px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                background: `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`,
+                border: 'none',
+                borderRadius: '10px',
+                color: '#fff',
+                cursor: 'pointer',
+                boxShadow: `0 4px 20px ${enemyColor}44`,
+              }}
+            >
+              {highestLevel === 1 ? 'Start Game' : `Continue Level ${highestLevel}`}
+            </button>
+          )}
+          <button
+            onClick={() => setGameState('select')}
+            style={{
+              padding: '14px 24px',
+              fontSize: '14px',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '10px',
+              color: '#aaa',
+              cursor: 'pointer',
+            }}
+          >
+            ← Back to Enemies
+          </button>
+          <button
+            onClick={() => setGameState('menu')}
+            style={{
+              padding: '14px 24px',
+              fontSize: '14px',
+              background: 'transparent',
+              border: '1px solid #444',
+              borderRadius: '10px',
+              color: '#666',
+              cursor: 'pointer',
+            }}
+          >
+            Main Menu
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderGameOver = () => (
     <div style={{
@@ -2856,6 +3167,7 @@ const BreakoutGame = () => {
       {gameState === 'menu' && renderMenu()}
       {gameState === 'select' && renderEnemySelect()}
       {gameState === 'shop' && renderShop()}
+      {gameState === 'levelSelect' && renderLevelSelect()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>
