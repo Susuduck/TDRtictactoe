@@ -6,6 +6,7 @@ const BreakoutGame = () => {
   const CANVAS_HEIGHT = 1000;
   const PADDLE_WIDTH = 200;
   const PADDLE_HEIGHT = 24;
+  const PADDLE_OFFSET_BOTTOM = 20; // Distance from bottom of canvas
   const BALL_RADIUS = 16;
   const BRICK_ROWS = 6;
   const BRICK_COLS = 10;
@@ -13,7 +14,8 @@ const BreakoutGame = () => {
   const BRICK_HEIGHT = 40;
   const BRICK_PADDING = 8;
   const BRICK_OFFSET_TOP = 120;
-  const BRICK_OFFSET_LEFT = 54;
+  // Center bricks: (1200 - (10 * 108 + 9 * 8)) / 2 = 24
+  const BRICK_OFFSET_LEFT = 24;
   const DASH_SPEED = 50;
   const DASH_COOLDOWN = 800;
   const TEDDY_METER_MAX = 100;
@@ -1020,7 +1022,7 @@ const BreakoutGame = () => {
           const paddleSnapshot = paddleRef.current;
 
           // Paddle collision (main paddle)
-          if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+          if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM &&
               y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
               x >= paddleSnapshot.x && x <= paddleSnapshot.x + paddleSnapshot.width) {
 
@@ -1033,7 +1035,7 @@ const BreakoutGame = () => {
             const spinFactor = paddleSnapshot.vx * 0.15; // Paddle velocity affects ball
             vx = Math.sin(angle) * speed + spinFactor;
             vy = -Math.abs(Math.cos(angle) * speed);
-            y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
+            y = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS;
 
             // Magnet catch (from upgrade or power-up or enemy gimmick)
             const hasMagnet = stats.upgrades.magnetCatch ||
@@ -1062,7 +1064,7 @@ const BreakoutGame = () => {
           if (twinPaddle?.active) {
             // Twin is mirrored on opposite side
             const twinX = CANVAS_WIDTH - paddleSnapshot.x - paddleSnapshot.width;
-            if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+            if (y + BALL_RADIUS >= CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM &&
                 y + BALL_RADIUS <= CANVAS_HEIGHT - 10 &&
                 x >= twinX && x <= twinX + paddleSnapshot.width) {
 
@@ -1072,7 +1074,7 @@ const BreakoutGame = () => {
 
               vx = Math.sin(angle) * speed - (paddleSnapshot.vx * 0.15); // Inverse spin
               vy = -Math.abs(Math.cos(angle) * speed);
-              y = CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS;
+              y = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS;
 
               createParticles(x, y, '#ff80ff', 8);
             }
@@ -1306,7 +1308,7 @@ const BreakoutGame = () => {
           .map(pu => ({ ...pu, y: pu.y + pu.vy * deltaTime }))
           .filter(pu => {
             // Check paddle collision
-            if (pu.y + 15 >= CANVAS_HEIGHT - PADDLE_HEIGHT - 10 &&
+            if (pu.y + 30 >= CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM &&
                 currentPaddle &&
                 pu.x >= currentPaddle.x && pu.x <= currentPaddle.x + currentPaddle.width) {
 
@@ -1537,7 +1539,7 @@ const BreakoutGame = () => {
     return {
       id: Date.now(),
       x: ballX,
-      y: CANVAS_HEIGHT - PADDLE_HEIGHT - 40 - BALL_RADIUS,
+      y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS,
       vx: (Math.random() - 0.5) * 8,
       vy: -totalSpeed,
       attached: true,
@@ -2006,7 +2008,7 @@ const BreakoutGame = () => {
             style={{
               position: 'absolute',
               left: ball.attached ? paddle.x + paddle.width / 2 - BALL_RADIUS : ball.x - BALL_RADIUS,
-              top: ball.attached ? CANVAS_HEIGHT - PADDLE_HEIGHT - 10 - BALL_RADIUS * 2 : ball.y - BALL_RADIUS,
+              top: ball.attached ? CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS * 2 : ball.y - BALL_RADIUS,
               width: BALL_RADIUS * 2,
               height: BALL_RADIUS * 2,
               background: ball.mega
@@ -2034,7 +2036,7 @@ const BreakoutGame = () => {
         <div style={{
           position: 'absolute',
           left: paddle.x,
-          top: CANVAS_HEIGHT - PADDLE_HEIGHT - 10,
+          top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
           width: paddle.width,
           height: PADDLE_HEIGHT,
           background: activeEffects.includes('frozen')
@@ -2060,7 +2062,7 @@ const BreakoutGame = () => {
           <div style={{
             position: 'absolute',
             left: CANVAS_WIDTH - paddle.x - paddle.width,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - 10,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
             width: paddle.width,
             height: PADDLE_HEIGHT,
             background: 'linear-gradient(180deg, #ff80ff, #c060c0)',
