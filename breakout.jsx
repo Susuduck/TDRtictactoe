@@ -2809,6 +2809,78 @@ const BreakoutGame = () => {
     </div>
   );
 
+  // Generate mini preview grid for a level
+  const renderLevelPreview = (level, color, isLocked) => {
+    const PREVIEW_ROWS = 5;
+    const PREVIEW_COLS = 10;
+
+    // Layout patterns matching createBricks
+    const layoutPatterns = [
+      () => true, // Full grid
+      (r, c) => (r + c) % 2 === 0, // Checkerboard
+      (r, c) => r < 4, // Top heavy
+      (r, c) => Math.abs(c - 4.5) < (PREVIEW_ROWS - r), // Pyramid
+      (r, c) => r === 0 || r === PREVIEW_ROWS - 1 || c === 0 || c === PREVIEW_COLS - 1, // Border
+      (r, c) => (r < 2) || (r >= 4), // Gap in middle
+      (r, c) => Math.abs(r - 2.5) + Math.abs(c - 4.5) < 5, // Diamond
+      (r, c) => c < 3 || c > 6, // Side columns
+    ];
+
+    // Obstacle patterns
+    const obstaclePatterns = [
+      [],
+      [{r: 3, c: 3}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 3, c: 6}],
+      [{r: 1, c: 2}, {r: 2, c: 2}, {r: 3, c: 2}, {r: 1, c: 7}, {r: 2, c: 7}, {r: 3, c: 7}],
+      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 2}, {r: 4, c: 7}],
+      [{r: 2, c: 0}, {r: 2, c: 1}, {r: 2, c: 2}, {r: 2, c: 7}, {r: 2, c: 8}, {r: 2, c: 9}],
+      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
+      [{r: 1, c: 3}, {r: 2, c: 3}, {r: 3, c: 3}, {r: 1, c: 6}, {r: 2, c: 6}, {r: 4, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
+      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 1, c: 4}, {r: 1, c: 5}, {r: 2, c: 3}, {r: 2, c: 6}],
+    ];
+
+    const layoutPattern = layoutPatterns[(level - 1) % layoutPatterns.length];
+    const obstacles = obstaclePatterns[(level - 1) % obstaclePatterns.length] || [];
+    const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
+
+    const cells = [];
+    for (let r = 0; r < PREVIEW_ROWS; r++) {
+      for (let c = 0; c < PREVIEW_COLS; c++) {
+        const isObstacle = obstacleSet.has(`${r}-${c}`);
+        const hasBrick = layoutPattern(r, c);
+
+        let cellColor = 'transparent';
+        if (isObstacle) {
+          cellColor = isLocked ? '#222' : '#4a4a6e';
+        } else if (hasBrick) {
+          cellColor = isLocked ? '#1a1a1a' : color;
+        }
+
+        cells.push(
+          <div key={`${r}-${c}`} style={{
+            width: '6px',
+            height: '4px',
+            background: cellColor,
+            borderRadius: '1px',
+            opacity: isLocked ? 0.3 : (isObstacle ? 1 : 0.7 + (PREVIEW_ROWS - r) * 0.06),
+          }} />
+        );
+      }
+    }
+
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${PREVIEW_COLS}, 6px)`,
+        gap: '1px',
+        padding: '4px',
+        background: 'rgba(0,0,0,0.3)',
+        borderRadius: '6px',
+      }}>
+        {cells}
+      </div>
+    );
+  };
+
   // Level Select Screen
   const renderLevelSelect = () => {
     const enemyId = selectedEnemy?.id || 'unknown';
@@ -2975,7 +3047,7 @@ const BreakoutGame = () => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '15px',
+          gap: '16px',
           marginBottom: '30px',
           padding: '25px',
           background: 'rgba(0,0,0,0.2)',
@@ -2995,48 +3067,55 @@ const BreakoutGame = () => {
                 onClick={() => isUnlocked && startLevel(level, !hasVictory || level !== nextLevel)}
                 disabled={!isUnlocked}
                 style={{
-                  width: '90px',
-                  height: '100px',
-                  borderRadius: '16px',
+                  width: '105px',
+                  height: '130px',
+                  borderRadius: '14px',
                   border: 'none',
+                  padding: '0',
                   background: isUnlocked
-                    ? isNext
-                      ? `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`
-                      : isCompleted
-                        ? `linear-gradient(180deg, #2a3a5a 0%, #1a2a4a 100%)`
-                        : `linear-gradient(180deg, #252535 0%, #1a1a2a 100%)`
-                    : `linear-gradient(180deg, #151520 0%, #0a0a10 100%)`,
+                    ? `linear-gradient(180deg, #1e2235 0%, #151825 100%)`
+                    : `linear-gradient(180deg, #111318 0%, #0a0c10 100%)`,
                   color: isUnlocked ? '#fff' : '#333',
                   cursor: isUnlocked ? 'pointer' : 'not-allowed',
                   transition: 'all 0.2s ease',
                   boxShadow: isNext
-                    ? `0 0 25px ${enemyColor}88, inset 0 1px 0 rgba(255,255,255,0.2)`
+                    ? `0 0 25px ${enemyColor}66, 0 4px 15px rgba(0,0,0,0.4)`
                     : isUnlocked
-                      ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 15px rgba(0,0,0,0.3)'
+                      ? '0 4px 15px rgba(0,0,0,0.3)'
                       : 'inset 0 -2px 5px rgba(0,0,0,0.5)',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
                   position: 'relative',
                   overflow: 'hidden',
                 }}
                 onMouseEnter={e => {
                   if (isUnlocked) {
-                    e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
-                    e.currentTarget.style.boxShadow = `0 8px 30px ${enemyColor}66, inset 0 1px 0 rgba(255,255,255,0.3)`;
+                    e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
+                    e.currentTarget.style.boxShadow = `0 12px 35px ${enemyColor}55, 0 8px 20px rgba(0,0,0,0.4)`;
                   }
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.transform = 'translateY(0) scale(1)';
                   e.currentTarget.style.boxShadow = isNext
-                    ? `0 0 25px ${enemyColor}88, inset 0 1px 0 rgba(255,255,255,0.2)`
+                    ? `0 0 25px ${enemyColor}66, 0 4px 15px rgba(0,0,0,0.4)`
                     : isUnlocked
-                      ? 'inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 15px rgba(0,0,0,0.3)'
+                      ? '0 4px 15px rgba(0,0,0,0.3)'
                       : 'inset 0 -2px 5px rgba(0,0,0,0.5)';
                 }}
               >
+                {/* Top accent bar */}
+                <div style={{
+                  width: '100%',
+                  height: '3px',
+                  background: isNext
+                    ? `linear-gradient(90deg, ${enemyColor}, ${enemyAccent})`
+                    : isCompleted
+                      ? `linear-gradient(90deg, ${enemyColor}88, ${enemyAccent}66)`
+                      : 'rgba(255,255,255,0.1)',
+                  boxShadow: isNext ? `0 0 10px ${enemyColor}` : 'none',
+                }} />
+
                 {/* Shine effect for next level */}
                 {isNext && (
                   <div style={{
@@ -3045,43 +3124,90 @@ const BreakoutGame = () => {
                     left: '-100%',
                     width: '100%',
                     height: '100%',
-                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
                     animation: 'shine 2s infinite',
                   }} />
                 )}
+
                 {isUnlocked ? (
-                  <>
-                    <span style={{
-                      fontSize: '28px',
-                      fontWeight: '800',
-                      textShadow: isNext ? '0 2px 10px rgba(0,0,0,0.5)' : 'none',
-                    }}>{level}</span>
-                    <div style={{ display: 'flex', gap: '2px' }}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '8px 6px 10px',
+                    width: '100%',
+                  }}>
+                    {/* Level number */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      marginBottom: '6px',
+                      padding: '0 4px',
+                    }}>
+                      <span style={{
+                        fontSize: '11px',
+                        color: '#666',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}>Level</span>
+                      <span style={{
+                        fontSize: '18px',
+                        fontWeight: '800',
+                        color: isNext ? '#fff' : enemyColor,
+                        textShadow: isNext ? `0 0 10px ${enemyColor}` : 'none',
+                      }}>{level}</span>
+                    </div>
+
+                    {/* Mini preview */}
+                    {renderLevelPreview(level, isNext ? '#fff' : enemyColor, false)}
+
+                    {/* Stars */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '3px',
+                      marginTop: '8px',
+                    }}>
                       {[1, 2, 3].map(s => (
                         <span key={s} style={{
-                          fontSize: '16px',
+                          fontSize: '14px',
                           color: s <= stars ? '#ffd700' : 'rgba(255,255,255,0.15)',
-                          textShadow: s <= stars ? '0 0 8px #ffd700' : 'none',
+                          textShadow: s <= stars ? '0 0 6px #ffd700' : 'none',
                         }}>★</span>
                       ))}
                     </div>
-                    {levelData.bestScore > 0 && (
-                      <span style={{
-                        fontSize: '10px',
-                        color: 'rgba(255,255,255,0.5)',
-                        fontWeight: '600',
-                      }}>{levelData.bestScore} pts</span>
-                    )}
-                  </>
+                  </div>
                 ) : (
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '4px',
+                    padding: '8px 6px 10px',
+                    width: '100%',
+                    opacity: 0.5,
                   }}>
-                    <span style={{ fontSize: '28px', opacity: 0.5 }}>🔒</span>
-                    <span style={{ fontSize: '10px', color: '#444' }}>Locked</span>
+                    {/* Level number */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      marginBottom: '6px',
+                      padding: '0 4px',
+                    }}>
+                      <span style={{ fontSize: '11px', color: '#444' }}>Level</span>
+                      <span style={{ fontSize: '18px', fontWeight: '800', color: '#444' }}>{level}</span>
+                    </div>
+
+                    {/* Locked preview */}
+                    {renderLevelPreview(level, '#333', true)}
+
+                    {/* Lock icon */}
+                    <div style={{
+                      marginTop: '6px',
+                      fontSize: '16px',
+                    }}>🔒</div>
                   </div>
                 )}
               </button>
