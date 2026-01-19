@@ -1,25 +1,25 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const BreakoutGame = () => {
-  // Game constants - 2x size
+  // Game constants - 2x canvas with properly scaled elements
   const CANVAS_WIDTH = 1200;
   const CANVAS_HEIGHT = 1000;
-  const PADDLE_WIDTH = 200;
-  const PADDLE_HEIGHT = 24;
-  const PADDLE_OFFSET_BOTTOM = 20; // Distance from bottom of canvas
-  const BALL_RADIUS = 16;
+  const PADDLE_WIDTH = 160;
+  const PADDLE_HEIGHT = 20;
+  const PADDLE_OFFSET_BOTTOM = 30; // Distance from bottom of canvas
+  const BALL_RADIUS = 12;
   const BRICK_ROWS = 6;
   const BRICK_COLS = 10;
-  const BRICK_WIDTH = 108;
-  const BRICK_HEIGHT = 40;
-  const BRICK_PADDING = 8;
-  const BRICK_OFFSET_TOP = 120;
-  // Center bricks: (1200 - (10 * 108 + 9 * 8)) / 2 = 24
-  const BRICK_OFFSET_LEFT = 24;
-  const DASH_SPEED = 50;
+  // Bricks sized to fit nicely: 10*100 + 9*6 = 1054, centered in 1200
+  const BRICK_WIDTH = 100;
+  const BRICK_HEIGHT = 30;
+  const BRICK_PADDING = 6;
+  const BRICK_OFFSET_TOP = 100;
+  const BRICK_OFFSET_LEFT = 73; // (1200 - 1054) / 2
+  const DASH_SPEED = 40;
   const DASH_COOLDOWN = 800;
   const TEDDY_METER_MAX = 100;
-  const KEYBOARD_SPEED = 16; // Base keyboard movement speed
+  const KEYBOARD_SPEED = 14; // Base keyboard movement speed
 
   // Game state
   const [gameState, setGameState] = useState('menu');
