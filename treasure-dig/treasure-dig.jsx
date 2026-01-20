@@ -24,6 +24,120 @@ const TreasureDig = () => {
         treasure: '#ffd700', gem: '#44ffaa', decoy: '#ff4488'
     };
 
+    // World themes - visual and gameplay elements for each world
+    const worldThemes = {
+        0: { // Frog - Swamp
+            name: 'Murky Swamp',
+            tileBase: '#4a5a3a', tileDug: '#3a4a2a', tileAccent: '#2a5a6a',
+            tileSpecial: '#2a6a7a', specialBorder: '#4a8a9a',
+            bgGradient: ['#1a2a1a', '#2a3a2a', '#1a3a3a'],
+            bgPattern: 'swamp',
+            specialTile: 'water', specialEmoji: '💧', specialName: 'Water Lily',
+            specialDesc: 'Dig adjacent tiles first to drain',
+            ambientEmojis: ['🌿', '🪷', '🐸', '🦟'],
+            variation: { early: 'Shallow Pond', late: 'Deep Swamp', lateMultiplier: 1.5 }
+        },
+        1: { // Chicken - Farm
+            name: 'Sunny Farm',
+            tileBase: '#9b8365', tileDug: '#7b6345', tileAccent: '#c9b277',
+            tileSpecial: '#d4a030', specialBorder: '#e8b840',
+            bgGradient: ['#2a2515', '#3a3520', '#4a4025'],
+            bgPattern: 'farm',
+            specialTile: 'nest', specialEmoji: '🥚', specialName: 'Hidden Nest',
+            specialDesc: 'Eggs give +25 points or +1 dig',
+            ambientEmojis: ['🌾', '🌻', '🐔', '🌽'],
+            variation: { early: 'Daytime Fields', late: 'Sunset Barn', lateMultiplier: 1.3 }
+        },
+        2: { // Dinosaur - Prehistoric
+            name: 'Prehistoric Jungle',
+            tileBase: '#6a5a4a', tileDug: '#4a3a2a', tileAccent: '#7a6a5a',
+            tileSpecial: '#a08a6a', specialBorder: '#c0a080',
+            bgGradient: ['#1a2015', '#2a3020', '#3a2a1a'],
+            bgPattern: 'jungle',
+            specialTile: 'fossil', specialEmoji: '🦴', specialName: 'Ancient Fossil',
+            specialDesc: 'Shows distance to ALL treasures',
+            ambientEmojis: ['🌴', '🦕', '🌋', '🥚'],
+            variation: { early: 'Fern Valley', late: 'Volcanic Ridge', lateMultiplier: 1.4 }
+        },
+        3: { // Raccoon - Urban
+            name: 'Urban Night',
+            tileBase: '#4a4a55', tileDug: '#3a3a45', tileAccent: '#5a5a65',
+            tileSpecial: '#f0e068', specialBorder: '#ffee88',
+            bgGradient: ['#15151a', '#1a1a22', '#202028'],
+            bgPattern: 'urban',
+            specialTile: 'spotlight', specialEmoji: '💡', specialName: 'Street Light',
+            specialDesc: 'Reveals 3x3 area permanently',
+            ambientEmojis: ['🏙️', '🗑️', '🦝', '🚗'],
+            variation: { early: 'Back Alley', late: 'Underground', lateMultiplier: 1.5 }
+        },
+        4: { // Eel - Underwater
+            name: 'Ocean Depths',
+            tileBase: '#3a5a6a', tileDug: '#2a4a5a', tileAccent: '#4a6a7a',
+            tileSpecial: '#5090b0', specialBorder: '#60a0c0',
+            bgGradient: ['#0a1a2a', '#1a2a3a', '#0a2a4a'],
+            bgPattern: 'underwater',
+            specialTile: 'current', specialEmoji: '🌊', specialName: 'Ocean Current',
+            specialDesc: 'Shifts items in arrow direction',
+            ambientEmojis: ['🐠', '🪸', '🫧', '🦑'],
+            variation: { early: 'Coral Reef', late: 'Abyssal Depths', lateMultiplier: 1.6 }
+        },
+        5: { // Moth - Forest
+            name: 'Enchanted Forest',
+            tileBase: '#4a5040', tileDug: '#3a4030', tileAccent: '#5a6050',
+            tileSpecial: '#70b070', specialBorder: '#90d090',
+            bgGradient: ['#151a15', '#1a2018', '#18221a'],
+            bgPattern: 'forest',
+            specialTile: 'firefly', specialEmoji: '✨', specialName: 'Firefly Swarm',
+            specialDesc: 'Reveals random nearby tiles briefly',
+            ambientEmojis: ['🍄', '🦋', '🌙', '🦉'],
+            variation: { early: 'Twilight Grove', late: 'Midnight Hollow', lateMultiplier: 1.4 }
+        },
+        6: { // Penguin - Arctic
+            name: 'Frozen Tundra',
+            tileBase: '#8aa8c0', tileDug: '#6a88a0', tileAccent: '#9ab8d0',
+            tileSpecial: '#b0e0f0', specialBorder: '#c0f0ff',
+            bgGradient: ['#1a2530', '#202a38', '#283040'],
+            bgPattern: 'arctic',
+            specialTile: 'slide', specialEmoji: '⛷️', specialName: 'Ice Slide',
+            specialDesc: 'Dig slides to next tile automatically',
+            ambientEmojis: ['❄️', '🐧', '🏔️', '🌨️'],
+            variation: { early: 'Ice Shelf', late: 'Crystal Cavern', lateMultiplier: 1.3 }
+        },
+        7: { // Snake - Desert
+            name: 'Desert Temple',
+            tileBase: '#c8a870', tileDug: '#a8884a', tileAccent: '#d8b880',
+            tileSpecial: '#e0c060', specialBorder: '#f0d070',
+            bgGradient: ['#2a2015', '#3a3020', '#4a3a25'],
+            bgPattern: 'desert',
+            specialTile: 'quicksand', specialEmoji: '⏳', specialName: 'Quicksand',
+            specialDesc: 'Wastes dig - no information gained',
+            ambientEmojis: ['🏜️', '🐍', '🏛️', '🦂'],
+            variation: { early: 'Sandy Dunes', late: 'Ancient Temple', lateMultiplier: 1.5 }
+        },
+        8: { // Wolf - Cave
+            name: 'Crystal Cave',
+            tileBase: '#5a5a6a', tileDug: '#4a4a5a', tileAccent: '#6a6a7a',
+            tileSpecial: '#8080c0', specialBorder: '#a0a0e0',
+            bgGradient: ['#12121a', '#1a1a25', '#151520'],
+            bgPattern: 'cave',
+            specialTile: 'echo', specialEmoji: '🔊', specialName: 'Echo Crystal',
+            specialDesc: 'Reveals if treasure in row OR column',
+            ambientEmojis: ['💎', '🐺', '🦇', '🕯️'],
+            variation: { early: 'Cave Entrance', late: 'Deep Cavern', lateMultiplier: 1.4 }
+        },
+        9: { // Grizzly - Vault
+            name: 'Royal Vault',
+            tileBase: '#7a6a50', tileDug: '#5a4a30', tileAccent: '#8a7a60',
+            tileSpecial: '#d4af37', specialBorder: '#f4cf57',
+            bgGradient: ['#1a1510', '#2a2015', '#35281a'],
+            bgPattern: 'vault',
+            specialTile: 'mirror', specialEmoji: '🪞', specialName: 'Magic Mirror',
+            specialDesc: 'Dig reflects to opposite side too',
+            ambientEmojis: ['👑', '💰', '🏆', '💎'],
+            variation: { early: 'Outer Vault', late: 'Inner Sanctum', lateMultiplier: 1.2 }
+        }
+    };
+
     // Enhanced distance feedback with clear visual language
     const getDistanceInfo = (distance, gridSize) => {
         const maxDist = Math.sqrt(2) * gridSize;
@@ -41,12 +155,13 @@ const TreasureDig = () => {
     };
 
     // Opponents with progressive mechanics - each teaches new patterns
+    // Each world has a unique environment with themed special tiles
     const opponents = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
             title: 'The Friendly Guide',
-            mechanic: 'Learn triangulation basics - distance numbers show exactly how far!',
-            description: 'Perfect for learning! Distance numbers let you pinpoint treasures with logic.',
+            mechanic: 'Learn triangulation basics in the murky swamp!',
+            description: '💧 Water Lilies block your path - dig nearby tiles first to drain them!',
             gridSize: 6, baseDigs: 12, treasures: 1, decoys: 0,
             tools: { radar: 1, flag: 5 },
             special: [], tutorial: true
@@ -54,8 +169,8 @@ const TreasureDig = () => {
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
             title: 'The Gem Collector',
-            mechanic: 'Bonus gems scattered around - collect them for extra points and tools!',
-            description: 'Gems give bonus points and sometimes extra digs. Worth seeking out!',
+            mechanic: 'Explore the sunny farm for hidden treasures!',
+            description: '🥚 Hidden Nests contain bonus eggs - extra points or digs await!',
             gridSize: 7, baseDigs: 14, treasures: 1, decoys: 0,
             tools: { radar: 1, flag: 5 },
             special: ['gems']
@@ -63,8 +178,8 @@ const TreasureDig = () => {
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Dual Digger',
-            mechanic: 'Two treasures to find! Distance shows nearest treasure.',
-            description: 'Multiple treasures require strategic digging. Find them all!',
+            mechanic: 'Two treasures hidden in the prehistoric jungle!',
+            description: '🦴 Ancient Fossils reveal distance to ALL treasures at once!',
             gridSize: 8, baseDigs: 16, treasures: 2, decoys: 0,
             tools: { radar: 2, flag: 6, xray: 1 },
             special: ['multi']
@@ -72,8 +187,8 @@ const TreasureDig = () => {
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Trickster',
-            mechanic: 'Decoy chests look like treasure but waste your digs!',
-            description: 'Decoys show distance 0 but give no points. Use X-Ray to verify!',
+            mechanic: 'Navigate the urban night - watch for decoys!',
+            description: '💡 Street Lights illuminate 3x3 areas permanently when dug!',
             gridSize: 8, baseDigs: 15, treasures: 1, decoys: 2,
             tools: { radar: 1, flag: 6, xray: 2 },
             special: ['decoys']
@@ -81,8 +196,8 @@ const TreasureDig = () => {
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Scanner',
-            mechanic: 'Sonar reveals distance hints for nearby tiles!',
-            description: 'Strategic sonar use can reveal treasure locations efficiently.',
+            mechanic: 'Dive into the ocean depths with sonar!',
+            description: '🌊 Ocean Currents shift treasures and decoys each turn!',
             gridSize: 9, baseDigs: 14, treasures: 1, decoys: 1,
             tools: { radar: 2, flag: 6, xray: 1, sonar: 2 },
             special: ['sonar', 'decoys']
@@ -90,8 +205,8 @@ const TreasureDig = () => {
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
             title: 'The Shadow Seeker',
-            mechanic: 'Fog covers the grid - only recently dug tiles stay visible!',
-            description: 'Memory and marking are crucial. Flag tiles before fog hides them!',
+            mechanic: 'The enchanted forest hides in magical fog!',
+            description: '✨ Firefly Swarms briefly reveal distances of nearby tiles!',
             gridSize: 9, baseDigs: 16, treasures: 2, decoys: 1,
             tools: { radar: 2, flag: 10, xray: 2, lantern: 2 },
             special: ['fog', 'decoys']
@@ -99,8 +214,8 @@ const TreasureDig = () => {
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
             title: 'The Ice Scholar',
-            mechanic: 'Frozen tiles cost 2 digs to break through!',
-            description: 'Plan around frozen tiles. Sometimes going around is better than through.',
+            mechanic: 'Traverse the frozen tundra carefully!',
+            description: '⛷️ Ice Slides cause chain reactions - dig one, slide to another!',
             gridSize: 10, baseDigs: 18, treasures: 2, decoys: 2,
             tools: { radar: 2, flag: 8, xray: 2, pickaxe: 2 },
             special: ['frozen', 'decoys', 'gems']
@@ -108,8 +223,8 @@ const TreasureDig = () => {
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Shifty One',
-            mechanic: 'Treasure moves every 4 digs! Track its movement pattern.',
-            description: 'Moving treasure follows patterns. Predict where it will be!',
+            mechanic: 'The desert temple holds shifting secrets!',
+            description: '⏳ Quicksand tiles waste your dig - no information revealed!',
             gridSize: 10, baseDigs: 18, treasures: 1, decoys: 2,
             tools: { radar: 3, flag: 8, xray: 2, tracker: 1 },
             special: ['moving', 'decoys']
@@ -117,8 +232,8 @@ const TreasureDig = () => {
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Deep Digger',
-            mechanic: 'Some treasures are buried deep - need 2 digs to uncover!',
-            description: 'Deep treasures require commitment. Choose dig locations wisely.',
+            mechanic: 'Explore the crystal cave depths!',
+            description: '🔊 Echo Crystals reveal if treasure is in the same row or column!',
             gridSize: 11, baseDigs: 20, treasures: 2, decoys: 2,
             tools: { radar: 2, flag: 8, xray: 2, drill: 2 },
             special: ['deep', 'decoys', 'gems']
@@ -126,8 +241,8 @@ const TreasureDig = () => {
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Challenge',
-            mechanic: 'All mechanics combined! Master everything you have learned.',
-            description: 'The final test. Every skill, every tool, every strategy matters.',
+            mechanic: 'The royal vault - master all mechanics!',
+            description: '🪞 Magic Mirrors reflect your dig to the opposite side of the grid!',
             gridSize: 12, baseDigs: 22, treasures: 3, decoys: 3,
             tools: { radar: 3, flag: 12, xray: 3, sonar: 2, drill: 2 },
             special: ['deep', 'decoys', 'gems', 'frozen', 'moving']
@@ -207,6 +322,13 @@ const TreasureDig = () => {
     const [gemPositions, setGemPositions] = useState([]);
     const [frozenTiles, setFrozenTiles] = useState([]);
     const [deepTiles, setDeepTiles] = useState([]);
+
+    // World-themed special tiles
+    const [specialTiles, setSpecialTiles] = useState([]); // {x, y, type, activated, direction?}
+    const [illuminatedTiles, setIlluminatedTiles] = useState([]); // For spotlight reveals
+    const [ambientParticles, setAmbientParticles] = useState([]); // Floating ambient effects
+    const [currentTheme, setCurrentTheme] = useState(null); // Active world theme
+    const [isLateLevel, setIsLateLevel] = useState(false); // Levels 6-10 = "late" variant
 
     // Player state
     const [dugTiles, setDugTiles] = useState([]);
@@ -368,12 +490,51 @@ const TreasureDig = () => {
             : [];
         setDeepTiles(deep);
 
+        // Set world theme
+        const worldTheme = worldThemes[opp.id] || worldThemes[0];
+        setCurrentTheme(worldTheme);
+        const lateLevel = level >= 6;
+        setIsLateLevel(lateLevel);
+
+        // Place world-themed special tiles (more in late levels)
+        const specialCount = Math.floor(size * size * (lateLevel ? 0.08 : 0.05));
+        const excludeFromSpecial = [...treasures, ...decoys, ...gems];
+        const specialPositions = placeItemsSmart(size, specialCount, excludeFromSpecial, 1);
+
+        // Add direction for current tiles, type info for all
+        const specials = specialPositions.map((pos, idx) => ({
+            ...pos,
+            type: worldTheme.specialTile,
+            activated: false,
+            // Direction for current tiles (arrows)
+            direction: worldTheme.specialTile === 'current'
+                ? ['up', 'down', 'left', 'right'][idx % 4]
+                : null
+        }));
+        setSpecialTiles(specials);
+        setIlluminatedTiles([]);
+
+        // Initialize ambient particles for visual flair
+        const particles = [];
+        for (let i = 0; i < 8; i++) {
+            particles.push({
+                id: i,
+                x: Math.random() * 100,
+                y: Math.random() * 100,
+                emoji: worldTheme.ambientEmojis[i % worldTheme.ambientEmojis.length],
+                speed: 0.5 + Math.random() * 1,
+                drift: (Math.random() - 0.5) * 2
+            });
+        }
+        setAmbientParticles(particles);
+
         // Initialize grid data
         const newGrid = [];
         for (let y = 0; y < size; y++) {
             const row = [];
             for (let x = 0; x < size; x++) {
                 const isDeep = deep.some(d => d.x === x && d.y === y);
+                const special = specials.find(s => s.x === x && s.y === y);
                 row.push({
                     x, y,
                     dug: false,
@@ -382,7 +543,9 @@ const TreasureDig = () => {
                     distance: null,
                     distanceInfo: null,
                     flagged: false,
-                    revealed: false
+                    revealed: false,
+                    specialType: special?.type || null,
+                    specialDirection: special?.direction || null
                 });
             }
             newGrid.push(row);
@@ -603,6 +766,147 @@ const TreasureDig = () => {
         setTimeout(() => setSonarTiles([]), 3000);
     }, [tools, gridSize, treasurePositions, getMinTreasureDistance, addHitEffect, triggerShake]);
 
+    // Handle special tile effects (world-themed mechanics)
+    const handleSpecialTile = useCallback((x, y, tile) => {
+        if (!tile.specialType || !currentTheme) return { canDig: true, extraEffect: null };
+
+        const specialType = tile.specialType;
+
+        switch (specialType) {
+            case 'water': {
+                // Water tiles need adjacent tiles dug first to "drain"
+                const adjacentDug = [
+                    { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+                    { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
+                ].some(({ dx, dy }) => {
+                    const nx = x + dx, ny = y + dy;
+                    return nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize && grid[ny]?.[nx]?.dug;
+                });
+                if (!adjacentDug) {
+                    addHitEffect(x, y, '💧 Drain nearby first!', 'info');
+                    return { canDig: false, extraEffect: null };
+                }
+                return { canDig: true, extraEffect: 'drained' };
+            }
+
+            case 'quicksand': {
+                // Quicksand wastes the dig - no info revealed
+                addHitEffect(x, y, '⏳ Quicksand! Dig wasted!', 'error');
+                triggerShake(0.8);
+                return { canDig: true, extraEffect: 'quicksand' }; // Dig consumed but no info
+            }
+
+            case 'nest': {
+                // Nest gives bonus - points or extra dig
+                const bonus = Math.random() > 0.5 ? 'dig' : 'points';
+                if (bonus === 'dig') {
+                    setDigsRemaining(d => d + 1);
+                    addHitEffect(x, y, '🥚 +1 DIG!', 'gem');
+                } else {
+                    setScore(s => s + 25);
+                    addHitEffect(x, y, '🥚 +25 points!', 'gem');
+                }
+                return { canDig: true, extraEffect: 'nest' };
+            }
+
+            case 'fossil': {
+                // Fossil shows distance to ALL treasures
+                const allDistances = treasurePositions.map(t =>
+                    Math.round(getDistance(x, y, t.x, t.y) * 10) / 10
+                );
+                if (allDistances.length > 0) {
+                    addHitEffect(x, y, `🦴 All: ${allDistances.join(', ')}`, 'info');
+                }
+                return { canDig: true, extraEffect: 'fossil' };
+            }
+
+            case 'spotlight': {
+                // Spotlight illuminates 3x3 permanently
+                const illuminated = [];
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+                            illuminated.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+                setIlluminatedTiles(prev => [...prev, ...illuminated]);
+                addHitEffect(x, y, '💡 Area revealed!', 'info');
+                return { canDig: true, extraEffect: 'spotlight' };
+            }
+
+            case 'firefly': {
+                // Firefly briefly reveals random nearby tiles
+                const nearbyTiles = [];
+                for (let dy = -2; dy <= 2; dy++) {
+                    for (let dx = -2; dx <= 2; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize && !grid[ny]?.[nx]?.dug) {
+                            nearbyTiles.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+                // Reveal 3 random nearby tiles briefly via sonar display
+                const shuffled = nearbyTiles.sort(() => Math.random() - 0.5).slice(0, 3);
+                const reveals = shuffled.map(pos => {
+                    const dist = getMinTreasureDistance(pos.x, pos.y, treasurePositions);
+                    return { ...pos, distance: dist, info: getDistanceInfo(dist, gridSize) };
+                });
+                setSonarTiles(reveals);
+                setTimeout(() => setSonarTiles([]), 2500);
+                addHitEffect(x, y, '✨ Fireflies reveal!', 'info');
+                return { canDig: true, extraEffect: 'firefly' };
+            }
+
+            case 'slide': {
+                // Slide chains to next tile in a random direction
+                const directions = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+                const dir = directions[Math.floor(Math.random() * 4)];
+                const slideX = x + dir.dx, slideY = y + dir.dy;
+                if (slideX >= 0 && slideX < gridSize && slideY >= 0 && slideY < gridSize && !grid[slideY]?.[slideX]?.dug) {
+                    addHitEffect(x, y, '⛷️ Sliding!', 'info');
+                    // Queue the slide dig (handled after this dig completes)
+                    setTimeout(() => handleDig(slideX, slideY), 300);
+                }
+                return { canDig: true, extraEffect: 'slide' };
+            }
+
+            case 'echo': {
+                // Echo reveals if treasure is in this row OR column
+                const inRow = treasurePositions.some(t => t.y === y);
+                const inCol = treasurePositions.some(t => t.x === x);
+                const msg = inRow && inCol ? '🔊 Echo: ROW & COL!' :
+                           inRow ? '🔊 Echo: in ROW!' :
+                           inCol ? '🔊 Echo: in COLUMN!' :
+                           '🔊 Echo: neither...';
+                addHitEffect(x, y, msg, inRow || inCol ? 'treasure' : 'info');
+                return { canDig: true, extraEffect: 'echo' };
+            }
+
+            case 'mirror': {
+                // Mirror reflects dig to opposite side
+                const mirrorX = gridSize - 1 - x;
+                const mirrorY = gridSize - 1 - y;
+                if (!grid[mirrorY]?.[mirrorX]?.dug) {
+                    addHitEffect(x, y, '🪞 Mirrored!', 'info');
+                    setTimeout(() => handleDig(mirrorX, mirrorY), 300);
+                }
+                return { canDig: true, extraEffect: 'mirror' };
+            }
+
+            case 'current': {
+                // Current tiles are visual indicators - they shift items periodically
+                // The shifting is handled elsewhere, this just marks the tile
+                return { canDig: true, extraEffect: 'current' };
+            }
+
+            default:
+                return { canDig: true, extraEffect: null };
+        }
+    }, [currentTheme, grid, gridSize, treasurePositions, getMinTreasureDistance, addHitEffect, triggerShake]);
+
     // Handle flag toggle
     const handleFlag = useCallback((x, y) => {
         const tile = grid[y]?.[x];
@@ -659,6 +963,12 @@ const TreasureDig = () => {
         // Check if already fully dug
         if (tile.dug && tile.dugDepth >= tile.requiredDepth) return;
 
+        // Handle special tile pre-check (water blocking, etc.)
+        const specialResult = handleSpecialTile(x, y, tile);
+        if (!specialResult.canDig) {
+            return; // Special tile blocked the dig (e.g., water not drained)
+        }
+
         // Check frozen tile cost
         const isFrozen = frozenTiles.some(f => f.x === x && f.y === y) && !tile.dug;
         const digCost = isFrozen ? 2 : 1;
@@ -670,6 +980,19 @@ const TreasureDig = () => {
 
         // Deduct digs
         setDigsRemaining(d => d - digCost);
+
+        // Handle quicksand - dig is consumed but no info revealed
+        if (specialResult.extraEffect === 'quicksand') {
+            setDugTiles(d => [...d, { x, y }]);
+            setGrid(g => {
+                const newGrid = [...g];
+                newGrid[y] = [...newGrid[y]];
+                newGrid[y][x] = { ...tile, dug: true, dugDepth: 1, distance: '?', distanceInfo: { color: '#888', label: 'Lost!', emoji: '⏳', tier: 9 } };
+                return newGrid;
+            });
+            setMoveHistory(h => [...h, { x, y, time: Date.now() }]);
+            return; // No further processing
+        }
 
         // Track move
         setMoveHistory(h => [...h, { x, y, time: Date.now() }]);
@@ -792,7 +1115,7 @@ const TreasureDig = () => {
     }, [gameState, digsRemaining, grid, activeTool, frozenTiles, treasurePositions,
         decoyPositions, gemPositions, gridSize, combo, maxCombo, moveHistory,
         selectedOpponent, getMinTreasureDistance, getMinDecoyDistance,
-        handleRadar, handleXRay, handleSonar, handleFlag, moveTreasure,
+        handleRadar, handleXRay, handleSonar, handleFlag, handleSpecialTile, moveTreasure,
         addHitEffect, triggerShake]);
 
     // Hint system
@@ -1560,15 +1883,58 @@ const TreasureDig = () => {
         const hasFog = opp?.special.includes('fog');
         const treasureCount = levelConfig?.treasures || opp?.treasures || 1;
 
+        // Get world theme for background
+        const wTheme = currentTheme || worldThemes[opp?.id || 0];
+        const bgColors = wTheme?.bgGradient || [theme.bg, theme.bgPanel, theme.bg];
+        const levelVariation = isLateLevel ? wTheme?.variation?.late : wTheme?.variation?.early;
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${opp?.color || theme.accent}12 100%)`,
+                background: `linear-gradient(135deg, ${bgColors[0]} 0%, ${bgColors[1]} 50%, ${bgColors[2]} 100%)`,
                 display: 'flex', flexDirection: 'column',
                 padding: '15px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(3px)' : 'none',
-                transition: 'transform 0.05s'
+                transition: 'transform 0.05s',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
+                {/* Ambient floating particles */}
+                {ambientParticles.map((p, idx) => (
+                    <div
+                        key={p.id}
+                        style={{
+                            position: 'absolute',
+                            left: `${p.x}%`,
+                            top: `${p.y}%`,
+                            fontSize: '20px',
+                            opacity: 0.15 + (idx % 3) * 0.1,
+                            pointerEvents: 'none',
+                            animation: `float-${idx % 3} ${8 + p.speed * 4}s infinite ease-in-out`,
+                            zIndex: 0
+                        }}
+                    >
+                        {p.emoji}
+                    </div>
+                ))}
+
+                {/* World/Level indicator */}
+                <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: `${wTheme.bgGradient[1]}cc`,
+                    padding: '4px 15px',
+                    borderRadius: '15px',
+                    fontSize: '11px',
+                    color: theme.textMuted,
+                    zIndex: 1,
+                    border: `1px solid ${wTheme.tileAccent}44`
+                }}>
+                    {wTheme.name} • {levelVariation}
+                </div>
+
                 {/* Tutorial overlay */}
                 {showTutorial && <TutorialOverlay />}
 
@@ -1754,14 +2120,40 @@ const TreasureDig = () => {
                                 // Deep dig indicator
                                 const isDeepPartial = tile.dugDepth > 0 && tile.dugDepth < tile.requiredDepth;
 
-                                // Tile colors
-                                let bgColor = '#8B7355'; // Default dirt
-                                let borderColor = '#6B5344';
+                                // Special tile indicator
+                                const isSpecialTile = tile.specialType && !isDug;
+                                const isIlluminated = illuminatedTiles.some(t => t.x === x && t.y === y);
+
+                                // Get world-themed colors
+                                const wTheme = currentTheme || worldThemes[0];
+                                const baseTileColor = wTheme.tileBase;
+                                const dugTileColor = wTheme.tileDug;
+
+                                // Tile colors - use world theme
+                                let bgColor = isLateLevel ? `${baseTileColor}` : baseTileColor;
+                                let borderColor = wTheme.tileAccent;
                                 let content = null;
+                                let specialIndicator = null;
+
+                                // Add special tile indicator
+                                if (isSpecialTile) {
+                                    bgColor = wTheme.tileSpecial;
+                                    borderColor = wTheme.specialBorder;
+                                    specialIndicator = (
+                                        <span style={{
+                                            position: 'absolute',
+                                            top: 2, right: 2,
+                                            fontSize: tileSize * 0.3,
+                                            opacity: 0.9
+                                        }}>
+                                            {wTheme.specialEmoji}
+                                        </span>
+                                    );
+                                }
 
                                 if (isDug) {
-                                    bgColor = tile.distanceInfo?.color || theme.bgPanel;
-                                    borderColor = tile.distanceInfo?.color || theme.border;
+                                    bgColor = tile.distanceInfo?.color || dugTileColor;
+                                    borderColor = tile.distanceInfo?.color || wTheme.tileAccent;
                                     content = (
                                         <span style={{
                                             fontSize: tileSize * 0.45,
@@ -1769,14 +2161,15 @@ const TreasureDig = () => {
                                             color: '#fff',
                                             textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                                         }}>
-                                            {tile.distance?.toFixed(1)}
+                                            {typeof tile.distance === 'number' ? tile.distance?.toFixed(1) : tile.distance}
                                         </span>
                                     );
+                                    specialIndicator = null; // Clear indicator when dug
                                 } else if (isDeepPartial) {
-                                    bgColor = '#5a4a3a';
+                                    bgColor = dugTileColor;
                                     content = <span style={{ fontSize: tileSize * 0.4 }}>🕳️</span>;
                                 } else if (isFlagged) {
-                                    bgColor = '#4a5a4a';
+                                    bgColor = wTheme.tileAccent;
                                     borderColor = theme.success;
                                     content = <span style={{ fontSize: tileSize * 0.5 }}>🚩</span>;
                                 } else if (isFrozen) {
@@ -1795,6 +2188,12 @@ const TreasureDig = () => {
                                             ~{tile.distance?.toFixed(1)}
                                         </span>
                                     );
+                                }
+
+                                // Illuminated tiles (from spotlight) get a glow
+                                if (isIlluminated && !isDug) {
+                                    borderColor = '#ffee88';
+                                    bgColor = `${bgColor}`;
                                 }
 
                                 // Sonar overlay
@@ -1850,6 +2249,9 @@ const TreasureDig = () => {
                                         }}
                                     >
                                         {content}
+
+                                        {/* Special tile indicator */}
+                                        {specialIndicator}
 
                                         {/* Sonar distance preview */}
                                         {sonarTile && !isDug && (
@@ -1937,6 +2339,21 @@ const TreasureDig = () => {
                     @keyframes pulse {
                         0%, 100% { transform: scale(1); }
                         50% { transform: scale(1.05); }
+                    }
+                    @keyframes float-0 {
+                        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                        25% { transform: translate(10px, -20px) rotate(5deg); }
+                        50% { transform: translate(-5px, -35px) rotate(-3deg); }
+                        75% { transform: translate(8px, -15px) rotate(3deg); }
+                    }
+                    @keyframes float-1 {
+                        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                        33% { transform: translate(-15px, -25px) rotate(-5deg); }
+                        66% { transform: translate(10px, -40px) rotate(5deg); }
+                    }
+                    @keyframes float-2 {
+                        0%, 100% { transform: translate(0, 0); }
+                        50% { transform: translate(5px, -30px); }
                     }
                 `}</style>
             </div>
