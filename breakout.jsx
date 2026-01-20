@@ -991,7 +991,7 @@ const BreakoutGame = () => {
 
   // Level definitions - hand-crafted layouts for each enemy
   // Legend: '.'=empty, '1'=1-hit, '2'=2-hit, '3'=3-hit, '#'=indestructible, '*'=powerup, 'X'=explosive
-  // New: 'F'=frozen (2-phase), 'S'=split (breaks into 4), 'E'=enemy spawner
+  // New: 'F'=frozen (2-phase), 'P'=split/sPlit (breaks into 4), 'E'=enemy spawner brick, 'S'=spawner point (pinball)
   const LEVEL_DEFINITIONS = {
     // BRICK GOBLIN - Simple shapes, learning levels
     brick_goblin: [
@@ -1033,9 +1033,9 @@ const BreakoutGame = () => {
       ],
       // Level 5: Split Challenge - intro to split bricks
       [
-        '.SSSSSSSSSS.',
-        '.S..S..S..S.',
-        '.SSSSSSSSSS.',
+        '.PPPPPPPPPP.',
+        '.P..P..P..P.',
+        '.PPPPPPPPPP.',
         '.2........2.',
         '.2.222222.2.',
         '.2222222222.',
@@ -2255,7 +2255,7 @@ const BreakoutGame = () => {
             health = 2;
             type = 'frozen';
             break;
-          case 'S': // Split brick - breaks into 4 mini-bricks
+          case 'P': // sPlit brick - breaks into 4 mini-bricks
             health = 1;
             type = 'split';
             break;
@@ -5742,7 +5742,10 @@ const BreakoutGame = () => {
           case '*': return '#112211';
           case 'O': return '#333'; // Bumper
           case '@': return '#224'; // Portal
-          case 'S': return '#322'; // Spawner
+          case 'S': return '#322'; // Spawner point
+          case 'P': return '#221133'; // Split brick
+          case 'F': return '#112233'; // Frozen brick
+          case 'E': return '#223311'; // Enemy spawner brick
           default: return '#1a1a1a';
         }
       }
@@ -5755,7 +5758,10 @@ const BreakoutGame = () => {
         case 'X': return '#ff6644'; // Explosive - orange/red
         case 'O': return '#ffcc44'; // Bumper - yellow
         case '@': return '#4488ff'; // Portal - blue
-        case 'S': return '#aa44aa'; // Spawner - purple
+        case 'S': return '#aa44aa'; // Spawner point - purple
+        case 'P': return '#cc88ee'; // Split brick - light purple
+        case 'F': return '#88ddff'; // Frozen brick - ice blue
+        case 'E': return '#44cc66'; // Enemy spawner brick - green glow
         default: return 'transparent';
       }
     };
@@ -5771,7 +5777,10 @@ const BreakoutGame = () => {
         case 'X': return 0.95;
         case 'O': return 1; // Bumper
         case '@': return 0.8; // Portal
-        case 'S': return 1; // Spawner
+        case 'S': return 1; // Spawner point
+        case 'P': return 0.9; // Split brick
+        case 'F': return 0.85; // Frozen brick
+        case 'E': return 1; // Enemy spawner brick
         default: return 0;
       }
     };
