@@ -2314,38 +2314,109 @@ const BreakoutGame = () => {
 
   // Create particles (with limit to prevent memory issues)
   const MAX_PARTICLES = 200;
+  const MAX_PARTICLE_AGE = 4000; // 4 seconds max lifetime as backup
+
   const createParticles = useCallback((x, y, color, count = 8) => {
+    const now = Date.now();
     const newParticles = [];
     for (let i = 0; i < count; i++) {
       newParticles.push({
-        id: Date.now() + Math.random(),
+        id: now + Math.random(),
         x, y,
         vx: (Math.random() - 0.5) * 10,
         vy: (Math.random() - 0.5) * 10 - 3,
         color,
         size: 3 + Math.random() * 4,
         life: 1,
+        createdAt: now,
       });
     }
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create cracking armor particles - fall downward with angular shapes
-  const createCrackingParticles = useCallback((x, y, width, height, color) => {
+  // Create paddle bounce particles - sparkly, reflects paddle state
+  const createPaddleBounceParticles = useCallback((x, y, paddleColor, count = 6) => {
+    const now = Date.now();
     const newParticles = [];
-    // Create multiple "shard" particles that fall and fade
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < count; i++) {
+      // Mix paddle color with white for sparkle effect
+      const colors = [paddleColor, '#ffffff', paddleColor, '#ffff88'];
       newParticles.push({
-        id: Date.now() + Math.random(),
+        id: now + Math.random(),
+        x, y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: -Math.random() * 6 - 2, // Go upward
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 2 + Math.random() * 3,
+        life: 0.8,
+        createdAt: now,
+        isSparkle: true,
+      });
+    }
+    setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
+  }, []);
+
+  // Create brick shatter particles - brick fragments that tumble and fade
+  const createBrickShatterParticles = useCallback((x, y, width, height, color) => {
+    const now = Date.now();
+    const newParticles = [];
+    // Create brick fragment particles
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.5;
+      const speed = 2 + Math.random() * 4;
+      newParticles.push({
+        id: now + Math.random(),
+        x: x + (Math.random() - 0.5) * width * 0.5,
+        y: y + (Math.random() - 0.5) * height * 0.5,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        color,
+        size: 4 + Math.random() * 6,
+        life: 1.2,
+        createdAt: now,
+        isBrickShard: true,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 15,
+      });
+    }
+    setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
+  }, []);
+
+  // Create cracking armor particles - dramatic crack and explosion effect
+  const createCrackingParticles = useCallback((x, y, width, height, color) => {
+    const now = Date.now();
+    const newParticles = [];
+    // Create crack line particles that shoot outward then fall
+    const crackCount = 10 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < crackCount; i++) {
+      const angle = (Math.PI * 2 * i) / crackCount + Math.random() * 0.3;
+      const speed = 3 + Math.random() * 5;
+      newParticles.push({
+        id: now + Math.random(),
         x: x + Math.random() * width,
         y: y + Math.random() * height,
-        vx: (Math.random() - 0.5) * 6,
-        vy: Math.random() * 2 + 1, // Fall downward
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
         color,
-        size: 4 + Math.random() * 6, // Larger chunks
-        life: 1.5, // Last longer
-        isShard: true, // Mark as shard for different rendering
-        rotation: Math.random() * 45, // Fixed rotation at creation time
+        size: 5 + Math.random() * 7,
+        life: 1.5,
+        createdAt: now,
+        isShard: true,
+        rotation: angle * (180 / Math.PI),
+      });
+    }
+    // Add small explosion particles
+    for (let i = 0; i < 6; i++) {
+      newParticles.push({
+        id: now + Math.random() + 100,
+        x: x + width / 2,
+        y: y + height / 2,
+        vx: (Math.random() - 0.5) * 12,
+        vy: (Math.random() - 0.5) * 12,
+        color: '#ffffff',
+        size: 2 + Math.random() * 2,
+        life: 0.5,
+        createdAt: now,
       });
     }
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
@@ -2622,7 +2693,15 @@ const BreakoutGame = () => {
             const meterGain = 5 * (1 + stats.upgrades.teddyPower * 0.1);
             setTeddyMeter(prev => Math.min(TEDDY_METER_MAX, prev + meterGain));
 
-            createParticles(x, y, isDashing ? '#ffd700' : '#50c878', isDashing ? 10 : 5);
+            // Calculate paddle color for particles based on health and effects
+            const healthRatio = Math.min(1, (paddleSnapshot.width - 30) / 90);
+            const paddleColor = activeEffects.includes('frozen') ? '#80e0ff'
+              : activeEffects.includes('laser') ? '#ff60ff'
+              : isDashing ? '#ffd700'
+              : healthRatio < 0.33 ? '#ff6060'
+              : healthRatio < 0.66 ? '#ffcc60'
+              : '#60ff80';
+            createPaddleBounceParticles(x, y, paddleColor, isDashing ? 10 : 6);
 
             // Dash hit bonus
             if (isDashing) {
@@ -2854,8 +2933,8 @@ const BreakoutGame = () => {
                   if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
                   comboTimerRef.current = setTimeout(() => setCombo(0), 2000);
 
-                  // Final destruction particles use the last color
-                  createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, newColor, 12);
+                  // Final destruction - brick shatters with tumbling fragments
+                  createBrickShatterParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.width, brick.height, newColor);
                   addFloatingText(brick.x + brick.width / 2, brick.y, `+${Math.floor(points * (1 + combo * 0.1))}`, newColor);
 
                   // Explosive brick - destroy nearby bricks!
@@ -2977,15 +3056,17 @@ const BreakoutGame = () => {
       applyGimmick(deltaTime);
 
       // Update particles
+      const now = Date.now();
       setParticles(prev => prev
         .map(p => ({
           ...p,
           x: p.x + p.vx * deltaTime,
           y: p.y + p.vy * deltaTime,
-          vy: p.vy + 0.2 * deltaTime,
-          life: p.life - 0.02 * deltaTime,
+          vy: p.vy + (p.isSparkle ? 0.1 : 0.3) * deltaTime, // Sparkles float more, others fall faster
+          life: p.life - 0.025 * deltaTime,
+          rotation: p.rotationSpeed ? (p.rotation || 0) + p.rotationSpeed * deltaTime : p.rotation,
         }))
-        .filter(p => p.life > 0)
+        .filter(p => p.life > 0 && (now - (p.createdAt || 0)) < MAX_PARTICLE_AGE)
       );
 
       // Update floating texts
@@ -3446,7 +3527,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -4328,7 +4409,7 @@ const BreakoutGame = () => {
           {combo > 2 && <span style={{ fontSize: '12px', fontWeight: '700', color: '#ffd700' }}>🔥{combo}x</span>}
         </div>
 
-        {/* Teddy Meter - compact */}
+        {/* Teddy Meter - compact with ability names */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
           <span style={{
             fontSize: '14px',
@@ -4336,7 +4417,7 @@ const BreakoutGame = () => {
           }}>🧸</span>
           <div style={{
             flex: 1,
-            maxWidth: '100px',
+            maxWidth: '80px',
             height: '4px',
             background: 'rgba(255,255,255,0.1)',
             borderRadius: '2px',
@@ -4349,9 +4430,18 @@ const BreakoutGame = () => {
               transition: 'width 0.2s',
             }} />
           </div>
-          {teddyMeter >= TEDDY_METER_MAX && (
-            <span style={{ fontSize: '10px', color: '#ffd700', fontWeight: '700' }}>Q/W/E</span>
-          )}
+          {/* Ability names - always visible, highlighted when ready */}
+          <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: '600' }}>
+            <span style={{ color: teddyMeter >= TEDDY_METER_MAX ? '#ff6b35' : '#555', opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5 }}>
+              Q:Supercharge
+            </span>
+            <span style={{ color: teddyMeter >= TEDDY_METER_MAX ? '#4080ff' : '#555', opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5 }}>
+              W:Barrier
+            </span>
+            <span style={{ color: teddyMeter >= TEDDY_METER_MAX ? '#ff80ff' : '#555', opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5 }}>
+              E:Split
+            </span>
+          </div>
         </div>
 
         {/* Active effects inline */}
@@ -4365,8 +4455,21 @@ const BreakoutGame = () => {
           </div>
         )}
 
-        {/* Enemy emoji */}
-        <span style={{ fontSize: '20px' }}>{selectedEnemy?.emoji}</span>
+        {/* Boss/Opponent indicator - prominent */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          background: 'rgba(139, 90, 43, 0.3)',
+          borderRadius: '6px',
+          border: '1px solid rgba(139, 90, 43, 0.5)',
+        }}>
+          <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.5))' }}>{selectedEnemy?.emoji}</span>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: '#d4a574', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {selectedEnemy?.name}
+          </span>
+        </div>
       </div>
 
       {/* Game canvas */}
@@ -4988,16 +5091,30 @@ const BreakoutGame = () => {
           </div>
         )}
 
-        {/* Shield indicator */}
+        {/* Shield indicator - positioned just below paddle area */}
         {activeEffects.includes('shield') && (
           <div style={{
             position: 'absolute',
             left: 0,
-            bottom: 0,
+            top: CANVAS_HEIGHT - 8,
             width: '100%',
             height: 4,
             background: 'linear-gradient(90deg, transparent, #4080ff, transparent)',
             boxShadow: '0 0 10px #4080ff',
+          }} />
+        )}
+
+        {/* Teddy Barrier indicator - golden safety net */}
+        {activeEffects.includes('teddy_barrier') && (
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            top: CANVAS_HEIGHT - 10,
+            width: '100%',
+            height: 6,
+            background: 'linear-gradient(90deg, transparent 5%, #ffd700 30%, #ffaa00 50%, #ffd700 70%, transparent 95%)',
+            boxShadow: '0 0 15px #ffd700, 0 0 30px rgba(255, 215, 0, 0.5)',
+            animation: 'barrierPulse 1s ease-in-out infinite',
           }} />
         )}
 
@@ -5010,13 +5127,19 @@ const BreakoutGame = () => {
               left: p.x - p.size / 2,
               top: p.y - p.size / 2,
               width: p.size,
-              height: p.isShard ? p.size * 0.6 : p.size,
-              background: p.color,
-              borderRadius: p.isShard ? '2px' : '50%',
-              opacity: Math.min(p.life, 1),
+              height: p.isShard ? p.size * 0.6 : p.isBrickShard ? p.size * 0.7 : p.size,
+              background: p.isSparkle
+                ? `radial-gradient(circle, ${p.color} 0%, transparent 70%)`
+                : p.color,
+              borderRadius: p.isShard ? '2px' : p.isBrickShard ? '3px' : '50%',
+              opacity: Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
               pointerEvents: 'none',
-              transform: p.isShard ? `rotate(${p.rotation || 0}deg)` : 'none',
-              boxShadow: p.isShard ? `0 2px 4px rgba(0,0,0,0.3)` : 'none',
+              transform: (p.isShard || p.isBrickShard) ? `rotate(${p.rotation || 0}deg)` : 'none',
+              boxShadow: p.isSparkle
+                ? `0 0 ${p.size}px ${p.color}`
+                : p.isShard || p.isBrickShard
+                  ? '0 2px 4px rgba(0,0,0,0.3)'
+                  : 'none',
             }}
           />
         ))}
@@ -5218,6 +5341,10 @@ const BreakoutGame = () => {
           0% { transform: scale(0) rotate(-180deg); }
           50% { transform: scale(1.3) rotate(10deg); }
           100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes barrierPulse {
+          0%, 100% { opacity: 0.8; box-shadow: 0 0 15px #ffd700, 0 0 30px rgba(255, 215, 0, 0.5); }
+          50% { opacity: 1; box-shadow: 0 0 25px #ffd700, 0 0 50px rgba(255, 215, 0, 0.7); }
         }
       `}</style>
     </div>
