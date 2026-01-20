@@ -134,26 +134,60 @@ const TreasureDig = () => {
         }
     ];
 
-    // Level configurations - hand-crafted difficulty curve
+    // Level configurations - carefully tuned difficulty curve
+    // Key principle: World N Level 10 should be easier than World N+1 Level 1
+    // Each level within a world gets progressively harder
+    // Each world introduces new mechanics at baseline difficulty, then increases
     const getLevelConfig = (opponent, level) => {
+        // Smoother scaling: grid grows more slowly, digs decrease more gradually
+        const gridGrowth = Math.floor((level - 1) / 4); // +1 grid every 4 levels
+        const digReduction = Math.floor((level - 1) * 0.3); // Slower dig reduction
+
         const baseConfig = {
-            gridSize: opponent.gridSize + Math.floor((level - 1) / 3),
-            digs: opponent.baseDigs - Math.floor((level - 1) * 0.4),
-            treasures: opponent.treasures + (level >= 7 ? 1 : 0),
-            decoys: opponent.decoys + Math.floor((level - 1) / 4),
-            parDigs: Math.floor((opponent.baseDigs - Math.floor((level - 1) * 0.4)) * 0.7),
-            bonusObjective: null
+            gridSize: opponent.gridSize + gridGrowth,
+            digs: opponent.baseDigs - digReduction,
+            treasures: opponent.treasures + (level >= 8 ? 1 : 0), // Extra treasure only at level 8+
+            decoys: opponent.decoys + Math.floor((level - 1) / 5), // Slower decoy addition
+            parDigs: 0, // Calculated below
+            bonusObjective: null,
+            scoreThreshold: 0 // For star bonus
         };
 
         // Ensure minimum digs for solvability
-        const minDigs = baseConfig.treasures * 4 + 3;
+        const minDigs = baseConfig.treasures * 4 + 4;
         baseConfig.digs = Math.max(minDigs, baseConfig.digs);
 
-        // Level-specific bonus objectives
-        if (level === 3) baseConfig.bonusObjective = { type: 'efficiency', target: 5, desc: 'Find treasure with 5+ digs remaining' };
-        if (level === 5) baseConfig.bonusObjective = { type: 'noDecoy', desc: 'Avoid all decoys' };
-        if (level === 7) baseConfig.bonusObjective = { type: 'streak', target: 3, desc: 'Get 3 hot digs in a row' };
-        if (level === 10) baseConfig.bonusObjective = { type: 'perfect', desc: 'Complete under par with no decoys hit' };
+        // Par is 60% of available digs (generous but challenging)
+        baseConfig.parDigs = Math.floor(baseConfig.digs * 0.6);
+
+        // Calculate score threshold for bonus star (varies by level)
+        // Base threshold + level scaling, adjusted for opponent difficulty
+        const baseDifficulty = opponent.id * 10; // Higher opponents = harder base
+        baseConfig.scoreThreshold = 80 + (level * 15) + baseDifficulty;
+
+        // Every level has a bonus objective for the second half-star
+        // Alternating between different objective types for variety
+        const objectiveTypes = [
+            { type: 'score', desc: `Score ${baseConfig.scoreThreshold}+ points` },
+            { type: 'efficiency', target: Math.ceil(baseConfig.digs * 0.3), desc: `Finish with ${Math.ceil(baseConfig.digs * 0.3)}+ digs remaining` },
+            { type: 'noDecoy', desc: 'Complete without hitting any decoys' },
+            { type: 'underPar', desc: `Finish under par (${baseConfig.parDigs}+ digs left)` },
+            { type: 'combo', target: 2 + Math.floor(level / 3), desc: `Achieve ${2 + Math.floor(level / 3)}x combo` }
+        ];
+
+        // Assign objective based on level (cycles through types with some variation)
+        const objIndex = (level + opponent.id) % objectiveTypes.length;
+        baseConfig.bonusObjective = objectiveTypes[objIndex];
+
+        // Override for specific milestone levels
+        if (level === 5) {
+            baseConfig.bonusObjective = { type: 'efficiency', target: Math.ceil(baseConfig.digs * 0.35),
+                desc: `Master efficiency: ${Math.ceil(baseConfig.digs * 0.35)}+ digs remaining` };
+        }
+        if (level === 10) {
+            baseConfig.bonusObjective = { type: 'perfect',
+                desc: 'Perfect run: under par with no decoys' };
+        }
 
         return baseConfig;
     };
@@ -201,13 +235,16 @@ const TreasureDig = () => {
     // Level config
     const [levelConfig, setLevelConfig] = useState(null);
 
-    // Progression with enhanced tracking
+    // Progression with enhanced tracking - v3 with fractional stars per level
     const [progression, setProgression] = useState(() => {
-        const saved = localStorage.getItem('treasuredig_progression_v2');
+        const saved = localStorage.getItem('treasuredig_progression_v3');
         if (saved) return JSON.parse(saved);
+        // Initialize with per-level star tracking: each level can earn 0, 0.5, or 1 star
+        // 0.5 for completing the level, +0.5 for achieving the bonus objective
         return {
-            starPoints: Array(10).fill(0),
+            levelStars: Array(10).fill().map(() => Array(10).fill(0)), // 0, 0.5, or 1 per level
             levelsBeat: Array(10).fill().map(() => Array(10).fill(false)),
+            bonusAchieved: Array(10).fill().map(() => Array(10).fill(false)), // Bonus objective per level
             bestScores: Array(10).fill().map(() => Array(10).fill(0)),
             achievements: [],
             totalTreasures: 0,
@@ -217,12 +254,23 @@ const TreasureDig = () => {
     });
 
     useEffect(() => {
-        localStorage.setItem('treasuredig_progression_v2', JSON.stringify(progression));
+        localStorage.setItem('treasuredig_progression_v3', JSON.stringify(progression));
     }, [progression]);
 
-    const getStars = (idx) => Math.floor(progression.starPoints[idx] / 4);
-    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 20;
-    const isOpponentMastered = (idx) => progression.starPoints[idx] >= 40;
+    // Calculate total stars for an opponent (sum of all level stars, max 10)
+    const getStars = (idx) => {
+        const levelStars = progression.levelStars[idx] || Array(10).fill(0);
+        return levelStars.reduce((sum, s) => sum + s, 0);
+    };
+
+    // Get star status for a specific level (0, 0.5, or 1)
+    const getLevelStar = (oppIdx, level) => {
+        return progression.levelStars[oppIdx]?.[level - 1] || 0;
+    };
+
+    // World unlocks when previous world has 10 stars (all levels completed with bonus)
+    const isOpponentUnlocked = (idx) => idx === 0 || getStars(idx - 1) >= 10;
+    const isOpponentMastered = (idx) => getStars(idx) >= 10;
     const isLevelUnlocked = (oppIdx, level) => {
         if (level === 1) return true;
         return progression.levelsBeat[oppIdx]?.[level - 2] || false;
@@ -376,6 +424,7 @@ const TreasureDig = () => {
         setSelectedOpponent(opponent);
         setCurrentLevel(level);
         initializeGrid(opponent, level);
+        setBonusAchieved(false); // Reset bonus tracking for new match
 
         // Show tutorial for first opponent, first level
         if (opponent.tutorial && level === 1 && !progression.levelsBeat[0][0]) {
@@ -786,6 +835,32 @@ const TreasureDig = () => {
         return () => clearInterval(interval);
     }, [selectedOpponent]);
 
+    // Track bonus objective achievement for result screen
+    const [bonusAchieved, setBonusAchieved] = useState(false);
+
+    // Check if bonus objective was achieved
+    const checkBonusObjective = useCallback((config, finalScore) => {
+        if (!config?.bonusObjective) return false;
+
+        const obj = config.bonusObjective;
+        switch (obj.type) {
+            case 'score':
+                return finalScore >= config.scoreThreshold;
+            case 'efficiency':
+                return digsRemaining >= obj.target;
+            case 'noDecoy':
+                return decoysHit === 0;
+            case 'underPar':
+                return digsRemaining >= config.parDigs;
+            case 'combo':
+                return maxCombo >= obj.target;
+            case 'perfect':
+                return digsRemaining >= config.parDigs && decoysHit === 0;
+            default:
+                return false;
+        }
+    }, [digsRemaining, decoysHit, maxCombo]);
+
     // Handle result
     useEffect(() => {
         if (gameState !== 'result') return;
@@ -798,23 +873,35 @@ const TreasureDig = () => {
             const digBonus = digsRemaining * 10;
             const comboBonus = maxCombo * 15;
             const noDecoyBonus = decoysHit === 0 ? 50 : 0;
-            const underParBonus = digsRemaining >= (config.digs - config.parDigs) ? 75 : 0;
+            const underParBonus = digsRemaining >= config.parDigs ? 75 : 0;
 
             const totalBonus = digBonus + comboBonus + noDecoyBonus + underParBonus;
             setScore(s => s + totalBonus);
 
-            // Calculate stars earned
             const finalScore = score + totalBonus;
-            const targetScore = 100 + currentLevel * 25;
-            const performance = finalScore / targetScore;
-            const starsEarned = performance >= 1.5 ? 3 : performance >= 1 ? 2 : 1;
+
+            // Check if bonus objective achieved
+            const bonusCompleted = checkBonusObjective(config, finalScore);
+            setBonusAchieved(bonusCompleted);
+
+            // Calculate stars: 0.5 for completion, +0.5 for bonus objective
+            const completionStar = 0.5;
+            const bonusStar = bonusCompleted ? 0.5 : 0;
+            const totalStarEarned = completionStar + bonusStar;
 
             setProgression(prev => {
-                const newPoints = [...prev.starPoints];
-                newPoints[selectedOpponent.id] = Math.min(40, newPoints[selectedOpponent.id] + starsEarned);
+                const newLevelStars = prev.levelStars.map(arr => [...arr]);
+                // Only update if we earned more stars than before
+                const currentStar = newLevelStars[selectedOpponent.id][currentLevel - 1] || 0;
+                newLevelStars[selectedOpponent.id][currentLevel - 1] = Math.max(currentStar, totalStarEarned);
 
                 const newLevelsBeat = prev.levelsBeat.map(arr => [...arr]);
                 newLevelsBeat[selectedOpponent.id][currentLevel - 1] = true;
+
+                const newBonusAchieved = prev.bonusAchieved.map(arr => [...arr]);
+                if (bonusCompleted) {
+                    newBonusAchieved[selectedOpponent.id][currentLevel - 1] = true;
+                }
 
                 const newBestScores = prev.bestScores.map(arr => [...arr]);
                 newBestScores[selectedOpponent.id][currentLevel - 1] = Math.max(
@@ -824,8 +911,9 @@ const TreasureDig = () => {
 
                 return {
                     ...prev,
-                    starPoints: newPoints,
+                    levelStars: newLevelStars,
                     levelsBeat: newLevelsBeat,
+                    bonusAchieved: newBonusAchieved,
                     bestScores: newBestScores,
                     totalTreasures: prev.totalTreasures + treasuresFound,
                     totalGames: prev.totalGames + 1
@@ -865,20 +953,72 @@ const TreasureDig = () => {
         return () => window.removeEventListener('keydown', handleKey);
     }, [gameState, showTutorial, tutorialStep, tools, useTool, getHint]);
 
-    // Star bar component
-    const StarBar = ({ points, size = 'normal' }) => {
-        const starSize = size === 'small' ? '10px' : '14px';
+    // Star bar component - shows 10 stars with half-star support
+    const StarBar = ({ stars, size = 'normal' }) => {
+        const starSizeNum = size === 'small' ? 12 : 16;
+        const starSize = `${starSizeNum}px`;
+
+        // Stars can be fractional (0-10 in 0.5 increments)
+        const totalStars = Math.min(10, stars || 0);
+
         return (
             <div style={{ display: 'flex', gap: '2px' }}>
-                {Array(10).fill(0).map((_, i) => (
-                    <div key={i} style={{
-                        width: starSize, height: starSize,
-                        background: i < Math.floor(points / 4) ? theme.gold : theme.bgDark,
-                        borderRadius: '2px',
-                        border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`,
-                        boxShadow: i < Math.floor(points / 4) ? `0 0 4px ${theme.goldGlow}` : 'none'
-                    }} />
-                ))}
+                {Array(10).fill(0).map((_, i) => {
+                    const starValue = i + 1;
+                    let fillPercent = 0;
+
+                    if (totalStars >= starValue) {
+                        fillPercent = 100; // Full star
+                    } else if (totalStars >= starValue - 0.5) {
+                        fillPercent = 50; // Half star
+                    }
+
+                    return (
+                        <div key={i} style={{
+                            width: starSize, height: starSize,
+                            position: 'relative',
+                            borderRadius: '2px',
+                            background: theme.bgDark,
+                            border: `1px solid ${fillPercent > 0 ? theme.gold : theme.border}`,
+                            overflow: 'hidden'
+                        }}>
+                            {/* Filled portion */}
+                            <div style={{
+                                position: 'absolute',
+                                left: 0, top: 0, bottom: 0,
+                                width: `${fillPercent}%`,
+                                background: theme.gold,
+                                boxShadow: fillPercent > 0 ? `0 0 4px ${theme.goldGlow}` : 'none'
+                            }} />
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    // Single star indicator for level buttons
+    const LevelStar = ({ stars, size = 14 }) => {
+        // 0 = empty, 0.5 = half, 1 = full
+        const fillPercent = stars === 1 ? 100 : stars === 0.5 ? 50 : 0;
+
+        if (stars === 0) return null;
+
+        return (
+            <div style={{
+                width: size, height: size,
+                position: 'relative',
+                borderRadius: '50%',
+                background: theme.bgDark,
+                border: `1px solid ${theme.gold}`,
+                overflow: 'hidden'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    left: 0, top: 0, bottom: 0,
+                    width: `${fillPercent}%`,
+                    background: theme.gold
+                }} />
             </div>
         );
     };
@@ -1066,7 +1206,7 @@ const TreasureDig = () => {
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ color: theme.success, fontSize: '24px', fontWeight: 'bold' }}>
-                                {progression.starPoints.reduce((a, b) => a + b, 0)}
+                                {opponents.reduce((total, _, idx) => total + getStars(idx), 0)}/100
                             </div>
                             <div style={{ color: theme.textMuted, fontSize: '12px' }}>Total Stars</div>
                         </div>
@@ -1149,9 +1289,20 @@ const TreasureDig = () => {
                             >
                                 {!unlocked && (
                                     <div style={{
-                                        position: 'absolute', top: '15px', right: '15px',
-                                        fontSize: '24px'
-                                    }}>🔒</div>
+                                        position: 'absolute', top: '10px', right: '10px',
+                                        background: theme.bgDark,
+                                        padding: '6px 12px',
+                                        borderRadius: '8px',
+                                        fontSize: '11px',
+                                        color: theme.textMuted,
+                                        border: `1px solid ${theme.border}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}>
+                                        <span>🔒</span>
+                                        <span>{10 - getStars(idx - 1)}★ needed</span>
+                                    </div>
                                 )}
                                 {mastered && (
                                     <div style={{
@@ -1197,7 +1348,7 @@ const TreasureDig = () => {
                                         </div>
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <StarBar points={progression.starPoints[idx]} size="small" />
+                                            <StarBar stars={starsEarned} size="small" />
                                             <span style={{ color: theme.textMuted, fontSize: '11px' }}>
                                                 {starsEarned}/10 ⭐
                                             </span>
@@ -1267,7 +1418,7 @@ const TreasureDig = () => {
                 </div>
 
                 <div style={{ marginTop: '20px' }}>
-                    <StarBar points={progression.starPoints[selectedOpponent.id]} />
+                    <StarBar stars={getStars(selectedOpponent.id)} />
                     <div style={{ textAlign: 'center', marginTop: '5px', color: theme.textMuted, fontSize: '12px' }}>
                         {getStars(selectedOpponent.id)}/10 stars earned
                     </div>
@@ -1285,7 +1436,13 @@ const TreasureDig = () => {
                         const levelNum = i + 1;
                         const unlocked = isLevelUnlocked(selectedOpponent.id, levelNum);
                         const beaten = progression.levelsBeat[selectedOpponent.id]?.[i];
-                        const bestScore = progression.bestScores[selectedOpponent.id]?.[i] || 0;
+                        const levelStar = getLevelStar(selectedOpponent.id, levelNum);
+                        const hasBonus = progression.bonusAchieved?.[selectedOpponent.id]?.[i] || false;
+
+                        // Star colors: gold for full, half gold for half star
+                        const starBg = levelStar === 1 ? theme.gold :
+                                       levelStar === 0.5 ? `linear-gradient(90deg, ${theme.gold} 50%, ${theme.bgDark} 50%)` :
+                                       theme.bgDark;
 
                         return (
                             <button
@@ -1295,35 +1452,83 @@ const TreasureDig = () => {
                                 style={{
                                     width: '75px', height: '75px',
                                     background: beaten
-                                        ? `linear-gradient(135deg, ${theme.success}88, ${theme.success}44)`
+                                        ? `linear-gradient(135deg, ${levelStar === 1 ? theme.gold : theme.success}44, ${theme.bgPanel})`
                                         : unlocked
-                                            ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
+                                            ? `linear-gradient(135deg, ${selectedOpponent.color}88, ${selectedOpponent.color}44)`
                                             : theme.bgDark,
-                                    border: `2px solid ${beaten ? theme.success : unlocked ? selectedOpponent.color : theme.border}`,
+                                    border: `2px solid ${levelStar === 1 ? theme.gold : beaten ? theme.success : unlocked ? selectedOpponent.color : theme.border}`,
                                     borderRadius: '12px',
                                     color: unlocked ? 'white' : theme.textMuted,
-                                    fontSize: '22px', fontWeight: 'bold',
+                                    fontSize: '20px', fontWeight: 'bold',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.5,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    transition: 'transform 0.2s'
+                                    transition: 'transform 0.2s',
+                                    position: 'relative'
                                 }}
-                                onMouseEnter={e => unlocked && (e.target.style.transform = 'scale(1.08)')}
-                                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                                onMouseEnter={e => unlocked && (e.currentTarget.style.transform = 'scale(1.08)')}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 {unlocked ? (
                                     <>
                                         {levelNum}
-                                        {beaten && <span style={{ fontSize: '10px', marginTop: '2px' }}>✓ {bestScore}</span>}
+                                        {/* Star indicator */}
+                                        {beaten && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                bottom: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '2px'
+                                            }}>
+                                                <div style={{
+                                                    width: '14px', height: '14px',
+                                                    borderRadius: '50%',
+                                                    border: `1px solid ${theme.gold}`,
+                                                    background: starBg,
+                                                    boxShadow: levelStar > 0 ? `0 0 4px ${theme.goldGlow}` : 'none'
+                                                }} />
+                                            </div>
+                                        )}
                                     </>
                                 ) : '🔒'}
                             </button>
                         );
                     })}
                 </div>
+
+                {/* Level info: show bonus objective for next unbeaten level */}
+                {(() => {
+                    // Find first unbeaten level
+                    const nextLevel = Array(10).fill(0).findIndex((_, i) =>
+                        isLevelUnlocked(selectedOpponent.id, i + 1) && !progression.levelsBeat[selectedOpponent.id]?.[i]
+                    );
+                    if (nextLevel === -1) return null;
+                    const config = getLevelConfig(selectedOpponent, nextLevel + 1);
+                    return (
+                        <div style={{
+                            marginTop: '20px',
+                            padding: '12px 20px',
+                            background: theme.bgPanel,
+                            borderRadius: '10px',
+                            textAlign: 'center',
+                            maxWidth: '400px'
+                        }}>
+                            <div style={{ color: theme.textSecondary, fontSize: '12px', marginBottom: '5px' }}>
+                                Level {nextLevel + 1} Bonus Objective:
+                            </div>
+                            <div style={{ color: theme.gold, fontSize: '14px', fontWeight: 'bold' }}>
+                                ⭐ {config.bonusObjective?.desc}
+                            </div>
+                            <div style={{ color: theme.textMuted, fontSize: '11px', marginTop: '5px' }}>
+                                Complete level = ½ star | Bonus = full star
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {selectedOpponent.tutorial && (
                     <button
@@ -1462,6 +1667,22 @@ const TreasureDig = () => {
                         💡 Hint [H]
                     </button>
                 </div>
+
+                {/* Bonus objective display */}
+                {levelConfig?.bonusObjective && (
+                    <div style={{
+                        marginBottom: '8px',
+                        padding: '6px 15px',
+                        background: theme.bgPanel,
+                        borderRadius: '8px',
+                        textAlign: 'center',
+                        fontSize: '12px',
+                        border: `1px solid ${theme.gold}33`
+                    }}>
+                        <span style={{ color: theme.gold }}>⭐ Bonus: </span>
+                        <span style={{ color: theme.textSecondary }}>{levelConfig.bonusObjective.desc}</span>
+                    </div>
+                )}
 
                 {/* Last dig feedback */}
                 {lastDigResult && (
@@ -1730,11 +1951,14 @@ const TreasureDig = () => {
         const digBonus = won ? digsRemaining * 10 : 0;
         const comboBonus = maxCombo * 15;
         const noDecoyBonus = won && decoysHit === 0 ? 50 : 0;
-        const underParBonus = won && config && digsRemaining >= (config.digs - config.parDigs) ? 75 : 0;
+        const underParBonus = won && config && digsRemaining >= config.parDigs ? 75 : 0;
         const finalScore = score + digBonus + comboBonus + noDecoyBonus + underParBonus;
 
-        const performance = finalScore / (100 + currentLevel * 25);
-        const starsEarned = won ? (performance >= 1.5 ? 3 : performance >= 1 ? 2 : 1) : 0;
+        // New star system: 0.5 for completion + 0.5 for bonus objective
+        const completionStar = won ? 0.5 : 0;
+        const bonusStar = won && bonusAchieved ? 0.5 : 0;
+        const starsEarned = completionStar + bonusStar;
+        const isFullStar = starsEarned === 1;
 
         return (
             <div style={{
@@ -1747,29 +1971,41 @@ const TreasureDig = () => {
                     fontSize: '120px', marginBottom: '20px',
                     animation: won ? 'bounce 1s infinite' : 'shake 0.5s'
                 }}>
-                    {won ? (starsEarned >= 3 ? '👑' : starsEarned >= 2 ? '🏆' : '💎') : '💀'}
+                    {won ? (isFullStar ? '👑' : '💎') : '💀'}
                 </div>
 
                 <h1 style={{
                     fontSize: '42px',
-                    color: won ? (starsEarned >= 3 ? theme.gold : theme.success) : theme.error,
+                    color: won ? (isFullStar ? theme.gold : theme.success) : theme.error,
                     marginBottom: '10px',
                     textShadow: won ? `0 0 30px ${theme.goldGlow}` : 'none'
                 }}>
                     {won
-                        ? (starsEarned >= 3 ? 'PERFECT!' : starsEarned >= 2 ? 'EXCELLENT!' : 'TREASURE FOUND!')
+                        ? (isFullStar ? 'PERFECT LEVEL!' : 'TREASURE FOUND!')
                         : 'OUT OF DIGS!'}
                 </h1>
 
                 {won && (
-                    <div style={{ display: 'flex', gap: '5px', marginBottom: '20px' }}>
-                        {[1,2,3].map(i => (
-                            <span key={i} style={{
-                                fontSize: '32px',
-                                opacity: i <= starsEarned ? 1 : 0.3,
-                                filter: i <= starsEarned ? 'none' : 'grayscale(1)'
-                            }}>⭐</span>
-                        ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        {/* Star display with half-star support */}
+                        <div style={{
+                            width: '50px', height: '50px',
+                            borderRadius: '50%',
+                            border: `3px solid ${theme.gold}`,
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: starsEarned > 0 ? `0 0 15px ${theme.goldGlow}` : 'none'
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                left: 0, top: 0, bottom: 0,
+                                width: `${starsEarned * 100}%`,
+                                background: theme.gold
+                            }} />
+                        </div>
+                        <span style={{ fontSize: '28px', color: theme.gold, fontWeight: 'bold' }}>
+                            {starsEarned === 1 ? '★' : starsEarned === 0.5 ? '½★' : '☆'}
+                        </span>
                     </div>
                 )}
 
@@ -1844,17 +2080,40 @@ const TreasureDig = () => {
                 {won && (
                     <div style={{
                         background: theme.bgPanel,
-                        padding: '12px 25px',
+                        padding: '15px 25px',
                         borderRadius: '10px',
                         marginBottom: '25px',
-                        border: `2px solid ${theme.gold}`
+                        border: `2px solid ${isFullStar ? theme.gold : theme.success}`
                     }}>
-                        <span style={{ color: theme.gold, fontWeight: 'bold' }}>
-                            +{starsEarned} Star{starsEarned > 1 ? 's' : ''} Earned!
-                        </span>
-                        <span style={{ color: theme.textMuted, marginLeft: '15px' }}>
-                            ({getStars(selectedOpponent?.id || 0)}/10 total)
-                        </span>
+                        <div style={{ marginBottom: '10px' }}>
+                            <span style={{ color: theme.success, fontWeight: 'bold' }}>
+                                ✓ Level Complete: +½★
+                            </span>
+                        </div>
+                        {config?.bonusObjective && (
+                            <div style={{ marginBottom: '10px' }}>
+                                <span style={{
+                                    color: bonusAchieved ? theme.gold : theme.textMuted,
+                                    fontWeight: bonusAchieved ? 'bold' : 'normal'
+                                }}>
+                                    {bonusAchieved ? '✓' : '○'} Bonus: {config.bonusObjective.desc}
+                                    {bonusAchieved ? ' +½★' : ''}
+                                </span>
+                            </div>
+                        )}
+                        <div style={{
+                            borderTop: `1px solid ${theme.border}`,
+                            paddingTop: '10px',
+                            display: 'flex',
+                            justifyContent: 'space-between'
+                        }}>
+                            <span style={{ color: theme.gold, fontWeight: 'bold' }}>
+                                +{starsEarned}★ This Level
+                            </span>
+                            <span style={{ color: theme.textMuted }}>
+                                World Total: {getStars(selectedOpponent?.id || 0)}/10★
+                            </span>
+                        </div>
                     </div>
                 )}
 
