@@ -4070,14 +4070,16 @@ const BreakoutGame = () => {
           return (
             <div style={{
               position: 'absolute',
-              left: paddle.x,
+              left: 0,
               top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
               width: paddle.width,
               height: PADDLE_HEIGHT,
               background: healthGradient,
               borderRadius: '6px',
               boxShadow: healthGlow,
-              transition: isDashing ? 'none' : 'left 0.05s, width 0.2s, background 0.3s',
+              transform: `translateX(${paddle.x}px)`,
+              willChange: 'transform', // Hint to browser for GPU acceleration
+              transition: 'width 0.2s, background 0.3s',
             }} />
           );
         })()}
@@ -4086,7 +4088,7 @@ const BreakoutGame = () => {
         {twinPaddle?.active && (
           <div style={{
             position: 'absolute',
-            left: CANVAS_WIDTH - paddle.x - paddle.width,
+            left: 0,
             top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
             width: paddle.width,
             height: PADDLE_HEIGHT,
@@ -4094,6 +4096,8 @@ const BreakoutGame = () => {
             borderRadius: '6px',
             boxShadow: '0 0 20px #ff80ff',
             opacity: 0.9,
+            transform: `translateX(${CANVAS_WIDTH - paddle.x - paddle.width}px)`,
+            willChange: 'transform',
           }} />
         )}
 
@@ -4101,13 +4105,14 @@ const BreakoutGame = () => {
         {isCharging && balls.some(b => b.attached) && (
           <div style={{
             position: 'absolute',
-            left: paddle.x,
+            left: 0,
             top: CANVAS_HEIGHT - PADDLE_HEIGHT - 25,
             width: paddle.width,
             height: 6,
             background: 'rgba(0,0,0,0.5)',
             borderRadius: '3px',
             overflow: 'hidden',
+            transform: `translateX(${paddle.x}px)`,
           }}>
             <div style={{
               width: `${chargeLevel}%`,
