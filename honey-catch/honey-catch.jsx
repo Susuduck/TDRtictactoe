@@ -1,131 +1,234 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 /**
- * HONEY CATCH - Honey Pot Drop
+ * HONEY CATCH - Comprehensive Redesign
  *
- * Design Principles:
- * - Simple Controls: Move left/right to catch falling items
- * - Risk/Reward: Honey gives points, bees/rocks are penalties
- * - Progressive Difficulty: Each opponent introduces new mechanics
- * - Pattern Recognition: Learn falling patterns to maximize score
- * - Time Pressure: 60-second rounds
+ * Design Principles Applied:
+ * - Flow State: Clear goals, immediate feedback, challenge-skill balance
+ * - The Toy Lens: Movement feels good on its own (acceleration, momentum)
+ * - Four Keys: Hard Fun (fiero), Easy Fun (discovery), Serious Fun (progress)
+ * - Feedback Lens: Every action has immediate, satisfying response
+ * - Pattern Learning: Core loop is learning and mastering patterns
+ * - 40-60% success rate target for optimal engagement
  */
 
 const HoneyCatch = () => {
-    // Theme - Pink/Gold
+    // Theme - Warm honey colors with good contrast
     const theme = {
-        bg: '#1a1625', bgPanel: '#2a2440', bgDark: '#1a1020',
-        border: '#4a4468', borderLight: '#5a5478',
-        text: '#ffffff', textSecondary: '#b8b0c8', textMuted: '#8880a0',
-        accent: '#ff69b4', accentBright: '#ff89d4',
-        gold: '#ffd700', goldGlow: 'rgba(255, 215, 0, 0.4)',
-        error: '#e85a50', success: '#50c878',
-        honey: '#f4a460', bee: '#ffd700'
+        bg: '#1a1625',
+        bgPanel: '#2a2440',
+        bgDark: '#1a1020',
+        border: '#4a4468',
+        borderLight: '#5a5478',
+        text: '#ffffff',
+        textSecondary: '#b8b0c8',
+        textMuted: '#8880a0',
+        accent: '#ff69b4',
+        accentBright: '#ff89d4',
+        gold: '#ffd700',
+        goldGlow: 'rgba(255, 215, 0, 0.4)',
+        error: '#ff6b6b',
+        success: '#50c878',
+        honey: '#f4a460',
+        warning: '#ffa500'
     };
 
-    // Opponents - each introduces unique mechanics
+    // ═══════════════════════════════════════════════════════════════
+    // OPPONENT DESIGN - Each introduces ONE clear new mechanic
+    // Difficulty curve: gradual introduction, no spikes
+    // ═══════════════════════════════════════════════════════════════
     const opponents = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
-            title: 'The Groovy Beginner',
-            taunt: "Ribbit! Catch that honey!",
+            title: 'The Friendly Beginner',
+            taunt: "Ribbit! Let's warm up!",
             winQuote: "Hop hop hooray!",
-            loseQuote: "Ribbit... too sweet!",
-            mechanic: 'Basic slow falling - just honey pots',
-            spawnRate: 1.5, fallSpeed: 2, items: ['honey'], patterns: ['straight']
+            loseQuote: "Great catching!",
+            mechanic: 'Just honey pots - learn the basics!',
+            // Generous settings for learning
+            baseSpawnRate: 1.2, baseFallSpeed: 1.8,
+            items: ['honey'],
+            patterns: ['straight'],
+            badItemChance: 0,
+            goldenChance: 0.08,
+            powerUpChance: 0.12
         },
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
-            title: 'The Cunning Clucker',
-            taunt: "Bawk! Watch out for bees!",
-            winQuote: "Egg-cellent catching!",
-            loseQuote: "Bawk... you're too good!",
-            mechanic: 'Introduces bees - avoid them!',
-            spawnRate: 1.3, fallSpeed: 2.5, items: ['honey', 'bee'], patterns: ['straight']
+            title: 'The Clucky Teacher',
+            taunt: "Bawk! Watch for bees!",
+            winQuote: "Egg-cellent!",
+            loseQuote: "You're learning!",
+            mechanic: 'NEW: Bees appear - avoid them!',
+            baseSpawnRate: 1.1, baseFallSpeed: 2.0,
+            items: ['honey', 'bee'],
+            patterns: ['straight'],
+            badItemChance: 0.18,
+            goldenChance: 0.10,
+            powerUpChance: 0.10
         },
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Groovy Giant',
-            taunt: "Time to dance, baby!",
+            taunt: "Feel the rhythm!",
             winQuote: "Groovy moves!",
-            loseQuote: "The disco continues...",
-            mechanic: 'Items speed up over time!',
-            spawnRate: 1.2, fallSpeed: 2, items: ['honey', 'bee'], patterns: ['straight'], speedUp: true
+            loseQuote: "Keep dancing!",
+            mechanic: 'NEW: Items sway side to side',
+            baseSpawnRate: 1.0, baseFallSpeed: 2.2,
+            items: ['honey', 'bee'],
+            patterns: ['sway'],
+            badItemChance: 0.20,
+            goldenChance: 0.12,
+            powerUpChance: 0.10
         },
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Trash Tactician',
-            taunt: "Found these rocks for you!",
-            winQuote: "Garbage day victory!",
-            loseQuote: "Back to the bins...",
-            mechanic: 'Introduces rocks - big penalties! Items zig-zag',
-            spawnRate: 1.1, fallSpeed: 2.8, items: ['honey', 'bee', 'rock'], patterns: ['zigzag']
+            taunt: "Dodge these rocks!",
+            winQuote: "Garbage day win!",
+            loseQuote: "Nice reflexes!",
+            mechanic: 'NEW: Heavy rocks with big penalties',
+            baseSpawnRate: 0.95, baseFallSpeed: 2.4,
+            items: ['honey', 'bee', 'rock'],
+            patterns: ['straight', 'sway'],
+            badItemChance: 0.25,
+            goldenChance: 0.12,
+            powerUpChance: 0.10
         },
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Shocking Strategist',
-            taunt: "Golden honey incoming!",
-            winQuote: "Electrifying catch!",
-            loseQuote: "Circuits overloaded...",
-            mechanic: 'Golden honey worth 3x! Items move in waves',
-            spawnRate: 1.0, fallSpeed: 3, items: ['honey', 'bee', 'golden'], patterns: ['wave']
+            taunt: "Catch the sparkles!",
+            winQuote: "Electrifying!",
+            loseQuote: "Shocking skill!",
+            mechanic: 'NEW: More golden honey appears!',
+            baseSpawnRate: 0.9, baseFallSpeed: 2.5,
+            items: ['honey', 'bee', 'rock', 'golden'],
+            patterns: ['straight', 'sway'],
+            badItemChance: 0.22,
+            goldenChance: 0.18,
+            powerUpChance: 0.12
         },
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
-            title: 'The Light Seeker',
-            taunt: "Can you see in the dark?",
-            winQuote: "The light guides you!",
-            loseQuote: "Into the darkness...",
-            mechanic: 'Items are hidden until close!',
-            spawnRate: 0.9, fallSpeed: 3.2, items: ['honey', 'bee', 'rock', 'golden'], patterns: ['straight'], hidden: true
+            title: 'The Shadow Dancer',
+            taunt: "Trust your instincts!",
+            winQuote: "You see clearly!",
+            loseQuote: "Well spotted!",
+            mechanic: 'NEW: Some items fade until close',
+            baseSpawnRate: 0.85, baseFallSpeed: 2.6,
+            items: ['honey', 'bee', 'rock', 'golden'],
+            patterns: ['straight', 'sway'],
+            badItemChance: 0.25,
+            goldenChance: 0.15,
+            powerUpChance: 0.12,
+            hasFading: true
         },
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
-            title: 'The Antarctic Academic',
-            taunt: "Study these patterns!",
+            title: 'The Pattern Master',
+            taunt: "Study my patterns!",
             winQuote: "Class dismissed!",
-            loseQuote: "I must study more...",
-            mechanic: 'Items fall in groups and patterns',
-            spawnRate: 0.8, fallSpeed: 3.5, items: ['honey', 'bee', 'rock', 'golden'], patterns: ['group', 'diagonal']
+            loseQuote: "A+ student!",
+            mechanic: 'NEW: Items fall in wave patterns',
+            baseSpawnRate: 0.8, baseFallSpeed: 2.8,
+            items: ['honey', 'bee', 'rock', 'golden'],
+            patterns: ['wave', 'sway'],
+            badItemChance: 0.25,
+            goldenChance: 0.15,
+            powerUpChance: 0.10
         },
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Slithering Schemer',
-            taunt: "Sssso tricky!",
-            winQuote: "Ssssweet victory!",
-            loseQuote: "Thisss isssn't over...",
-            mechanic: 'Items can change direction mid-fall!',
-            spawnRate: 0.75, fallSpeed: 3.8, items: ['honey', 'bee', 'rock', 'golden'], patterns: ['swerve']
+            taunt: "Sssso unpredictable!",
+            winQuote: "Ssssweet!",
+            loseQuote: "Impresssssive!",
+            mechanic: 'NEW: Items can change direction!',
+            baseSpawnRate: 0.75, baseFallSpeed: 3.0,
+            items: ['honey', 'bee', 'rock', 'golden'],
+            patterns: ['swerve', 'wave'],
+            badItemChance: 0.28,
+            goldenChance: 0.15,
+            powerUpChance: 0.10
         },
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Pack Leader',
-            taunt: "The pack descends!",
+            taunt: "The pack attacks!",
             winQuote: "AWOOOO!",
-            loseQuote: "The pack retreats...",
-            mechanic: 'Multiple items at once, faster pace!',
-            spawnRate: 0.5, fallSpeed: 4.2, items: ['honey', 'bee', 'rock', 'golden'], patterns: ['swarm']
+            loseQuote: "Worthy prey!",
+            mechanic: 'NEW: Items come in groups!',
+            baseSpawnRate: 0.7, baseFallSpeed: 3.2,
+            items: ['honey', 'bee', 'rock', 'golden'],
+            patterns: ['straight', 'sway', 'wave'],
+            badItemChance: 0.28,
+            goldenChance: 0.15,
+            powerUpChance: 0.08,
+            hasSwarms: true
         },
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Champion',
-            taunt: "Face ALL the challenges!",
-            winQuote: "Worthy of the crown!",
-            loseQuote: "Impossible...",
-            mechanic: 'All mechanics combined - ultimate challenge!',
-            spawnRate: 0.4, fallSpeed: 4.5, items: ['honey', 'bee', 'rock', 'golden'], patterns: ['all'], speedUp: true, hidden: true
+            taunt: "Show me everything!",
+            winQuote: "A true master!",
+            loseQuote: "Incredible!",
+            mechanic: 'ULTIMATE: All mechanics combined!',
+            baseSpawnRate: 0.65, baseFallSpeed: 3.5,
+            items: ['honey', 'bee', 'rock', 'golden'],
+            patterns: ['straight', 'sway', 'wave', 'swerve'],
+            badItemChance: 0.30,
+            goldenChance: 0.18,
+            powerUpChance: 0.10,
+            hasFading: true,
+            hasSwarms: true,
+            speedRamp: true
         }
     ];
 
-    // Item definitions
+    // ═══════════════════════════════════════════════════════════════
+    // ITEM DEFINITIONS - Balanced risk/reward
+    // ═══════════════════════════════════════════════════════════════
     const itemTypes = {
-        honey: { emoji: '🍯', points: 10, type: 'good' },
-        golden: { emoji: '⭐', points: 30, type: 'good' },
-        bee: { emoji: '🐝', points: -15, type: 'bad' },
-        rock: { emoji: '🪨', points: -25, type: 'bad' }
+        honey: { emoji: '🍯', points: 15, type: 'good', name: 'Honey' },
+        golden: { emoji: '⭐', points: 40, type: 'good', name: 'Golden Honey' },
+        bee: { emoji: '🐝', points: -10, type: 'bad', name: 'Bee' },
+        rock: { emoji: '🪨', points: -20, type: 'bad', name: 'Rock' }
     };
 
-    // Game state
+    // ═══════════════════════════════════════════════════════════════
+    // POWER-UPS - Meaningful choices and excitement
+    // ═══════════════════════════════════════════════════════════════
+    const powerUpTypes = {
+        magnet: {
+            emoji: '🧲',
+            name: 'Honey Magnet',
+            duration: 5000,
+            description: 'Attracts nearby honey!'
+        },
+        shield: {
+            emoji: '🛡️',
+            name: 'Bear Shield',
+            duration: 4000,
+            description: 'Blocks bad items!'
+        },
+        slowmo: {
+            emoji: '⏱️',
+            name: 'Slow Time',
+            duration: 4000,
+            description: 'Everything slows down!'
+        },
+        multiplier: {
+            emoji: '✨',
+            name: 'Double Points',
+            duration: 5000,
+            description: '2x points on catches!'
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    // GAME STATE
+    // ═══════════════════════════════════════════════════════════════
     const [gameState, setGameState] = useState('menu');
     const [selectedOpponent, setSelectedOpponent] = useState(null);
     const [currentLevel, setCurrentLevel] = useState(1);
@@ -133,11 +236,26 @@ const HoneyCatch = () => {
     // Match state
     const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(60);
-    const [playerX, setPlayerX] = useState(50); // percentage
     const [fallingItems, setFallingItems] = useState([]);
     const [combo, setCombo] = useState(0);
+    const [maxCombo, setMaxCombo] = useState(0);
     const [catchEffects, setCatchEffects] = useState([]);
     const [isPaused, setIsPaused] = useState(false);
+    const [screenShake, setScreenShake] = useState(0);
+    const [particles, setParticles] = useState([]);
+
+    // Player state with physics
+    const [playerX, setPlayerX] = useState(50);
+    const playerVelocity = useRef(0);
+    const [playerTilt, setPlayerTilt] = useState(0);
+
+    // Power-up state
+    const [activePowerUps, setActivePowerUps] = useState({});
+    const [feverMode, setFeverMode] = useState(false);
+
+    // Wave system for pacing
+    const [currentWave, setCurrentWave] = useState('warmup');
+    const waveTimerRef = useRef(null);
 
     // Refs
     const gameLoopRef = useRef(null);
@@ -145,120 +263,247 @@ const HoneyCatch = () => {
     const spawnTimerRef = useRef(null);
     const keysPressed = useRef({});
     const itemIdRef = useRef(0);
+    const lastTimeRef = useRef(0);
+    const gameAreaRef = useRef(null);
 
-    // Progression
+    // ═══════════════════════════════════════════════════════════════
+    // PROGRESSION SYSTEM
+    // ═══════════════════════════════════════════════════════════════
     const [progression, setProgression] = useState(() => {
-        const saved = localStorage.getItem('honey_catch_progression_v1');
+        const saved = localStorage.getItem('honey_catch_progression_v2');
         if (saved) return JSON.parse(saved);
-        return { starPoints: Array(10).fill(0) };
+        return {
+            starPoints: Array(10).fill(0),
+            bestScores: Array(10).fill(null).map(() => Array(10).fill(0)),
+            totalHoneyCaught: 0,
+            totalGamesPlayed: 0
+        };
     });
 
     useEffect(() => {
-        localStorage.setItem('honey_catch_progression_v1', JSON.stringify(progression));
+        localStorage.setItem('honey_catch_progression_v2', JSON.stringify(progression));
     }, [progression]);
 
     const getStars = (idx) => Math.floor(progression.starPoints[idx] / 4);
-    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 40;
+    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 4;
     const isOpponentMastered = (idx) => progression.starPoints[idx] >= 40;
 
-    // Get difficulty settings
+    // ═══════════════════════════════════════════════════════════════
+    // DIFFICULTY SYSTEM - Smooth curve, calibrated for 50% success
+    // ═══════════════════════════════════════════════════════════════
     const getDifficulty = useCallback((opponentIdx, level) => {
         const opp = opponents[opponentIdx];
-        const levelMod = 1 + (level - 1) * 0.08;
+        // Gentler scaling: 5% per level instead of 8%
+        const levelMod = 1 + (level - 1) * 0.05;
+
+        // Target score calibrated for ~50% first-attempt success
+        // Base: enough to catch ~60% of spawned good items
+        const baseTarget = 80 + opponentIdx * 30;
+        const levelBonus = level * 20;
 
         return {
-            spawnRate: opp.spawnRate / levelMod,
-            fallSpeed: opp.fallSpeed * levelMod,
-            targetScore: 100 + opponentIdx * 50 + level * 30
+            spawnRate: Math.max(0.4, opp.baseSpawnRate / levelMod),
+            fallSpeed: opp.baseFallSpeed * levelMod,
+            targetScore: baseTarget + levelBonus,
+            badItemChance: Math.min(0.35, opp.badItemChance + level * 0.01),
+            goldenChance: opp.goldenChance + level * 0.005,
+            powerUpChance: opp.powerUpChance
         };
     }, []);
 
-    // Generate falling item
-    const spawnItem = useCallback(() => {
+    // ═══════════════════════════════════════════════════════════════
+    // WAVE SYSTEM - Pacing within each round
+    // Creates rhythm: warmup → buildup → intensity → breather → climax
+    // ═══════════════════════════════════════════════════════════════
+    const getWaveModifier = useCallback(() => {
+        switch (currentWave) {
+            case 'warmup': return { spawnMod: 0.7, speedMod: 0.85, duration: 8 };
+            case 'buildup': return { spawnMod: 0.9, speedMod: 0.95, duration: 12 };
+            case 'intensity': return { spawnMod: 1.2, speedMod: 1.1, duration: 15 };
+            case 'breather': return { spawnMod: 0.6, speedMod: 0.8, duration: 8 };
+            case 'climax': return { spawnMod: 1.3, speedMod: 1.15, duration: 17 };
+            default: return { spawnMod: 1, speedMod: 1, duration: 10 };
+        }
+    }, [currentWave]);
+
+    // ═══════════════════════════════════════════════════════════════
+    // PARTICLE SYSTEM - Visual feedback / "juice"
+    // ═══════════════════════════════════════════════════════════════
+    const spawnParticles = useCallback((x, y, type, count = 8) => {
+        const newParticles = [];
+        const colors = type === 'good'
+            ? ['#ffd700', '#ffec8b', '#fff8dc', '#ffa500']
+            : ['#ff6b6b', '#ff8888', '#ffaaaa', '#ff4444'];
+
+        for (let i = 0; i < count; i++) {
+            newParticles.push({
+                id: `particle-${Date.now()}-${i}`,
+                x,
+                y,
+                vx: (Math.random() - 0.5) * 8,
+                vy: -Math.random() * 6 - 2,
+                size: Math.random() * 8 + 4,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                life: 1
+            });
+        }
+        setParticles(prev => [...prev, ...newParticles]);
+    }, []);
+
+    // ═══════════════════════════════════════════════════════════════
+    // SCREEN SHAKE - Feedback for bad catches
+    // ═══════════════════════════════════════════════════════════════
+    const triggerScreenShake = useCallback((intensity = 5) => {
+        setScreenShake(intensity);
+        setTimeout(() => setScreenShake(0), 200);
+    }, []);
+
+    // ═══════════════════════════════════════════════════════════════
+    // ITEM SPAWNING - Pattern-based, telegraphed
+    // ═══════════════════════════════════════════════════════════════
+    const spawnItem = useCallback((forceType = null, forceX = null) => {
         if (!selectedOpponent) return;
 
         const opp = selectedOpponent;
         const difficulty = getDifficulty(opp.id, currentLevel);
+        const waveMod = getWaveModifier();
 
-        // Choose item type based on opponent's available items
-        const items = opp.items;
+        // Determine item type
         let itemKey;
-
-        // Weight towards good items early, bad items later
-        const badChance = 0.2 + (opp.id * 0.03) + (currentLevel * 0.02);
-        const goldenChance = items.includes('golden') ? 0.15 : 0;
-
-        const roll = Math.random();
-        if (roll < goldenChance) {
-            itemKey = 'golden';
-        } else if (roll < goldenChance + badChance && items.includes('bee')) {
-            itemKey = Math.random() < 0.5 && items.includes('rock') ? 'rock' : 'bee';
+        if (forceType) {
+            itemKey = forceType;
         } else {
-            itemKey = 'honey';
+            const roll = Math.random();
+            const powerUpRoll = Math.random();
+
+            // Power-up spawn (separate roll)
+            if (powerUpRoll < difficulty.powerUpChance) {
+                const powerUpKeys = Object.keys(powerUpTypes);
+                const powerUp = powerUpKeys[Math.floor(Math.random() * powerUpKeys.length)];
+
+                const item = {
+                    id: itemIdRef.current++,
+                    type: 'powerup',
+                    powerUpType: powerUp,
+                    x: forceX ?? (15 + Math.random() * 70),
+                    y: -5,
+                    pattern: 'straight',
+                    speed: difficulty.fallSpeed * waveMod.speedMod * 0.8,
+                    baseX: forceX ?? (15 + Math.random() * 70),
+                    time: 0,
+                    fading: false,
+                    swerveDir: 1,
+                    swerveTimer: Math.random() * Math.PI * 2
+                };
+                setFallingItems(prev => [...prev, item]);
+                return;
+            }
+
+            // Regular item type selection
+            if (roll < difficulty.goldenChance && opp.items.includes('golden')) {
+                itemKey = 'golden';
+            } else if (roll < difficulty.goldenChance + difficulty.badItemChance) {
+                if (opp.items.includes('rock') && Math.random() < 0.35) {
+                    itemKey = 'rock';
+                } else if (opp.items.includes('bee')) {
+                    itemKey = 'bee';
+                } else {
+                    itemKey = 'honey';
+                }
+            } else {
+                itemKey = 'honey';
+            }
         }
 
-        // Choose pattern
+        // Choose pattern from opponent's available patterns
         const patterns = opp.patterns;
         const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-        // Base x position
-        let x = 10 + Math.random() * 80;
+        // Position - avoid edges for fairness
+        const x = forceX ?? (15 + Math.random() * 70);
 
-        // Create item
+        // Create item with pattern data
         const item = {
             id: itemIdRef.current++,
             type: itemKey,
             x: x,
-            y: -10,
+            y: -5,
             pattern: pattern,
-            speed: difficulty.fallSpeed,
-            hidden: opp.hidden && Math.random() < 0.5,
+            speed: difficulty.fallSpeed * waveMod.speedMod,
+            baseX: x,
+            time: 0,
+            fading: opp.hasFading && itemTypes[itemKey].type === 'bad' && Math.random() < 0.4,
             swerveDir: Math.random() < 0.5 ? 1 : -1,
-            swerveTimer: 0,
-            waveOffset: Math.random() * Math.PI * 2
+            swerveTimer: Math.random() * Math.PI * 2,
+            telegraphed: true // Items are always visible/predictable
         };
 
         setFallingItems(prev => [...prev, item]);
 
-        // For group/swarm patterns, spawn multiple items
-        if (pattern === 'group' || pattern === 'swarm' || pattern === 'all') {
-            const extraCount = pattern === 'swarm' ? 3 : 2;
-            for (let i = 0; i < extraCount; i++) {
+        // Swarm spawning for Wolf and Grizzly
+        if (opp.hasSwarms && Math.random() < 0.3) {
+            const swarmCount = 2 + Math.floor(Math.random() * 2);
+            for (let i = 0; i < swarmCount; i++) {
                 setTimeout(() => {
-                    const extraItem = {
-                        id: itemIdRef.current++,
-                        type: Math.random() < 0.7 ? 'honey' : (Math.random() < 0.5 ? 'bee' : 'rock'),
-                        x: 10 + Math.random() * 80,
-                        y: -10,
-                        pattern: pattern === 'all' ? ['straight', 'zigzag', 'wave'][Math.floor(Math.random() * 3)] : 'straight',
-                        speed: difficulty.fallSpeed * (0.8 + Math.random() * 0.4),
-                        hidden: false,
-                        swerveDir: Math.random() < 0.5 ? 1 : -1,
-                        swerveTimer: 0,
-                        waveOffset: Math.random() * Math.PI * 2
-                    };
-                    setFallingItems(prev => [...prev, extraItem]);
-                }, i * 200);
+                    if (gameState === 'playing' && !isPaused) {
+                        const swarmX = Math.max(15, Math.min(85, x + (Math.random() - 0.5) * 30));
+                        spawnItem(Math.random() < 0.7 ? 'honey' : 'bee', swarmX);
+                    }
+                }, (i + 1) * 150);
             }
         }
-    }, [selectedOpponent, currentLevel, getDifficulty]);
+    }, [selectedOpponent, currentLevel, getDifficulty, getWaveModifier, gameState, isPaused]);
 
-    // Start match
+    // ═══════════════════════════════════════════════════════════════
+    // START MATCH
+    // ═══════════════════════════════════════════════════════════════
     const startMatch = useCallback((opponent, level) => {
         setSelectedOpponent(opponent);
         setCurrentLevel(level);
         setScore(0);
         setTimeLeft(60);
         setPlayerX(50);
+        playerVelocity.current = 0;
+        setPlayerTilt(0);
         setFallingItems([]);
         setCombo(0);
+        setMaxCombo(0);
         setCatchEffects([]);
+        setParticles([]);
         setIsPaused(false);
+        setScreenShake(0);
+        setActivePowerUps({});
+        setFeverMode(false);
+        setCurrentWave('warmup');
         itemIdRef.current = 0;
+        lastTimeRef.current = performance.now();
         setGameState('playing');
     }, []);
 
-    // Game timer
+    // ═══════════════════════════════════════════════════════════════
+    // WAVE PROGRESSION TIMER
+    // ═══════════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (gameState !== 'playing' || isPaused) return;
+
+        const waveSequence = ['warmup', 'buildup', 'intensity', 'breather', 'climax'];
+        let waveIndex = 0;
+
+        const advanceWave = () => {
+            waveIndex = (waveIndex + 1) % waveSequence.length;
+            setCurrentWave(waveSequence[waveIndex]);
+        };
+
+        // Set initial wave duration
+        const waveMod = getWaveModifier();
+        waveTimerRef.current = setTimeout(advanceWave, waveMod.duration * 1000);
+
+        return () => clearTimeout(waveTimerRef.current);
+    }, [gameState, isPaused, currentWave, getWaveModifier]);
+
+    // ═══════════════════════════════════════════════════════════════
+    // GAME TIMER
+    // ═══════════════════════════════════════════════════════════════
     useEffect(() => {
         if (gameState !== 'playing' || isPaused) return;
 
@@ -275,77 +520,281 @@ const HoneyCatch = () => {
         return () => clearInterval(timerRef.current);
     }, [gameState, isPaused]);
 
-    // Item spawner
+    // ═══════════════════════════════════════════════════════════════
+    // ITEM SPAWNER
+    // ═══════════════════════════════════════════════════════════════
     useEffect(() => {
         if (gameState !== 'playing' || isPaused || !selectedOpponent) return;
 
         const difficulty = getDifficulty(selectedOpponent.id, currentLevel);
-        const spawnInterval = difficulty.spawnRate * 1000;
+        const waveMod = getWaveModifier();
+        const spawnInterval = (difficulty.spawnRate / waveMod.spawnMod) * 1000;
 
         spawnTimerRef.current = setInterval(spawnItem, spawnInterval);
 
         return () => clearInterval(spawnTimerRef.current);
-    }, [gameState, isPaused, selectedOpponent, currentLevel, spawnItem, getDifficulty]);
+    }, [gameState, isPaused, selectedOpponent, currentLevel, spawnItem, getDifficulty, getWaveModifier]);
 
-    // Game loop - movement and collisions
+    // ═══════════════════════════════════════════════════════════════
+    // MAIN GAME LOOP - Physics-based movement and updates
+    // ═══════════════════════════════════════════════════════════════
     useEffect(() => {
         if (gameState !== 'playing' || isPaused) return;
 
         const opp = selectedOpponent;
         const difficulty = getDifficulty(opp.id, currentLevel);
-        let currentTime = 0;
 
-        const loop = () => {
-            currentTime += 16;
+        const loop = (currentTime) => {
+            const deltaTime = Math.min((currentTime - lastTimeRef.current) / 16.67, 3);
+            lastTimeRef.current = currentTime;
 
-            // Player movement
-            const moveSpeed = 2;
+            // ─────────────────────────────────────────────────────
+            // PLAYER PHYSICS - Acceleration-based movement (The Toy)
+            // ─────────────────────────────────────────────────────
+            const acceleration = 0.8;
+            const maxSpeed = 4;
+            const friction = 0.85;
+
+            let targetVelocity = 0;
             if (keysPressed.current['ArrowLeft'] || keysPressed.current['KeyA']) {
-                setPlayerX(x => Math.max(5, x - moveSpeed));
+                targetVelocity = -maxSpeed;
             }
             if (keysPressed.current['ArrowRight'] || keysPressed.current['KeyD']) {
-                setPlayerX(x => Math.min(95, x + moveSpeed));
+                targetVelocity = maxSpeed;
             }
 
-            // Update falling items
+            // Apply acceleration toward target velocity
+            if (targetVelocity !== 0) {
+                playerVelocity.current += (targetVelocity - playerVelocity.current) * acceleration * deltaTime * 0.1;
+            } else {
+                // Apply friction when no input
+                playerVelocity.current *= Math.pow(friction, deltaTime);
+            }
+
+            // Clamp velocity
+            playerVelocity.current = Math.max(-maxSpeed, Math.min(maxSpeed, playerVelocity.current));
+
+            // Update position
+            setPlayerX(x => {
+                const newX = x + playerVelocity.current * deltaTime;
+                return Math.max(8, Math.min(92, newX));
+            });
+
+            // Visual tilt based on velocity (juice!)
+            setPlayerTilt(playerVelocity.current * 3);
+
+            // ─────────────────────────────────────────────────────
+            // UPDATE FALLING ITEMS
+            // ─────────────────────────────────────────────────────
+            const slowMoActive = activePowerUps.slowmo;
+            const speedMultiplier = slowMoActive ? 0.5 : 1;
+            const magnetActive = activePowerUps.magnet;
+
             setFallingItems(items => {
                 return items.map(item => {
                     let newX = item.x;
                     let newY = item.y;
-                    let speed = item.speed;
+                    let speed = item.speed * speedMultiplier;
 
-                    // Speed up over time for Disco Dinosaur and Grizzly
-                    if (opp.speedUp) {
-                        speed *= 1 + (60 - timeLeft) * 0.01;
+                    // Speed ramp for Grizzly
+                    if (opp.speedRamp && timeLeft < 30) {
+                        speed *= 1 + (30 - timeLeft) * 0.015;
                     }
 
-                    newY += speed * 0.5;
+                    // Update time for pattern calculations
+                    const newTime = item.time + deltaTime * 0.05;
 
-                    // Pattern movements
+                    // Pattern-based movement
                     switch (item.pattern) {
-                        case 'zigzag':
-                            newX += Math.sin(newY * 0.1) * 2;
+                        case 'sway':
+                            // Gentle side-to-side
+                            newX = item.baseX + Math.sin(newTime * 2) * 12;
                             break;
                         case 'wave':
-                            newX += Math.sin(newY * 0.05 + item.waveOffset) * 3;
+                            // Larger wave pattern
+                            newX = item.baseX + Math.sin(newTime * 1.5) * 20;
                             break;
                         case 'swerve':
-                            item.swerveTimer += 0.02;
-                            if (Math.sin(item.swerveTimer) > 0.9) {
+                            // Unpredictable direction changes
+                            if (Math.sin(item.swerveTimer + newTime * 3) > 0.85) {
                                 item.swerveDir *= -1;
                             }
-                            newX += item.swerveDir * 0.8;
+                            newX = item.x + item.swerveDir * 0.5 * deltaTime;
                             break;
-                        case 'diagonal':
-                            newX += item.swerveDir * 0.5;
+                        default:
+                            // Straight fall
                             break;
                     }
+
+                    // Magnet effect for good items
+                    if (magnetActive && item.type !== 'powerup') {
+                        const itemDef = itemTypes[item.type];
+                        if (itemDef && itemDef.type === 'good') {
+                            const dx = playerX - newX;
+                            if (Math.abs(dx) < 25 && newY > 50) {
+                                newX += dx * 0.08 * deltaTime;
+                            }
+                        }
+                    }
+
+                    // Apply gravity
+                    newY += speed * 0.4 * deltaTime;
 
                     // Keep in bounds
                     newX = Math.max(5, Math.min(95, newX));
 
-                    return { ...item, x: newX, y: newY };
-                }).filter(item => item.y < 110); // Remove items that fell off screen
+                    return {
+                        ...item,
+                        x: newX,
+                        y: newY,
+                        time: newTime
+                    };
+                }).filter(item => item.y < 105);
+            });
+
+            // ─────────────────────────────────────────────────────
+            // UPDATE PARTICLES
+            // ─────────────────────────────────────────────────────
+            setParticles(prev => prev
+                .map(p => ({
+                    ...p,
+                    x: p.x + p.vx * deltaTime,
+                    y: p.y + p.vy * deltaTime,
+                    vy: p.vy + 0.3 * deltaTime, // gravity
+                    life: p.life - 0.03 * deltaTime
+                }))
+                .filter(p => p.life > 0)
+            );
+
+            // ─────────────────────────────────────────────────────
+            // COLLISION DETECTION (every frame for responsiveness)
+            // ─────────────────────────────────────────────────────
+            setFallingItems(items => {
+                const remaining = [];
+                const shieldActive = activePowerUps.shield;
+                const multiplierActive = activePowerUps.multiplier;
+
+                for (const item of items) {
+                    // Catch zone - generous for good items, tighter for bad
+                    const catchWidth = item.type === 'powerup' ||
+                        (itemTypes[item.type] && itemTypes[item.type].type === 'good') ? 14 : 10;
+                    const catchTop = 78;
+                    const catchBottom = 92;
+
+                    const inCatchZone = item.y >= catchTop && item.y <= catchBottom;
+                    const inRange = Math.abs(item.x - playerX) < catchWidth;
+
+                    if (inCatchZone && inRange) {
+                        // CAUGHT!
+                        if (item.type === 'powerup') {
+                            // Activate power-up
+                            const powerUp = powerUpTypes[item.powerUpType];
+                            setActivePowerUps(prev => ({
+                                ...prev,
+                                [item.powerUpType]: true
+                            }));
+
+                            // Schedule deactivation
+                            setTimeout(() => {
+                                setActivePowerUps(prev => {
+                                    const newState = { ...prev };
+                                    delete newState[item.powerUpType];
+                                    return newState;
+                                });
+                            }, powerUp.duration);
+
+                            // Visual feedback
+                            spawnParticles(item.x, item.y, 'good', 12);
+                            setCatchEffects(prev => [...prev, {
+                                id: item.id,
+                                x: item.x,
+                                y: item.y,
+                                text: powerUp.name + '!',
+                                type: 'powerup'
+                            }]);
+                            setTimeout(() => {
+                                setCatchEffects(prev => prev.filter(e => e.id !== item.id));
+                            }, 800);
+                        } else {
+                            const itemDef = itemTypes[item.type];
+
+                            if (itemDef.type === 'bad' && shieldActive) {
+                                // Shield blocks bad items
+                                spawnParticles(item.x, item.y, 'good', 6);
+                                setCatchEffects(prev => [...prev, {
+                                    id: item.id,
+                                    x: item.x,
+                                    y: item.y,
+                                    text: 'BLOCKED!',
+                                    type: 'shield'
+                                }]);
+                                setTimeout(() => {
+                                    setCatchEffects(prev => prev.filter(e => e.id !== item.id));
+                                }, 500);
+                            } else {
+                                // Calculate points with combo and multipliers
+                                let comboBonus = 1 + Math.min(combo * 0.15, 1.5); // Up to 2.5x at 10 combo
+                                let points = Math.floor(itemDef.points * comboBonus);
+
+                                // Fever mode bonus
+                                if (feverMode && itemDef.type === 'good') {
+                                    points = Math.floor(points * 1.5);
+                                }
+
+                                // Multiplier power-up
+                                if (multiplierActive && itemDef.type === 'good') {
+                                    points *= 2;
+                                }
+
+                                setScore(s => Math.max(0, s + points));
+
+                                if (itemDef.type === 'good') {
+                                    setCombo(c => {
+                                        const newCombo = c + 1;
+                                        setMaxCombo(m => Math.max(m, newCombo));
+
+                                        // Trigger fever mode at high combo
+                                        if (newCombo >= 8 && !feverMode) {
+                                            setFeverMode(true);
+                                            setTimeout(() => setFeverMode(false), 5000);
+                                        }
+
+                                        return newCombo;
+                                    });
+                                    spawnParticles(item.x, item.y, 'good', item.type === 'golden' ? 15 : 8);
+                                } else {
+                                    setCombo(0);
+                                    setFeverMode(false);
+                                    spawnParticles(item.x, item.y, 'bad', 6);
+                                    triggerScreenShake(item.type === 'rock' ? 8 : 5);
+                                }
+
+                                // Catch effect
+                                setCatchEffects(prev => [...prev, {
+                                    id: item.id,
+                                    x: item.x,
+                                    y: item.y,
+                                    points: points,
+                                    type: itemDef.type,
+                                    isGolden: item.type === 'golden',
+                                    isFever: feverMode
+                                }]);
+                                setTimeout(() => {
+                                    setCatchEffects(prev => prev.filter(e => e.id !== item.id));
+                                }, 600);
+                            }
+                        }
+                    } else {
+                        remaining.push(item);
+
+                        // Missed good item - break combo (but no score penalty)
+                        if (item.y >= 100 && itemTypes[item.type]?.type === 'good') {
+                            setCombo(0);
+                        }
+                    }
+                }
+
+                return remaining;
             });
 
             gameLoopRef.current = requestAnimationFrame(loop);
@@ -353,76 +802,12 @@ const HoneyCatch = () => {
 
         gameLoopRef.current = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(gameLoopRef.current);
-    }, [gameState, isPaused, selectedOpponent, currentLevel, timeLeft, getDifficulty]);
+    }, [gameState, isPaused, selectedOpponent, currentLevel, timeLeft, getDifficulty,
+        activePowerUps, feverMode, playerX, spawnParticles, triggerScreenShake]);
 
-    // Collision detection
-    useEffect(() => {
-        if (gameState !== 'playing') return;
-
-        const checkCollisions = () => {
-            setFallingItems(items => {
-                const remaining = [];
-                let caught = false;
-                let caughtGood = false;
-
-                for (const item of items) {
-                    // Check collision with player (player is at bottom, around y = 85%)
-                    const playerWidth = 12;
-                    const itemNear = item.y >= 80 && item.y <= 95;
-                    const itemInRange = Math.abs(item.x - playerX) < playerWidth;
-
-                    if (itemNear && itemInRange) {
-                        // Caught!
-                        const itemDef = itemTypes[item.type];
-                        const comboMultiplier = itemDef.type === 'good' ? 1 + combo * 0.1 : 1;
-                        const points = Math.floor(itemDef.points * comboMultiplier);
-
-                        setScore(s => Math.max(0, s + points));
-
-                        if (itemDef.type === 'good') {
-                            setCombo(c => c + 1);
-                            caughtGood = true;
-                        } else {
-                            setCombo(0);
-                        }
-
-                        // Add catch effect
-                        setCatchEffects(prev => [...prev, {
-                            id: item.id,
-                            x: item.x,
-                            y: item.y,
-                            points: points,
-                            type: itemDef.type
-                        }]);
-
-                        // Remove effect after animation
-                        setTimeout(() => {
-                            setCatchEffects(prev => prev.filter(e => e.id !== item.id));
-                        }, 500);
-
-                        caught = true;
-                    } else {
-                        remaining.push(item);
-                    }
-                }
-
-                // Reset combo if item was missed (fell off bottom)
-                const missedItem = items.some(item =>
-                    item.y >= 100 && itemTypes[item.type].type === 'good'
-                );
-                if (missedItem && !caught) {
-                    setCombo(0);
-                }
-
-                return remaining;
-            });
-        };
-
-        const collisionInterval = setInterval(checkCollisions, 50);
-        return () => clearInterval(collisionInterval);
-    }, [gameState, playerX, combo]);
-
-    // Keyboard handling
+    // ═══════════════════════════════════════════════════════════════
+    // KEYBOARD INPUT
+    // ═══════════════════════════════════════════════════════════════
     useEffect(() => {
         const handleKeyDown = (e) => {
             keysPressed.current[e.code] = true;
@@ -433,6 +818,10 @@ const HoneyCatch = () => {
                 } else if (gameState !== 'menu') {
                     setGameState('menu');
                 }
+            }
+
+            if (e.code === 'Space' && gameState === 'playing' && isPaused) {
+                setIsPaused(false);
             }
         };
 
@@ -447,133 +836,280 @@ const HoneyCatch = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [gameState]);
+    }, [gameState, isPaused]);
 
-    // Touch/mouse handling for mobile
+    // ═══════════════════════════════════════════════════════════════
+    // TOUCH/MOUSE INPUT
+    // ═══════════════════════════════════════════════════════════════
     const handlePointerMove = useCallback((e) => {
-        if (gameState !== 'playing') return;
+        if (gameState !== 'playing' || isPaused) return;
 
         const rect = e.currentTarget.getBoundingClientRect();
-        const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) / rect.width * 100;
-        setPlayerX(Math.max(5, Math.min(95, x)));
-    }, [gameState]);
+        const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+        if (clientX === undefined) return;
 
-    // Handle result
+        const x = ((clientX - rect.left) / rect.width) * 100;
+        const targetX = Math.max(8, Math.min(92, x));
+
+        // Smooth movement toward touch position
+        setPlayerX(currentX => {
+            const diff = targetX - currentX;
+            return currentX + diff * 0.3;
+        });
+    }, [gameState, isPaused]);
+
+    // ═══════════════════════════════════════════════════════════════
+    // HANDLE RESULT - Calculate rewards
+    // ═══════════════════════════════════════════════════════════════
     useEffect(() => {
         if (gameState !== 'result' || !selectedOpponent) return;
 
         const difficulty = getDifficulty(selectedOpponent.id, currentLevel);
         const won = score >= difficulty.targetScore;
 
-        if (won) {
-            // Calculate points: 1-4 based on performance
-            const ratio = score / difficulty.targetScore;
-            let points = 1;
-            if (ratio >= 2) points = 4;
-            else if (ratio >= 1.5) points = 3;
-            else if (ratio >= 1.2) points = 2;
+        // Update progression
+        setProgression(prev => {
+            const newState = { ...prev };
+            newState.totalGamesPlayed++;
 
-            setProgression(prev => {
-                const newPoints = [...prev.starPoints];
-                newPoints[selectedOpponent.id] = Math.min(40, newPoints[selectedOpponent.id] + points);
-                return { ...prev, starPoints: newPoints };
-            });
-        }
+            // Update best score
+            if (score > newState.bestScores[selectedOpponent.id][currentLevel - 1]) {
+                newState.bestScores[selectedOpponent.id][currentLevel - 1] = score;
+            }
+
+            if (won) {
+                // Calculate points: 1-4 based on performance
+                const ratio = score / difficulty.targetScore;
+                let points = 1;
+                if (ratio >= 1.8) points = 4;
+                else if (ratio >= 1.4) points = 3;
+                else if (ratio >= 1.15) points = 2;
+
+                newState.starPoints[selectedOpponent.id] = Math.min(
+                    40,
+                    newState.starPoints[selectedOpponent.id] + points
+                );
+            }
+
+            return newState;
+        });
     }, [gameState, score, selectedOpponent, currentLevel, getDifficulty]);
 
-    // Star bar component
-    const StarBar = ({ points }) => (
-        <div style={{ display: 'flex', gap: '2px' }}>
-            {Array(10).fill(0).map((_, i) => (
-                <div key={i} style={{
-                    width: '12px', height: '12px',
-                    background: i < Math.floor(points / 4) ? theme.gold : theme.bgDark,
-                    borderRadius: '2px',
-                    border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`
-                }} />
-            ))}
-        </div>
-    );
+    // ═══════════════════════════════════════════════════════════════
+    // UI COMPONENTS
+    // ═══════════════════════════════════════════════════════════════
 
-    // Menu screen
+    const StarBar = ({ points, size = 'normal' }) => {
+        const starSize = size === 'small' ? '10px' : '14px';
+        return (
+            <div style={{ display: 'flex', gap: '3px' }}>
+                {Array(10).fill(0).map((_, i) => (
+                    <div key={i} style={{
+                        width: starSize,
+                        height: starSize,
+                        background: i < Math.floor(points / 4)
+                            ? `linear-gradient(135deg, ${theme.gold}, #ffaa00)`
+                            : theme.bgDark,
+                        borderRadius: '3px',
+                        border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`,
+                        boxShadow: i < Math.floor(points / 4) ? `0 0 4px ${theme.goldGlow}` : 'none'
+                    }} />
+                ))}
+            </div>
+        );
+    };
+
+    const ProgressBar = ({ current, target, color }) => {
+        const percentage = Math.min(100, (current / target) * 100);
+        const isComplete = current >= target;
+
+        return (
+            <div style={{
+                width: '100%',
+                height: '8px',
+                background: theme.bgDark,
+                borderRadius: '4px',
+                overflow: 'hidden',
+                border: `1px solid ${theme.border}`
+            }}>
+                <div style={{
+                    width: `${percentage}%`,
+                    height: '100%',
+                    background: isComplete
+                        ? `linear-gradient(90deg, ${theme.success}, #70e898)`
+                        : `linear-gradient(90deg, ${color}, ${color}88)`,
+                    borderRadius: '3px',
+                    transition: 'width 0.3s ease-out',
+                    boxShadow: isComplete ? `0 0 10px ${theme.success}` : 'none'
+                }} />
+            </div>
+        );
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    // MENU SCREEN
+    // ═══════════════════════════════════════════════════════════════
     if (gameState === 'menu') {
         return (
             <div style={{
                 minHeight: '100vh',
                 background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f2f 100%)`,
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '40px 20px', color: theme.text
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '40px 20px',
+                color: theme.text
             }}>
-                <div style={{ fontSize: '64px', marginBottom: '10px' }}>🍯</div>
-                <h1 style={{ fontSize: '36px', marginBottom: '5px', color: theme.gold }}>HONEY CATCH</h1>
-                <p style={{ color: theme.textSecondary, marginBottom: '30px' }}>Catch honey, avoid bees!</p>
+                <div style={{ fontSize: '72px', marginBottom: '10px', filter: 'drop-shadow(0 0 20px rgba(255, 215, 0, 0.5))' }}>🍯</div>
+                <h1 style={{
+                    fontSize: '42px',
+                    marginBottom: '5px',
+                    color: theme.gold,
+                    textShadow: `0 0 20px ${theme.goldGlow}`
+                }}>HONEY CATCH</h1>
+                <p style={{ color: theme.textSecondary, marginBottom: '30px', fontSize: '18px' }}>
+                    Catch honey, dodge danger, become the champion!
+                </p>
 
                 <div style={{
-                    display: 'flex', gap: '20px', marginBottom: '30px',
-                    color: theme.textMuted, fontSize: '14px'
+                    display: 'flex',
+                    gap: '25px',
+                    marginBottom: '35px',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center'
                 }}>
-                    <span>🍯 +10</span>
-                    <span style={{ color: theme.gold }}>⭐ +30</span>
-                    <span style={{ color: theme.error }}>🐝 -15</span>
-                    <span style={{ color: theme.error }}>🪨 -25</span>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '32px' }}>🍯</div>
+                        <div style={{ color: theme.success, fontWeight: 'bold' }}>+15</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '32px' }}>⭐</div>
+                        <div style={{ color: theme.gold, fontWeight: 'bold' }}>+40</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '32px' }}>🐝</div>
+                        <div style={{ color: theme.error, fontWeight: 'bold' }}>-10</div>
+                    </div>
+                    <div style={{ textAlign: '32px' }}>
+                        <div style={{ fontSize: '32px' }}>🪨</div>
+                        <div style={{ color: theme.error, fontWeight: 'bold' }}>-20</div>
+                    </div>
                 </div>
 
                 <button
                     onClick={() => setGameState('select')}
                     style={{
-                        padding: '15px 50px', fontSize: '20px',
+                        padding: '18px 60px',
+                        fontSize: '24px',
                         background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                        border: 'none', borderRadius: '10px', color: 'white',
-                        cursor: 'pointer', fontWeight: 'bold',
-                        boxShadow: `0 4px 15px ${theme.goldGlow}`
+                        border: 'none',
+                        borderRadius: '15px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        boxShadow: `0 6px 20px rgba(255, 105, 180, 0.4)`,
+                        transition: 'transform 0.2s, box-shadow 0.2s'
+                    }}
+                    onMouseEnter={e => {
+                        e.target.style.transform = 'scale(1.05)';
+                        e.target.style.boxShadow = '0 8px 25px rgba(255, 105, 180, 0.6)';
+                    }}
+                    onMouseLeave={e => {
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 6px 20px rgba(255, 105, 180, 0.4)';
                     }}
                 >
                     PLAY
                 </button>
 
                 <div style={{
-                    marginTop: '30px', padding: '20px',
-                    background: theme.bgPanel, borderRadius: '10px',
-                    maxWidth: '400px', textAlign: 'center'
+                    marginTop: '35px',
+                    padding: '25px',
+                    background: theme.bgPanel,
+                    borderRadius: '15px',
+                    maxWidth: '450px',
+                    border: `1px solid ${theme.border}`
                 }}>
-                    <h3 style={{ color: theme.accent, marginBottom: '10px' }}>How to Play</h3>
-                    <p style={{ color: theme.textSecondary, fontSize: '14px', lineHeight: 1.6 }}>
-                        Move left/right with arrow keys or A/D.<br/>
-                        On mobile, touch and drag to move.<br/>
-                        Catch honey pots for points!<br/>
-                        Avoid bees and rocks!<br/>
-                        Build combos for bonus points!
-                    </p>
+                    <h3 style={{ color: theme.accent, marginBottom: '15px', fontSize: '20px' }}>How to Play</h3>
+                    <div style={{
+                        color: theme.textSecondary,
+                        fontSize: '15px',
+                        lineHeight: 1.8,
+                        textAlign: 'left'
+                    }}>
+                        <div style={{ marginBottom: '8px' }}>🎮 <strong>Move:</strong> Arrow keys, A/D, or touch</div>
+                        <div style={{ marginBottom: '8px' }}>🍯 <strong>Catch:</strong> Honey pots for points</div>
+                        <div style={{ marginBottom: '8px' }}>⚡ <strong>Combo:</strong> Chain catches for bonus points</div>
+                        <div style={{ marginBottom: '8px' }}>🛡️ <strong>Power-ups:</strong> Collect special abilities</div>
+                        <div>🔥 <strong>Fever:</strong> 8+ combo triggers Fever Mode!</div>
+                    </div>
                 </div>
 
+                {progression.totalGamesPlayed > 0 && (
+                    <div style={{
+                        marginTop: '20px',
+                        color: theme.textMuted,
+                        fontSize: '14px'
+                    }}>
+                        Games Played: {progression.totalGamesPlayed}
+                    </div>
+                )}
+
                 <a href="../menu.html" style={{
-                    marginTop: '20px', color: theme.textMuted,
-                    textDecoration: 'none', fontSize: '14px'
-                }}>Back to Menu</a>
+                    marginTop: '25px',
+                    color: theme.textMuted,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    padding: '10px 20px',
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.target.style.borderColor = theme.accent}
+                onMouseLeave={e => e.target.style.borderColor = theme.border}
+                >← Back to Menu</a>
             </div>
         );
     }
 
-    // Opponent select screen
+    // ═══════════════════════════════════════════════════════════════
+    // OPPONENT SELECT SCREEN
+    // ═══════════════════════════════════════════════════════════════
     if (gameState === 'select') {
         return (
             <div style={{
                 minHeight: '100vh',
                 background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f2f 100%)`,
-                padding: '20px', color: theme.text
+                padding: '20px',
+                color: theme.text
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '25px',
+                    maxWidth: '1200px',
+                    margin: '0 auto 25px auto'
+                }}>
                     <button onClick={() => setGameState('menu')} style={{
-                        background: 'transparent', border: `1px solid ${theme.border}`,
-                        color: theme.textSecondary, padding: '8px 16px', borderRadius: '5px', cursor: 'pointer'
-                    }}>Back</button>
-                    <h2 style={{ color: theme.gold }}>Choose Challenger</h2>
-                    <div style={{ width: '80px' }} />
+                        background: 'transparent',
+                        border: `1px solid ${theme.border}`,
+                        color: theme.textSecondary,
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                    }}>← Back</button>
+                    <h2 style={{ color: theme.gold, fontSize: '28px' }}>Choose Your Challenger</h2>
+                    <div style={{ width: '100px' }} />
                 </div>
 
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                    gap: '15px', maxWidth: '1200px', margin: '0 auto'
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '18px',
+                    maxWidth: '1200px',
+                    margin: '0 auto'
                 }}>
                     {opponents.map((opp, idx) => {
                         const unlocked = isOpponentUnlocked(idx);
@@ -593,50 +1129,83 @@ const HoneyCatch = () => {
                                         ? `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`
                                         : theme.bgDark,
                                     border: `2px solid ${unlocked ? opp.color : theme.border}`,
-                                    borderRadius: '12px', padding: '15px',
+                                    borderRadius: '16px',
+                                    padding: '18px',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.5,
-                                    transition: 'transform 0.2s, box-shadow 0.2s',
-                                    position: 'relative'
+                                    transition: 'all 0.2s',
+                                    position: 'relative',
+                                    overflow: 'hidden'
                                 }}
-                                onMouseEnter={(e) => unlocked && (e.currentTarget.style.transform = 'scale(1.02)')}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                onMouseEnter={(e) => {
+                                    if (unlocked) {
+                                        e.currentTarget.style.transform = 'translateY(-3px)';
+                                        e.currentTarget.style.boxShadow = `0 8px 25px ${opp.color}33`;
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = 'none';
+                                }}
                             >
                                 {!unlocked && (
                                     <div style={{
-                                        position: 'absolute', top: '10px', right: '10px',
-                                        fontSize: '20px'
+                                        position: 'absolute',
+                                        top: '12px',
+                                        right: '12px',
+                                        fontSize: '24px'
                                     }}>🔒</div>
                                 )}
                                 {mastered && (
                                     <div style={{
-                                        position: 'absolute', top: '10px', right: '10px',
-                                        background: theme.success, padding: '2px 8px',
-                                        borderRadius: '10px', fontSize: '12px'
-                                    }}>MASTERED</div>
+                                        position: 'absolute',
+                                        top: '12px',
+                                        right: '12px',
+                                        background: `linear-gradient(135deg, ${theme.success}, #40b868)`,
+                                        padding: '4px 12px',
+                                        borderRadius: '12px',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold'
+                                    }}>★ MASTERED</div>
                                 )}
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <div style={{
-                                        fontSize: '48px',
-                                        width: '70px', height: '70px',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        background: `${opp.color}33`, borderRadius: '50%'
+                                        fontSize: '52px',
+                                        width: '75px',
+                                        height: '75px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: `${opp.color}22`,
+                                        borderRadius: '50%',
+                                        border: `2px solid ${opp.color}44`
                                     }}>{opp.emoji}</div>
 
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: opp.color }}>
+                                        <div style={{
+                                            fontSize: '20px',
+                                            fontWeight: 'bold',
+                                            color: opp.color
+                                        }}>
                                             {opp.name}
                                         </div>
-                                        <div style={{ fontSize: '12px', color: theme.textMuted }}>
+                                        <div style={{
+                                            fontSize: '13px',
+                                            color: theme.textMuted,
+                                            marginBottom: '8px'
+                                        }}>
                                             {opp.title}
                                         </div>
-                                        <div style={{ marginTop: '8px' }}>
-                                            <StarBar points={progression.starPoints[idx]} />
-                                        </div>
+                                        <StarBar points={progression.starPoints[idx]} size="small" />
                                         <div style={{
-                                            fontSize: '11px', color: theme.textSecondary,
-                                            marginTop: '5px', fontStyle: 'italic'
+                                            fontSize: '12px',
+                                            color: theme.accent,
+                                            marginTop: '8px',
+                                            padding: '4px 8px',
+                                            background: `${theme.accent}15`,
+                                            borderRadius: '6px',
+                                            display: 'inline-block'
                                         }}>
                                             {opp.mechanic}
                                         </div>
@@ -650,36 +1219,57 @@ const HoneyCatch = () => {
         );
     }
 
-    // Level select screen
+    // ═══════════════════════════════════════════════════════════════
+    // LEVEL SELECT SCREEN
+    // ═══════════════════════════════════════════════════════════════
     if (gameState === 'level_select' && selectedOpponent) {
         const currentStars = getStars(selectedOpponent.id);
-        const difficulty = getDifficulty(selectedOpponent.id, 1);
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}22 100%)`,
-                padding: '20px', color: theme.text,
-                display: 'flex', flexDirection: 'column', alignItems: 'center'
+                background: `linear-gradient(135deg, ${theme.bg} 0%, ${selectedOpponent.color}15 100%)`,
+                padding: '20px',
+                color: theme.text,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
             }}>
                 <button onClick={() => setGameState('select')} style={{
                     alignSelf: 'flex-start',
-                    background: 'transparent', border: `1px solid ${theme.border}`,
-                    color: theme.textSecondary, padding: '8px 16px', borderRadius: '5px', cursor: 'pointer'
-                }}>Back</button>
+                    background: 'transparent',
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textSecondary,
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                }}>← Back</button>
 
-                <div style={{ fontSize: '80px', marginTop: '20px' }}>{selectedOpponent.emoji}</div>
-                <h2 style={{ color: selectedOpponent.color, marginTop: '10px' }}>{selectedOpponent.name}</h2>
+                <div style={{
+                    fontSize: '90px',
+                    marginTop: '20px',
+                    filter: `drop-shadow(0 0 30px ${selectedOpponent.color}66)`
+                }}>{selectedOpponent.emoji}</div>
+                <h2 style={{
+                    color: selectedOpponent.color,
+                    marginTop: '10px',
+                    fontSize: '32px'
+                }}>{selectedOpponent.name}</h2>
                 <p style={{ color: theme.textMuted }}>{selectedOpponent.title}</p>
                 <p style={{
-                    color: theme.textSecondary, fontStyle: 'italic',
-                    marginTop: '10px', fontSize: '14px'
+                    color: theme.textSecondary,
+                    fontStyle: 'italic',
+                    marginTop: '10px',
+                    fontSize: '16px'
                 }}>"{selectedOpponent.taunt}"</p>
 
                 <div style={{
-                    marginTop: '15px', padding: '10px 20px',
-                    background: `${selectedOpponent.color}22`, borderRadius: '8px',
-                    fontSize: '13px'
+                    marginTop: '15px',
+                    padding: '12px 24px',
+                    background: `${selectedOpponent.color}15`,
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    border: `1px solid ${selectedOpponent.color}33`
                 }}>
                     {selectedOpponent.mechanic}
                 </div>
@@ -688,82 +1278,151 @@ const HoneyCatch = () => {
                     <StarBar points={progression.starPoints[selectedOpponent.id]} />
                 </div>
 
-                <h3 style={{ marginTop: '30px', marginBottom: '15px' }}>Select Level</h3>
+                <h3 style={{ marginTop: '35px', marginBottom: '20px', fontSize: '22px' }}>Select Level</h3>
 
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
-                    gap: '10px', maxWidth: '400px'
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(5, 1fr)',
+                    gap: '12px',
+                    maxWidth: '420px'
                 }}>
                     {Array(10).fill(0).map((_, i) => {
                         const levelNum = i + 1;
                         const unlocked = i <= currentStars;
                         const levelDiff = getDifficulty(selectedOpponent.id, levelNum);
+                        const bestScore = progression.bestScores[selectedOpponent.id][i];
 
                         return (
-                            <button
-                                key={i}
-                                onClick={() => unlocked && startMatch(selectedOpponent, levelNum)}
-                                disabled={!unlocked}
-                                title={unlocked ? `Target: ${levelDiff.targetScore} points` : 'Locked'}
-                                style={{
-                                    width: '60px', height: '60px',
-                                    background: unlocked
-                                        ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
-                                        : theme.bgDark,
-                                    border: `2px solid ${unlocked ? selectedOpponent.color : theme.border}`,
-                                    borderRadius: '10px',
-                                    color: unlocked ? 'white' : theme.textMuted,
-                                    fontSize: '20px', fontWeight: 'bold',
-                                    cursor: unlocked ? 'pointer' : 'not-allowed',
-                                    opacity: unlocked ? 1 : 0.5
-                                }}
-                            >
-                                {unlocked ? levelNum : '🔒'}
-                            </button>
+                            <div key={i} style={{ position: 'relative' }}>
+                                <button
+                                    onClick={() => unlocked && startMatch(selectedOpponent, levelNum)}
+                                    disabled={!unlocked}
+                                    style={{
+                                        width: '70px',
+                                        height: '70px',
+                                        background: unlocked
+                                            ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
+                                            : theme.bgDark,
+                                        border: `2px solid ${unlocked ? selectedOpponent.color : theme.border}`,
+                                        borderRadius: '12px',
+                                        color: unlocked ? 'white' : theme.textMuted,
+                                        fontSize: '24px',
+                                        fontWeight: 'bold',
+                                        cursor: unlocked ? 'pointer' : 'not-allowed',
+                                        opacity: unlocked ? 1 : 0.5,
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                    onMouseEnter={e => {
+                                        if (unlocked) {
+                                            e.target.style.transform = 'scale(1.08)';
+                                        }
+                                    }}
+                                    onMouseLeave={e => {
+                                        e.target.style.transform = 'scale(1)';
+                                    }}
+                                >
+                                    {unlocked ? levelNum : '🔒'}
+                                    {unlocked && bestScore > 0 && (
+                                        <div style={{
+                                            fontSize: '10px',
+                                            marginTop: '2px',
+                                            opacity: 0.8
+                                        }}>
+                                            {bestScore >= levelDiff.targetScore ? '★' : ''}
+                                        </div>
+                                    )}
+                                </button>
+                                {unlocked && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: '-20px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%)',
+                                        fontSize: '10px',
+                                        color: theme.textMuted,
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        {levelDiff.targetScore} pts
+                                    </div>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
 
-                <div style={{ marginTop: '20px', color: theme.textMuted, fontSize: '12px' }}>
-                    Earn stars by reaching the target score!
+                <div style={{
+                    marginTop: '40px',
+                    color: theme.textMuted,
+                    fontSize: '13px',
+                    textAlign: 'center'
+                }}>
+                    Earn stars by reaching the target score!<br/>
+                    Each star unlocks the next level.
                 </div>
             </div>
         );
     }
 
-    // Playing screen
+    // ═══════════════════════════════════════════════════════════════
+    // PLAYING SCREEN - The main game!
+    // ═══════════════════════════════════════════════════════════════
     if (gameState === 'playing') {
         const opp = selectedOpponent;
         const difficulty = getDifficulty(opp.id, currentLevel);
+        const progressPercent = Math.min(100, (score / difficulty.targetScore) * 100);
+        const isWinning = score >= difficulty.targetScore;
+
+        // Screen shake transform
+        const shakeX = screenShake ? (Math.random() - 0.5) * screenShake * 2 : 0;
+        const shakeY = screenShake ? (Math.random() - 0.5) * screenShake * 2 : 0;
 
         return (
             <div
+                ref={gameAreaRef}
                 style={{
                     minHeight: '100vh',
-                    background: `linear-gradient(135deg, ${theme.bg} 0%, ${opp.color}15 100%)`,
-                    display: 'flex', flexDirection: 'column',
-                    color: theme.text, userSelect: 'none',
-                    overflow: 'hidden'
+                    background: feverMode
+                        ? `linear-gradient(135deg, #2a1030 0%, ${opp.color}25 50%, #2a1030 100%)`
+                        : `linear-gradient(135deg, ${theme.bg} 0%, ${opp.color}12 100%)`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    color: theme.text,
+                    userSelect: 'none',
+                    overflow: 'hidden',
+                    transform: `translate(${shakeX}px, ${shakeY}px)`,
+                    transition: feverMode ? 'background 0.5s' : 'none'
                 }}
                 onMouseMove={handlePointerMove}
                 onTouchMove={handlePointerMove}
             >
-                {/* Pause overlay */}
+                {/* PAUSE OVERLAY */}
                 {isPaused && (
                     <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.8)',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         zIndex: 1000
                     }}>
-                        <h2 style={{ fontSize: '48px', marginBottom: '20px' }}>PAUSED</h2>
+                        <h2 style={{ fontSize: '56px', marginBottom: '30px', color: theme.gold }}>PAUSED</h2>
                         <button
                             onClick={() => setIsPaused(false)}
                             style={{
-                                padding: '15px 40px', fontSize: '18px',
-                                background: theme.accent, border: 'none',
-                                borderRadius: '10px', color: 'white', cursor: 'pointer'
+                                padding: '18px 50px',
+                                fontSize: '20px',
+                                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
+                                border: 'none',
+                                borderRadius: '12px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
                             }}
                         >
                             Resume
@@ -771,59 +1430,126 @@ const HoneyCatch = () => {
                         <button
                             onClick={() => setGameState('select')}
                             style={{
-                                marginTop: '10px', padding: '10px 30px',
-                                background: 'transparent', border: `1px solid ${theme.border}`,
-                                borderRadius: '5px', color: theme.textMuted, cursor: 'pointer'
+                                marginTop: '15px',
+                                padding: '12px 35px',
+                                background: 'transparent',
+                                border: `2px solid ${theme.border}`,
+                                borderRadius: '8px',
+                                color: theme.textMuted,
+                                cursor: 'pointer',
+                                fontSize: '16px'
                             }}
                         >
-                            Quit
+                            Quit to Menu
                         </button>
                     </div>
                 )}
 
-                {/* Header */}
+                {/* HEADER - Clear goals, immediate feedback */}
                 <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '10px 20px', background: 'rgba(0,0,0,0.3)'
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 20px',
+                    background: 'rgba(0,0,0,0.4)',
+                    borderBottom: `2px solid ${opp.color}44`
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '24px' }}>{opp.emoji}</span>
-                        <span style={{ color: opp.color }}>Level {currentLevel}</span>
+                    {/* Left: Opponent info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '28px' }}>{opp.emoji}</span>
+                        <div>
+                            <div style={{ color: opp.color, fontWeight: 'bold' }}>Level {currentLevel}</div>
+                            <div style={{ fontSize: '11px', color: theme.textMuted }}>{currentWave}</div>
+                        </div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: theme.gold, fontSize: '28px', fontWeight: 'bold' }}>
+
+                    {/* Center: Score and progress */}
+                    <div style={{ textAlign: 'center', minWidth: '180px' }}>
+                        <div style={{
+                            color: isWinning ? theme.success : theme.gold,
+                            fontSize: '36px',
+                            fontWeight: 'bold',
+                            textShadow: isWinning ? `0 0 15px ${theme.success}` : 'none',
+                            transition: 'all 0.3s'
+                        }}>
                             {score}
                         </div>
-                        <div style={{ fontSize: '12px', color: theme.textMuted }}>
+                        <div style={{ marginTop: '4px' }}>
+                            <ProgressBar current={score} target={difficulty.targetScore} color={opp.color} />
+                        </div>
+                        <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '2px' }}>
                             Target: {difficulty.targetScore}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        {combo > 1 && (
-                            <div style={{
-                                color: theme.accent, fontWeight: 'bold',
-                                animation: 'pulse 0.5s infinite'
-                            }}>
-                                {combo}x Combo!
-                            </div>
-                        )}
+
+                    {/* Right: Combo and timer */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        {/* Combo counter */}
+                        <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                            {combo > 0 && (
+                                <div style={{
+                                    color: feverMode ? '#ff4488' : theme.accent,
+                                    fontWeight: 'bold',
+                                    fontSize: combo >= 8 ? '24px' : '20px',
+                                    animation: combo >= 5 ? 'pulse 0.4s infinite' : 'none',
+                                    textShadow: feverMode ? '0 0 15px #ff4488' : 'none'
+                                }}>
+                                    {combo}x
+                                    {feverMode && <span style={{ fontSize: '12px' }}> FEVER!</span>}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Timer with urgency */}
                         <div style={{
-                            fontSize: '24px', fontWeight: 'bold',
-                            color: timeLeft <= 10 ? theme.error : theme.text
+                            fontSize: '32px',
+                            fontWeight: 'bold',
+                            color: timeLeft <= 10 ? theme.error : theme.text,
+                            animation: timeLeft <= 10 ? 'pulse 0.5s infinite' : 'none',
+                            textShadow: timeLeft <= 10 ? `0 0 10px ${theme.error}` : 'none'
                         }}>
                             {timeLeft}s
                         </div>
                     </div>
                 </div>
 
-                {/* Game area */}
+                {/* Active power-ups display */}
+                {Object.keys(activePowerUps).length > 0 && (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        padding: '8px',
+                        background: 'rgba(0,0,0,0.3)'
+                    }}>
+                        {Object.entries(activePowerUps).map(([key, active]) => active && (
+                            <div key={key} style={{
+                                padding: '4px 12px',
+                                background: `linear-gradient(135deg, ${theme.accent}44, ${theme.accentBright}44)`,
+                                borderRadius: '15px',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                border: `1px solid ${theme.accent}`
+                            }}>
+                                {powerUpTypes[key].emoji} {powerUpTypes[key].name}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* GAME AREA */}
                 <div style={{
-                    flex: 1, position: 'relative', overflow: 'hidden'
+                    flex: 1,
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
                     {/* Falling items */}
                     {fallingItems.map(item => {
-                        const itemDef = itemTypes[item.type];
-                        const isHidden = item.hidden && item.y < 50;
+                        const isPowerUp = item.type === 'powerup';
+                        const itemDef = isPowerUp ? powerUpTypes[item.powerUpType] : itemTypes[item.type];
+                        const isFadingItem = item.fading && item.y < 60;
 
                         return (
                             <div
@@ -833,16 +1559,40 @@ const HoneyCatch = () => {
                                     left: `${item.x}%`,
                                     top: `${item.y}%`,
                                     transform: 'translate(-50%, -50%)',
-                                    fontSize: '40px',
-                                    opacity: isHidden ? 0.1 : 1,
+                                    fontSize: isPowerUp ? '36px' : '44px',
+                                    opacity: isFadingItem ? 0.2 : 1,
                                     transition: 'opacity 0.3s',
-                                    filter: itemDef.type === 'good' ? 'drop-shadow(0 0 10px gold)' : 'none'
+                                    filter: isPowerUp
+                                        ? 'drop-shadow(0 0 15px rgba(255, 105, 180, 0.8))'
+                                        : (itemDef.type === 'good'
+                                            ? `drop-shadow(0 0 12px ${theme.goldGlow})`
+                                            : 'none'),
+                                    animation: isPowerUp ? 'float 1s ease-in-out infinite' : 'none'
                                 }}
                             >
-                                {itemDef.emoji}
+                                {isPowerUp ? itemDef.emoji : itemDef.emoji}
                             </div>
                         );
                     })}
+
+                    {/* Particles */}
+                    {particles.map(particle => (
+                        <div
+                            key={particle.id}
+                            style={{
+                                position: 'absolute',
+                                left: `${particle.x}%`,
+                                top: `${particle.y}%`,
+                                width: `${particle.size}px`,
+                                height: `${particle.size}px`,
+                                background: particle.color,
+                                borderRadius: '50%',
+                                opacity: particle.life,
+                                pointerEvents: 'none',
+                                boxShadow: `0 0 ${particle.size}px ${particle.color}`
+                            }}
+                        />
+                    ))}
 
                     {/* Catch effects */}
                     {catchEffects.map(effect => (
@@ -853,48 +1603,97 @@ const HoneyCatch = () => {
                                 left: `${effect.x}%`,
                                 top: `${effect.y}%`,
                                 transform: 'translate(-50%, -50%)',
-                                fontSize: '24px',
+                                fontSize: effect.isGolden ? '28px' : '22px',
                                 fontWeight: 'bold',
-                                color: effect.type === 'good' ? theme.gold : theme.error,
-                                animation: 'floatUp 0.5s ease-out forwards',
-                                pointerEvents: 'none'
+                                color: effect.type === 'powerup' ? theme.accent
+                                    : effect.type === 'shield' ? theme.success
+                                    : effect.type === 'good' ? theme.gold
+                                    : theme.error,
+                                animation: 'floatUp 0.6s ease-out forwards',
+                                pointerEvents: 'none',
+                                textShadow: effect.isGolden
+                                    ? `0 0 20px ${theme.gold}`
+                                    : effect.isFever
+                                    ? '0 0 15px #ff4488'
+                                    : 'none',
+                                zIndex: 100
                             }}
                         >
-                            {effect.points > 0 ? '+' : ''}{effect.points}
+                            {effect.text || (effect.points > 0 ? '+' : '') + effect.points}
+                            {effect.isFever && effect.type === 'good' && ' 🔥'}
                         </div>
                     ))}
 
-                    {/* Player basket */}
+                    {/* Player - animated bear with basket */}
                     <div style={{
                         position: 'absolute',
                         left: `${playerX}%`,
-                        bottom: '5%',
-                        transform: 'translateX(-50%)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center'
+                        bottom: '6%',
+                        transform: `translateX(-50%) rotate(${playerTilt}deg)`,
+                        transition: 'transform 0.05s ease-out',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center'
                     }}>
-                        <div style={{ fontSize: '60px' }}>🐻</div>
+                        {/* Shield effect */}
+                        {activePowerUps.shield && (
+                            <div style={{
+                                position: 'absolute',
+                                width: '100px',
+                                height: '100px',
+                                borderRadius: '50%',
+                                border: `3px solid ${theme.success}`,
+                                background: `${theme.success}22`,
+                                animation: 'pulse 1s infinite',
+                                zIndex: -1
+                            }} />
+                        )}
+                        {/* Magnet effect */}
+                        {activePowerUps.magnet && (
+                            <div style={{
+                                position: 'absolute',
+                                width: '150px',
+                                height: '150px',
+                                borderRadius: '50%',
+                                border: `2px dashed ${theme.accent}`,
+                                animation: 'spin 3s linear infinite',
+                                zIndex: -1,
+                                opacity: 0.5
+                            }} />
+                        )}
                         <div style={{
-                            fontSize: '40px',
-                            marginTop: '-15px'
+                            fontSize: '65px',
+                            filter: feverMode ? 'drop-shadow(0 0 20px #ff4488)' : 'none'
+                        }}>🐻</div>
+                        <div style={{
+                            fontSize: '45px',
+                            marginTop: '-18px'
                         }}>🧺</div>
                     </div>
 
-                    {/* Ground */}
+                    {/* Ground with honey glow */}
                     <div style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0,
-                        height: '3%',
-                        background: `linear-gradient(to top, ${theme.honey}88, transparent)`
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: '4%',
+                        background: `linear-gradient(to top, ${theme.honey}66, transparent)`
                     }} />
                 </div>
 
                 {/* Controls hint */}
                 <div style={{
-                    padding: '10px', textAlign: 'center',
-                    background: 'rgba(0,0,0,0.3)', fontSize: '12px', color: theme.textMuted
+                    padding: '10px',
+                    textAlign: 'center',
+                    background: 'rgba(0,0,0,0.4)',
+                    fontSize: '12px',
+                    color: theme.textMuted
                 }}>
-                    Arrow keys / A,D to move | ESC to pause | Touch/drag on mobile
+                    ← → or A/D to move | ESC to pause | Touch/drag on mobile
                 </div>
 
+                {/* Animations */}
                 <style>{`
                     @keyframes pulse {
                         0%, 100% { transform: scale(1); }
@@ -902,102 +1701,215 @@ const HoneyCatch = () => {
                     }
                     @keyframes floatUp {
                         0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-                        100% { transform: translate(-50%, -150%) scale(1.5); opacity: 0; }
+                        100% { transform: translate(-50%, -180%) scale(1.3); opacity: 0; }
+                    }
+                    @keyframes float {
+                        0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+                        50% { transform: translate(-50%, -50%) translateY(-5px); }
+                    }
+                    @keyframes spin {
+                        from { transform: translate(-50%, -50%) rotate(0deg); }
+                        to { transform: translate(-50%, -50%) rotate(360deg); }
                     }
                 `}</style>
             </div>
         );
     }
 
-    // Result screen
+    // ═══════════════════════════════════════════════════════════════
+    // RESULT SCREEN - Celebration of achievement (Fiero!)
+    // ═══════════════════════════════════════════════════════════════
     if (gameState === 'result') {
         const opp = selectedOpponent;
         const difficulty = getDifficulty(opp.id, currentLevel);
         const won = score >= difficulty.targetScore;
         const ratio = score / difficulty.targetScore;
+
         let earnedPoints = 0;
+        let performanceText = '';
         if (won) {
-            if (ratio >= 2) earnedPoints = 4;
-            else if (ratio >= 1.5) earnedPoints = 3;
-            else if (ratio >= 1.2) earnedPoints = 2;
-            else earnedPoints = 1;
+            if (ratio >= 1.8) { earnedPoints = 4; performanceText = 'LEGENDARY!'; }
+            else if (ratio >= 1.4) { earnedPoints = 3; performanceText = 'EXCELLENT!'; }
+            else if (ratio >= 1.15) { earnedPoints = 2; performanceText = 'GREAT!'; }
+            else { earnedPoints = 1; performanceText = 'GOOD!'; }
         }
 
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${won ? theme.success : theme.error}22 100%)`,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                color: theme.text, padding: '20px'
+                background: won
+                    ? `linear-gradient(135deg, ${theme.bg} 0%, ${theme.success}22 50%, ${theme.bg} 100%)`
+                    : `linear-gradient(135deg, ${theme.bg} 0%, ${theme.error}15 100%)`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: theme.text,
+                padding: '20px'
             }}>
-                <div style={{ fontSize: '100px', marginBottom: '20px' }}>
-                    {won ? '🏆' : '😢'}
+                {/* Victory/Defeat emoji */}
+                <div style={{
+                    fontSize: '100px',
+                    marginBottom: '15px',
+                    animation: won ? 'bounce 0.6s ease infinite' : 'none'
+                }}>
+                    {won ? '🏆' : '💪'}
                 </div>
+
+                {/* Title */}
                 <h1 style={{
                     fontSize: '48px',
-                    color: won ? theme.gold : theme.error,
-                    marginBottom: '10px'
+                    color: won ? theme.gold : theme.accent,
+                    marginBottom: '5px',
+                    textShadow: won ? `0 0 30px ${theme.goldGlow}` : 'none'
                 }}>
-                    {won ? 'SWEET SUCCESS!' : 'BEE CAREFUL!'}
+                    {won ? 'SWEET VICTORY!' : 'KEEP TRYING!'}
                 </h1>
+
+                {won && performanceText && (
+                    <div style={{
+                        fontSize: '24px',
+                        color: theme.success,
+                        marginBottom: '15px',
+                        fontWeight: 'bold'
+                    }}>
+                        {performanceText}
+                    </div>
+                )}
+
+                {/* Opponent quote */}
                 <p style={{
                     color: opp.color,
                     fontStyle: 'italic',
                     fontSize: '18px',
-                    marginBottom: '20px'
+                    marginBottom: '25px'
                 }}>
                     {opp.emoji} "{won ? opp.loseQuote : opp.winQuote}"
                 </p>
 
+                {/* Score display */}
                 <div style={{
-                    background: theme.bgPanel, padding: '20px 40px',
-                    borderRadius: '15px', marginBottom: '20px', textAlign: 'center'
+                    background: theme.bgPanel,
+                    padding: '25px 50px',
+                    borderRadius: '20px',
+                    marginBottom: '20px',
+                    textAlign: 'center',
+                    border: `2px solid ${won ? theme.success : theme.border}`
                 }}>
-                    <div style={{ fontSize: '36px', color: theme.gold, fontWeight: 'bold' }}>
+                    <div style={{
+                        fontSize: '48px',
+                        color: theme.gold,
+                        fontWeight: 'bold'
+                    }}>
                         {score}
                     </div>
-                    <div style={{ color: theme.textMuted }}>
+                    <div style={{ color: theme.textMuted, marginTop: '5px' }}>
                         Target: {difficulty.targetScore}
+                    </div>
+                    <div style={{ marginTop: '10px' }}>
+                        <ProgressBar current={score} target={difficulty.targetScore} color={opp.color} />
                     </div>
                 </div>
 
+                {/* Stats */}
+                <div style={{
+                    display: 'flex',
+                    gap: '30px',
+                    marginBottom: '25px'
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: theme.accent, fontSize: '24px', fontWeight: 'bold' }}>
+                            {maxCombo}x
+                        </div>
+                        <div style={{ color: theme.textMuted, fontSize: '12px' }}>Best Combo</div>
+                    </div>
+                </div>
+
+                {/* Points earned */}
                 {won && (
                     <div style={{
-                        background: theme.bgPanel, padding: '15px 30px',
-                        borderRadius: '10px', marginBottom: '30px'
+                        background: `linear-gradient(135deg, ${theme.gold}22, ${theme.gold}11)`,
+                        padding: '15px 35px',
+                        borderRadius: '12px',
+                        marginBottom: '30px',
+                        border: `1px solid ${theme.gold}44`
                     }}>
-                        <span style={{ color: theme.gold }}>+{earnedPoints} Points</span>
+                        <span style={{ color: theme.gold, fontWeight: 'bold', fontSize: '18px' }}>
+                            +{earnedPoints} Star Points
+                        </span>
                         <span style={{ color: theme.textMuted, marginLeft: '15px' }}>
                             ({getStars(opp.id)}/10 Stars)
                         </span>
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '15px' }}>
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button
                         onClick={() => startMatch(opp, currentLevel)}
                         style={{
-                            padding: '15px 30px', fontSize: '18px',
+                            padding: '16px 35px',
+                            fontSize: '18px',
                             background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                            border: 'none', borderRadius: '10px', color: 'white',
-                            cursor: 'pointer', fontWeight: 'bold'
+                            border: 'none',
+                            borderRadius: '12px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            transition: 'transform 0.2s'
                         }}
+                        onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
+                        onMouseLeave={e => e.target.style.transform = 'scale(1)'}
                     >
-                        Try Again
+                        {won ? 'Play Again' : 'Try Again'}
                     </button>
+
+                    {won && currentLevel < 10 && (
+                        <button
+                            onClick={() => startMatch(opp, currentLevel + 1)}
+                            style={{
+                                padding: '16px 35px',
+                                fontSize: '18px',
+                                background: `linear-gradient(135deg, ${theme.success}, #40b868)`,
+                                border: 'none',
+                                borderRadius: '12px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                transition: 'transform 0.2s'
+                            }}
+                            onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
+                            onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                        >
+                            Next Level →
+                        </button>
+                    )}
+
                     <button
                         onClick={() => setGameState('level_select')}
                         style={{
-                            padding: '15px 30px', fontSize: '18px',
+                            padding: '16px 35px',
+                            fontSize: '18px',
                             background: 'transparent',
                             border: `2px solid ${theme.border}`,
-                            borderRadius: '10px', color: theme.textSecondary,
-                            cursor: 'pointer'
+                            borderRadius: '12px',
+                            color: theme.textSecondary,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
                         }}
+                        onMouseEnter={e => e.target.style.borderColor = theme.accent}
+                        onMouseLeave={e => e.target.style.borderColor = theme.border}
                     >
                         Level Select
                     </button>
                 </div>
+
+                <style>{`
+                    @keyframes bounce {
+                        0%, 100% { transform: translateY(0); }
+                        50% { transform: translateY(-10px); }
+                    }
+                `}</style>
             </div>
         );
     }
