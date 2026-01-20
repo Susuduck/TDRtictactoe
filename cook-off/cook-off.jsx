@@ -1984,6 +1984,7 @@ const CookOff = () => {
         const timerColor = getTimerColor(orderTimer, maxOrderTime);
         const timerPercent = (orderTimer / maxOrderTime) * 100;
         const scorePercent = Math.min(100, (score / levelConfig.targetScore) * 100);
+        const upgradeBonuses = getUpgradeBonuses();
 
         // Opponent expressions based on mood
         const opponentExpressions = {
@@ -1998,290 +1999,255 @@ const CookOff = () => {
         return (
             <div style={{
                 minHeight: '100vh',
-                background: worldTheme.bgGradient,
+                background: 'linear-gradient(180deg, #1a0f0a 0%, #2C1810 50%, #1a0f0a 100%)',
                 position: 'relative',
                 overflow: 'hidden',
                 display: 'flex', flexDirection: 'column',
-                padding: '15px', color: theme.text, userSelect: 'none',
+                padding: '10px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(5px)' : 'none',
-                transition: screenShake ? 'none' : 'transform 0.1s'
+                transition: screenShake ? 'none' : 'transform 0.1s',
+                fontFamily: '"Press Start 2P", monospace'
             }}>
-                {/* Background pattern overlay */}
+                {/* Kitchen Background - Wood planks effect */}
                 <div style={{
                     position: 'absolute',
                     top: 0, left: 0, right: 0, bottom: 0,
-                    background: worldTheme.bgPattern,
+                    background: `repeating-linear-gradient(
+                        0deg,
+                        #2C1810 0px,
+                        #2C1810 40px,
+                        #3d2817 40px,
+                        #3d2817 42px
+                    )`,
+                    opacity: 0.3,
                     pointerEvents: 'none',
                     zIndex: 0
                 }} />
 
-                {/* Ambient floating particles */}
-                {ambientParticles.map(particle => (
-                    <div
-                        key={particle.id}
-                        style={{
-                            position: 'absolute',
-                            left: `${particle.x}%`,
-                            top: `${particle.y}%`,
-                            fontSize: `${particle.size}px`,
-                            opacity: particle.opacity,
-                            pointerEvents: 'none',
-                            zIndex: 1,
-                            transition: 'top 0.2s linear',
-                            filter: 'blur(0.5px)'
-                        }}
-                    >
-                        {particle.emoji}
-                    </div>
-                ))}
-
-                {/* Decorative elements */}
+                {/* Kitchen shelf decoration at top */}
                 <div style={{
                     position: 'absolute',
-                    bottom: '10px', left: '10px',
-                    fontSize: '30px', opacity: 0.4,
-                    pointerEvents: 'none', zIndex: 1
+                    top: 0, left: 0, right: 0, height: '60px',
+                    background: 'linear-gradient(180deg, #5D3A1A 0%, #3d2817 100%)',
+                    borderBottom: '6px solid #8B4513',
+                    zIndex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '30px',
+                    fontSize: '24px',
+                    opacity: 0.6
                 }}>
-                    {worldTheme.decorations[0]}
-                </div>
-                <div style={{
-                    position: 'absolute',
-                    bottom: '10px', right: '10px',
-                    fontSize: '30px', opacity: 0.4,
-                    pointerEvents: 'none', zIndex: 1
-                }}>
-                    {worldTheme.decorations[2]}
+                    🍳 🥄 🍴 🥘 🍳
                 </div>
 
-                {/* Opponent character with reactions */}
+                {/* Opponent character (positioned better) */}
                 <div style={{
                     position: 'absolute',
-                    top: '80px', right: '20px',
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', zIndex: 2,
-                    transition: 'transform 0.3s ease'
+                    top: '70px', right: '15px',
+                    zIndex: 100,
+                    textAlign: 'center'
                 }}>
                     <div style={{
-                        fontSize: '50px',
+                        fontSize: '40px',
                         transform: `scale(${opponentState.scale})`,
                         transition: 'transform 0.3s ease',
-                        filter: combo >= 5 ? 'grayscale(0.3)' : 'none',
-                        animation: opponentMood === 'excited' ? 'opponentBounce 0.3s infinite' : 'none'
+                        filter: combo >= 5 ? 'grayscale(0.3)' : 'none'
                     }}>
                         {world?.emoji}
                     </div>
                     {opponentState.message && (
-                        <div style={{
-                            fontSize: '20px',
-                            marginTop: '4px',
-                            animation: 'popIn 0.2s ease-out'
-                        }}>
-                            {opponentState.message}
-                        </div>
-                    )}
-                    {opponentMood === 'taunting' && (
-                        <div style={{
-                            fontSize: '10px',
-                            color: world?.color,
-                            marginTop: '4px',
-                            maxWidth: '80px',
-                            textAlign: 'center',
-                            background: 'rgba(0,0,0,0.5)',
-                            padding: '4px 8px',
-                            borderRadius: '8px'
-                        }}>
-                            {world?.taunt.split(' ').slice(0, 3).join(' ')}...
-                        </div>
+                        <div style={{ fontSize: '14px' }}>{opponentState.message}</div>
                     )}
                 </div>
 
-                {/* Header */}
+                {/* TOP HUD - Kitchen Order Board Style */}
                 <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: '10px', padding: '10px 15px',
-                    background: worldTheme.panelBg,
-                    borderRadius: '10px',
-                    border: `2px solid ${worldTheme.panelBorder}`,
-                    boxShadow: `0 4px 15px ${worldTheme.glowColor}`,
+                    marginTop: '65px',
+                    marginBottom: '10px',
+                    background: '#1a0f0a',
+                    padding: '10px 15px',
+                    ...pixelBorder('#5D3A1A'),
                     zIndex: 10,
-                    backdropFilter: 'blur(8px)'
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                 }}>
-                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                        <div>
-                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>TIME </span>
-                            <span style={{
-                                color: gameTime <= 15 ? theme.error : theme.text,
-                                fontWeight: 'bold', fontSize: '18px', fontFamily: 'monospace'
-                            }}>{gameTime}s</span>
+                    {/* Left: Time & Score */}
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', color: theme.textMuted }}>TIME</div>
+                            <div style={{
+                                fontSize: '16px',
+                                color: gameTime <= 15 ? theme.error : '#90EE90',
+                                animation: gameTime <= 10 ? 'pulse 0.5s infinite' : 'none'
+                            }}>
+                                {gameTime}
+                            </div>
                         </div>
-                        <div>
-                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>SCORE </span>
-                            <span style={{
-                                color: score >= levelConfig.targetScore ? theme.success : theme.gold,
-                                fontWeight: 'bold', fontSize: '18px'
-                            }}>{score}</span>
-                            <span style={{ color: theme.textMuted, fontSize: '11px' }}>/{levelConfig.targetScore}</span>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', color: theme.textMuted }}>SCORE</div>
+                            <div style={{
+                                fontSize: '16px',
+                                color: score >= levelConfig.targetScore ? theme.gold : '#fff'
+                            }}>
+                                {score}<span style={{ fontSize: '10px', color: theme.textMuted }}>/{levelConfig.targetScore}</span>
+                            </div>
                         </div>
                         {combo >= 2 && (
-                            <div style={{ color: onFire ? theme.accent : theme.success, fontWeight: 'bold' }}>
+                            <div style={{
+                                background: onFire ? '#C84C0C' : '#2E8B57',
+                                padding: '4px 8px',
+                                ...pixelBorder(onFire ? '#8B3000' : '#1D5A3A', 2),
+                                fontSize: '10px'
+                            }}>
                                 {onFire ? '🔥' : '⚡'} x{combo}
                             </div>
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: world?.color }}>
-                        <span style={{ fontSize: '20px' }}>{world?.emoji}</span>
-                        <span style={{ fontWeight: 'bold', fontSize: '13px' }}>{world?.name}</span>
-                        <span style={{ color: theme.textMuted, fontSize: '12px' }}>Lv.{currentLevel}</span>
+                    {/* Center: World info */}
+                    <div style={{ textAlign: 'center' }}>
+                        <span style={{ fontSize: '16px' }}>{world?.emoji}</span>
+                        <span style={{ fontSize: '9px', marginLeft: '5px', color: world?.color }}>
+                            Lv.{currentLevel}
+                        </span>
                         {showBeat && (
                             <div style={{
-                                width: '20px', height: '20px',
-                                background: beatPhase === 0 ? theme.gold : theme.bgDark,
-                                borderRadius: '50%', border: `2px solid ${beatPhase === 0 ? theme.gold : theme.border}`,
-                                boxShadow: beatPhase === 0 ? `0 0 12px ${theme.gold}` : 'none'
+                                display: 'inline-block',
+                                width: '12px', height: '12px',
+                                background: beatPhase === 0 ? theme.gold : '#333',
+                                marginLeft: '8px',
+                                ...pixelBorder(beatPhase === 0 ? '#B8860B' : '#222', 2)
                             }} />
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '5px' }}>
+                    {/* Right: Lives */}
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '8px', color: theme.textMuted, marginRight: '4px' }}>LIVES</span>
                         {[0, 1, 2].map(i => (
                             <div key={i} style={{
-                                width: '24px', height: '24px',
-                                background: i < mistakes ? theme.error : theme.success,
-                                borderRadius: '50%', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', fontSize: '12px'
+                                width: '20px', height: '20px',
+                                background: i < mistakes ? '#4a2020' : '#2a4a2a',
+                                ...pixelBorder(i < mistakes ? '#8B0000' : '#228B22', 2),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px'
                             }}>
-                                {i < mistakes ? '✗' : '❤️'}
+                                {i < mistakes ? '💔' : '❤️'}
                             </div>
                         ))}
+                        {upgradeBonuses.mistakeShield - shieldsUsed > 0 && (
+                            <div style={{
+                                marginLeft: '4px',
+                                fontSize: '12px',
+                                color: '#87CEEB'
+                            }}>
+                                🛡️
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Progress bar */}
-                <div style={{ marginBottom: '8px', padding: '0 5px' }}>
-                    <div style={{
-                        width: '100%', height: '6px', background: theme.bgDark,
-                        borderRadius: '3px', overflow: 'hidden'
-                    }}>
-                        <div style={{
-                            width: `${scorePercent}%`, height: '100%',
-                            background: scorePercent >= 100 ? theme.success : theme.gold,
-                            transition: 'width 0.3s'
-                        }} />
-                    </div>
-                </div>
-
-                {/* Kitchen name badge */}
+                {/* Score progress bar */}
                 <div style={{
-                    position: 'absolute',
-                    top: '15px', left: '15px',
-                    background: 'rgba(0,0,0,0.5)',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    fontSize: '11px',
-                    color: worldTheme.panelBorder,
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backdropFilter: 'blur(5px)'
+                    marginBottom: '8px',
+                    height: '8px',
+                    background: '#1a0f0a',
+                    ...pixelBorder('#3d2817', 2)
                 }}>
-                    <span>{worldTheme.setting === 'outdoor' ? '🌳' : worldTheme.setting === 'underwater' ? '🌊' : '🏠'}</span>
-                    <span>{worldTheme.name}</span>
-                    <span style={{ opacity: 0.6 }}>•</span>
-                    <span>{worldTheme.timeOfDay === 'day' ? '☀️' : worldTheme.timeOfDay === 'morning' ? '🌅' : worldTheme.timeOfDay === 'evening' ? '🌆' : '🌙'}</span>
+                    <div style={{
+                        width: `${scorePercent}%`,
+                        height: '100%',
+                        background: scorePercent >= 100 ? '#228B22' : theme.gold,
+                        transition: 'width 0.3s'
+                    }} />
                 </div>
 
                 {/* Speed round indicator */}
                 {isSpeedRound && (
                     <div style={{
-                        textAlign: 'center', padding: '6px',
-                        background: `${theme.accent}88`,
-                        borderRadius: '6px',
-                        marginBottom: '8px', color: 'white', fontWeight: 'bold',
-                        animation: 'pulse 0.4s infinite', fontSize: '13px',
-                        zIndex: 10,
-                        border: `2px solid ${theme.accent}`,
-                        boxShadow: `0 0 20px ${theme.accent}66`
+                        textAlign: 'center', padding: '8px',
+                        background: '#C84C0C',
+                        ...pixelBorder('#8B3000'),
+                        marginBottom: '8px', color: 'white',
+                        animation: 'pulse 0.4s infinite', fontSize: '10px',
+                        zIndex: 10
                     }}>
                         ⚡ SPEED ROUND - 1.5x POINTS! ⚡
                     </div>
                 )}
 
-                {/* Encouragement - positioned at very top to not cover gameplay */}
+                {/* Encouragement notification - at top */}
                 {encouragement && (
                     <div style={{
-                        position: 'fixed', top: '8px', left: '50%',
+                        position: 'fixed', top: '10px', left: '50%',
                         transform: 'translateX(-50%)',
-                        padding: '8px 20px', background: theme.success,
-                        borderRadius: '20px', fontSize: '13px', fontWeight: 'bold',
-                        color: 'white', zIndex: 1000, animation: 'slideDown 0.3s ease-out',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
-                        border: '2px solid rgba(255,255,255,0.3)'
+                        padding: '8px 16px',
+                        background: '#228B22',
+                        ...pixelBorder('#1D5A3A'),
+                        fontSize: '10px',
+                        color: 'white', zIndex: 1000
                     }}>
                         {encouragement}
                     </div>
                 )}
 
-                {/* Second order (Wolf Warrior) */}
+                {/* Second order (Wolf Warrior) - Alt ticket */}
                 {secondOrder && (
                     <div
                         onClick={switchToSecondOrder}
                         style={{
-                            background: worldTheme.panelBg,
-                            border: `2px dashed ${worldTheme.panelBorder}`,
-                            borderRadius: '8px', padding: '8px 12px', marginBottom: '8px',
+                            background: '#2a2a1a',
+                            ...pixelBorder('#5D5D3A'),
+                            padding: '8px 12px', marginBottom: '8px',
                             cursor: 'pointer', display: 'flex', alignItems: 'center',
                             justifyContent: 'space-between',
-                            zIndex: 10,
-                            backdropFilter: 'blur(5px)',
-                            transition: 'all 0.2s',
-                            boxShadow: `0 2px 10px ${worldTheme.glowColor}`
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.02)';
-                            e.currentTarget.style.borderStyle = 'solid';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.borderStyle = 'dashed';
+                            zIndex: 10
                         }}
                     >
-                        <span style={{ fontSize: '11px', color: theme.textMuted }}>ALT:</span>
+                        <span style={{ fontSize: '8px', color: theme.textMuted }}>ALT ORDER:</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
                             {secondOrder.recipe.map((ing, i) => (
                                 <span key={i} style={{ fontSize: '20px' }}>{ing.emoji}</span>
                             ))}
                         </div>
-                        <span style={{ fontSize: '11px', color: world?.color }}>Switch →</span>
+                        <span style={{ fontSize: '8px', color: '#90EE90' }}>⬅ SWITCH</span>
                     </div>
                 )}
 
-                {/* Current Order */}
+                {/* ORDER TICKET - Kitchen ticket style */}
                 {currentOrder && (
                     <div style={{
-                        background: worldTheme.panelBg,
-                        borderRadius: '12px',
-                        padding: '15px', marginBottom: '12px',
-                        border: `2px solid ${timerPercent < 25 ? theme.error : worldTheme.panelBorder}`,
-                        boxShadow: timerPercent < 25 ? `0 0 20px ${theme.error}44` : `0 4px 15px ${worldTheme.glowColor}`,
+                        background: '#FFFEF0',
+                        color: '#1a1a1a',
+                        padding: '0',
+                        marginBottom: '10px',
                         zIndex: 10,
-                        backdropFilter: 'blur(8px)'
+                        ...pixelBorder(timerPercent < 25 ? '#8B0000' : '#8B4513'),
+                        position: 'relative',
+                        overflow: 'hidden'
                     }}>
+                        {/* Ticket header - red stripe */}
                         <div style={{
-                            display: 'flex', justifyContent: 'space-between',
-                            alignItems: 'center', marginBottom: '10px'
+                            background: timerPercent < 25 ? '#C84C0C' : '#8B4513',
+                            padding: '8px 12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                         }}>
-                            <div>
-                                <span style={{ color: theme.textMuted, fontSize: '11px' }}>ORDER: </span>
-                                <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '18px' }}>
-                                    {currentOrder.name}
-                                </span>
+                            <div style={{ fontSize: '8px', color: '#fff' }}>
+                                📋 ORDER #{ordersCompleted + 1}
                             </div>
                             <div style={{
-                                background: timerColor, padding: '4px 12px',
-                                borderRadius: '15px', fontWeight: 'bold', fontSize: '16px',
-                                fontFamily: 'monospace',
+                                background: timerColor,
+                                padding: '4px 10px',
+                                ...pixelBorder('#000', 2),
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                color: '#fff',
                                 animation: timerPercent < 25 ? 'pulse 0.3s infinite' : 'none'
                             }}>
                                 {orderTimer.toFixed(1)}s
@@ -2290,8 +2256,8 @@ const CookOff = () => {
 
                         {/* Timer bar */}
                         <div style={{
-                            width: '100%', height: '8px', background: theme.bgDark,
-                            borderRadius: '4px', overflow: 'hidden', marginBottom: '12px'
+                            width: '100%', height: '6px',
+                            background: '#ddd'
                         }}>
                             <div style={{
                                 width: `${timerPercent}%`, height: '100%',
@@ -2299,10 +2265,24 @@ const CookOff = () => {
                             }} />
                         </div>
 
-                        {/* Recipe */}
+                        {/* Order name */}
                         <div style={{
-                            display: 'flex', gap: '10px', justifyContent: 'center',
-                            flexWrap: 'wrap', marginBottom: '8px'
+                            padding: '8px 12px',
+                            borderBottom: '2px dashed #ccc',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '7px', color: '#666', marginBottom: '2px' }}>DISH NAME</div>
+                            <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#333' }}>
+                                {currentOrder.name}
+                            </div>
+                        </div>
+
+                        {/* Recipe ingredients */}
+                        <div style={{
+                            padding: '12px',
+                            display: 'flex', gap: '8px', justifyContent: 'center',
+                            flexWrap: 'wrap',
+                            background: '#f8f8f0'
                         }}>
                             {currentOrder.recipe.map((ing, i) => {
                                 const isSelected = i < selectedIngredients.length;
@@ -2311,13 +2291,14 @@ const CookOff = () => {
 
                                 return (
                                     <div key={i} style={{
-                                        width: '55px', height: '55px',
-                                        background: isSelected ? `${theme.success}44` : theme.bgDark,
-                                        border: `3px solid ${isSelected ? theme.success : isNext ? theme.accent : theme.border}`,
-                                        borderRadius: '10px', display: 'flex',
-                                        alignItems: 'center', justifyContent: 'center', fontSize: '30px',
-                                        boxShadow: isNext ? `0 0 12px ${theme.accent}44` : 'none',
-                                        transform: isSelected ? 'scale(0.95)' : 'scale(1)'
+                                        width: '50px', height: '50px',
+                                        background: isSelected ? '#90EE90' : '#fff',
+                                        ...pixelBorder(isSelected ? '#228B22' : isNext ? '#C84C0C' : '#8B4513', 3),
+                                        display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '28px',
+                                        transform: isSelected ? 'scale(0.92)' : 'scale(1)',
+                                        transition: 'transform 0.1s'
                                     }}>
                                         {isHidden ? '❓' : ing.emoji}
                                     </div>
@@ -2342,28 +2323,35 @@ const CookOff = () => {
                     </div>
                 )}
 
-                {/* Ingredients */}
+                {/* KITCHEN COUNTER - Ingredients area */}
                 <div style={{
                     flex: 1,
-                    background: `${worldTheme.panelBg}`,
-                    borderRadius: '12px',
-                    padding: '15px',
+                    background: 'linear-gradient(180deg, #5D3A1A 0%, #3d2817 10%, #2C1810 100%)',
+                    padding: '10px',
                     display: 'flex', flexDirection: 'column',
-                    border: `2px solid ${worldTheme.panelBorder}55`,
-                    boxShadow: `inset 0 2px 10px rgba(0,0,0,0.3)`,
+                    ...pixelBorder('#8B4513'),
                     zIndex: 10,
-                    backdropFilter: 'blur(5px)'
+                    position: 'relative'
                 }}>
+                    {/* Counter top edge */}
                     <div style={{
-                        textAlign: 'center', marginBottom: '15px',
-                        color: theme.textSecondary, fontSize: '12px'
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, height: '8px',
+                        background: 'linear-gradient(180deg, #8B4513 0%, #5D3A1A 100%)'
+                    }} />
+
+                    <div style={{
+                        textAlign: 'center', marginBottom: '10px', marginTop: '5px',
+                        color: '#DEB887', fontSize: '8px',
+                        textShadow: '1px 1px 0 #000'
                     }}>
-                        Tap ingredients in order →
+                        🍴 TAP INGREDIENTS IN ORDER 🍴
                     </div>
 
                     <div style={{
-                        display: 'flex', gap: '10px', justifyContent: 'center',
-                        flexWrap: 'wrap', flex: 1, alignContent: 'center'
+                        display: 'flex', gap: '8px', justifyContent: 'center',
+                        flexWrap: 'wrap', flex: 1, alignContent: 'center',
+                        padding: '5px'
                     }}>
                         {availableIngredients.map((ing, i) => {
                             const isDecoy = decoyIngredient?.id === ing.id;
@@ -2374,29 +2362,32 @@ const CookOff = () => {
                                     key={`${ing.id}-${i}`}
                                     onClick={() => handleIngredientClick(ing)}
                                     style={{
-                                        width: '75px', height: '75px',
-                                        background: isDecoy
-                                            ? `linear-gradient(135deg, ${theme.bgPanel}, #3a2440)`
-                                            : `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bg})`,
-                                        border: `2px solid ${isDecoy ? '#5a3050' : theme.borderLight}`,
-                                        borderRadius: '12px', display: 'flex',
+                                        width: '70px', height: '70px',
+                                        background: isDecoy ? '#3a2030' : '#2C1810',
+                                        ...pixelBorder(isDecoy ? '#8B0000' : '#5D3A1A'),
+                                        display: 'flex',
                                         flexDirection: 'column', alignItems: 'center',
                                         justifyContent: 'center', cursor: 'pointer',
-                                        fontSize: '32px', transition: 'all 0.1s',
+                                        fontSize: '30px',
+                                        transition: 'transform 0.1s',
                                         transform: isClicked ? 'scale(0.9)' : 'scale(1)',
-                                        boxShadow: isClicked ? `0 0 15px ${theme.accent}` : 'none'
+                                        fontFamily: 'inherit',
+                                        border: 'none'
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.borderColor = theme.accent;
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.background = '#3d2817';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.borderColor = isDecoy ? '#5a3050' : theme.borderLight;
+                                        e.currentTarget.style.background = isDecoy ? '#3a2030' : '#2C1810';
                                     }}
                                 >
                                     {ing.emoji}
-                                    <span style={{ fontSize: '9px', color: theme.textMuted, marginTop: '2px' }}>
+                                    <span style={{
+                                        fontSize: '7px', color: '#DEB887', marginTop: '2px',
+                                        textShadow: '1px 1px 0 #000'
+                                    }}>
                                         {ing.name}
                                     </span>
                                 </button>
@@ -2407,16 +2398,22 @@ const CookOff = () => {
                             <button
                                 onClick={() => handleIngredientClick({ id: 'wild', emoji: '🌟', name: 'Wild' })}
                                 style={{
-                                    width: '75px', height: '75px',
-                                    background: `linear-gradient(135deg, ${theme.gold}55, ${theme.gold}22)`,
-                                    border: `3px solid ${theme.gold}`, borderRadius: '12px',
+                                    width: '70px', height: '70px',
+                                    background: '#4a4a10',
+                                    ...pixelBorder(theme.gold),
                                     display: 'flex', flexDirection: 'column',
                                     alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', fontSize: '32px', animation: 'pulse 0.8s infinite'
+                                    cursor: 'pointer', fontSize: '30px',
+                                    animation: 'pulse 0.8s infinite',
+                                    fontFamily: 'inherit',
+                                    border: 'none'
                                 }}
                             >
                                 🌟
-                                <span style={{ fontSize: '9px', color: theme.gold, marginTop: '2px', fontWeight: 'bold' }}>
+                                <span style={{
+                                    fontSize: '7px', color: theme.gold, marginTop: '2px',
+                                    textShadow: '1px 1px 0 #000'
+                                }}>
                                     WILD
                                 </span>
                             </button>
@@ -2424,27 +2421,36 @@ const CookOff = () => {
                     </div>
                 </div>
 
-                {/* Feedback overlay */}
+                {/* Feedback overlay - Pixel style */}
                 {showFeedback && (
                     <div style={{
                         position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        padding: '20px 40px',
-                        background: showFeedback.type === 'success' ? theme.success
-                            : showFeedback.type === 'error' ? theme.error : theme.accent,
-                        borderRadius: '15px', fontSize: '30px', fontWeight: 'bold',
-                        color: 'white', zIndex: 100, animation: 'popIn 0.2s ease-out',
-                        textAlign: 'center'
+                        padding: '15px 30px',
+                        background: showFeedback.type === 'success' ? '#228B22'
+                            : showFeedback.type === 'error' ? '#8B0000'
+                            : showFeedback.type === 'shield' ? '#4169E1'
+                            : '#C84C0C',
+                        ...pixelBorder(showFeedback.type === 'success' ? '#1D5A3A'
+                            : showFeedback.type === 'error' ? '#5a0000'
+                            : showFeedback.type === 'shield' ? '#2a4a8a'
+                            : '#8B3000', 6),
+                        fontSize: '16px',
+                        color: 'white', zIndex: 1000,
+                        textAlign: 'center',
+                        animation: 'popIn 0.2s ease-out'
                     }}>
-                        <div>{showFeedback.message}</div>
+                        <div style={{ textShadow: '2px 2px 0 #000' }}>{showFeedback.message}</div>
                         {showFeedback.combo >= 3 && (
-                            <div style={{ fontSize: '14px', marginTop: '4px' }}>🔥 {showFeedback.combo}x Combo!</div>
+                            <div style={{ fontSize: '10px', marginTop: '6px' }}>🔥 {showFeedback.combo}x COMBO!</div>
                         )}
                         {showFeedback.bonuses?.length > 0 && (
-                            <div style={{ fontSize: '12px', marginTop: '4px' }}>{showFeedback.bonuses.join(' • ')}</div>
+                            <div style={{ fontSize: '8px', marginTop: '4px', color: '#FFE4B5' }}>
+                                {showFeedback.bonuses.join(' • ')}
+                            </div>
                         )}
                         {showFeedback.dish && (
-                            <div style={{ fontSize: '40px', marginTop: '4px' }}>{showFeedback.dish}</div>
+                            <div style={{ fontSize: '36px', marginTop: '6px' }}>{showFeedback.dish}</div>
                         )}
                     </div>
                 )}
