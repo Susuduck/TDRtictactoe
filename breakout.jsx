@@ -1534,7 +1534,7 @@ const BreakoutGame = () => {
   const [teddyMeter, setTeddyMeter] = useState(0);
   const [teddyAbilityActive, setTeddyAbilityActive] = useState(null);
 
-  // Twin paddle for Teddy Twins ability
+  // Twin paddle for Teddy Split ability
   const [twinPaddle, setTwinPaddle] = useState(null);
 
   // Stats with unlocks and upgrades
@@ -1881,21 +1881,21 @@ const BreakoutGame = () => {
       if (e.key === 'q' || e.key === 'Q') {
         keysRef.current.q = true;
         if (teddyMeterRef.current >= TEDDY_METER_MAX && !teddyAbilityActiveRef.current) {
-          activateTeddyAbility('slam');
+          activateTeddyAbility('supercharge');
         }
         e.preventDefault();
       }
       if (e.key === 'w' || e.key === 'W') {
         keysRef.current.w = true;
         if (teddyMeterRef.current >= TEDDY_METER_MAX && !teddyAbilityActiveRef.current) {
-          activateTeddyAbility('shield');
+          activateTeddyAbility('barrier');
         }
         e.preventDefault();
       }
       if (e.key === 'e' || e.key === 'E') {
         keysRef.current.e = true;
         if (teddyMeterRef.current >= TEDDY_METER_MAX && !teddyAbilityActiveRef.current) {
-          activateTeddyAbility('twins');
+          activateTeddyAbility('split');
         }
         e.preventDefault();
       }
@@ -2068,23 +2068,23 @@ const BreakoutGame = () => {
     setTimeout(() => setFlashColor(null), 200);
 
     switch (ability) {
-      case 'slam':
+      case 'supercharge':
         // Next ball hit does 3x damage and breaks through 3 bricks in a line
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 TEDDY SLAM!', '#ffd700');
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 SUPERCHARGE!', '#ffd700');
         setTimeout(() => setTeddyAbilityActive(null), 10000); // 10s to use it
         break;
-      case 'shield':
+      case 'barrier':
         // 5-second invincible bottom
-        setActiveEffects(e => [...e, 'teddy_shield']);
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 TEDDY SHIELD!', '#4080ff');
+        setActiveEffects(e => [...e, 'teddy_barrier']);
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 BARRIER!', '#4080ff');
         setTimeout(() => {
-          setActiveEffects(e => e.filter(ef => ef !== 'teddy_shield'));
+          setActiveEffects(e => e.filter(ef => ef !== 'teddy_barrier'));
           setTeddyAbilityActive(null);
         }, 5000);
         break;
-      case 'twins':
+      case 'split':
         // Paddle splits into two for 10 seconds
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 TEDDY TWINS!', '#ff80ff');
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 SPLIT!', '#ff80ff');
         setTwinPaddle({ active: true });
         setTimeout(() => {
           setTwinPaddle(null);
@@ -2644,7 +2644,7 @@ const BreakoutGame = () => {
             }
           }
 
-          // Twin paddle collision (Teddy Twins ability)
+          // Twin paddle collision (Teddy Split ability)
           if (twinPaddle?.active) {
             // Twin is mirrored on opposite side
             const twinX = CANVAS_WIDTH - paddleSnapshot.x - paddleSnapshot.width;
@@ -2683,8 +2683,8 @@ const BreakoutGame = () => {
         // Check if ball is lost
         newBalls = newBalls.filter(ball => {
           if (ball.y - BALL_RADIUS > CANVAS_HEIGHT) {
-            // Check for teddy shield (from ability)
-            if (activeEffects.includes('teddy_shield')) {
+            // Check for teddy barrier (from ability)
+            if (activeEffects.includes('teddy_barrier')) {
               ball.vy = -Math.abs(ball.vy);
               ball.y = CANVAS_HEIGHT - BALL_RADIUS;
               createParticles(ball.x, ball.y, '#ffd700', 15);
@@ -2809,12 +2809,12 @@ const BreakoutGame = () => {
                   return { ...brick, enemiesRemaining: remaining, hitFlash: 1 };
                 }
 
-                // Calculate damage (Teddy Slam, charged shot, mega ball)
+                // Calculate damage (Teddy Supercharge, charged shot, mega ball)
                 let damage = ball.damage || 1;
-                if (teddyAbilityActive === 'slam') {
+                if (teddyAbilityActive === 'supercharge') {
                   damage = 3;
                   setTeddyAbilityActive(null); // Used up
-                  addFloatingText(brick.x + brick.width/2, brick.y, '🧸 SLAM!', '#ffd700');
+                  addFloatingText(brick.x + brick.width/2, brick.y, '🧸 SUPERCHARGE!', '#ffd700');
                   setScreenShake(true);
                   setTimeout(() => setScreenShake(false), 200);
                 }
@@ -4512,9 +4512,9 @@ const BreakoutGame = () => {
         </div>
         {teddyMeter >= TEDDY_METER_MAX && (
           <div style={{ display: 'flex', gap: '4px' }}>
-            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ffd70033', borderRadius: '4px', color: '#ffd700' }}>Q:Slam</span>
-            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#4080ff33', borderRadius: '4px', color: '#4080ff' }}>W:Shield</span>
-            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ff80ff33', borderRadius: '4px', color: '#ff80ff' }}>E:Twins</span>
+            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ffd70033', borderRadius: '4px', color: '#ffd700' }}>Q:Supercharge</span>
+            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#4080ff33', borderRadius: '4px', color: '#4080ff' }}>W:Barrier</span>
+            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ff80ff33', borderRadius: '4px', color: '#ff80ff' }}>E:Split</span>
           </div>
         )}
       </div>
@@ -5116,7 +5116,7 @@ const BreakoutGame = () => {
           );
         })()}
 
-        {/* Twin Paddle (Teddy Twins ability) */}
+        {/* Twin Paddle (Teddy Split ability) */}
         {twinPaddle?.active && (
           <div style={{
             position: 'absolute',
