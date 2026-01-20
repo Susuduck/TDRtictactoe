@@ -267,6 +267,7 @@ const BreakoutGame = () => {
 
   // Level definitions - hand-crafted layouts for each enemy
   // Legend: '.'=empty, '1'=1-hit, '2'=2-hit, '3'=3-hit, '#'=indestructible, '*'=powerup, 'X'=explosive
+  // New: 'F'=frozen (2-phase), 'S'=split (breaks into 4), 'E'=enemy spawner
   const LEVEL_DEFINITIONS = {
     // BRICK GOBLIN - Simple shapes, learning levels
     brick_goblin: [
@@ -297,27 +298,27 @@ const BreakoutGame = () => {
         '..222222....',
         '....22......',
       ],
-      // Level 4: Diamond
+      // Level 4: Frozen Diamond - intro to frozen bricks
       [
-        '.....11.....',
+        '.....FF.....',
         '....2222....',
-        '...222222...',
-        '...222222...',
+        '...2FFFF2...',
+        '...2FFFF2...',
         '....2222....',
-        '.....11.....',
+        '.....FF.....',
       ],
-      // Level 5: Simple face
+      // Level 5: Split Challenge - intro to split bricks
       [
-        '.2222222222.',
-        '.2..2..2..2.',
-        '.2222222222.',
+        '.SSSSSSSSSS.',
+        '.S..S..S..S.',
+        '.SSSSSSSSSS.',
         '.2........2.',
         '.2.222222.2.',
         '.2222222222.',
       ],
-      // Level 6: Castle
+      // Level 6: Enemy Castle - intro to spawner bricks
       [
-        '3.3.3.3.3.3.',
+        '3.3.E.E.3.3.',
         '333333333333',
         '33.#33#.3333',
         '333333333333',
@@ -1507,6 +1508,18 @@ const BreakoutGame = () => {
             health = 1;
             type = 'explosive';
             break;
+          case 'F': // Frozen brick - must crack ice first, then destroy
+            health = 2;
+            type = 'frozen';
+            break;
+          case 'S': // Split brick - breaks into 4 mini-bricks
+            health = 1;
+            type = 'split';
+            break;
+          case 'E': // Enemy spawner - spawns enemies when hit, distinct look
+            health = 3 + Math.floor(healthBonus / 2); // Contains this many enemies
+            type = 'spawner';
+            break;
           default:
             continue; // Unknown character, skip
         }
@@ -1521,6 +1534,12 @@ const BreakoutGame = () => {
           color = '#ff4400';
         } else if (type === 'powerup') {
           color = '#ffd700';
+        } else if (type === 'frozen') {
+          color = '#88ddff'; // Icy blue
+        } else if (type === 'split') {
+          color = '#aa66cc'; // Purple
+        } else if (type === 'spawner') {
+          color = '#44aa44'; // Green (enemy color)
         } else {
           color = getColorForHealth(health);
         }
@@ -1540,6 +1559,9 @@ const BreakoutGame = () => {
           color,
           invisible: isInvisible,
           canRegenerate: enemy?.gimmick === 'regenerating_bricks' && type === 'normal' && Math.random() < 0.15,
+          // New brick type properties
+          cracked: false, // For frozen bricks - becomes true after first hit
+          enemiesRemaining: type === 'spawner' ? health : 0, // For spawner bricks
         });
       }
     }
@@ -2001,6 +2023,37 @@ const BreakoutGame = () => {
                   return brick; // No damage to obstacles
                 }
 
+                // === FROZEN BRICK: First hit cracks ice, second hit destroys ===
+                if (brick.type === 'frozen' && !brick.cracked) {
+                  // First hit - crack the ice
+                  createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#aaeeff', 10);
+                  addFloatingText(brick.x + brick.width / 2, brick.y, '❄️ CRACK!', '#88ddff');
+                  return { ...brick, cracked: true, hitFlash: 1 };
+                }
+
+                // === SPAWNER BRICK: Spawn enemy on each hit ===
+                if (brick.type === 'spawner' && brick.enemiesRemaining > 0) {
+                  // Spawn an enemy from this brick
+                  const newEnemy = spawnEnemy();
+                  if (newEnemy) {
+                    // Spawn at brick position instead of random
+                    newEnemy.x = brick.x + brick.width / 2 - newEnemy.width / 2;
+                    newEnemy.y = brick.y + brick.height;
+                    newEnemy.vy = Math.abs(newEnemy.vy); // Always move down initially
+                    setEnemies(prev => [...prev, newEnemy]);
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#44aa44', 8);
+                    addFloatingText(brick.x + brick.width / 2, brick.y, '👾', '#44aa44');
+                  }
+                  const remaining = brick.enemiesRemaining - 1;
+                  if (remaining <= 0) {
+                    // All enemies spawned, brick is destroyed
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#44aa44', 15);
+                    setScore(s => s + 50);
+                    return { ...brick, health: 0, enemiesRemaining: 0, hitFlash: 1 };
+                  }
+                  return { ...brick, enemiesRemaining: remaining, hitFlash: 1 };
+                }
+
                 // Calculate damage (Teddy Slam, charged shot, mega ball)
                 let damage = ball.damage || 1;
                 if (teddyAbilityActive === 'slam') {
@@ -2084,8 +2137,42 @@ const BreakoutGame = () => {
                     }));
                   }
 
-                  // Spawn power-up
-                  if (brick.type === 'powerup' || Math.random() < 0.15) {
+                  // === SPLIT BRICK: Break into 4 mini-bricks ===
+                  if (brick.type === 'split') {
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#aa66cc', 12);
+                    addFloatingText(brick.x + brick.width / 2, brick.y, '💔 SPLIT!', '#aa66cc');
+
+                    // Create 4 mini-bricks in a 2x2 grid
+                    const miniWidth = brick.width / 2 - 2;
+                    const miniHeight = brick.height / 2 - 2;
+                    const miniColor = '#cc88ee';
+                    const miniBricks = [
+                      { x: brick.x, y: brick.y }, // Top-left
+                      { x: brick.x + brick.width / 2, y: brick.y }, // Top-right
+                      { x: brick.x, y: brick.y + brick.height / 2 }, // Bottom-left
+                      { x: brick.x + brick.width / 2, y: brick.y + brick.height / 2 }, // Bottom-right
+                    ].map((pos, i) => ({
+                      id: `${brick.id}-mini-${i}`,
+                      x: pos.x,
+                      y: pos.y,
+                      width: miniWidth,
+                      height: miniHeight,
+                      health: 1,
+                      maxHealth: 1,
+                      type: 'mini',
+                      color: miniColor,
+                      invisible: false,
+                      canRegenerate: false,
+                      cracked: false,
+                      enemiesRemaining: 0,
+                    }));
+
+                    // Add mini-bricks to the game
+                    setBricks(allBricks => [...allBricks, ...miniBricks]);
+                  }
+
+                  // Spawn power-up (5% base chance, powerup bricks always drop)
+                  if (brick.type === 'powerup' || Math.random() < 0.05) {
                     spawnPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
                   }
                 }
@@ -3067,6 +3154,60 @@ const BreakoutGame = () => {
         </div>
       </div>
 
+      {/* Enemy Counter - shows enemies in level by type */}
+      {(() => {
+        // Count enemies from spawner bricks + currently alive
+        const spawnerEnemies = bricks.filter(b => b.type === 'spawner' && b.health > 0)
+          .reduce((sum, b) => sum + b.enemiesRemaining, 0);
+        const aliveEnemies = enemies.length;
+        const totalEnemies = spawnerEnemies + aliveEnemies;
+
+        // Count by type for alive enemies
+        const enemyCounts = {};
+        enemies.forEach(e => {
+          enemyCounts[e.type] = (enemyCounts[e.type] || 0) + 1;
+        });
+
+        // Add spawner counts (they spawn random types, so show as "pending")
+        if (spawnerEnemies > 0) {
+          enemyCounts['pending'] = spawnerEnemies;
+        }
+
+        const ENEMY_EMOJIS = {
+          slime: '🟢',
+          bat: '🦇',
+          ghost: '👻',
+          miniboss: '👹',
+          pending: '📦', // In spawner bricks
+        };
+
+        if (totalEnemies === 0) return null;
+
+        return (
+          <div style={{
+            width: CANVAS_WIDTH,
+            marginBottom: '4px',
+            padding: '4px 12px',
+            background: 'rgba(0,0,0,0.3)',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            color: '#fff',
+          }}>
+            <span style={{ color: '#888' }}>Enemies:</span>
+            {Object.entries(enemyCounts).map(([type, count]) => (
+              <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <span>{ENEMY_EMOJIS[type] || '👾'}</span>
+                <span style={{ fontWeight: 'bold' }}>×{count}</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Teddy Meter Bar */}
       <div style={{
         width: CANVAS_WIDTH,
@@ -3232,13 +3373,19 @@ const BreakoutGame = () => {
               height: brick.height,
               background: brick.invisible ? 'transparent' :
                 brick.type === 'obstacle' ? 'linear-gradient(180deg, #3a3a5e 0%, #2a2a4e 50%, #1a1a3e 100%)' :
+                brick.type === 'spawner' ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #002200 100%)' :
+                brick.type === 'frozen' ? `linear-gradient(180deg, #aaeeff 0%, ${brick.cracked ? '#6699aa' : '#88ddff'} 50%, #66bbdd 100%)` :
                 `linear-gradient(180deg, ${brick.color}ee 0%, ${brick.color} 50%, ${brick.color}aa 100%)`,
-              borderRadius: '4px',
+              borderRadius: brick.type === 'spawner' ? '8px' : '4px',
               border: brick.invisible ? '1px dashed rgba(255,255,255,0.1)' :
                 brick.type === 'obstacle' ? '2px solid #4a4a6e' :
+                brick.type === 'spawner' ? '3px solid #44ff44' :
+                brick.type === 'frozen' ? `2px solid ${brick.cracked ? '#88aacc' : '#aaeeff'}` :
                 `2px solid ${brick.color}`,
               boxShadow: brick.invisible ? 'none' :
                 brick.type === 'obstacle' ? 'inset 0 -2px 4px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)' :
+                brick.type === 'spawner' ? '0 0 15px #44ff44, inset 0 0 10px rgba(68,255,68,0.3)' :
+                brick.type === 'frozen' ? '0 0 10px #88ddff, inset 0 1px 0 rgba(255,255,255,0.5)' :
                 `0 2px 8px ${brick.color}44, inset 0 1px 0 rgba(255,255,255,0.3)`,
               display: 'flex',
               alignItems: 'center',
@@ -3270,7 +3417,40 @@ const BreakoutGame = () => {
             {brick.type === 'obstacle' && (
               <span style={{ fontSize: '14px', opacity: 0.7, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>🧱</span>
             )}
-            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && (
+            {/* Frozen brick - shows ice crystal, cracks when hit once */}
+            {brick.type === 'frozen' && !brick.invisible && (
+              <>
+                <span style={{ fontSize: '14px', filter: brick.cracked ? 'grayscale(50%)' : 'none' }}>
+                  {brick.cracked ? '🧊' : '❄️'}
+                </span>
+                {brick.cracked && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%)',
+                    borderRadius: '4px',
+                  }} />
+                )}
+              </>
+            )}
+            {/* Split brick - shows split symbol */}
+            {brick.type === 'split' && !brick.invisible && (
+              <span style={{ fontSize: '12px' }}>💜</span>
+            )}
+            {/* Mini brick (from split) - smaller, simpler */}
+            {brick.type === 'mini' && !brick.invisible && (
+              <span style={{ fontSize: '8px' }}>✧</span>
+            )}
+            {/* Spawner brick - distinctive enemy look with count */}
+            {brick.type === 'spawner' && !brick.invisible && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                <span style={{ fontSize: '12px', animation: 'explosivePulse 1s ease-in-out infinite' }}>👾</span>
+                <span style={{ fontSize: '8px', fontWeight: 'bold', color: '#fff', textShadow: '0 1px 2px #000' }}>
+                  ×{brick.enemiesRemaining}
+                </span>
+              </div>
+            )}
+            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && brick.type !== 'frozen' && brick.type !== 'spawner' && (
               <span style={{
                 fontSize: brick.health >= 10 ? '9px' : '11px',
                 fontWeight: '900',
