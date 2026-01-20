@@ -39,14 +39,16 @@ const BreakoutGame = () => {
     };
   };
 
-  // === PIXEL ART ENEMY SPRITES ===
+  // === PIXEL ART ENEMY SPRITES - D&D INSPIRED (CR 1-20) ===
   // Each sprite is a 2D array where each value is a color or null (transparent)
   // Sprites are 16x16 pixels, scaled up when rendered
+  // 20 enemies across 5 tiers, each with unique behaviors
   const ENEMY_SPRITES = {
-    // Slime - simple bouncing blob
-    slime: {
+    // === TIER 1: CR 1-4 (Easy) ===
+
+    // Rat (CR 1) - Tiny, fast, scurries unpredictably
+    rat: {
       frames: [
-        // Frame 1 - squished
         [
           '................',
           '................',
@@ -56,198 +58,920 @@ const BreakoutGame = () => {
           '................',
           '................',
           '................',
-          '................',
-          '....GGGGGG......',
-          '...GGGGGGGG.....',
-          '..GGgGGgGGGG....',
-          '..GGGGGGGGGG....',
-          '.GGGGGGGGGGGG...',
-          '.GGGGGGGGGGGG...',
-          '................',
-        ],
-        // Frame 2 - normal
-        [
-          '................',
-          '................',
-          '................',
-          '................',
-          '................',
-          '................',
-          '.....GGGG.......',
-          '....GGGGGG......',
-          '...GGGGGGGG.....',
-          '...GGgGGgGG.....',
-          '...GGGGGGGG.....',
-          '..GGGGGGGGGG....',
-          '..GGGGGGGGGG....',
-          '...GGGGGGGG.....',
+          '..bb............',
+          '..bBBb..........',
+          '.bBBBBbbbbbb....',
+          '.BeBBBBBBBBBb...',
+          '.BBBBBBBBBBB....',
+          '..b.b....b.b....',
           '................',
           '................',
         ],
-        // Frame 3 - stretched
         [
           '................',
           '................',
           '................',
           '................',
-          '.....GGGG.......',
-          '....GGGGGG......',
-          '....GGGGGG......',
-          '...GGgGGgGG.....',
-          '...GGGGGGGG.....',
-          '...GGGGGGGG.....',
-          '....GGGGGG......',
-          '....GGGGGG......',
-          '.....GGGG.......',
+          '................',
+          '................',
+          '................',
+          '..bb............',
+          '..bBBb..........',
+          '.bBBBBbbbbbb....',
+          '.BeBBBBBBBBBb...',
+          '.BBBBBBBBBBB....',
+          '..b.b....b.b....',
           '................',
           '................',
           '................',
         ],
       ],
-      colors: { 'G': '#44dd44', 'g': '#ffffff' }, // Green body, white eyes
+      colors: { 'B': '#8b7355', 'b': '#6b5344', 'e': '#111111' },
+      width: 16, height: 16, scale: 2,
+      health: 1, points: 25, paddleReward: 3,
+      tier: 1, behavior: 'scurry', special: null,
+    },
+
+    // Kobold (CR 2) - Small reptilian, moves in diagonal patterns
+    kobold: {
+      frames: [
+        [
+          '................',
+          '................',
+          '................',
+          '.....OOO........',
+          '....OeOeO.......',
+          '....OOOOO.......',
+          '.....OmO........',
+          '....OOOOO.......',
+          '...OOOOOOO......',
+          '...O.OOO.O......',
+          '...O.OOO.O......',
+          '....O...O.......',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '................',
+          '................',
+          '.....OOO........',
+          '....OeOeO.......',
+          '....OOOOO.......',
+          '.....OmO........',
+          '....OOOOO.......',
+          '...OOOOOOO......',
+          '....OOOOO.......',
+          '...O.....O......',
+          '...O.....O......',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'O': '#dd8833', 'e': '#ffff00', 'm': '#ff4444' },
       width: 16, height: 16, scale: 2,
       health: 1, points: 50, paddleReward: 5,
+      tier: 1, behavior: 'diagonal', special: null,
     },
 
-    // Bat - flying enemy with wing flap
-    bat: {
+    // Goblin (CR 3) - Classic green menace, bounces off walls
+    goblin: {
       frames: [
-        // Wings up
         [
           '................',
-          '..P........P....',
-          '..PP......PP....',
-          '..PPP....PPP....',
-          '...PPP..PPP.....',
-          '...PPPPPPPP.....',
-          '....PPPPPP......',
-          '....PrPPrP......',
-          '....PPPPPP......',
-          '.....PPPP.......',
-          '.....P..P.......',
           '................',
+          '.....GGG........',
+          '....GGGGG.......',
+          '...GGeGGeG......',
+          '...GGGGGGG......',
+          '....GGmGG.......',
+          '....GGGGG.......',
+          '...GGGGGGG......',
+          '...G.GGG.G......',
+          '...G.GGG.G......',
+          '....G...G.......',
           '................',
           '................',
           '................',
           '................',
         ],
-        // Wings down
         [
           '................',
           '................',
-          '................',
-          '....PPPPPP......',
-          '....PrPPrP......',
-          '....PPPPPP......',
-          '...PPPPPPPP.....',
-          '..PPP....PPP....',
-          '..PP......PP....',
-          '..P........P....',
-          '................',
-          '................',
+          '.....GGG........',
+          '....GGGGG.......',
+          '...GGeGGeG......',
+          '...GGGGGGG......',
+          '....GmmmG.......',
+          '....GGGGG.......',
+          '...GGGGGGG......',
+          '....GGGGG.......',
+          '...G.....G......',
+          '...G.....G......',
           '................',
           '................',
           '................',
           '................',
         ],
       ],
-      colors: { 'P': '#8844aa', 'r': '#ff4444' }, // Purple body, red eyes
+      colors: { 'G': '#44aa44', 'e': '#ff0000', 'm': '#222222' },
+      width: 16, height: 16, scale: 2,
+      health: 2, points: 75, paddleReward: 6,
+      tier: 1, behavior: 'bounce', special: null,
+    },
+
+    // Skeleton (CR 4) - Bony warrior, drops bones when destroyed
+    skeleton: {
+      frames: [
+        [
+          '................',
+          '................',
+          '.....WWW........',
+          '....WWWWW.......',
+          '...WWeWWeW......',
+          '...WWWWWWW......',
+          '....WmmmW.......',
+          '.....WWW........',
+          '....WWWWW.......',
+          '...WW.W.WW......',
+          '..WW..W..WW.....',
+          '.....WWW........',
+          '....WW.WW.......',
+          '...WW...WW......',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '................',
+          '.....WWW........',
+          '....WWWWW.......',
+          '...WWeWWeW......',
+          '...WWWWWWW......',
+          '....WmmmW.......',
+          '.....WWW........',
+          '....WWWWW.......',
+          '...WW.W.WW......',
+          '....W.W.W.......',
+          '.....WWW........',
+          '....WW.WW.......',
+          '....W...W.......',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'W': '#f0f0e0', 'e': '#ff0000', 'm': '#222222' },
       width: 16, height: 16, scale: 2,
       health: 2, points: 100, paddleReward: 8,
+      tier: 1, behavior: 'bounce', special: 'dropBones',
     },
 
-    // Ghost - spooky phasing enemy
-    ghost: {
+    // === TIER 2: CR 5-8 (Medium) ===
+
+    // Zombie (CR 5) - Slow shambler, can revive once
+    zombie: {
       frames: [
-        // Normal
         [
           '................',
           '................',
-          '.....WWWW.......',
-          '....WWWWWW......',
-          '...WWWWWWWW.....',
-          '...WbWWWbWW.....',
-          '...WWWWWWWW.....',
-          '...WWWWWWWW.....',
-          '...WWWWWWWW.....',
-          '...WWWWWWWW.....',
-          '...WW.WW.WW.....',
-          '....W..W..W.....',
-          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggeggegg.....',
+          '...ggggggg......',
+          '....gmmgg.......',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggggggg......',
+          '...g.ggg.g......',
+          '...g.ggg.g......',
+          '....g...g.......',
           '................',
           '................',
           '................',
         ],
-        // Faded
         [
           '................',
           '................',
-          '.....wwww.......',
-          '....wwwwww......',
-          '...wwwwwwww.....',
-          '...wbwwwbww.....',
-          '...wwwwwwww.....',
-          '...wwwwwwww.....',
-          '...wwwwwwww.....',
-          '...wwwwwwww.....',
-          '...ww.ww.ww.....',
-          '....w..w..w.....',
-          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggeggegg.....',
+          '...ggggggg......',
+          '....gmmgg.......',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggggggg......',
+          '....ggggg.......',
+          '...g.....g......',
+          '...g.....g......',
           '................',
           '................',
           '................',
         ],
       ],
-      colors: { 'W': '#ffffff', 'w': 'rgba(255,255,255,0.4)', 'b': '#222222' },
+      colors: { 'g': '#556b55', 'e': '#ffff00', 'm': '#442222' },
       width: 16, height: 16, scale: 2,
-      health: 3, points: 200, paddleReward: 12,
+      health: 3, points: 125, paddleReward: 10,
+      tier: 2, behavior: 'shamble', special: 'revive',
     },
 
-    // Mini-boss - larger, tougher enemy
-    miniboss: {
+    // Orc (CR 6) - Aggressive charger, speeds up when hit
+    orc: {
       frames: [
-        // Normal
         [
-          '....RRRRRR......',
-          '...RRRRRRRR.....',
-          '..RRRRRRRRRR....',
-          '..RRrRRRRrRR....',
-          '..RRRRRRRRRR....',
-          '..RRRRRRRRRR....',
-          '..RR.RRRR.RR....',
-          '..RRRRRRRRRR....',
-          '...RRRRRRRR.....',
-          '...RRR..RRR.....',
-          '..RRRR..RRRR....',
-          '..RRRR..RRRR....',
-          '..RRR....RRR....',
+          '................',
+          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggeggeg......',
+          '...ggggggg......',
+          '....gtttg.......',
+          '.....ggg........',
+          '...ggggggg......',
+          '..ggggggggg.....',
+          '..g..ggg..g.....',
+          '..g..ggg..g.....',
+          '...g.....g......',
           '................',
           '................',
           '................',
         ],
-        // Angry
         [
-          '....RRRRRR......',
-          '...RRRRRRRR.....',
-          '..RRRRRRRRRR....',
-          '..RRrRRRRrRR....',
-          '..RRRRRRRRRR....',
-          '..RR.RRRR.RR....',
-          '..RRRRRRRRRR....',
-          '..RRRRRRRRRR....',
-          '...RRRRRRRR.....',
-          '...RRR..RRR.....',
-          '..RRRR..RRRR....',
-          '..RRRR..RRRR....',
-          '..RRR....RRR....',
+          '................',
+          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggeggeg......',
+          '...ggggggg......',
+          '....gtttg.......',
+          '.....ggg........',
+          '...ggggggg......',
+          '..ggggggggg.....',
+          '....ggggg.......',
+          '..g.......g.....',
+          '..g.......g.....',
           '................',
           '................',
           '................',
         ],
       ],
-      colors: { 'R': '#dd3333', 'r': '#ffff44' }, // Red body, yellow eyes
+      colors: { 'g': '#668844', 'e': '#ff0000', 't': '#f0f0e0' },
+      width: 16, height: 16, scale: 2,
+      health: 4, points: 150, paddleReward: 12,
+      tier: 2, behavior: 'charge', special: null,
+    },
+
+    // Giant Spider (CR 7) - Crawls on walls, shoots webs
+    spider: {
+      frames: [
+        [
+          '................',
+          '..l..lll..l.....',
+          '...l.lll.l......',
+          '....lllll.......',
+          '...lllllll......',
+          '..lllelelll.....',
+          '...lllllll......',
+          '....lllll.......',
+          '...l.lll.l......',
+          '..l..lll..l.....',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '.l...lll...l....',
+          '..l..lll..l.....',
+          '...l.lll.l......',
+          '....lllll.......',
+          '...lllllll......',
+          '..lllelelll.....',
+          '...lllllll......',
+          '....lllll.......',
+          '...l.lll.l......',
+          '..l..lll..l.....',
+          '.l...lll...l....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'l': '#333333', 'e': '#ff0000' },
+      width: 16, height: 16, scale: 2,
+      health: 3, points: 175, paddleReward: 14,
+      tier: 2, behavior: 'crawl', special: 'web',
+    },
+
+    // Harpy (CR 8) - Flying swooper, dives at paddle
+    harpy: {
+      frames: [
+        [
+          '................',
+          '................',
+          '..w........w....',
+          '..ww......ww....',
+          '..www....www....',
+          '...wwwwwwww.....',
+          '....wffwfw......',
+          '....ffffff......',
+          '....fefefe......',
+          '....ffffff......',
+          '.....fmmf.......',
+          '......ff........',
+          '......ff........',
+          '.....f..f.......',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '................',
+          '................',
+          '....wffwfw......',
+          '....ffffff......',
+          '....fefefe......',
+          '....ffffff......',
+          '.....fmmf.......',
+          '...wwwffwww.....',
+          '..www....www....',
+          '..ww......ww....',
+          '..w........w....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'w': '#886644', 'f': '#ffccaa', 'e': '#000000', 'm': '#ff4466' },
+      width: 16, height: 16, scale: 2,
+      health: 3, points: 200, paddleReward: 16,
+      tier: 2, behavior: 'swoop', special: null,
+    },
+
+    // === TIER 3: CR 9-12 (Hard) ===
+
+    // Mimic (CR 9) - Disguises as powerup, surprises player
+    mimic: {
+      frames: [
+        [
+          '................',
+          '................',
+          '..BBBBBBBBBB....',
+          '..BGGGGGGGBB....',
+          '..BGGGGGGGGB....',
+          '..BGGGGGGGGB....',
+          '..BGGGGGGGGB....',
+          '..BBBBBBBBBB....',
+          '..B........B....',
+          '..BBBBBBBBBB....',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '................',
+          '..BBTTTTTTBB....',
+          '..BT......TB....',
+          '..T.eeeeeee.T...',
+          '..TRRRRRRRRT....',
+          '..TRTRTRTRRT....',
+          '..TRRRRRRRRT....',
+          '..T........T....',
+          '..BBBBBBBBBB....',
+          '..l........l....',
+          '..l........l....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'B': '#8b4513', 'G': '#ffd700', 'T': '#8b4513', 'R': '#ff4444', 'e': '#ffff00', 'l': '#8b4513' },
+      width: 16, height: 16, scale: 2,
+      health: 4, points: 250, paddleReward: 18,
+      tier: 3, behavior: 'ambush', special: 'disguise',
+    },
+
+    // Owlbear (CR 10) - Big and stompy, rhythmic movement
+    owlbear: {
+      frames: [
+        [
+          '................',
+          '..BB......BB....',
+          '..BBB....BBB....',
+          '...BBBBBBBB.....',
+          '..BeeBBBBeeB....',
+          '..BBBBBBBBBB....',
+          '...BBOOBOBB.....',
+          '...BBBBBBBB.....',
+          '....BBBBBB......',
+          '...BBBBBBBB.....',
+          '..BBBBBBBBBB....',
+          '..BB.BBBB.BB....',
+          '..BB.BBBB.BB....',
+          '..B...BB...B....',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '..BB......BB....',
+          '..BBB....BBB....',
+          '...BBBBBBBB.....',
+          '..BeeBBBBeeB....',
+          '..BBBBBBBBBB....',
+          '...BBOOBOBB.....',
+          '...BBBBBBBB.....',
+          '....BBBBBB......',
+          '...BBBBBBBB.....',
+          '..BBBBBBBBBB....',
+          '...BBBBBBBB.....',
+          '..B........B....',
+          '..B........B....',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'B': '#5c4033', 'e': '#ffff00', 'O': '#ff8800' },
+      width: 16, height: 16, scale: 2.5,
+      health: 5, points: 300, paddleReward: 20,
+      tier: 3, behavior: 'rhythm', special: null,
+    },
+
+    // Gelatinous Cube (CR 10) - Slow drifter, absorbs projectiles temporarily
+    cube: {
+      frames: [
+        [
+          '................',
+          '.CCCCCCCCCCCC...',
+          '.CCCCCCCCCCCC...',
+          '.CCccccccccCC...',
+          '.CCc......cCC...',
+          '.CCc..ss..cCC...',
+          '.CCc..ss..cCC...',
+          '.CCc......cCC...',
+          '.CCc..bb..cCC...',
+          '.CCc......cCC...',
+          '.CCccccccccCC...',
+          '.CCCCCCCCCCCC...',
+          '.CCCCCCCCCCCC...',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '.CCCCCCCCCCCC...',
+          '.CCccccccccCC...',
+          '.CCc......cCC...',
+          '.CCc.ss...cCC...',
+          '.CCc.ss...cCC...',
+          '.CCc......cCC...',
+          '.CCc...bb.cCC...',
+          '.CCc......cCC...',
+          '.CCccccccccCC...',
+          '.CCCCCCCCCCCC...',
+          '.CCCCCCCCCCCC...',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'C': '#88ff88', 'c': '#44cc44', 's': '#ffffff', 'b': '#f0f0e0' },
+      width: 16, height: 16, scale: 2.5,
+      health: 6, points: 325, paddleReward: 22,
+      tier: 3, behavior: 'drift', special: 'absorb',
+    },
+
+    // Troll (CR 11) - Regenerates health if not killed quickly
+    troll: {
+      frames: [
+        [
+          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggggggg......',
+          '..gggeggeggg....',
+          '..ggggggggg.....',
+          '...ggnnngg......',
+          '....ggggg.......',
+          '...ggggggg......',
+          '..ggggggggg.....',
+          '..gg.ggg.gg.....',
+          '..gg.ggg.gg.....',
+          '..g...g...g.....',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggggggg......',
+          '..gggeggeggg....',
+          '..ggggggggg.....',
+          '...ggnnngg......',
+          '....ggggg.......',
+          '...ggggggg......',
+          '..ggggggggg.....',
+          '...ggggggg......',
+          '..g.......g.....',
+          '..g.......g.....',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'g': '#446633', 'e': '#ff4400', 'n': '#222222' },
+      width: 16, height: 16, scale: 2.5,
+      health: 5, points: 350, paddleReward: 24,
+      tier: 3, behavior: 'bounce', special: 'regenerate',
+    },
+
+    // === TIER 4: CR 13-16 (Deadly) ===
+
+    // Werewolf (CR 12) - Fast frenzy movement when low health
+    werewolf: {
+      frames: [
+        [
+          '................',
+          '....gg....gg....',
+          '....ggg..ggg....',
+          '.....gggggg.....',
+          '....gggggggg....',
+          '...gggeggeggg...',
+          '...gggggggggg...',
+          '....ggnnngg.....',
+          '.....ggggg......',
+          '....ggggggg.....',
+          '...ggggggggg....',
+          '...g..ggg..g....',
+          '...g..ggg..g....',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '....gg....gg....',
+          '....ggg..ggg....',
+          '.....gggggg.....',
+          '....gggggggg....',
+          '...gggeggeggg...',
+          '...gggggggggg...',
+          '....ggnnngg.....',
+          '.....ggggg......',
+          '....ggggggg.....',
+          '...ggggggggg....',
+          '....ggggggg.....',
+          '..g.........g...',
+          '..g.........g...',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'g': '#555555', 'e': '#ffcc00', 'n': '#ffffff' },
+      width: 16, height: 16, scale: 2.5,
+      health: 5, points: 400, paddleReward: 26,
+      tier: 4, behavior: 'frenzy', special: null,
+    },
+
+    // Basilisk (CR 13) - Slithers slowly, petrifies paddle briefly on hit
+    basilisk: {
+      frames: [
+        [
+          '................',
+          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggyggyggg....',
+          '...gggggggggg...',
+          '....ggggggggggg.',
+          '.....ggggggggg..',
+          '......ggggggg...',
+          '.......ggggg....',
+          '........ggg.....',
+          '.........g......',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '................',
+          '.....ggg........',
+          '....ggggg.......',
+          '...ggyggyggg....',
+          '...ggggggggg....',
+          '....gggggggg....',
+          '..ggggggggg.....',
+          '.ggggggggg......',
+          '..ggggggg.......',
+          '....ggggg.......',
+          '......ggg.......',
+          '.......g........',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'g': '#228833', 'y': '#ffff00' },
+      width: 16, height: 16, scale: 2.5,
+      health: 6, points: 450, paddleReward: 28,
+      tier: 4, behavior: 'slither', special: 'petrify',
+    },
+
+    // Beholder (CR 14) - Hovers and shoots eye rays
+    beholder: {
+      frames: [
+        [
+          '....ssssss......',
+          '...s.s..s.s.....',
+          '..s..ssss..s....',
+          '..ssBBBBBBss....',
+          '.ssBBBBBBBBss...',
+          '.sBBBBBBBBBBs...',
+          '.sBBBrBBrBBBs...',
+          '.sBBBBBBBBBBs...',
+          '.sBBBBmmBBBBs...',
+          '.sBBBBBBBBBBs...',
+          '..sBBBBBBBBs....',
+          '...sBBBBBBs.....',
+          '....ssssss......',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '...s.ssss.s.....',
+          '..s.s....s.s....',
+          '..s..ssss..s....',
+          '..ssBBBBBBss....',
+          '.ssBBBBBBBBss...',
+          '.sBBBBBBBBBBs...',
+          '.sBBBrBBrBBBs...',
+          '.sBBBBBBBBBBs...',
+          '.sBBBBmmBBBBs...',
+          '.sBBBBBBBBBBs...',
+          '..sBBBBBBBBs....',
+          '...sBBBBBBs.....',
+          '....ssssss......',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'B': '#885533', 's': '#885533', 'r': '#ff0000', 'm': '#ffccaa' },
+      width: 16, height: 16, scale: 2.5,
+      health: 7, points: 500, paddleReward: 30,
+      tier: 4, behavior: 'hover', special: 'shoot',
+    },
+
+    // Mind Flayer (CR 15) - Floats, confuses paddle controls temporarily
+    mindflayer: {
+      frames: [
+        [
+          '................',
+          '.....PPPP.......',
+          '....PPPPPP......',
+          '...PPPPPPPP.....',
+          '...PgPPPPgP.....',
+          '...PPPPPPPP.....',
+          '....tttttt......',
+          '....tttttt......',
+          '....tttttt......',
+          '....tttttt......',
+          '.....PPPP.......',
+          '....PPPPPP......',
+          '...PP....PP.....',
+          '...P......P.....',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '.....PPPP.......',
+          '....PPPPPP......',
+          '...PPPPPPPP.....',
+          '...PgPPPPgP.....',
+          '...PPPPPPPP.....',
+          '....t.tt.t......',
+          '....tttttt......',
+          '.....tttt.......',
+          '....tttttt......',
+          '.....PPPP.......',
+          '....PPPPPP......',
+          '...PP....PP.....',
+          '...P......P.....',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'P': '#9966aa', 't': '#cc99bb', 'g': '#00ffff' },
+      width: 16, height: 16, scale: 2.5,
+      health: 6, points: 550, paddleReward: 32,
+      tier: 4, behavior: 'float', special: 'confuse',
+    },
+
+    // === TIER 5: CR 17-20 (Legendary) ===
+
+    // Vampire (CR 16) - Elegant glider, heals when hitting paddle
+    vampire: {
+      frames: [
+        [
+          '................',
+          '..cc......cc....',
+          '..ccc....ccc....',
+          '...cccccccc.....',
+          '....PPPPPP......',
+          '...PPPPPgPP.....',
+          '...PrPPPPrP.....',
+          '...PPPPPPPP.....',
+          '....PttttP......',
+          '.....PPPP.......',
+          '....PPPPPP......',
+          '...PP....PP.....',
+          '...P......P.....',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '................',
+          '....PPPPPP......',
+          '...PPPPPgPP.....',
+          '...PrPPPPrP.....',
+          '...PPPPPPPP.....',
+          '....PttttP......',
+          '.....PPPP.......',
+          '..cccPPPPccc....',
+          '..cc.PP.PP.cc...',
+          '..c..P....P.c...',
+          '..c..P....P.c...',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'P': '#222222', 'c': '#440000', 'r': '#ff0000', 'g': '#aaaaaa', 't': '#ffffff' },
+      width: 16, height: 16, scale: 2.5,
+      health: 7, points: 600, paddleReward: 34,
+      tier: 5, behavior: 'glide', special: 'lifesteal',
+    },
+
+    // Young Dragon (CR 17) - Flies majestically, breathes fire
+    dragon: {
+      frames: [
+        [
+          '................',
+          '...rr....rr.....',
+          '..rrrr..rrrr....',
+          '...rrrrrrrr.....',
+          '....rrrrrr......',
+          '...rrrrrrrr.....',
+          '..rryrrrryrr....',
+          '..rrrrrrrrrr....',
+          '..rrrrrrrrrrr...',
+          '...rrrrrrrrrrrr.',
+          '....rrrrrr......',
+          '...rrrrrrrr.....',
+          '...rr....rr.....',
+          '...r......r.....',
+          '................',
+          '................',
+        ],
+        [
+          '................',
+          '...rr....rr.....',
+          '..rrrr..rrrr....',
+          '...rrrrrrrr.....',
+          '....rrrrrr......',
+          '...rrrrrrrr.....',
+          '..rryrrrryrr....',
+          '..rrrrrrrrrr....',
+          '.rrrrrrrrrrr....',
+          'rrrrrrrrrrr.....',
+          '...rrrrrrrr.....',
+          '...rrrrrrrr.....',
+          '...rr....rr.....',
+          '...r......r.....',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'r': '#cc2200', 'y': '#ffff00' },
       width: 16, height: 16, scale: 3,
-      health: 5, points: 500, paddleReward: 20,
+      health: 8, points: 750, paddleReward: 38,
+      tier: 5, behavior: 'soar', special: 'firebreath',
+    },
+
+    // Lich (CR 18) - Floating undead mage, summons minions
+    lich: {
+      frames: [
+        [
+          '................',
+          '......cc........',
+          '.....cccc.......',
+          '....cccccc......',
+          '...ccceceeccc...',
+          '...ccccccccc....',
+          '....ccccccc.....',
+          '....cPPPPPc.....',
+          '...ccPPPPPcc....',
+          '...PPPPPPPPP....',
+          '...PPPPPPPPP....',
+          '...PP.PPP.PP....',
+          '...P..PPP..P....',
+          '......PPP.......',
+          '.....PPPPP......',
+          '................',
+        ],
+        [
+          '................',
+          '......cc........',
+          '.....cccc.......',
+          '....cccccc......',
+          '...ccceceeccc...',
+          '...ccccccccc....',
+          '....ccccccc.....',
+          '....cPPPPPc.....',
+          '...ccPPPPPcc....',
+          '...PPPPPPPPP....',
+          '...PPPPPPPPP....',
+          '....PPPPPPP.....',
+          '...P.......P....',
+          '......PPP.......',
+          '.....PPPPP......',
+          '................',
+        ],
+      ],
+      colors: { 'P': '#333355', 'c': '#ddddcc', 'e': '#00ff00' },
+      width: 16, height: 16, scale: 3,
+      health: 8, points: 850, paddleReward: 42,
+      tier: 5, behavior: 'float', special: 'summon',
+    },
+
+    // Tarrasque (CR 20) - MASSIVE boss, reflects projectiles
+    tarrasque: {
+      frames: [
+        [
+          '..hhh....hhh....',
+          '.hhhhh..hhhhh...',
+          '.BBBBBBBBBBBBB..',
+          'BBBByBBBByBBBBB.',
+          'BBBBBBBBBBBBBBB.',
+          'BBBBBmmmmmBBBBB.',
+          'BBBBBBBBBBBBBBB.',
+          '.BBBBBBBBBBBBB..',
+          '.BBBBBBBBBBBBB..',
+          '..BBBBBBBBBBB...',
+          '.BBB.BBBBB.BBB..',
+          '.BBB.BBBBB.BBB..',
+          '.BB...BBB...BB..',
+          '................',
+          '................',
+          '................',
+        ],
+        [
+          '..hhh....hhh....',
+          '.hhhhh..hhhhh...',
+          '.BBBBBBBBBBBBB..',
+          'BBBByBBBByBBBBB.',
+          'BBBBBBBBBBBBBBB.',
+          'BBBBBmmmmmBBBBB.',
+          'BBBBBBBBBBBBBBB.',
+          '.BBBBBBBBBBBBB..',
+          '.BBBBBBBBBBBBB..',
+          '..BBBBBBBBBBB...',
+          '...BBBBBBBBB....',
+          '.BB.........BB..',
+          '.BB.........BB..',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'B': '#553311', 'h': '#664422', 'y': '#ff0000', 'm': '#ffccaa' },
+      width: 16, height: 16, scale: 4,
+      health: 15, points: 2000, paddleReward: 50,
+      tier: 5, behavior: 'rampage', special: 'reflect',
     },
   };
 
@@ -267,6 +991,7 @@ const BreakoutGame = () => {
 
   // Level definitions - hand-crafted layouts for each enemy
   // Legend: '.'=empty, '1'=1-hit, '2'=2-hit, '3'=3-hit, '#'=indestructible, '*'=powerup, 'X'=explosive
+  // New: 'F'=frozen (2-phase), 'P'=split/sPlit (breaks into 4), 'E'=enemy spawner brick, 'S'=spawner point (pinball)
   const LEVEL_DEFINITIONS = {
     // BRICK GOBLIN - Simple shapes, learning levels
     brick_goblin: [
@@ -297,27 +1022,27 @@ const BreakoutGame = () => {
         '..222222....',
         '....22......',
       ],
-      // Level 4: Diamond
+      // Level 4: Frozen Diamond - intro to frozen bricks
       [
-        '.....11.....',
+        '.....FF.....',
         '....2222....',
-        '...222222...',
-        '...222222...',
+        '...2FFFF2...',
+        '...2FFFF2...',
         '....2222....',
-        '.....11.....',
+        '.....FF.....',
       ],
-      // Level 5: Simple face
+      // Level 5: Split Challenge - intro to split bricks
       [
-        '.2222222222.',
-        '.2..2..2..2.',
-        '.2222222222.',
+        '.PPPPPPPPPP.',
+        '.P..P..P..P.',
+        '.PPPPPPPPPP.',
         '.2........2.',
         '.2.222222.2.',
         '.2222222222.',
       ],
-      // Level 6: Castle
+      // Level 6: Enemy Castle - intro to spawner bricks
       [
-        '3.3.3.3.3.3.',
+        '3.3.E.E.3.3.',
         '333333333333',
         '33.#33#.3333',
         '333333333333',
@@ -1244,6 +1969,12 @@ const BreakoutGame = () => {
   const [enemies, setEnemies] = useState([]);
   const [lastEnemySpawn, setLastEnemySpawn] = useState(0);
   const [difficulty, setDifficulty] = useState(null); // Current difficulty settings
+  const [enemyProjectiles, setEnemyProjectiles] = useState([]); // Webs, eye rays, fire, etc.
+  const [paddleDebuffs, setPaddleDebuffs] = useState({
+    petrified: 0,    // Can't move (basilisk)
+    confused: 0,     // Reversed controls (mind flayer)
+    webbed: 0,       // Slowed movement (spider)
+  });
 
   // === PINBALL FEATURES ===
   const [bumpers, setBumpers] = useState([]); // Circular bounce objects
@@ -1703,6 +2434,8 @@ const BreakoutGame = () => {
 
     const handlePointerMove = (e) => {
       if (activeEffects.includes('frozen')) return;
+      // Check for petrified debuff
+      if (paddleDebuffs.petrified > 0) return;
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -1710,11 +2443,22 @@ const BreakoutGame = () => {
       const rect = canvas.getBoundingClientRect();
       // Account for any CSS scaling of the canvas
       const scaleX = CANVAS_WIDTH / rect.width;
-      const mouseX = (e.clientX - rect.left) * scaleX;
+      let mouseX = (e.clientX - rect.left) * scaleX;
+
+      // Confusion reverses mouse position
+      if (paddleDebuffs.confused > 0) {
+        mouseX = CANVAS_WIDTH - mouseX;
+      }
 
       // Calculate paddle position centered on pointer
       setPaddle(prev => {
-        const targetX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, mouseX - prev.width / 2));
+        let targetX = Math.max(0, Math.min(CANVAS_WIDTH - prev.width, mouseX - prev.width / 2));
+
+        // Webbed slows down movement (lerp instead of instant)
+        if (paddleDebuffs.webbed > 0) {
+          targetX = prev.x + (targetX - prev.x) * 0.3;
+        }
+
         // Calculate velocity for spin effect
         const vx = (targetX - prev.x) * 2;
         const nextPaddle = { ...prev, x: targetX, vx };
@@ -1780,7 +2524,7 @@ const BreakoutGame = () => {
         canvas.removeEventListener('touchstart', handleClick);
       }
     };
-  }, [gameState, isPaused, activeEffects]);
+  }, [gameState, isPaused, activeEffects, paddleDebuffs]);
 
   // Teddy Ability activation
   const activateTeddyAbility = useCallback((ability) => {
@@ -1977,6 +2721,18 @@ const BreakoutGame = () => {
             health = 1;
             type = 'explosive';
             break;
+          case 'F': // Frozen brick - must crack ice first, then destroy
+            health = 2;
+            type = 'frozen';
+            break;
+          case 'P': // sPlit brick - breaks into 4 mini-bricks
+            health = 1;
+            type = 'split';
+            break;
+          case 'E': // Enemy spawner - spawns enemies when hit, distinct look
+            health = 3 + Math.floor(healthBonus / 2); // Contains this many enemies
+            type = 'spawner';
+            break;
           default:
             continue; // Unknown character, skip
         }
@@ -1991,6 +2747,12 @@ const BreakoutGame = () => {
           color = '#ff4400';
         } else if (type === 'powerup') {
           color = '#ffd700';
+        } else if (type === 'frozen') {
+          color = '#88ddff'; // Icy blue
+        } else if (type === 'split') {
+          color = '#aa66cc'; // Purple
+        } else if (type === 'spawner') {
+          color = '#44aa44'; // Green (enemy color)
         } else {
           color = getColorForHealth(health);
         }
@@ -2010,6 +2772,9 @@ const BreakoutGame = () => {
           color,
           invisible: isInvisible,
           canRegenerate: enemy?.gimmick === 'regenerating_bricks' && type === 'normal' && Math.random() < 0.15,
+          // New brick type properties
+          cracked: false, // For frozen bricks - becomes true after first hit
+          enemiesRemaining: type === 'spawner' ? health : 0, // For spawner bricks
         });
       }
     }
@@ -2243,14 +3008,22 @@ const BreakoutGame = () => {
       }
 
       // Move paddle with keyboard - direct and responsive
-      if (!activeEffects.includes('frozen')) {
+      // Check for enemy debuffs
+      const isPetrified = paddleDebuffs.petrified > 0;
+      const isConfused = paddleDebuffs.confused > 0;
+      const isWebbed = paddleDebuffs.webbed > 0;
+
+      if (!activeEffects.includes('frozen') && !isPetrified) {
         const currentPaddle = paddleRef.current;
-        const leftPressed = keysRef.current.left;
-        const rightPressed = keysRef.current.right;
+        // Confusion reverses controls
+        const leftPressed = isConfused ? keysRef.current.right : keysRef.current.left;
+        const rightPressed = isConfused ? keysRef.current.left : keysRef.current.right;
 
         if (leftPressed || rightPressed) {
           // Direct movement - constant speed, immediate response
-          const speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 24 : KEYBOARD_SPEED;
+          let speed = isDashing ? DASH_SPEED : keysRef.current.shift ? 24 : KEYBOARD_SPEED;
+          // Webbed reduces speed by 60%
+          if (isWebbed) speed *= 0.4;
 
           let moveAmount = 0;
           if (leftPressed && !rightPressed) moveAmount = -speed * deltaTime;
@@ -2471,6 +3244,37 @@ const BreakoutGame = () => {
                   return brick; // No damage to obstacles
                 }
 
+                // === FROZEN BRICK: First hit cracks ice, second hit destroys ===
+                if (brick.type === 'frozen' && !brick.cracked) {
+                  // First hit - crack the ice
+                  createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#aaeeff', 10);
+                  addFloatingText(brick.x + brick.width / 2, brick.y, '❄️ CRACK!', '#88ddff');
+                  return { ...brick, cracked: true, hitFlash: 1 };
+                }
+
+                // === SPAWNER BRICK: Spawn enemy on each hit ===
+                if (brick.type === 'spawner' && brick.enemiesRemaining > 0) {
+                  // Spawn an enemy from this brick
+                  const newEnemy = spawnEnemy();
+                  if (newEnemy) {
+                    // Spawn at brick position instead of random
+                    newEnemy.x = brick.x + brick.width / 2 - newEnemy.width / 2;
+                    newEnemy.y = brick.y + brick.height;
+                    newEnemy.vy = Math.abs(newEnemy.vy); // Always move down initially
+                    setEnemies(prev => [...prev, newEnemy]);
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#44aa44', 8);
+                    addFloatingText(brick.x + brick.width / 2, brick.y, '👾', '#44aa44');
+                  }
+                  const remaining = brick.enemiesRemaining - 1;
+                  if (remaining <= 0) {
+                    // All enemies spawned, brick is destroyed
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#44aa44', 15);
+                    setScore(s => s + 50);
+                    return { ...brick, health: 0, enemiesRemaining: 0, hitFlash: 1 };
+                  }
+                  return { ...brick, enemiesRemaining: remaining, hitFlash: 1 };
+                }
+
                 // Calculate damage (Teddy Slam, charged shot, mega ball)
                 let damage = ball.damage || 1;
                 if (teddyAbilityActive === 'slam') {
@@ -2554,8 +3358,42 @@ const BreakoutGame = () => {
                     }));
                   }
 
-                  // Spawn power-up
-                  if (brick.type === 'powerup' || Math.random() < 0.15) {
+                  // === SPLIT BRICK: Break into 4 mini-bricks ===
+                  if (brick.type === 'split') {
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, '#aa66cc', 12);
+                    addFloatingText(brick.x + brick.width / 2, brick.y, '💔 SPLIT!', '#aa66cc');
+
+                    // Create 4 mini-bricks in a 2x2 grid
+                    const miniWidth = brick.width / 2 - 2;
+                    const miniHeight = brick.height / 2 - 2;
+                    const miniColor = '#cc88ee';
+                    const miniBricks = [
+                      { x: brick.x, y: brick.y }, // Top-left
+                      { x: brick.x + brick.width / 2, y: brick.y }, // Top-right
+                      { x: brick.x, y: brick.y + brick.height / 2 }, // Bottom-left
+                      { x: brick.x + brick.width / 2, y: brick.y + brick.height / 2 }, // Bottom-right
+                    ].map((pos, i) => ({
+                      id: `${brick.id}-mini-${i}`,
+                      x: pos.x,
+                      y: pos.y,
+                      width: miniWidth,
+                      height: miniHeight,
+                      health: 1,
+                      maxHealth: 1,
+                      type: 'mini',
+                      color: miniColor,
+                      invisible: false,
+                      canRegenerate: false,
+                      cracked: false,
+                      enemiesRemaining: 0,
+                    }));
+
+                    // Add mini-bricks to the game
+                    setBricks(allBricks => [...allBricks, ...miniBricks]);
+                  }
+
+                  // Spawn power-up (5% base chance, powerup bricks always drop)
+                  if (brick.type === 'powerup' || Math.random() < 0.05) {
                     spawnPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
                   }
                 }
@@ -2676,17 +3514,56 @@ const BreakoutGame = () => {
             const dist = Math.sqrt(distX * distX + distY * distY);
 
             if (dist < BALL_RADIUS) {
-              // Hit enemy!
-              damageEnemy(enemy.id, ball.damage || 1);
+              const sprite = ENEMY_SPRITES[enemy.type];
 
-              // Bounce ball
-              if (Math.abs(distX) > Math.abs(distY)) {
-                ball.vx = -ball.vx;
-              } else {
-                ball.vy = -ball.vy;
+              // Tarrasque reflects balls back with extra force
+              if (enemy.special === 'reflect') {
+                ball.vx = -ball.vx * 1.5;
+                ball.vy = -ball.vy * 1.5;
+                addFloatingText(enemy.x + enemy.width/2, enemy.y, '🛡️ REFLECT!', '#ffaa00');
+                createParticles(ball.x, ball.y, '#ffdd44', 8);
+                // Tarrasque takes reduced damage
+                damageEnemy(enemy.id, Math.max(1, (ball.damage || 1) - 1));
+              }
+              // Gelatinous Cube absorbs ball temporarily
+              else if (enemy.special === 'absorb' && !ball.absorbed) {
+                ball.absorbed = true;
+                ball.absorbedBy = enemy.id;
+                ball.absorbTimer = 60; // 60 frames trapped
+                ball.vx = 0;
+                ball.vy = 0;
+                addFloatingText(enemy.x + enemy.width/2, enemy.y, '🧪 ABSORBED!', '#88ff88');
+              }
+              else {
+                // Normal hit
+                damageEnemy(enemy.id, ball.damage || 1);
+
+                // Bounce ball
+                if (Math.abs(distX) > Math.abs(distY)) {
+                  ball.vx = -ball.vx;
+                } else {
+                  ball.vy = -ball.vy;
+                }
               }
             }
           });
+
+          // Handle absorbed ball release
+          if (ball.absorbed) {
+            const absorber = enemies.find(e => e.id === ball.absorbedBy);
+            if (absorber) {
+              ball.x = absorber.x + absorber.width/2;
+              ball.y = absorber.y + absorber.height/2;
+            }
+            ball.absorbTimer--;
+            if (ball.absorbTimer <= 0 || !absorber) {
+              ball.absorbed = false;
+              ball.absorbedBy = null;
+              ball.vx = (Math.random() - 0.5) * ball.baseSpeed;
+              ball.vy = ball.baseSpeed;
+              addFloatingText(ball.x, ball.y, '💨 RELEASED!', '#88ff88');
+            }
+          }
 
           return ball;
         });
@@ -2861,6 +3738,162 @@ const BreakoutGame = () => {
         return updated;
       }));
 
+      // === ENEMY ABILITIES: Shoot projectiles ===
+      const currentPaddle = paddleRef.current;
+      setEnemies(prevEnemies => {
+        return prevEnemies.map(enemy => {
+          const timeSinceSpecial = now - (enemy.lastSpecialTime || 0);
+
+          // Spider shoots webs every 4 seconds
+          if (enemy.special === 'web' && timeSinceSpecial > 4000 && currentPaddle) {
+            setEnemyProjectiles(prev => [...prev, {
+              id: Date.now() + Math.random(),
+              type: 'web',
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height,
+              vx: 0,
+              vy: 3,
+              width: 20,
+              height: 20,
+              color: '#cccccc',
+            }]);
+            return { ...enemy, lastSpecialTime: now };
+          }
+
+          // Beholder shoots eye rays every 3 seconds
+          if (enemy.special === 'shoot' && timeSinceSpecial > 3000 && currentPaddle) {
+            const angle = Math.atan2(
+              (CANVAS_HEIGHT - PADDLE_OFFSET_BOTTOM) - enemy.y,
+              currentPaddle.x + currentPaddle.width/2 - enemy.x
+            );
+            setEnemyProjectiles(prev => [...prev, {
+              id: Date.now() + Math.random(),
+              type: 'eyeray',
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height,
+              vx: Math.cos(angle) * 5,
+              vy: Math.sin(angle) * 5,
+              width: 8,
+              height: 8,
+              color: '#ff4444',
+            }]);
+            addFloatingText(enemy.x + enemy.width/2, enemy.y, '👁️', '#ff4444');
+            return { ...enemy, lastSpecialTime: now };
+          }
+
+          // Dragon breathes fire every 5 seconds
+          if (enemy.special === 'firebreath' && timeSinceSpecial > 5000 && currentPaddle) {
+            // Create 3 fire projectiles in a spread
+            for (let i = -1; i <= 1; i++) {
+              setEnemyProjectiles(prev => [...prev, {
+                id: Date.now() + Math.random() + i,
+                type: 'fire',
+                x: enemy.x + enemy.width / 2 + i * 15,
+                y: enemy.y + enemy.height,
+                vx: i * 1.5,
+                vy: 4,
+                width: 16,
+                height: 16,
+                color: '#ff6622',
+              }]);
+            }
+            addFloatingText(enemy.x + enemy.width/2, enemy.y, '🔥', '#ff4400');
+            createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height, '#ff6622', 10);
+            return { ...enemy, lastSpecialTime: now };
+          }
+
+          return enemy;
+        });
+      });
+
+      // Update enemy projectiles and check paddle collision
+      setEnemyProjectiles(prev => {
+        return prev.map(proj => ({
+          ...proj,
+          x: proj.x + proj.vx,
+          y: proj.y + proj.vy,
+        })).filter(proj => {
+          // Check paddle collision
+          if (currentPaddle &&
+              proj.y + proj.height >= CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM &&
+              proj.y <= CANVAS_HEIGHT - PADDLE_OFFSET_BOTTOM &&
+              proj.x + proj.width >= currentPaddle.x &&
+              proj.x <= currentPaddle.x + currentPaddle.width) {
+
+            // Apply effect based on projectile type
+            if (proj.type === 'web') {
+              setPaddleDebuffs(d => ({ ...d, webbed: 180 })); // 3 seconds at 60fps
+              addFloatingText(proj.x, proj.y, '🕸️ WEBBED!', '#cccccc');
+              createParticles(proj.x, proj.y, '#ffffff', 8);
+            } else if (proj.type === 'eyeray') {
+              // Eye ray shrinks paddle
+              setPaddle(p => ({ ...p, width: Math.max(40, p.width - 15) }));
+              addFloatingText(proj.x, proj.y, '⚡ ZAP!', '#ff4444');
+              setScreenShake(true);
+              setTimeout(() => setScreenShake(false), 100);
+            } else if (proj.type === 'fire') {
+              // Fire damages player (shrink paddle significantly)
+              setPaddle(p => ({ ...p, width: Math.max(40, p.width - 10) }));
+              addFloatingText(proj.x, proj.y, '🔥 BURN!', '#ff6622');
+              createParticles(proj.x, proj.y, '#ff4400', 12);
+            }
+            return false; // Remove projectile
+          }
+
+          // Remove if off screen
+          return proj.y < CANVAS_HEIGHT + 50 && proj.y > -50;
+        });
+      });
+
+      // === ENEMY-PADDLE COLLISION: Apply debuffs from touching enemies ===
+      if (currentPaddle) {
+        enemies.forEach(enemy => {
+          const paddleTop = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
+          const paddleBottom = CANVAS_HEIGHT - PADDLE_OFFSET_BOTTOM;
+
+          if (enemy.y + enemy.height >= paddleTop &&
+              enemy.y <= paddleBottom &&
+              enemy.x + enemy.width >= currentPaddle.x &&
+              enemy.x <= currentPaddle.x + currentPaddle.width) {
+
+            // Apply special effects based on enemy type
+            if (enemy.special === 'petrify') {
+              setPaddleDebuffs(d => ({ ...d, petrified: 90 })); // 1.5 seconds
+              addFloatingText(enemy.x + enemy.width/2, paddleTop - 20, '🗿 PETRIFIED!', '#888888');
+            } else if (enemy.special === 'confuse') {
+              setPaddleDebuffs(d => ({ ...d, confused: 240 })); // 4 seconds
+              addFloatingText(enemy.x + enemy.width/2, paddleTop - 20, '🌀 CONFUSED!', '#9966aa');
+            } else if (enemy.special === 'lifesteal') {
+              // Vampire heals when touching paddle
+              setEnemies(e => e.map(en =>
+                en.id === enemy.id
+                  ? { ...en, health: Math.min(en.maxHealth, en.health + 1) }
+                  : en
+              ));
+              addFloatingText(enemy.x + enemy.width/2, enemy.y, '💉 DRAIN!', '#ff0000');
+            }
+
+            // All enemies shrink paddle on touch
+            setPaddle(p => ({ ...p, width: Math.max(40, p.width - 5) }));
+            createParticles(enemy.x + enemy.width/2, paddleTop, '#ff4444', 6);
+
+            // Push enemy away
+            setEnemies(e => e.map(en =>
+              en.id === enemy.id
+                ? { ...en, y: en.y - 30, vy: -Math.abs(en.vy || 1) }
+                : en
+            ));
+          }
+        });
+      }
+
+      // Decay paddle debuffs
+      setPaddleDebuffs(d => ({
+        petrified: Math.max(0, d.petrified - 1),
+        confused: Math.max(0, d.confused - 1),
+        webbed: Math.max(0, d.webbed - 1),
+      }));
+
       // Check level complete (obstacles don't count toward completion)
       setBricks(prev => {
         const remaining = prev.filter(b => b.health > 0 && b.type !== 'boss' && b.type !== 'obstacle');
@@ -2878,7 +3911,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -3102,20 +4135,40 @@ const BreakoutGame = () => {
   const spawnEnemy = useCallback(() => {
     if (!difficulty) return null;
 
-    // Determine enemy type based on difficulty
-    const roll = Math.random();
-    let type;
-    if (difficulty.globalLevel >= 70 && roll < 0.15) {
-      type = 'miniboss';
-    } else if (difficulty.globalLevel >= 40 && roll < 0.35) {
-      type = 'ghost';
-    } else if (difficulty.globalLevel >= 20 && roll < 0.55) {
-      type = 'bat';
-    } else {
-      type = 'slime';
-    }
+    // Enemy pools by tier
+    const tierEnemies = {
+      1: ['rat', 'kobold', 'goblin', 'skeleton'],
+      2: ['zombie', 'orc', 'spider', 'harpy'],
+      3: ['mimic', 'owlbear', 'cube', 'troll'],
+      4: ['werewolf', 'basilisk', 'beholder', 'mindflayer'],
+      5: ['vampire', 'dragon', 'lich', 'tarrasque'],
+    };
+
+    // Determine max tier based on difficulty (globalLevel 1-100)
+    let maxTier = 1;
+    if (difficulty.globalLevel >= 80) maxTier = 5;
+    else if (difficulty.globalLevel >= 60) maxTier = 4;
+    else if (difficulty.globalLevel >= 40) maxTier = 3;
+    else if (difficulty.globalLevel >= 20) maxTier = 2;
+
+    // Roll for tier - higher tiers are rarer
+    const tierRoll = Math.random();
+    let tier = 1;
+    if (maxTier >= 5 && tierRoll < 0.05) tier = 5;
+    else if (maxTier >= 4 && tierRoll < 0.15) tier = 4;
+    else if (maxTier >= 3 && tierRoll < 0.30) tier = 3;
+    else if (maxTier >= 2 && tierRoll < 0.50) tier = 2;
+
+    // Pick random enemy from tier
+    const tierPool = tierEnemies[tier];
+    const type = tierPool[Math.floor(Math.random() * tierPool.length)];
 
     const sprite = ENEMY_SPRITES[type];
+    if (!sprite) {
+      console.warn('Unknown enemy type:', type);
+      return null;
+    }
+
     const enemyId = selectedEnemy?.id || 'brick_goblin';
     const themeColors = ENEMY_THEME_COLORS[enemyId] || ENEMY_THEME_COLORS.brick_goblin;
 
@@ -3124,7 +4177,23 @@ const BreakoutGame = () => {
     let x, y, vx, vy;
     const size = sprite.width * sprite.scale;
 
-    if (side < 0.6) {
+    // Behavior-specific spawn patterns
+    const behavior = sprite.behavior || 'bounce';
+
+    if (behavior === 'swoop' || behavior === 'soar') {
+      // Flying enemies spawn from top corners
+      x = Math.random() < 0.5 ? 50 : CANVAS_WIDTH - 50 - size;
+      y = -size;
+      vx = x < CANVAS_WIDTH / 2 ? 1 * difficulty.enemySpeed : -1 * difficulty.enemySpeed;
+      vy = 0.5 * difficulty.enemySpeed;
+    } else if (behavior === 'crawl') {
+      // Crawlers spawn from sides
+      const fromLeft = Math.random() < 0.5;
+      x = fromLeft ? -size : CANVAS_WIDTH + size;
+      y = 50 + Math.random() * 150;
+      vx = fromLeft ? 0.8 * difficulty.enemySpeed : -0.8 * difficulty.enemySpeed;
+      vy = 0.2 * difficulty.enemySpeed;
+    } else if (side < 0.6) {
       // Top spawn
       x = 100 + Math.random() * (CANVAS_WIDTH - 200);
       y = -size;
@@ -3147,6 +4216,9 @@ const BreakoutGame = () => {
     return {
       id: Date.now() + Math.random(),
       type,
+      tier,
+      behavior: sprite.behavior || 'bounce',
+      special: sprite.special,
       x, y, vx, vy,
       health: sprite.health,
       maxHealth: sprite.health,
@@ -3155,8 +4227,16 @@ const BreakoutGame = () => {
       width: size,
       height: size,
       themeColors,
-      phaseTimer: 0, // For ghost phasing
+      phaseTimer: 0,
       isPhased: false,
+      // Special state for unique abilities
+      hasRevived: false, // For zombie
+      enraged: false, // For orc, werewolf
+      disguised: sprite.special === 'disguise', // For mimic
+      regenTimer: 0, // For troll
+      lastSpecialTime: 0, // For abilities with cooldowns
+      confused: false, // Confused state (for mind flayer)
+      petrified: false, // Petrified state (for basilisk)
     };
   }, [difficulty, selectedEnemy]);
 
@@ -3166,101 +4246,291 @@ const BreakoutGame = () => {
     setEnemies(prevEnemies => {
       return prevEnemies.map(enemy => {
         const sprite = ENEMY_SPRITES[enemy.type];
-        let { x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased } = enemy;
+        if (!sprite) return enemy;
+
+        let { x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased, regenTimer, enraged } = enemy;
+        const behavior = enemy.behavior || sprite.behavior || 'bounce';
+        const speedMult = enraged ? 1.8 : 1;
 
         // Update animation frame
         frameTimer += deltaTime;
-        if (frameTimer > 200) { // 200ms per frame
+        if (frameTimer > 200) {
           frame = (frame + 1) % sprite.frames.length;
           frameTimer = 0;
         }
 
-        // Type-specific AI
-        switch (enemy.type) {
-          case 'slime':
-            // Bounces horizontally, drifts down slowly
-            x += vx;
+        // Behavior-based AI
+        switch (behavior) {
+          case 'scurry': // Rat - fast unpredictable movement
+            x += vx * 1.5 * speedMult;
+            y += vy * 0.5;
+            // Random direction changes
+            if (Math.random() < 0.02) {
+              vx = (Math.random() - 0.5) * 3 * difficulty.enemySpeed;
+            }
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y < 60) vy = Math.abs(vy);
+            break;
+
+          case 'diagonal': // Kobold - moves in diagonal patterns
+            x += vx * speedMult;
+            y += vy * 0.6;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'bounce': // Standard bouncing (goblin, skeleton, troll)
+            x += vx * speedMult;
             y += vy * 0.3;
             if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) {
               vx = -vx;
               x = Math.max(0, Math.min(CANVAS_WIDTH - enemy.width, x));
             }
-            // Bounce off top area
-            if (y < 60) {
-              vy = Math.abs(vy);
-            }
+            if (y < 60) vy = Math.abs(vy);
             break;
 
-          case 'bat':
-            // Sine wave movement
-            x += vx;
-            y += Math.sin(Date.now() / 300) * 2;
-            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) {
-              vx = -vx;
+          case 'shamble': // Zombie - slow, lurching movement
+            x += vx * 0.3 * speedMult;
+            y += vy * 0.15;
+            // Occasional lurch
+            if (Math.random() < 0.01) {
+              x += (Math.random() - 0.5) * 20;
             }
-            // Stay in upper half
-            if (y > CANVAS_HEIGHT / 2) {
-              vy = -Math.abs(vy);
-            } else if (y < 60) {
-              vy = Math.abs(vy);
-            }
-            y += vy * 0.2;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y < 60) vy = Math.abs(vy);
             break;
 
-          case 'ghost':
-            // Phases in and out, drifts toward ball
-            phaseTimer += deltaTime;
-            if (phaseTimer > 2000) {
-              isPhased = !isPhased;
-              phaseTimer = 0;
-            }
-            // Slow drift
-            x += vx * 0.5;
-            y += vy * 0.5;
-            // Bounce off walls
+          case 'charge': // Orc - speeds up when hit, aggressive
+            const chargeSpeed = enraged ? 2.5 : 1.2;
+            x += vx * chargeSpeed * speedMult;
+            y += vy * 0.4;
             if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
             if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
             break;
 
-          case 'miniboss':
-            // Slow, deliberate movement
+          case 'crawl': // Spider - crawls along edges
+            x += vx * 0.8 * speedMult;
+            // Stick to upper part but oscillate
+            y = 80 + Math.sin(Date.now() / 500) * 30;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            break;
+
+          case 'swoop': // Harpy - dives down then back up
+            x += vx * speedMult;
+            phaseTimer += deltaTime;
+            if (phaseTimer < 1500) {
+              // Diving phase
+              y += 2 * difficulty.enemySpeed;
+            } else if (phaseTimer < 3000) {
+              // Rising phase
+              y -= 1.5 * difficulty.enemySpeed;
+            } else {
+              phaseTimer = 0;
+            }
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            y = Math.max(60, Math.min(CANVAS_HEIGHT * 0.6, y));
+            break;
+
+          case 'ambush': // Mimic - stays still when disguised, attacks when revealed
+            if (!enemy.disguised) {
+              x += vx * 1.5 * speedMult;
+              y += vy * 0.8;
+              if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+              if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            }
+            break;
+
+          case 'rhythm': // Owlbear - stompy rhythmic movement
+            phaseTimer += deltaTime;
+            const phase = Math.floor(phaseTimer / 500) % 4;
+            if (phase < 2) {
+              x += vx * speedMult;
+            } else {
+              y += vy * 0.3;
+            }
+            if (phaseTimer > 2000) phaseTimer = 0;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'drift': // Gelatinous Cube - very slow, methodical
+            x += vx * 0.2 * speedMult;
+            y += vy * 0.1;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'frenzy': // Werewolf - fast when low health
+            const frenzyMult = enemy.health <= enemy.maxHealth / 2 ? 2.2 : 1;
+            x += vx * frenzyMult * speedMult;
+            y += vy * 0.4 * frenzyMult;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'slither': // Basilisk - snake-like movement
+            x += vx * 0.6 * speedMult;
+            y += Math.sin(Date.now() / 200) * 1.5;
+            y += vy * 0.2;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            break;
+
+          case 'hover': // Beholder - floats in place, occasional repositioning
+            phaseTimer += deltaTime;
+            if (phaseTimer > 2000) {
+              // Reposition
+              vx = (Math.random() - 0.5) * 2 * difficulty.enemySpeed;
+              vy = (Math.random() - 0.5) * difficulty.enemySpeed;
+              phaseTimer = 0;
+            }
+            x += vx * 0.5;
+            y += vy * 0.3;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 80 || y >= CANVAS_HEIGHT / 2 - 30) vy = -vy;
+            break;
+
+          case 'float': // Mind Flayer, Lich - eerie floating
+            x += Math.sin(Date.now() / 400) * 1;
+            y += Math.cos(Date.now() / 600) * 0.5;
             x += vx * 0.3;
             y += vy * 0.2;
-            // Stay in play area
             if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
-            if (y <= 60 || y >= CANVAS_HEIGHT / 2 - 50) vy = -vy;
+            if (y <= 70 || y >= CANVAS_HEIGHT / 2) vy = -vy;
             break;
+
+          case 'glide': // Vampire - smooth elegant movement
+            x += vx * 1.2 * speedMult;
+            y += Math.sin(Date.now() / 500) * 0.8;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'soar': // Dragon - majestic flying patterns
+            x += vx * 1.5 * speedMult;
+            y += Math.sin(Date.now() / 800) * 2;
+            y += vy * 0.2;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            y = Math.max(60, Math.min(CANVAS_HEIGHT / 2 - 20, y));
+            break;
+
+          case 'rampage': // Tarrasque - slow but unstoppable
+            x += vx * 0.4 * speedMult;
+            y += vy * 0.15;
+            // Occasional stomp
+            if (Math.random() < 0.005) {
+              createParticles(x + enemy.width/2, y + enemy.height, '#664422', 8);
+            }
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2 - 40) vy = -vy;
+            break;
+
+          default:
+            // Fallback bounce behavior
+            x += vx * speedMult;
+            y += vy * 0.3;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y < 60) vy = Math.abs(vy);
         }
 
-        // Keep in bounds vertically (don't go below middle of screen)
-        y = Math.max(60, Math.min(CANVAS_HEIGHT / 2, y));
+        // Troll regeneration
+        if (enemy.special === 'regenerate' && enemy.health < enemy.maxHealth) {
+          regenTimer = (regenTimer || 0) + deltaTime;
+          if (regenTimer > 3000) { // Regen 1 HP every 3 seconds
+            enemy.health = Math.min(enemy.maxHealth, enemy.health + 1);
+            regenTimer = 0;
+            createParticles(x + enemy.width/2, y + enemy.height/2, '#66ff66', 5);
+          }
+        }
 
-        return { ...enemy, x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased };
+        // Keep in bounds vertically
+        y = Math.max(60, Math.min(CANVAS_HEIGHT / 2 + 50, y));
+
+        return { ...enemy, x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased, regenTimer };
       }).filter(enemy => {
-        // Remove enemies that somehow got way off screen
         return enemy.y < CANVAS_HEIGHT && enemy.x > -100 && enemy.x < CANVAS_WIDTH + 100;
       });
     });
-  }, [difficulty]);
+  }, [difficulty, createParticles]);
 
   const damageEnemy = useCallback((enemyId, damage = 1) => {
     setEnemies(prev => {
       const updated = prev.map(enemy => {
         if (enemy.id === enemyId) {
-          const newHealth = enemy.health - damage;
+          const sprite = ENEMY_SPRITES[enemy.type];
+          let newHealth = enemy.health - damage;
+          let updatedEnemy = { ...enemy, health: newHealth };
+
+          // Handle special abilities on damage
+          if (enemy.special === 'disguise' && enemy.disguised) {
+            // Mimic reveals itself
+            updatedEnemy.disguised = false;
+            addFloatingText(enemy.x + enemy.width/2, enemy.y, '⚠️ MIMIC!', '#ff4444');
+            createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#8b4513', 10);
+          }
+
+          // Orc enrages when hit
+          if (enemy.type === 'orc' && !enemy.enraged) {
+            updatedEnemy.enraged = true;
+            addFloatingText(enemy.x + enemy.width/2, enemy.y, '💢 ENRAGED!', '#ff6644');
+          }
+
           if (newHealth <= 0) {
+            // Zombie revive check
+            if (enemy.special === 'revive' && !enemy.hasRevived) {
+              updatedEnemy.health = Math.ceil(enemy.maxHealth / 2);
+              updatedEnemy.hasRevived = true;
+              addFloatingText(enemy.x + enemy.width/2, enemy.y, '💀 REVIVED!', '#55ff55');
+              createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#556b55', 12);
+              return updatedEnemy;
+            }
+
             // Enemy killed - reward player
-            const sprite = ENEMY_SPRITES[enemy.type];
             setScore(s => s + sprite.points);
             setPaddle(p => ({ ...p, width: Math.min(200, p.width + sprite.paddleReward) }));
             addFloatingText(enemy.x + enemy.width/2, enemy.y, `+${sprite.points}`, '#ffdd44');
 
             // Spawn particles
-            createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, enemy.themeColors.primary, 15);
+            createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, enemy.themeColors?.primary || '#ffffff', 15);
+
+            // Skeleton drops bones (extra particles)
+            if (enemy.special === 'dropBones') {
+              createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#f0f0e0', 20);
+              addFloatingText(enemy.x + enemy.width/2, enemy.y + 20, '🦴', '#f0f0e0');
+            }
+
+            // Lich summons a minion on death
+            if (enemy.special === 'summon') {
+              // Spawn a skeleton minion
+              const minionSprite = ENEMY_SPRITES.skeleton;
+              const minion = {
+                id: Date.now() + Math.random(),
+                type: 'skeleton',
+                tier: 1,
+                behavior: 'bounce',
+                special: 'dropBones',
+                x: enemy.x,
+                y: enemy.y,
+                vx: (Math.random() - 0.5) * 2,
+                vy: 0.5,
+                health: minionSprite.health,
+                maxHealth: minionSprite.health,
+                frame: 0,
+                frameTimer: 0,
+                width: minionSprite.width * minionSprite.scale,
+                height: minionSprite.height * minionSprite.scale,
+                themeColors: enemy.themeColors,
+                phaseTimer: 0,
+                isPhased: false,
+                hasRevived: false,
+                enraged: false,
+              };
+              setEnemies(e => [...e, minion]);
+              addFloatingText(enemy.x + enemy.width/2, enemy.y - 10, '☠️ SUMMON!', '#00ff00');
+            }
 
             return null; // Mark for removal
           }
-          return { ...enemy, health: newHealth };
+          return updatedEnemy;
         }
         return enemy;
       });
@@ -3356,6 +4626,8 @@ const BreakoutGame = () => {
     setBalls([createBall(level, enemyIndex)]);
     // Reset enemy system
     setEnemies([]);
+    setEnemyProjectiles([]);
+    setPaddleDebuffs({ petrified: 0, confused: 0, webbed: 0 });
     setLastEnemySpawn(Date.now());
     setGameState('playing');
     setIsPaused(false);
@@ -3537,6 +4809,86 @@ const BreakoutGame = () => {
         </div>
       </div>
 
+      {/* Enemy Counter - shows enemies in level by type */}
+      {(() => {
+        // Count enemies from spawner bricks + currently alive
+        const spawnerEnemies = bricks.filter(b => b.type === 'spawner' && b.health > 0)
+          .reduce((sum, b) => sum + b.enemiesRemaining, 0);
+        const aliveEnemies = enemies.length;
+        const totalEnemies = spawnerEnemies + aliveEnemies;
+
+        // Count by type for alive enemies
+        const enemyCounts = {};
+        enemies.forEach(e => {
+          enemyCounts[e.type] = (enemyCounts[e.type] || 0) + 1;
+        });
+
+        // Add spawner counts (they spawn random types, so show as "pending")
+        if (spawnerEnemies > 0) {
+          enemyCounts['pending'] = spawnerEnemies;
+        }
+
+        const ENEMY_EMOJIS = {
+          // Tier 1 (CR 1-4)
+          rat: '🐀',
+          kobold: '🦎',
+          goblin: '👺',
+          skeleton: '💀',
+          // Tier 2 (CR 5-8)
+          zombie: '🧟',
+          orc: '👹',
+          spider: '🕷️',
+          harpy: '🦅',
+          // Tier 3 (CR 9-12)
+          mimic: '📦',
+          owlbear: '🐻',
+          cube: '🟩',
+          troll: '🧌',
+          // Tier 4 (CR 13-16)
+          werewolf: '🐺',
+          basilisk: '🐍',
+          beholder: '👁️',
+          mindflayer: '🐙',
+          // Tier 5 (CR 17-20)
+          vampire: '🧛',
+          dragon: '🐉',
+          lich: '☠️',
+          tarrasque: '🦖',
+          // Legacy/special
+          slime: '🟢',
+          bat: '🦇',
+          ghost: '👻',
+          miniboss: '👹',
+          pending: '❓', // In spawner bricks
+        };
+
+        if (totalEnemies === 0) return null;
+
+        return (
+          <div style={{
+            width: CANVAS_WIDTH,
+            marginBottom: '4px',
+            padding: '4px 12px',
+            background: 'rgba(0,0,0,0.3)',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            color: '#fff',
+          }}>
+            <span style={{ color: '#888' }}>Enemies:</span>
+            {Object.entries(enemyCounts).map(([type, count]) => (
+              <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <span>{ENEMY_EMOJIS[type] || '👾'}</span>
+                <span style={{ fontWeight: 'bold' }}>×{count}</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Teddy Meter Bar */}
       <div style={{
         width: CANVAS_WIDTH,
@@ -3702,13 +5054,19 @@ const BreakoutGame = () => {
               height: brick.height,
               background: brick.invisible ? 'transparent' :
                 brick.type === 'obstacle' ? 'linear-gradient(180deg, #3a3a5e 0%, #2a2a4e 50%, #1a1a3e 100%)' :
+                brick.type === 'spawner' ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #002200 100%)' :
+                brick.type === 'frozen' ? `linear-gradient(180deg, #aaeeff 0%, ${brick.cracked ? '#6699aa' : '#88ddff'} 50%, #66bbdd 100%)` :
                 `linear-gradient(180deg, ${brick.color}ee 0%, ${brick.color} 50%, ${brick.color}aa 100%)`,
-              borderRadius: '4px',
+              borderRadius: brick.type === 'spawner' ? '8px' : '4px',
               border: brick.invisible ? '1px dashed rgba(255,255,255,0.1)' :
                 brick.type === 'obstacle' ? '2px solid #4a4a6e' :
+                brick.type === 'spawner' ? '3px solid #44ff44' :
+                brick.type === 'frozen' ? `2px solid ${brick.cracked ? '#88aacc' : '#aaeeff'}` :
                 `2px solid ${brick.color}`,
               boxShadow: brick.invisible ? 'none' :
                 brick.type === 'obstacle' ? 'inset 0 -2px 4px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)' :
+                brick.type === 'spawner' ? '0 0 15px #44ff44, inset 0 0 10px rgba(68,255,68,0.3)' :
+                brick.type === 'frozen' ? '0 0 10px #88ddff, inset 0 1px 0 rgba(255,255,255,0.5)' :
                 `0 2px 8px ${brick.color}44, inset 0 1px 0 rgba(255,255,255,0.3)`,
               display: 'flex',
               alignItems: 'center',
@@ -3740,7 +5098,40 @@ const BreakoutGame = () => {
             {brick.type === 'obstacle' && (
               <span style={{ fontSize: '14px', opacity: 0.7, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>🧱</span>
             )}
-            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && (
+            {/* Frozen brick - shows ice crystal, cracks when hit once */}
+            {brick.type === 'frozen' && !brick.invisible && (
+              <>
+                <span style={{ fontSize: '14px', filter: brick.cracked ? 'grayscale(50%)' : 'none' }}>
+                  {brick.cracked ? '🧊' : '❄️'}
+                </span>
+                {brick.cracked && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%)',
+                    borderRadius: '4px',
+                  }} />
+                )}
+              </>
+            )}
+            {/* Split brick - shows split symbol */}
+            {brick.type === 'split' && !brick.invisible && (
+              <span style={{ fontSize: '12px' }}>💜</span>
+            )}
+            {/* Mini brick (from split) - smaller, simpler */}
+            {brick.type === 'mini' && !brick.invisible && (
+              <span style={{ fontSize: '8px' }}>✧</span>
+            )}
+            {/* Spawner brick - distinctive enemy look with count */}
+            {brick.type === 'spawner' && !brick.invisible && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                <span style={{ fontSize: '12px', animation: 'explosivePulse 1s ease-in-out infinite' }}>👾</span>
+                <span style={{ fontSize: '8px', fontWeight: 'bold', color: '#fff', textShadow: '0 1px 2px #000' }}>
+                  ×{brick.enemiesRemaining}
+                </span>
+              </div>
+            )}
+            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && brick.type !== 'frozen' && brick.type !== 'spawner' && (
               <span style={{
                 fontSize: brick.health >= 10 ? '9px' : '11px',
                 fontWeight: '900',
@@ -3993,6 +5384,60 @@ const BreakoutGame = () => {
             </div>
           );
         })}
+
+        {/* Enemy Projectiles */}
+        {enemyProjectiles.map(proj => (
+          <div
+            key={proj.id}
+            style={{
+              position: 'absolute',
+              left: proj.x - proj.width/2,
+              top: proj.y - proj.height/2,
+              width: proj.width,
+              height: proj.height,
+              borderRadius: proj.type === 'eyeray' ? '50%' : proj.type === 'web' ? '2px' : '4px',
+              background: proj.type === 'web'
+                ? 'radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(200,200,200,0.6) 100%)'
+                : proj.type === 'eyeray'
+                  ? 'radial-gradient(circle, #ff0000 0%, #ff4444 50%, #990000 100%)'
+                  : 'radial-gradient(circle, #ffff00 0%, #ff8800 50%, #ff4400 100%)',
+              boxShadow: proj.type === 'web'
+                ? '0 0 5px rgba(255,255,255,0.5)'
+                : proj.type === 'eyeray'
+                  ? '0 0 10px #ff0000, 0 0 20px #ff4444'
+                  : '0 0 15px #ff6600, 0 0 25px #ff4400',
+              animation: proj.type === 'fire' ? 'flicker 0.1s infinite' : 'none',
+            }}
+          >
+            {proj.type === 'web' && (
+              <div style={{
+                width: '100%',
+                height: '100%',
+                background: 'conic-gradient(from 0deg, transparent 0%, white 10%, transparent 20%, white 30%, transparent 40%, white 50%, transparent 60%, white 70%, transparent 80%, white 90%, transparent 100%)',
+                borderRadius: '50%',
+                opacity: 0.8,
+              }} />
+            )}
+          </div>
+        ))}
+
+        {/* Paddle Debuff Indicators */}
+        {(paddleDebuffs.petrified > 0 || paddleDebuffs.confused > 0 || paddleDebuffs.webbed > 0) && (
+          <div style={{
+            position: 'absolute',
+            left: paddle.x + paddle.width/2,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '5px',
+            fontSize: '16px',
+            animation: 'pulse 0.5s infinite',
+          }}>
+            {paddleDebuffs.petrified > 0 && <span title="Petrified!">🗿</span>}
+            {paddleDebuffs.confused > 0 && <span title="Confused!">🌀</span>}
+            {paddleDebuffs.webbed > 0 && <span title="Webbed!">🕸️</span>}
+          </div>
+        )}
 
         {/* Balls */}
         {balls.map(ball => {
@@ -4767,7 +6212,10 @@ const BreakoutGame = () => {
           case '*': return '#112211';
           case 'O': return '#333'; // Bumper
           case '@': return '#224'; // Portal
-          case 'S': return '#322'; // Spawner
+          case 'S': return '#322'; // Spawner point
+          case 'P': return '#221133'; // Split brick
+          case 'F': return '#112233'; // Frozen brick
+          case 'E': return '#223311'; // Enemy spawner brick
           default: return '#1a1a1a';
         }
       }
@@ -4780,7 +6228,10 @@ const BreakoutGame = () => {
         case 'X': return '#ff6644'; // Explosive - orange/red
         case 'O': return '#ffcc44'; // Bumper - yellow
         case '@': return '#4488ff'; // Portal - blue
-        case 'S': return '#aa44aa'; // Spawner - purple
+        case 'S': return '#aa44aa'; // Spawner point - purple
+        case 'P': return '#cc88ee'; // Split brick - light purple
+        case 'F': return '#88ddff'; // Frozen brick - ice blue
+        case 'E': return '#44cc66'; // Enemy spawner brick - green glow
         default: return 'transparent';
       }
     };
@@ -4796,7 +6247,10 @@ const BreakoutGame = () => {
         case 'X': return 0.95;
         case 'O': return 1; // Bumper
         case '@': return 0.8; // Portal
-        case 'S': return 1; // Spawner
+        case 'S': return 1; // Spawner point
+        case 'P': return 0.9; // Split brick
+        case 'F': return 0.85; // Frozen brick
+        case 'E': return 1; // Enemy spawner brick
         default: return 0;
       }
     };
