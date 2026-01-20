@@ -1487,6 +1487,7 @@ const BreakoutGame = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
+  const [debugMode, setDebugMode] = useState(false); // Debug mode - unlocks all levels
 
   // Power-ups
   const [powerUps, setPowerUps] = useState([]);
@@ -1790,6 +1791,7 @@ const BreakoutGame = () => {
   const getEnemyStars = (enemyId) => stats.enemyStars[enemyId] || 0;
 
   const isEnemyUnlocked = (enemyIndex) => {
+    if (debugMode) return true; // Debug mode unlocks all
     if (enemyIndex === 0) return true; // First enemy always unlocked
     const prevEnemy = enemyDefs[enemyIndex - 1];
     return getEnemyStars(prevEnemy.id) >= STARS_TO_UNLOCK;
@@ -1928,13 +1930,15 @@ const BreakoutGame = () => {
             setBalls(prev => prev.map(ball => {
               if (ball.attached) {
                 const speed = ball.baseSpeed * (1 + power * 0.5); // Up to 50% faster
+                const isCharged = power > 0.5;
                 return {
                   ...ball,
                   x: currentPaddle.x + currentPaddle.width / 2, // Launch from paddle position
                   attached: false,
                   vy: -speed,
-                  charged: power > 0.5, // Charged shot if held long enough
-                  damage: 1 + Math.floor(power * 2), // Up to 3x damage
+                  charged: isCharged,
+                  chargedHits: isCharged ? 3 : 0, // 3 charged hits before wearing off
+                  damage: isCharged ? 3 : 1, // Starts at 3x damage
                 };
               }
               return ball;
@@ -2839,10 +2843,11 @@ const BreakoutGame = () => {
                   setScore(s => s + 5);
                 }
 
-                // Charged shot bonus (one-time, tracked via usedChargedBonus)
-                if (ball.charged && !usedChargedBonus) {
+                // Charged shot bonus - decrement chargedHits and adjust damage
+                if (ball.charged && ball.chargedHits > 0 && !usedChargedBonus) {
                   setScore(s => s + points * 0.5);
                   usedChargedBonus = true;
+                  // chargedHits will be decremented when returning ball state
                 }
 
                 // Build Teddy Meter on brick hits
@@ -2942,7 +2947,20 @@ const BreakoutGame = () => {
             });
           }
 
-          return { ...ball, x, y, vx, vy, charged: usedChargedBonus ? false : ball.charged };
+          // Handle charged shot degradation
+          let newChargedHits = ball.chargedHits || 0;
+          let newCharged = ball.charged;
+          let newDamage = ball.damage || 1;
+
+          if (usedChargedBonus && ball.charged) {
+            newChargedHits = Math.max(0, newChargedHits - 1);
+            // Damage decreases: 3 -> 2 -> 1 -> 1 (based on hits remaining)
+            newDamage = newChargedHits > 0 ? newChargedHits : 1;
+            // Charged status ends when hits run out
+            newCharged = newChargedHits > 0;
+          }
+
+          return { ...ball, x, y, vx, vy, charged: newCharged, chargedHits: newChargedHits, damage: newDamage };
         });
       });
 
@@ -4291,50 +4309,80 @@ const BreakoutGame = () => {
         alignItems: 'center',
         width: CANVAS_WIDTH,
         marginBottom: '8px',
-        padding: '10px 16px',
-        background: 'rgba(0,0,0,0.4)',
-        borderRadius: '10px',
+        padding: '12px 20px',
+        background: 'linear-gradient(180deg, rgba(20,20,35,0.9) 0%, rgba(10,10,20,0.9) 100%)',
+        borderRadius: '12px',
         color: '#fff',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+        border: '1px solid rgba(255,255,255,0.05)',
       }}>
-        <div>
-          <span style={{ fontSize: '12px', color: '#888' }}>Score</span>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#ffd700' }}>{Math.floor(score)}</div>
+        {/* Left: Score */}
+        <div style={{ minWidth: '120px' }}>
+          <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Score</div>
+          <div style={{ fontSize: '26px', fontWeight: '800', color: '#ffd700', textShadow: '0 0 10px rgba(255,215,0,0.4)' }}>
+            {Math.floor(score).toLocaleString()}
+          </div>
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <span style={{ fontSize: '12px', color: '#888' }}>Level {currentLevel}</span>
+
+        {/* Center: Level + Paddle Health */}
+        <div style={{ textAlign: 'center', flex: 1 }}>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '6px' }}>
+            Level {currentLevel}
+          </div>
           {/* Paddle Health Bar */}
           <div style={{
-            width: '80px',
-            height: '10px',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '5px',
-            overflow: 'hidden',
-            marginTop: '4px',
-            border: '1px solid rgba(255,255,255,0.2)',
+            width: '120px',
+            margin: '0 auto',
           }}>
-            {(() => {
-              const healthRatio = Math.min(1, Math.max(0, (paddle.width - 30) / 90));
-              const barColor = healthRatio < 0.33 ? '#ff4444' : healthRatio < 0.66 ? '#ffcc44' : '#44ff66';
-              return (
-                <div style={{
-                  width: `${healthRatio * 100}%`,
-                  height: '100%',
-                  background: barColor,
-                  transition: 'width 0.2s, background 0.3s',
-                  boxShadow: `0 0 6px ${barColor}`,
-                }} />
-              );
-            })()}
+            <div style={{
+              width: '100%',
+              height: '8px',
+              background: 'rgba(0,0,0,0.6)',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}>
+              {(() => {
+                const healthRatio = Math.min(1, Math.max(0, (paddle.width - 30) / 90));
+                const barColor = healthRatio < 0.33 ? '#ff4444' : healthRatio < 0.66 ? '#ffcc44' : '#44ff66';
+                return (
+                  <div style={{
+                    width: `${healthRatio * 100}%`,
+                    height: '100%',
+                    background: `linear-gradient(90deg, ${barColor}, ${barColor}dd)`,
+                    transition: 'width 0.2s, background 0.3s',
+                    boxShadow: `0 0 8px ${barColor}`,
+                  }} />
+                );
+              })()}
+            </div>
+            <div style={{ fontSize: '9px', color: '#555', marginTop: '2px' }}>PADDLE</div>
           </div>
-          <span style={{ fontSize: '10px', color: '#666', marginTop: '2px', display: 'block' }}>
-            {Math.round(paddle.width)}px
-          </span>
+          {combo > 2 && (
+            <div style={{
+              fontSize: '13px',
+              fontWeight: '700',
+              color: '#ffd700',
+              marginTop: '4px',
+              animation: 'pulse 0.5s infinite',
+            }}>
+              🔥 {combo}x COMBO!
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '24px' }}>{selectedEnemy?.emoji}</span>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: selectedEnemy?.color }}>{selectedEnemy?.name}</div>
-            {combo > 1 && <div style={{ fontSize: '11px', color: '#ffd700' }}>🔥 x{combo} Combo!</div>}
+
+        {/* Right: Lives + Enemy */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '150px', justifyContent: 'flex-end' }}>
+          {/* Lives */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '22px', letterSpacing: '-2px' }}>
+              {Array.from({ length: Math.max(0, lives) }, (_, i) => '❤️').join('')}
+              {Array.from({ length: Math.max(0, 3 - lives) }, (_, i) => '🖤').join('')}
+            </div>
+          </div>
+          {/* Enemy */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '28px' }}>{selectedEnemy?.emoji}</span>
           </div>
         </div>
       </div>
@@ -4993,17 +5041,25 @@ const BreakoutGame = () => {
                 ? 'radial-gradient(circle, #ffd700 0%, #ff8800 50%, #ff4400 100%)'
                 : ball.burning
                   ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
-                  : ball.charged
-                    ? 'radial-gradient(circle, #60ff60 0%, #40c040 100%)'
-                    : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)',
+                  : ball.charged && ball.chargedHits >= 3
+                    ? 'radial-gradient(circle, #40ff40 0%, #20cc20 100%)' // Green - full charge
+                    : ball.charged && ball.chargedHits === 2
+                      ? 'radial-gradient(circle, #80ff40 0%, #60cc20 100%)' // Lime green
+                      : ball.charged && ball.chargedHits === 1
+                        ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow
+                        : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal
               borderRadius: '50%',
               boxShadow: ball.mega
                 ? '0 0 20px #ffd700, 0 0 40px #ff8800, 0 0 60px #ff4400'
                 : ball.burning
                   ? '0 0 15px #ff6030, 0 0 30px #ff3000'
-                  : ball.charged
-                    ? '0 0 15px #60ff60'
-                    : '0 0 10px rgba(255,255,255,0.5)',
+                  : ball.charged && ball.chargedHits >= 3
+                    ? '0 0 20px #40ff40, 0 0 10px #20cc20'
+                    : ball.charged && ball.chargedHits === 2
+                      ? '0 0 15px #80ff40'
+                      : ball.charged && ball.chargedHits === 1
+                        ? '0 0 12px #ffff40'
+                        : '0 0 10px rgba(255,255,255,0.5)',
               transform: ball.mega ? 'scale(1.5)' : 'scale(1)',
               transition: 'transform 0.2s',
             }}
@@ -5436,6 +5492,27 @@ const BreakoutGame = () => {
         }}
       >
         ← Back to Menu
+      </button>
+
+      {/* Debug Mode Toggle */}
+      <button
+        onClick={() => setDebugMode(!debugMode)}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          padding: '8px 16px',
+          background: debugMode ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 100, 100, 0.5)',
+          border: debugMode ? '2px solid #ff6666' : '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '6px',
+          color: debugMode ? '#fff' : '#888',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: debugMode ? '700' : '400',
+          transition: 'all 0.2s',
+        }}
+      >
+        🔧 DEBUG {debugMode ? 'ON' : 'OFF'}
       </button>
 
       <style>{`
@@ -5993,7 +6070,7 @@ const BreakoutGame = () => {
           border: '1px solid rgba(255,255,255,0.05)',
         }}>
           {Array.from({ length: MAX_LEVELS }, (_, i) => i + 1).map(level => {
-            const isUnlocked = level <= highestLevel;
+            const isUnlocked = debugMode || level <= highestLevel;
             const levelData = getLevelStats(enemyId, level);
             const isNext = level === nextLevel && (hasVictory || level === highestLevel);
             const isCompleted = levelData.completed;
