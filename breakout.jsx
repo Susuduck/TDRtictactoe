@@ -1619,8 +1619,6 @@ const BreakoutGame = () => {
   const comboTimerRef = useRef(null);
   const paddleLastX = useRef(CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2);
   // Refs for keyboard handling to avoid dependency issues
-  const lastTapLeftRef = useRef(0);
-  const lastTapRightRef = useRef(0);
   const dashCooldownRef = useRef(0);
   const teddyMeterRef = useRef(0);
   const teddyAbilityActiveRef = useRef(null);
@@ -1830,34 +1828,14 @@ const BreakoutGame = () => {
   useEffect(() => { bricksRef.current = bricks; }, [bricks]);
   useEffect(() => { paddleRef.current = paddle; }, [paddle]);
 
-  // Keyboard controls with dash and Teddy abilities - stable event handlers
+  // Keyboard controls with Teddy abilities - stable event handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const now = Date.now();
-
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-        // Double-tap detection for dash
-        if (!keysRef.current.left && now - lastTapLeftRef.current < 300 && dashCooldownRef.current <= 0) {
-          // Trigger dash left!
-          setIsDashing(true);
-          setDashCooldown(DASH_COOLDOWN);
-          setPaddle(p => ({ ...p, x: Math.max(0, p.x - DASH_SPEED * 4) }));
-          setTimeout(() => setIsDashing(false), 150);
-        }
-        lastTapLeftRef.current = now;
         keysRef.current.left = true;
         e.preventDefault();
       }
       if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-        // Double-tap detection for dash
-        if (!keysRef.current.right && now - lastTapRightRef.current < 300 && dashCooldownRef.current <= 0) {
-          // Trigger dash right!
-          setIsDashing(true);
-          setDashCooldown(DASH_COOLDOWN);
-          setPaddle(p => ({ ...p, x: Math.min(CANVAS_WIDTH - p.width, p.x + DASH_SPEED * 4) }));
-          setTimeout(() => setIsDashing(false), 150);
-        }
-        lastTapRightRef.current = now;
         keysRef.current.right = true;
         e.preventDefault();
       }
@@ -4302,299 +4280,75 @@ const BreakoutGame = () => {
       height: '100vh',
       transform: screenShake ? `translate(${Math.random() * 8 - 4}px, ${Math.random() * 8 - 4}px)` : 'none',
     }}>
-      {/* HUD */}
+      {/* Compact HUD - single bar */}
       <div style={{
         display: 'flex',
-        justifyContent: 'space-between',
         alignItems: 'center',
         width: CANVAS_WIDTH,
-        marginBottom: '8px',
-        padding: '12px 20px',
-        background: 'linear-gradient(180deg, rgba(20,20,35,0.9) 0%, rgba(10,10,20,0.9) 100%)',
-        borderRadius: '12px',
+        marginBottom: '6px',
+        padding: '8px 16px',
+        background: 'rgba(15,15,25,0.9)',
+        borderRadius: '8px',
         color: '#fff',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-        border: '1px solid rgba(255,255,255,0.05)',
+        gap: '16px',
       }}>
-        {/* Left: Score */}
-        <div style={{ minWidth: '120px' }}>
-          <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Score</div>
-          <div style={{ fontSize: '26px', fontWeight: '800', color: '#ffd700', textShadow: '0 0 10px rgba(255,215,0,0.4)' }}>
+        {/* Score */}
+        <div style={{ minWidth: '80px' }}>
+          <div style={{ fontSize: '20px', fontWeight: '800', color: '#ffd700' }}>
             {Math.floor(score).toLocaleString()}
           </div>
         </div>
 
-        {/* Center: Level + Paddle Health */}
-        <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '6px' }}>
-            Level {currentLevel}
-          </div>
-          {/* Paddle Health Bar */}
-          <div style={{
-            width: '120px',
-            margin: '0 auto',
-          }}>
-            <div style={{
-              width: '100%',
-              height: '8px',
-              background: 'rgba(0,0,0,0.6)',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.1)',
-            }}>
-              {(() => {
-                const healthRatio = Math.min(1, Math.max(0, (paddle.width - 30) / 90));
-                const barColor = healthRatio < 0.33 ? '#ff4444' : healthRatio < 0.66 ? '#ffcc44' : '#44ff66';
-                return (
-                  <div style={{
-                    width: `${healthRatio * 100}%`,
-                    height: '100%',
-                    background: `linear-gradient(90deg, ${barColor}, ${barColor}dd)`,
-                    transition: 'width 0.2s, background 0.3s',
-                    boxShadow: `0 0 8px ${barColor}`,
-                  }} />
-                );
-              })()}
-            </div>
-            <div style={{ fontSize: '9px', color: '#555', marginTop: '2px' }}>PADDLE</div>
-          </div>
-          {combo > 2 && (
-            <div style={{
-              fontSize: '13px',
-              fontWeight: '700',
-              color: '#ffd700',
-              marginTop: '4px',
-              animation: 'pulse 0.5s infinite',
-            }}>
-              🔥 {combo}x COMBO!
-            </div>
-          )}
+        {/* Level + Lives */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '14px', fontWeight: '700', color: '#888' }}>Lv.{currentLevel}</span>
+          <span style={{ fontSize: '16px', letterSpacing: '-1px' }}>
+            {Array.from({ length: Math.max(0, lives) }, () => '❤️').join('')}
+            {Array.from({ length: Math.max(0, 3 - lives) }, () => '🖤').join('')}
+          </span>
+          {combo > 2 && <span style={{ fontSize: '12px', fontWeight: '700', color: '#ffd700' }}>🔥{combo}x</span>}
         </div>
 
-        {/* Right: Lives + Enemy */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '150px', justifyContent: 'flex-end' }}>
-          {/* Lives */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '22px', letterSpacing: '-2px' }}>
-              {Array.from({ length: Math.max(0, lives) }, (_, i) => '❤️').join('')}
-              {Array.from({ length: Math.max(0, 3 - lives) }, (_, i) => '🖤').join('')}
-            </div>
-          </div>
-          {/* Enemy */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '28px' }}>{selectedEnemy?.emoji}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Enemy Counter - shows enemies in level by type */}
-      {(() => {
-        // Count enemies from spawner bricks + currently alive
-        const spawnerEnemies = bricks.filter(b => b.type === 'spawner' && b.health > 0)
-          .reduce((sum, b) => sum + b.enemiesRemaining, 0);
-        const aliveEnemies = enemies.length;
-        const totalEnemies = spawnerEnemies + aliveEnemies;
-
-        // Count by type for alive enemies
-        const enemyCounts = {};
-        enemies.forEach(e => {
-          enemyCounts[e.type] = (enemyCounts[e.type] || 0) + 1;
-        });
-
-        // Add spawner counts (they spawn random types, so show as "pending")
-        if (spawnerEnemies > 0) {
-          enemyCounts['pending'] = spawnerEnemies;
-        }
-
-        const ENEMY_EMOJIS = {
-          // Tier 1 (CR 1-4)
-          rat: '🐀',
-          kobold: '🦎',
-          goblin: '👺',
-          skeleton: '💀',
-          // Tier 2 (CR 5-8)
-          zombie: '🧟',
-          orc: '👹',
-          spider: '🕷️',
-          harpy: '🦅',
-          // Tier 3 (CR 9-12)
-          mimic: '📦',
-          owlbear: '🐻',
-          cube: '🟩',
-          troll: '🧌',
-          // Tier 4 (CR 13-16)
-          werewolf: '🐺',
-          basilisk: '🐍',
-          beholder: '👁️',
-          mindflayer: '🐙',
-          // Tier 5 (CR 17-20)
-          vampire: '🧛',
-          dragon: '🐉',
-          lich: '☠️',
-          tarrasque: '🦖',
-          // Legacy/special
-          slime: '🟢',
-          bat: '🦇',
-          ghost: '👻',
-          miniboss: '👹',
-          pending: '❓', // In spawner bricks
-        };
-
-        if (totalEnemies === 0) return null;
-
-        return (
-          <div style={{
-            width: CANVAS_WIDTH,
-            marginBottom: '4px',
-            padding: '4px 12px',
-            background: 'rgba(0,0,0,0.2)',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            fontSize: '11px',
-          }}>
-            <span style={{ color: '#555', fontWeight: '600', textTransform: 'uppercase', fontSize: '9px', letterSpacing: '0.5px' }}>Enemies</span>
-            {Object.entries(enemyCounts).map(([type, count]) => (
-              <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#aaa' }}>
-                <span style={{ fontSize: '13px' }}>{ENEMY_EMOJIS[type] || '👾'}</span>
-                <span style={{ fontWeight: '700', fontSize: '12px' }}>{count}</span>
-              </span>
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Teddy Meter + Abilities */}
-      <div style={{
-        width: CANVAS_WIDTH,
-        marginBottom: '6px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        padding: '8px 12px',
-        background: 'rgba(0,0,0,0.25)',
-        borderRadius: '8px',
-      }}>
-        {/* Teddy icon + meter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+        {/* Teddy Meter - compact */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
           <span style={{
-            fontSize: '18px',
-            opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5,
-            filter: teddyMeter >= TEDDY_METER_MAX ? 'drop-shadow(0 0 4px #ffd700)' : 'none',
+            fontSize: '14px',
+            opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.4,
           }}>🧸</span>
           <div style={{
             flex: 1,
-            maxWidth: '200px',
-            height: '6px',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '3px',
+            maxWidth: '100px',
+            height: '4px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '2px',
             overflow: 'hidden',
           }}>
             <div style={{
               width: `${(teddyMeter / TEDDY_METER_MAX) * 100}%`,
               height: '100%',
-              background: teddyMeter >= TEDDY_METER_MAX
-                ? 'linear-gradient(90deg, #ffd700, #ff8800)'
-                : 'linear-gradient(90deg, #8b5a2b, #d2691e)',
+              background: teddyMeter >= TEDDY_METER_MAX ? '#ffd700' : '#8b5a2b',
               transition: 'width 0.2s',
-              boxShadow: teddyMeter >= TEDDY_METER_MAX ? '0 0 6px #ffd700' : 'none',
             }} />
           </div>
+          {teddyMeter >= TEDDY_METER_MAX && (
+            <span style={{ fontSize: '10px', color: '#ffd700', fontWeight: '700' }}>Q/W/E</span>
+          )}
         </div>
 
-        {/* Ability buttons - always visible, highlighted when ready */}
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <div style={{
-            padding: '4px 10px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '600',
-            background: teddyMeter >= TEDDY_METER_MAX ? 'rgba(255,215,0,0.2)' : 'rgba(255,255,255,0.05)',
-            color: teddyMeter >= TEDDY_METER_MAX ? '#ffd700' : '#444',
-            border: teddyMeter >= TEDDY_METER_MAX ? '1px solid rgba(255,215,0,0.4)' : '1px solid transparent',
-            transition: 'all 0.2s',
-          }}>
-            <span style={{ opacity: 0.7 }}>Q</span> Supercharge
+        {/* Active effects inline */}
+        {activeEffects.length > 0 && (
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {activeEffects.includes('shield') && <span style={{ fontSize: '10px', color: '#4080ff', fontWeight: '600' }}>SHIELD</span>}
+            {activeEffects.includes('laser') && <span style={{ fontSize: '10px', color: '#ff00ff', fontWeight: '600' }}>LASER</span>}
+            {activeEffects.includes('fast') && <span style={{ fontSize: '10px', color: '#ffff00', fontWeight: '600' }}>FAST</span>}
+            {activeEffects.includes('slow') && <span style={{ fontSize: '10px', color: '#80c0ff', fontWeight: '600' }}>SLOW</span>}
+            {activeEffects.includes('frozen') && <span style={{ fontSize: '10px', color: '#80e0ff', fontWeight: '700' }}>FROZEN</span>}
           </div>
-          <div style={{
-            padding: '4px 10px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '600',
-            background: teddyMeter >= TEDDY_METER_MAX ? 'rgba(64,128,255,0.2)' : 'rgba(255,255,255,0.05)',
-            color: teddyMeter >= TEDDY_METER_MAX ? '#4080ff' : '#444',
-            border: teddyMeter >= TEDDY_METER_MAX ? '1px solid rgba(64,128,255,0.4)' : '1px solid transparent',
-            transition: 'all 0.2s',
-          }}>
-            <span style={{ opacity: 0.7 }}>W</span> Barrier
-          </div>
-          <div style={{
-            padding: '4px 10px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '600',
-            background: teddyMeter >= TEDDY_METER_MAX ? 'rgba(255,128,255,0.2)' : 'rgba(255,255,255,0.05)',
-            color: teddyMeter >= TEDDY_METER_MAX ? '#ff80ff' : '#444',
-            border: teddyMeter >= TEDDY_METER_MAX ? '1px solid rgba(255,128,255,0.4)' : '1px solid transparent',
-            transition: 'all 0.2s',
-          }}>
-            <span style={{ opacity: 0.7 }}>E</span> Split
-          </div>
-        </div>
+        )}
+
+        {/* Enemy emoji */}
+        <span style={{ fontSize: '20px' }}>{selectedEnemy?.emoji}</span>
       </div>
-
-      {/* Status bar - dash cooldown + active effects */}
-      {(dashCooldown > 0 || activeEffects.length > 0) && (
-        <div style={{
-          width: CANVAS_WIDTH,
-          marginBottom: '6px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
-        }}>
-          {dashCooldown > 0 && (
-            <div style={{
-              padding: '3px 10px',
-              background: 'rgba(100,100,100,0.2)',
-              borderRadius: '4px',
-              color: '#666',
-              fontSize: '10px',
-              fontWeight: '600',
-            }}>
-              DASH {Math.ceil(dashCooldown / 1000)}s
-            </div>
-          )}
-          {activeEffects.includes('shield') && (
-            <div style={{ padding: '3px 10px', background: 'rgba(64,128,255,0.2)', borderRadius: '4px', color: '#4080ff', fontSize: '10px', fontWeight: '600' }}>
-              SHIELD
-            </div>
-          )}
-          {activeEffects.includes('laser') && (
-            <div style={{ padding: '3px 10px', background: 'rgba(255,0,255,0.2)', borderRadius: '4px', color: '#ff00ff', fontSize: '10px', fontWeight: '600' }}>
-              LASER
-            </div>
-          )}
-          {activeEffects.includes('fast') && (
-            <div style={{ padding: '3px 10px', background: 'rgba(255,255,0,0.2)', borderRadius: '4px', color: '#ffff00', fontSize: '10px', fontWeight: '600' }}>
-              FAST
-            </div>
-          )}
-          {activeEffects.includes('slow') && (
-            <div style={{ padding: '3px 10px', background: 'rgba(128,192,255,0.2)', borderRadius: '4px', color: '#80c0ff', fontSize: '10px', fontWeight: '600' }}>
-              SLOW
-            </div>
-          )}
-          {activeEffects.includes('frozen') && (
-            <div style={{ padding: '3px 10px', background: 'rgba(128,224,255,0.3)', borderRadius: '4px', color: '#80e0ff', fontSize: '10px', fontWeight: '700' }}>
-              FROZEN
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Game canvas */}
       <div
@@ -5052,12 +4806,14 @@ const BreakoutGame = () => {
 
         {/* Balls */}
         {balls.map(ball => {
-          // Explicitly calculate positions for attached vs free balls
+          // For attached balls, ALWAYS position relative to paddle (ignore stored x/y)
+          // This ensures the ball appears on the paddle even if state is stale
           const paddleTop = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
-          const ballTop = ball.attached
+          const isAttached = ball.attached === true;
+          const ballTop = isAttached
             ? paddleTop - BALL_RADIUS * 2  // Just above paddle
             : ball.y - BALL_RADIUS;
-          const ballLeft = ball.attached
+          const ballLeft = isAttached
             ? paddle.x + paddle.width / 2 - BALL_RADIUS
             : ball.x - BALL_RADIUS;
 
@@ -5393,7 +5149,7 @@ const BreakoutGame = () => {
       }}>
         🖱️ MOUSE to move • CLICK to launch • A/D keys also work
         <br />
-        Double-tap A/D to DASH • Hold SPACE to charge shot • Q/W/E for Teddy abilities • ESC to pause
+        Hold SPACE to charge shot • Q/W/E for Teddy abilities • ESC to pause
       </div>
 
       <style>{`
