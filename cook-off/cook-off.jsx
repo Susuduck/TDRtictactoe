@@ -414,6 +414,7 @@ const CookOff = () => {
     const [onFire, setOnFire] = useState(false);
     const [encouragement, setEncouragement] = useState(null);
     const [opponentMood, setOpponentMood] = useState('neutral'); // neutral, happy, worried, excited, taunting
+    const [shieldsUsed, setShieldsUsed] = useState(0); // Track mistake shields used this match
     const [ambientParticles, setAmbientParticles] = useState([]);
 
     // Refs
@@ -442,6 +443,140 @@ const CookOff = () => {
     useEffect(() => {
         localStorage.setItem('cookoff_progression_v3', JSON.stringify(progression));
     }, [progression]);
+
+    // ========================================
+    // RESTAURANT UPGRADE SYSTEM (RPG Elements)
+    // ========================================
+
+    // Upgrade definitions with tiers and effects
+    const upgradeDefinitions = {
+        kitchen: {
+            name: 'Kitchen Equipment',
+            icon: '🍳',
+            description: 'Better equipment means faster cooking',
+            tiers: [
+                { name: 'Basic Stove', cost: 0, bonus: { timerBonus: 0 }, desc: 'A simple gas stove' },
+                { name: 'Pro Range', cost: 500, bonus: { timerBonus: 0.5 }, desc: '+0.5s on all orders' },
+                { name: 'Industrial Kitchen', cost: 1500, bonus: { timerBonus: 1.0 }, desc: '+1s on all orders' },
+                { name: 'Master Chef Suite', cost: 4000, bonus: { timerBonus: 1.5 }, desc: '+1.5s on all orders' },
+                { name: 'Legendary Kitchen', cost: 10000, bonus: { timerBonus: 2.0 }, desc: '+2s on all orders' }
+            ]
+        },
+        staff: {
+            name: 'Kitchen Staff',
+            icon: '👨‍🍳',
+            description: 'Helpful staff provide various bonuses',
+            tiers: [
+                { name: 'Solo Chef', cost: 0, bonus: { comboBonus: 0 }, desc: 'Just you' },
+                { name: 'Prep Cook', cost: 400, bonus: { comboBonus: 5 }, desc: '+5 points per combo' },
+                { name: 'Line Cook', cost: 1200, bonus: { comboBonus: 10 }, desc: '+10 points per combo' },
+                { name: 'Sous Chef', cost: 3500, bonus: { comboBonus: 15 }, desc: '+15 points per combo' },
+                { name: 'Dream Team', cost: 8000, bonus: { comboBonus: 25 }, desc: '+25 points per combo' }
+            ]
+        },
+        decor: {
+            name: 'Restaurant Decor',
+            icon: '🏠',
+            description: 'Better ambiance keeps customers patient',
+            tiers: [
+                { name: 'Bare Walls', cost: 0, bonus: { mistakeShield: 0 }, desc: 'Plain and simple' },
+                { name: 'Nice Paint', cost: 300, bonus: { mistakeShield: 0 }, desc: 'Fresh colors' },
+                { name: 'Cozy Corner', cost: 1000, bonus: { mistakeShield: 1 }, desc: 'First mistake forgiven once' },
+                { name: 'Elegant Dining', cost: 3000, bonus: { mistakeShield: 1 }, desc: 'Classy atmosphere' },
+                { name: 'Five Star', cost: 7500, bonus: { mistakeShield: 2 }, desc: 'Two mistakes forgiven' }
+            ]
+        },
+        reputation: {
+            name: 'Reputation',
+            icon: '⭐',
+            description: 'Fame brings bigger tips',
+            tiers: [
+                { name: 'Unknown', cost: 0, bonus: { scoreMultiplier: 1.0 }, desc: '1x score' },
+                { name: 'Local Favorite', cost: 600, bonus: { scoreMultiplier: 1.1 }, desc: '1.1x score' },
+                { name: 'City Famous', cost: 2000, bonus: { scoreMultiplier: 1.2 }, desc: '1.2x score' },
+                { name: 'Regional Star', cost: 5000, bonus: { scoreMultiplier: 1.35 }, desc: '1.35x score' },
+                { name: 'Legendary', cost: 12000, bonus: { scoreMultiplier: 1.5 }, desc: '1.5x score' }
+            ]
+        }
+    };
+
+    // Restaurant state
+    const [restaurant, setRestaurant] = useState(() => {
+        const saved = localStorage.getItem('cookoff_restaurant_v1');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+        return {
+            name: 'My Restaurant',
+            coins: 0,
+            totalCoinsEarned: 0,
+            upgrades: {
+                kitchen: 0,
+                staff: 0,
+                decor: 0,
+                reputation: 0
+            }
+        };
+    });
+
+    useEffect(() => {
+        localStorage.setItem('cookoff_restaurant_v1', JSON.stringify(restaurant));
+    }, [restaurant]);
+
+    // Calculate total bonuses from upgrades
+    const getUpgradeBonuses = useCallback(() => {
+        const bonuses = {
+            timerBonus: 0,
+            comboBonus: 0,
+            mistakeShield: 0,
+            scoreMultiplier: 1.0
+        };
+
+        Object.keys(upgradeDefinitions).forEach(key => {
+            const tier = restaurant.upgrades[key];
+            const tierData = upgradeDefinitions[key].tiers[tier];
+            if (tierData && tierData.bonus) {
+                Object.keys(tierData.bonus).forEach(bonusKey => {
+                    if (bonusKey === 'scoreMultiplier') {
+                        bonuses[bonusKey] = tierData.bonus[bonusKey];
+                    } else {
+                        bonuses[bonusKey] += tierData.bonus[bonusKey];
+                    }
+                });
+            }
+        });
+
+        return bonuses;
+    }, [restaurant.upgrades]);
+
+    // Purchase upgrade
+    const purchaseUpgrade = useCallback((category) => {
+        const currentTier = restaurant.upgrades[category];
+        const nextTier = currentTier + 1;
+        const tierData = upgradeDefinitions[category].tiers[nextTier];
+
+        if (!tierData || restaurant.coins < tierData.cost) return false;
+
+        setRestaurant(prev => ({
+            ...prev,
+            coins: prev.coins - tierData.cost,
+            upgrades: {
+                ...prev.upgrades,
+                [category]: nextTier
+            }
+        }));
+
+        return true;
+    }, [restaurant]);
+
+    // Add coins (called after completing levels)
+    const addCoins = useCallback((amount) => {
+        setRestaurant(prev => ({
+            ...prev,
+            coins: prev.coins + amount,
+            totalCoinsEarned: prev.totalCoinsEarned + amount
+        }));
+    }, []);
 
     // Calculate total stars for a world
     const getWorldStars = useCallback((worldId) => {
@@ -562,6 +697,10 @@ const CookOff = () => {
         // Add time for recipe size
         time += (size - 2) * 0.6;
 
+        // Add kitchen upgrade bonus
+        const bonuses = getUpgradeBonuses();
+        time += bonuses.timerBonus;
+
         // Speed round reduction
         if (speedRound) time = Math.max(3, time * 0.65);
 
@@ -628,6 +767,7 @@ const CookOff = () => {
         setCombo(0);
         setMaxCombo(0);
         setStreak(0);
+        setShieldsUsed(0); // Reset shields
         setGameTime(90);
         setShowFeedback(null);
         setScreenShake(false);
@@ -834,6 +974,7 @@ const CookOff = () => {
     // Handle order complete
     const handleOrderComplete = useCallback(() => {
         const world = selectedWorld;
+        const upgradeBonuses = getUpgradeBonuses();
         let points = 100;
         let bonusMessages = [];
 
@@ -855,6 +996,8 @@ const CookOff = () => {
         setMaxCombo(m => Math.max(m, newCombo));
         if (newCombo >= 2) {
             points += newCombo * 15;
+            // Add staff upgrade combo bonus
+            points += upgradeBonuses.comboBonus;
         }
 
         // Streak
@@ -882,6 +1025,11 @@ const CookOff = () => {
         if (isSpeedRound) {
             points = Math.floor(points * 1.5);
             bonusMessages.push('SPEED 1.5X!');
+        }
+
+        // Apply reputation score multiplier
+        if (upgradeBonuses.scoreMultiplier > 1) {
+            points = Math.floor(points * upgradeBonuses.scoreMultiplier);
         }
 
         setScore(s => s + points);
@@ -918,6 +1066,29 @@ const CookOff = () => {
 
     // Handle order failed
     const handleOrderFailed = useCallback((reason) => {
+        const bonuses = getUpgradeBonuses();
+        const availableShields = bonuses.mistakeShield - shieldsUsed;
+
+        // Check if we have a mistake shield available
+        if (availableShields > 0) {
+            setShieldsUsed(s => s + 1);
+            setShowFeedback({ type: 'shield', message: 'SHIELD SAVED YOU!' });
+            setCombo(0);
+            setStreak(0);
+            setOnFire(false);
+
+            setTimeout(() => {
+                setShowFeedback(null);
+                setCurrentOrder(null);
+                setSecondOrder(null);
+                generateOrder();
+                if (selectedWorld?.special === 'multi_order') {
+                    generateSecondOrder();
+                }
+            }, 600);
+            return;
+        }
+
         setMistakes(m => {
             const newMistakes = m + 1;
             if (newMistakes >= 3) {
@@ -1012,7 +1183,22 @@ const CookOff = () => {
                 return { levelStars: newLevelStars, bestScores: newBestScores };
             });
         }
-    }, [gameState, score, levelConfig, selectedWorld, currentLevel, mistakes, getLevelStars]);
+
+        // Award coins based on performance
+        if (mistakes < 3) {
+            // Base coins from score (every 100 points = 10 coins)
+            let coinsEarned = Math.floor(score / 10);
+
+            // Bonus for excellence
+            if (starsEarned >= 1) coinsEarned += 50;
+            else if (starsEarned >= 0.5) coinsEarned += 20;
+
+            // Bonus for world difficulty
+            coinsEarned += selectedWorld.id * 5;
+
+            addCoins(coinsEarned);
+        }
+    }, [gameState, score, levelConfig, selectedWorld, currentLevel, mistakes, getLevelStars, addCoins]);
 
     // Keyboard
     useEffect(() => {
@@ -1120,56 +1306,349 @@ const CookOff = () => {
         return theme.timerRed;
     };
 
+    // Pixel-art style border helper
+    const pixelBorder = (color, size = 4) => ({
+        boxShadow: `
+            ${size}px 0 0 0 ${color},
+            -${size}px 0 0 0 ${color},
+            0 ${size}px 0 0 ${color},
+            0 -${size}px 0 0 ${color}
+        `,
+        borderRadius: '2px'
+    });
+
     // MENU SCREEN
     if (gameState === 'menu') {
+        const totalStars = progression.levelStars.flat().reduce((a, b) => a + b, 0);
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f1a 100%)`,
+                background: 'linear-gradient(180deg, #2C1810 0%, #1a0f0a 100%)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '40px 20px', color: theme.text
+                padding: '30px 20px', color: theme.text,
+                fontFamily: '"Press Start 2P", monospace',
+                imageRendering: 'pixelated'
             }}>
-                <div style={{ fontSize: '80px', marginBottom: '10px', animation: 'bounce 1s infinite' }}>👨‍🍳</div>
-                <h1 style={{ fontSize: '42px', marginBottom: '5px', color: theme.accent, textShadow: '0 0 20px rgba(255,69,0,0.5)' }}>
+                {/* Coins display */}
+                <div style={{
+                    position: 'absolute', top: '15px', right: '15px',
+                    background: '#3d2817',
+                    padding: '10px 15px',
+                    ...pixelBorder('#8B4513'),
+                    display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                    <span style={{ fontSize: '20px' }}>🪙</span>
+                    <span style={{ color: theme.gold, fontSize: '14px', fontWeight: 'bold' }}>
+                        {restaurant.coins.toLocaleString()}
+                    </span>
+                </div>
+
+                {/* Title banner */}
+                <div style={{
+                    background: '#8B4513',
+                    padding: '15px 40px',
+                    marginBottom: '20px',
+                    ...pixelBorder('#5D3A1A', 6),
+                    transform: 'rotate(-2deg)'
+                }}>
+                    <div style={{ fontSize: '60px', textAlign: 'center' }}>👨‍🍳</div>
+                </div>
+
+                <h1 style={{
+                    fontSize: '32px', marginBottom: '5px',
+                    color: theme.accent,
+                    textShadow: '4px 4px 0 #000',
+                    letterSpacing: '2px'
+                }}>
                     COOK-OFF
                 </h1>
-                <p style={{ color: theme.textSecondary, marginBottom: '10px', fontSize: '22px' }}>Kitchen Chaos</p>
-                <p style={{ color: theme.textMuted, marginBottom: '30px', textAlign: 'center', maxWidth: '450px', lineHeight: '1.6' }}>
-                    Master 10 worlds of culinary chaos! Complete levels to earn stars and unlock new challenges!
+                <p style={{
+                    color: '#DEB887',
+                    marginBottom: '8px', fontSize: '14px',
+                    textShadow: '2px 2px 0 #000'
+                }}>
+                    Kitchen Chaos
                 </p>
 
-                <button
-                    onClick={() => setGameState('select')}
-                    style={{
-                        padding: '18px 60px', fontSize: '22px',
-                        background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                        border: 'none', borderRadius: '12px', color: 'white',
-                        cursor: 'pointer', fontWeight: 'bold',
-                        boxShadow: '0 6px 20px rgba(255, 69, 0, 0.4)',
-                        transition: 'transform 0.2s, box-shadow 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 69, 0, 0.6)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 69, 0, 0.4)';
-                    }}
-                >
-                    START COOKING
-                </button>
+                {/* Stats display */}
+                <div style={{
+                    display: 'flex', gap: '20px', marginBottom: '25px',
+                    fontSize: '11px'
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: theme.gold }}>⭐ {totalStars}/100</div>
+                        <div style={{ color: theme.textMuted, fontSize: '9px' }}>STARS</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: '#90EE90' }}>🏆 {restaurant.totalCoinsEarned}</div>
+                        <div style={{ color: theme.textMuted, fontSize: '9px' }}>TOTAL EARNED</div>
+                    </div>
+                </div>
+
+                {/* Main buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '280px' }}>
+                    <button
+                        onClick={() => setGameState('select')}
+                        style={{
+                            padding: '16px 30px', fontSize: '14px',
+                            background: '#C84C0C',
+                            border: 'none', color: 'white',
+                            cursor: 'pointer', fontWeight: 'bold',
+                            ...pixelBorder('#8B3000'),
+                            fontFamily: 'inherit',
+                            transition: 'transform 0.1s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                        🍳 START COOKING
+                    </button>
+
+                    <button
+                        onClick={() => setGameState('restaurant')}
+                        style={{
+                            padding: '16px 30px', fontSize: '14px',
+                            background: '#2E8B57',
+                            border: 'none', color: 'white',
+                            cursor: 'pointer', fontWeight: 'bold',
+                            ...pixelBorder('#1D5A3A'),
+                            fontFamily: 'inherit',
+                            transition: 'transform 0.1s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                        🏠 MY RESTAURANT
+                    </button>
+                </div>
 
                 <a href="../menu.html" style={{
-                    marginTop: '25px', color: theme.textMuted,
-                    textDecoration: 'none', fontSize: '14px'
+                    marginTop: '30px', color: theme.textMuted,
+                    textDecoration: 'none', fontSize: '10px',
+                    fontFamily: 'inherit'
                 }}>← Back to Menu</a>
 
                 <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
                     @keyframes bounce {
-                        0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-10px); }
+                        0%, 100% { transform: translateY(0) rotate(-2deg); }
+                        50% { transform: translateY(-8px) rotate(-2deg); }
                     }
+                `}</style>
+            </div>
+        );
+    }
+
+    // RESTAURANT UPGRADE SCREEN
+    if (gameState === 'restaurant') {
+        const bonuses = getUpgradeBonuses();
+
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(180deg, #2C1810 0%, #1a0f0a 100%)',
+                padding: '20px', color: theme.text,
+                fontFamily: '"Press Start 2P", monospace'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
+                    <button
+                        onClick={() => setGameState('menu')}
+                        style={{
+                            background: '#5D3A1A', border: 'none',
+                            color: theme.text, padding: '10px 15px',
+                            cursor: 'pointer', fontSize: '10px',
+                            ...pixelBorder('#3d2817'),
+                            fontFamily: 'inherit'
+                        }}
+                    >
+                        ← BACK
+                    </button>
+
+                    <h2 style={{
+                        color: '#DEB887', fontSize: '16px',
+                        textShadow: '3px 3px 0 #000'
+                    }}>
+                        🏠 MY RESTAURANT
+                    </h2>
+
+                    <div style={{
+                        background: '#3d2817',
+                        padding: '10px 15px',
+                        ...pixelBorder('#5D3A1A'),
+                        display: 'flex', alignItems: 'center', gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '16px' }}>🪙</span>
+                        <span style={{ color: theme.gold, fontSize: '12px' }}>
+                            {restaurant.coins.toLocaleString()}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Current Bonuses Summary */}
+                <div style={{
+                    background: '#3d2817',
+                    padding: '15px',
+                    marginBottom: '20px',
+                    ...pixelBorder('#5D3A1A')
+                }}>
+                    <div style={{ fontSize: '10px', color: '#DEB887', marginBottom: '10px' }}>
+                        ACTIVE BONUSES:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '9px' }}>
+                        {bonuses.timerBonus > 0 && (
+                            <span style={{ color: '#90EE90' }}>⏱️ +{bonuses.timerBonus}s timer</span>
+                        )}
+                        {bonuses.comboBonus > 0 && (
+                            <span style={{ color: '#87CEEB' }}>⚡ +{bonuses.comboBonus} combo pts</span>
+                        )}
+                        {bonuses.mistakeShield > 0 && (
+                            <span style={{ color: '#FFB6C1' }}>🛡️ {bonuses.mistakeShield} shield(s)</span>
+                        )}
+                        {bonuses.scoreMultiplier > 1 && (
+                            <span style={{ color: theme.gold }}>⭐ {bonuses.scoreMultiplier}x score</span>
+                        )}
+                        {bonuses.timerBonus === 0 && bonuses.comboBonus === 0 &&
+                         bonuses.mistakeShield === 0 && bonuses.scoreMultiplier === 1 && (
+                            <span style={{ color: theme.textMuted }}>No upgrades yet - purchase below!</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Upgrade Categories */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '15px'
+                }}>
+                    {Object.entries(upgradeDefinitions).map(([key, category]) => {
+                        const currentTier = restaurant.upgrades[key];
+                        const currentTierData = category.tiers[currentTier];
+                        const nextTier = currentTier + 1;
+                        const nextTierData = category.tiers[nextTier];
+                        const canAfford = nextTierData && restaurant.coins >= nextTierData.cost;
+                        const isMaxed = !nextTierData;
+
+                        return (
+                            <div
+                                key={key}
+                                style={{
+                                    background: '#3d2817',
+                                    padding: '15px',
+                                    ...pixelBorder(isMaxed ? theme.gold : '#5D3A1A')
+                                }}
+                            >
+                                {/* Category Header */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    marginBottom: '12px'
+                                }}>
+                                    <span style={{ fontSize: '28px' }}>{category.icon}</span>
+                                    <div>
+                                        <div style={{ fontSize: '11px', color: '#DEB887' }}>
+                                            {category.name}
+                                        </div>
+                                        <div style={{ fontSize: '8px', color: theme.textMuted }}>
+                                            {category.description}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Current Tier */}
+                                <div style={{
+                                    background: '#2C1810',
+                                    padding: '10px',
+                                    marginBottom: '10px',
+                                    borderLeft: `4px solid ${theme.success}`
+                                }}>
+                                    <div style={{ fontSize: '10px', color: theme.success }}>
+                                        CURRENT: {currentTierData.name}
+                                    </div>
+                                    <div style={{ fontSize: '8px', color: theme.textMuted, marginTop: '4px' }}>
+                                        {currentTierData.desc}
+                                    </div>
+                                </div>
+
+                                {/* Tier Progress */}
+                                <div style={{
+                                    display: 'flex', gap: '4px', marginBottom: '12px'
+                                }}>
+                                    {category.tiers.map((tier, i) => (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                flex: 1, height: '8px',
+                                                background: i <= currentTier ? theme.gold : '#1a0f0a',
+                                                ...pixelBorder(i <= currentTier ? '#B8860B' : '#3d2817', 2)
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Next Upgrade */}
+                                {nextTierData ? (
+                                    <div>
+                                        <div style={{
+                                            background: '#2C1810',
+                                            padding: '10px',
+                                            marginBottom: '10px',
+                                            borderLeft: `4px solid ${theme.accent}`,
+                                            opacity: canAfford ? 1 : 0.6
+                                        }}>
+                                            <div style={{ fontSize: '10px', color: theme.accent }}>
+                                                NEXT: {nextTierData.name}
+                                            </div>
+                                            <div style={{ fontSize: '8px', color: theme.textMuted, marginTop: '4px' }}>
+                                                {nextTierData.desc}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => purchaseUpgrade(key)}
+                                            disabled={!canAfford}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                background: canAfford ? '#C84C0C' : '#4a3020',
+                                                border: 'none',
+                                                color: canAfford ? 'white' : theme.textMuted,
+                                                cursor: canAfford ? 'pointer' : 'not-allowed',
+                                                fontSize: '10px',
+                                                ...pixelBorder(canAfford ? '#8B3000' : '#3d2817'),
+                                                fontFamily: 'inherit',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <span>🪙 {nextTierData.cost.toLocaleString()}</span>
+                                            <span>UPGRADE</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        padding: '15px',
+                                        background: `${theme.gold}22`,
+                                        fontSize: '10px',
+                                        color: theme.gold,
+                                        ...pixelBorder(theme.gold, 2)
+                                    }}>
+                                        ⭐ MAX LEVEL ⭐
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
                 `}</style>
             </div>
         );
@@ -1505,6 +1984,7 @@ const CookOff = () => {
         const timerColor = getTimerColor(orderTimer, maxOrderTime);
         const timerPercent = (orderTimer / maxOrderTime) * 100;
         const scorePercent = Math.min(100, (score / levelConfig.targetScore) * 100);
+        const upgradeBonuses = getUpgradeBonuses();
 
         // Opponent expressions based on mood
         const opponentExpressions = {
@@ -1519,288 +1999,255 @@ const CookOff = () => {
         return (
             <div style={{
                 minHeight: '100vh',
-                background: worldTheme.bgGradient,
+                background: 'linear-gradient(180deg, #1a0f0a 0%, #2C1810 50%, #1a0f0a 100%)',
                 position: 'relative',
                 overflow: 'hidden',
                 display: 'flex', flexDirection: 'column',
-                padding: '15px', color: theme.text, userSelect: 'none',
+                padding: '10px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(5px)' : 'none',
-                transition: screenShake ? 'none' : 'transform 0.1s'
+                transition: screenShake ? 'none' : 'transform 0.1s',
+                fontFamily: '"Press Start 2P", monospace'
             }}>
-                {/* Background pattern overlay */}
+                {/* Kitchen Background - Wood planks effect */}
                 <div style={{
                     position: 'absolute',
                     top: 0, left: 0, right: 0, bottom: 0,
-                    background: worldTheme.bgPattern,
+                    background: `repeating-linear-gradient(
+                        0deg,
+                        #2C1810 0px,
+                        #2C1810 40px,
+                        #3d2817 40px,
+                        #3d2817 42px
+                    )`,
+                    opacity: 0.3,
                     pointerEvents: 'none',
                     zIndex: 0
                 }} />
 
-                {/* Ambient floating particles */}
-                {ambientParticles.map(particle => (
-                    <div
-                        key={particle.id}
-                        style={{
-                            position: 'absolute',
-                            left: `${particle.x}%`,
-                            top: `${particle.y}%`,
-                            fontSize: `${particle.size}px`,
-                            opacity: particle.opacity,
-                            pointerEvents: 'none',
-                            zIndex: 1,
-                            transition: 'top 0.2s linear',
-                            filter: 'blur(0.5px)'
-                        }}
-                    >
-                        {particle.emoji}
-                    </div>
-                ))}
-
-                {/* Decorative elements */}
+                {/* Kitchen shelf decoration at top */}
                 <div style={{
                     position: 'absolute',
-                    bottom: '10px', left: '10px',
-                    fontSize: '30px', opacity: 0.4,
-                    pointerEvents: 'none', zIndex: 1
+                    top: 0, left: 0, right: 0, height: '60px',
+                    background: 'linear-gradient(180deg, #5D3A1A 0%, #3d2817 100%)',
+                    borderBottom: '6px solid #8B4513',
+                    zIndex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '30px',
+                    fontSize: '24px',
+                    opacity: 0.6
                 }}>
-                    {worldTheme.decorations[0]}
-                </div>
-                <div style={{
-                    position: 'absolute',
-                    bottom: '10px', right: '10px',
-                    fontSize: '30px', opacity: 0.4,
-                    pointerEvents: 'none', zIndex: 1
-                }}>
-                    {worldTheme.decorations[2]}
+                    🍳 🥄 🍴 🥘 🍳
                 </div>
 
-                {/* Opponent character with reactions */}
+                {/* Opponent character (positioned better) */}
                 <div style={{
                     position: 'absolute',
-                    top: '80px', right: '20px',
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', zIndex: 2,
-                    transition: 'transform 0.3s ease'
+                    top: '70px', right: '15px',
+                    zIndex: 100,
+                    textAlign: 'center'
                 }}>
                     <div style={{
-                        fontSize: '50px',
+                        fontSize: '40px',
                         transform: `scale(${opponentState.scale})`,
                         transition: 'transform 0.3s ease',
-                        filter: combo >= 5 ? 'grayscale(0.3)' : 'none',
-                        animation: opponentMood === 'excited' ? 'opponentBounce 0.3s infinite' : 'none'
+                        filter: combo >= 5 ? 'grayscale(0.3)' : 'none'
                     }}>
                         {world?.emoji}
                     </div>
                     {opponentState.message && (
-                        <div style={{
-                            fontSize: '20px',
-                            marginTop: '4px',
-                            animation: 'popIn 0.2s ease-out'
-                        }}>
-                            {opponentState.message}
-                        </div>
-                    )}
-                    {opponentMood === 'taunting' && (
-                        <div style={{
-                            fontSize: '10px',
-                            color: world?.color,
-                            marginTop: '4px',
-                            maxWidth: '80px',
-                            textAlign: 'center',
-                            background: 'rgba(0,0,0,0.5)',
-                            padding: '4px 8px',
-                            borderRadius: '8px'
-                        }}>
-                            {world?.taunt.split(' ').slice(0, 3).join(' ')}...
-                        </div>
+                        <div style={{ fontSize: '14px' }}>{opponentState.message}</div>
                     )}
                 </div>
 
-                {/* Header */}
+                {/* TOP HUD - Kitchen Order Board Style */}
                 <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: '10px', padding: '10px 15px',
-                    background: worldTheme.panelBg,
-                    borderRadius: '10px',
-                    border: `2px solid ${worldTheme.panelBorder}`,
-                    boxShadow: `0 4px 15px ${worldTheme.glowColor}`,
+                    marginTop: '65px',
+                    marginBottom: '10px',
+                    background: '#1a0f0a',
+                    padding: '10px 15px',
+                    ...pixelBorder('#5D3A1A'),
                     zIndex: 10,
-                    backdropFilter: 'blur(8px)'
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                 }}>
-                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                        <div>
-                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>TIME </span>
-                            <span style={{
-                                color: gameTime <= 15 ? theme.error : theme.text,
-                                fontWeight: 'bold', fontSize: '18px', fontFamily: 'monospace'
-                            }}>{gameTime}s</span>
+                    {/* Left: Time & Score */}
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', color: theme.textMuted }}>TIME</div>
+                            <div style={{
+                                fontSize: '16px',
+                                color: gameTime <= 15 ? theme.error : '#90EE90',
+                                animation: gameTime <= 10 ? 'pulse 0.5s infinite' : 'none'
+                            }}>
+                                {gameTime}
+                            </div>
                         </div>
-                        <div>
-                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>SCORE </span>
-                            <span style={{
-                                color: score >= levelConfig.targetScore ? theme.success : theme.gold,
-                                fontWeight: 'bold', fontSize: '18px'
-                            }}>{score}</span>
-                            <span style={{ color: theme.textMuted, fontSize: '11px' }}>/{levelConfig.targetScore}</span>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', color: theme.textMuted }}>SCORE</div>
+                            <div style={{
+                                fontSize: '16px',
+                                color: score >= levelConfig.targetScore ? theme.gold : '#fff'
+                            }}>
+                                {score}<span style={{ fontSize: '10px', color: theme.textMuted }}>/{levelConfig.targetScore}</span>
+                            </div>
                         </div>
                         {combo >= 2 && (
-                            <div style={{ color: onFire ? theme.accent : theme.success, fontWeight: 'bold' }}>
+                            <div style={{
+                                background: onFire ? '#C84C0C' : '#2E8B57',
+                                padding: '4px 8px',
+                                ...pixelBorder(onFire ? '#8B3000' : '#1D5A3A', 2),
+                                fontSize: '10px'
+                            }}>
                                 {onFire ? '🔥' : '⚡'} x{combo}
                             </div>
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: world?.color }}>
-                        <span style={{ fontSize: '20px' }}>{world?.emoji}</span>
-                        <span style={{ fontWeight: 'bold', fontSize: '13px' }}>{world?.name}</span>
-                        <span style={{ color: theme.textMuted, fontSize: '12px' }}>Lv.{currentLevel}</span>
+                    {/* Center: World info */}
+                    <div style={{ textAlign: 'center' }}>
+                        <span style={{ fontSize: '16px' }}>{world?.emoji}</span>
+                        <span style={{ fontSize: '9px', marginLeft: '5px', color: world?.color }}>
+                            Lv.{currentLevel}
+                        </span>
                         {showBeat && (
                             <div style={{
-                                width: '20px', height: '20px',
-                                background: beatPhase === 0 ? theme.gold : theme.bgDark,
-                                borderRadius: '50%', border: `2px solid ${beatPhase === 0 ? theme.gold : theme.border}`,
-                                boxShadow: beatPhase === 0 ? `0 0 12px ${theme.gold}` : 'none'
+                                display: 'inline-block',
+                                width: '12px', height: '12px',
+                                background: beatPhase === 0 ? theme.gold : '#333',
+                                marginLeft: '8px',
+                                ...pixelBorder(beatPhase === 0 ? '#B8860B' : '#222', 2)
                             }} />
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '5px' }}>
+                    {/* Right: Lives */}
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '8px', color: theme.textMuted, marginRight: '4px' }}>LIVES</span>
                         {[0, 1, 2].map(i => (
                             <div key={i} style={{
-                                width: '24px', height: '24px',
-                                background: i < mistakes ? theme.error : theme.success,
-                                borderRadius: '50%', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', fontSize: '12px'
+                                width: '20px', height: '20px',
+                                background: i < mistakes ? '#4a2020' : '#2a4a2a',
+                                ...pixelBorder(i < mistakes ? '#8B0000' : '#228B22', 2),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px'
                             }}>
-                                {i < mistakes ? '✗' : '❤️'}
+                                {i < mistakes ? '💔' : '❤️'}
                             </div>
                         ))}
+                        {upgradeBonuses.mistakeShield - shieldsUsed > 0 && (
+                            <div style={{
+                                marginLeft: '4px',
+                                fontSize: '12px',
+                                color: '#87CEEB'
+                            }}>
+                                🛡️
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Progress bar */}
-                <div style={{ marginBottom: '8px', padding: '0 5px' }}>
-                    <div style={{
-                        width: '100%', height: '6px', background: theme.bgDark,
-                        borderRadius: '3px', overflow: 'hidden'
-                    }}>
-                        <div style={{
-                            width: `${scorePercent}%`, height: '100%',
-                            background: scorePercent >= 100 ? theme.success : theme.gold,
-                            transition: 'width 0.3s'
-                        }} />
-                    </div>
-                </div>
-
-                {/* Kitchen name badge */}
+                {/* Score progress bar */}
                 <div style={{
-                    position: 'absolute',
-                    top: '15px', left: '15px',
-                    background: 'rgba(0,0,0,0.5)',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    fontSize: '11px',
-                    color: worldTheme.panelBorder,
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backdropFilter: 'blur(5px)'
+                    marginBottom: '8px',
+                    height: '8px',
+                    background: '#1a0f0a',
+                    ...pixelBorder('#3d2817', 2)
                 }}>
-                    <span>{worldTheme.setting === 'outdoor' ? '🌳' : worldTheme.setting === 'underwater' ? '🌊' : '🏠'}</span>
-                    <span>{worldTheme.name}</span>
-                    <span style={{ opacity: 0.6 }}>•</span>
-                    <span>{worldTheme.timeOfDay === 'day' ? '☀️' : worldTheme.timeOfDay === 'morning' ? '🌅' : worldTheme.timeOfDay === 'evening' ? '🌆' : '🌙'}</span>
+                    <div style={{
+                        width: `${scorePercent}%`,
+                        height: '100%',
+                        background: scorePercent >= 100 ? '#228B22' : theme.gold,
+                        transition: 'width 0.3s'
+                    }} />
                 </div>
 
                 {/* Speed round indicator */}
                 {isSpeedRound && (
                     <div style={{
-                        textAlign: 'center', padding: '6px',
-                        background: `${theme.accent}88`,
-                        borderRadius: '6px',
-                        marginBottom: '8px', color: 'white', fontWeight: 'bold',
-                        animation: 'pulse 0.4s infinite', fontSize: '13px',
-                        zIndex: 10,
-                        border: `2px solid ${theme.accent}`,
-                        boxShadow: `0 0 20px ${theme.accent}66`
+                        textAlign: 'center', padding: '8px',
+                        background: '#C84C0C',
+                        ...pixelBorder('#8B3000'),
+                        marginBottom: '8px', color: 'white',
+                        animation: 'pulse 0.4s infinite', fontSize: '10px',
+                        zIndex: 10
                     }}>
                         ⚡ SPEED ROUND - 1.5x POINTS! ⚡
                     </div>
                 )}
 
-                {/* Encouragement */}
+                {/* Encouragement notification - at top */}
                 {encouragement && (
                     <div style={{
-                        position: 'fixed', top: '18%', left: '50%',
+                        position: 'fixed', top: '10px', left: '50%',
                         transform: 'translateX(-50%)',
-                        padding: '12px 25px', background: theme.success,
-                        borderRadius: '12px', fontSize: '16px', fontWeight: 'bold',
-                        color: 'white', zIndex: 50, animation: 'popIn 0.3s ease-out'
+                        padding: '8px 16px',
+                        background: '#228B22',
+                        ...pixelBorder('#1D5A3A'),
+                        fontSize: '10px',
+                        color: 'white', zIndex: 1000
                     }}>
                         {encouragement}
                     </div>
                 )}
 
-                {/* Second order (Wolf Warrior) */}
+                {/* Second order (Wolf Warrior) - Alt ticket */}
                 {secondOrder && (
                     <div
                         onClick={switchToSecondOrder}
                         style={{
-                            background: worldTheme.panelBg,
-                            border: `2px dashed ${worldTheme.panelBorder}`,
-                            borderRadius: '8px', padding: '8px 12px', marginBottom: '8px',
+                            background: '#2a2a1a',
+                            ...pixelBorder('#5D5D3A'),
+                            padding: '8px 12px', marginBottom: '8px',
                             cursor: 'pointer', display: 'flex', alignItems: 'center',
                             justifyContent: 'space-between',
-                            zIndex: 10,
-                            backdropFilter: 'blur(5px)',
-                            transition: 'all 0.2s',
-                            boxShadow: `0 2px 10px ${worldTheme.glowColor}`
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.02)';
-                            e.currentTarget.style.borderStyle = 'solid';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.borderStyle = 'dashed';
+                            zIndex: 10
                         }}
                     >
-                        <span style={{ fontSize: '11px', color: theme.textMuted }}>ALT:</span>
+                        <span style={{ fontSize: '8px', color: theme.textMuted }}>ALT ORDER:</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
                             {secondOrder.recipe.map((ing, i) => (
                                 <span key={i} style={{ fontSize: '20px' }}>{ing.emoji}</span>
                             ))}
                         </div>
-                        <span style={{ fontSize: '11px', color: world?.color }}>Switch →</span>
+                        <span style={{ fontSize: '8px', color: '#90EE90' }}>⬅ SWITCH</span>
                     </div>
                 )}
 
-                {/* Current Order */}
+                {/* ORDER TICKET - Kitchen ticket style */}
                 {currentOrder && (
                     <div style={{
-                        background: worldTheme.panelBg,
-                        borderRadius: '12px',
-                        padding: '15px', marginBottom: '12px',
-                        border: `2px solid ${timerPercent < 25 ? theme.error : worldTheme.panelBorder}`,
-                        boxShadow: timerPercent < 25 ? `0 0 20px ${theme.error}44` : `0 4px 15px ${worldTheme.glowColor}`,
+                        background: '#FFFEF0',
+                        color: '#1a1a1a',
+                        padding: '0',
+                        marginBottom: '10px',
                         zIndex: 10,
-                        backdropFilter: 'blur(8px)'
+                        ...pixelBorder(timerPercent < 25 ? '#8B0000' : '#8B4513'),
+                        position: 'relative',
+                        overflow: 'hidden'
                     }}>
+                        {/* Ticket header - red stripe */}
                         <div style={{
-                            display: 'flex', justifyContent: 'space-between',
-                            alignItems: 'center', marginBottom: '10px'
+                            background: timerPercent < 25 ? '#C84C0C' : '#8B4513',
+                            padding: '8px 12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                         }}>
-                            <div>
-                                <span style={{ color: theme.textMuted, fontSize: '11px' }}>ORDER: </span>
-                                <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '18px' }}>
-                                    {currentOrder.name}
-                                </span>
+                            <div style={{ fontSize: '8px', color: '#fff' }}>
+                                📋 ORDER #{ordersCompleted + 1}
                             </div>
                             <div style={{
-                                background: timerColor, padding: '4px 12px',
-                                borderRadius: '15px', fontWeight: 'bold', fontSize: '16px',
-                                fontFamily: 'monospace',
+                                background: timerColor,
+                                padding: '4px 10px',
+                                ...pixelBorder('#000', 2),
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                color: '#fff',
                                 animation: timerPercent < 25 ? 'pulse 0.3s infinite' : 'none'
                             }}>
                                 {orderTimer.toFixed(1)}s
@@ -1809,8 +2256,8 @@ const CookOff = () => {
 
                         {/* Timer bar */}
                         <div style={{
-                            width: '100%', height: '8px', background: theme.bgDark,
-                            borderRadius: '4px', overflow: 'hidden', marginBottom: '12px'
+                            width: '100%', height: '6px',
+                            background: '#ddd'
                         }}>
                             <div style={{
                                 width: `${timerPercent}%`, height: '100%',
@@ -1818,10 +2265,24 @@ const CookOff = () => {
                             }} />
                         </div>
 
-                        {/* Recipe */}
+                        {/* Order name */}
                         <div style={{
-                            display: 'flex', gap: '10px', justifyContent: 'center',
-                            flexWrap: 'wrap', marginBottom: '8px'
+                            padding: '8px 12px',
+                            borderBottom: '2px dashed #ccc',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '7px', color: '#666', marginBottom: '2px' }}>DISH NAME</div>
+                            <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#333' }}>
+                                {currentOrder.name}
+                            </div>
+                        </div>
+
+                        {/* Recipe ingredients */}
+                        <div style={{
+                            padding: '12px',
+                            display: 'flex', gap: '8px', justifyContent: 'center',
+                            flexWrap: 'wrap',
+                            background: '#f8f8f0'
                         }}>
                             {currentOrder.recipe.map((ing, i) => {
                                 const isSelected = i < selectedIngredients.length;
@@ -1830,13 +2291,14 @@ const CookOff = () => {
 
                                 return (
                                     <div key={i} style={{
-                                        width: '55px', height: '55px',
-                                        background: isSelected ? `${theme.success}44` : theme.bgDark,
-                                        border: `3px solid ${isSelected ? theme.success : isNext ? theme.accent : theme.border}`,
-                                        borderRadius: '10px', display: 'flex',
-                                        alignItems: 'center', justifyContent: 'center', fontSize: '30px',
-                                        boxShadow: isNext ? `0 0 12px ${theme.accent}44` : 'none',
-                                        transform: isSelected ? 'scale(0.95)' : 'scale(1)'
+                                        width: '50px', height: '50px',
+                                        background: isSelected ? '#90EE90' : '#fff',
+                                        ...pixelBorder(isSelected ? '#228B22' : isNext ? '#C84C0C' : '#8B4513', 3),
+                                        display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '28px',
+                                        transform: isSelected ? 'scale(0.92)' : 'scale(1)',
+                                        transition: 'transform 0.1s'
                                     }}>
                                         {isHidden ? '❓' : ing.emoji}
                                     </div>
@@ -1861,28 +2323,35 @@ const CookOff = () => {
                     </div>
                 )}
 
-                {/* Ingredients */}
+                {/* KITCHEN COUNTER - Ingredients area */}
                 <div style={{
                     flex: 1,
-                    background: `${worldTheme.panelBg}`,
-                    borderRadius: '12px',
-                    padding: '15px',
+                    background: 'linear-gradient(180deg, #5D3A1A 0%, #3d2817 10%, #2C1810 100%)',
+                    padding: '10px',
                     display: 'flex', flexDirection: 'column',
-                    border: `2px solid ${worldTheme.panelBorder}55`,
-                    boxShadow: `inset 0 2px 10px rgba(0,0,0,0.3)`,
+                    ...pixelBorder('#8B4513'),
                     zIndex: 10,
-                    backdropFilter: 'blur(5px)'
+                    position: 'relative'
                 }}>
+                    {/* Counter top edge */}
                     <div style={{
-                        textAlign: 'center', marginBottom: '15px',
-                        color: theme.textSecondary, fontSize: '12px'
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, height: '8px',
+                        background: 'linear-gradient(180deg, #8B4513 0%, #5D3A1A 100%)'
+                    }} />
+
+                    <div style={{
+                        textAlign: 'center', marginBottom: '10px', marginTop: '5px',
+                        color: '#DEB887', fontSize: '8px',
+                        textShadow: '1px 1px 0 #000'
                     }}>
-                        Tap ingredients in order →
+                        🍴 TAP INGREDIENTS IN ORDER 🍴
                     </div>
 
                     <div style={{
-                        display: 'flex', gap: '10px', justifyContent: 'center',
-                        flexWrap: 'wrap', flex: 1, alignContent: 'center'
+                        display: 'flex', gap: '8px', justifyContent: 'center',
+                        flexWrap: 'wrap', flex: 1, alignContent: 'center',
+                        padding: '5px'
                     }}>
                         {availableIngredients.map((ing, i) => {
                             const isDecoy = decoyIngredient?.id === ing.id;
@@ -1893,29 +2362,32 @@ const CookOff = () => {
                                     key={`${ing.id}-${i}`}
                                     onClick={() => handleIngredientClick(ing)}
                                     style={{
-                                        width: '75px', height: '75px',
-                                        background: isDecoy
-                                            ? `linear-gradient(135deg, ${theme.bgPanel}, #3a2440)`
-                                            : `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bg})`,
-                                        border: `2px solid ${isDecoy ? '#5a3050' : theme.borderLight}`,
-                                        borderRadius: '12px', display: 'flex',
+                                        width: '70px', height: '70px',
+                                        background: isDecoy ? '#3a2030' : '#2C1810',
+                                        ...pixelBorder(isDecoy ? '#8B0000' : '#5D3A1A'),
+                                        display: 'flex',
                                         flexDirection: 'column', alignItems: 'center',
                                         justifyContent: 'center', cursor: 'pointer',
-                                        fontSize: '32px', transition: 'all 0.1s',
+                                        fontSize: '30px',
+                                        transition: 'transform 0.1s',
                                         transform: isClicked ? 'scale(0.9)' : 'scale(1)',
-                                        boxShadow: isClicked ? `0 0 15px ${theme.accent}` : 'none'
+                                        fontFamily: 'inherit',
+                                        border: 'none'
                                     }}
                                     onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.borderColor = theme.accent;
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.background = '#3d2817';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.borderColor = isDecoy ? '#5a3050' : theme.borderLight;
+                                        e.currentTarget.style.background = isDecoy ? '#3a2030' : '#2C1810';
                                     }}
                                 >
                                     {ing.emoji}
-                                    <span style={{ fontSize: '9px', color: theme.textMuted, marginTop: '2px' }}>
+                                    <span style={{
+                                        fontSize: '7px', color: '#DEB887', marginTop: '2px',
+                                        textShadow: '1px 1px 0 #000'
+                                    }}>
                                         {ing.name}
                                     </span>
                                 </button>
@@ -1926,16 +2398,22 @@ const CookOff = () => {
                             <button
                                 onClick={() => handleIngredientClick({ id: 'wild', emoji: '🌟', name: 'Wild' })}
                                 style={{
-                                    width: '75px', height: '75px',
-                                    background: `linear-gradient(135deg, ${theme.gold}55, ${theme.gold}22)`,
-                                    border: `3px solid ${theme.gold}`, borderRadius: '12px',
+                                    width: '70px', height: '70px',
+                                    background: '#4a4a10',
+                                    ...pixelBorder(theme.gold),
                                     display: 'flex', flexDirection: 'column',
                                     alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', fontSize: '32px', animation: 'pulse 0.8s infinite'
+                                    cursor: 'pointer', fontSize: '30px',
+                                    animation: 'pulse 0.8s infinite',
+                                    fontFamily: 'inherit',
+                                    border: 'none'
                                 }}
                             >
                                 🌟
-                                <span style={{ fontSize: '9px', color: theme.gold, marginTop: '2px', fontWeight: 'bold' }}>
+                                <span style={{
+                                    fontSize: '7px', color: theme.gold, marginTop: '2px',
+                                    textShadow: '1px 1px 0 #000'
+                                }}>
                                     WILD
                                 </span>
                             </button>
@@ -1943,27 +2421,36 @@ const CookOff = () => {
                     </div>
                 </div>
 
-                {/* Feedback overlay */}
+                {/* Feedback overlay - Pixel style */}
                 {showFeedback && (
                     <div style={{
                         position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        padding: '20px 40px',
-                        background: showFeedback.type === 'success' ? theme.success
-                            : showFeedback.type === 'error' ? theme.error : theme.accent,
-                        borderRadius: '15px', fontSize: '30px', fontWeight: 'bold',
-                        color: 'white', zIndex: 100, animation: 'popIn 0.2s ease-out',
-                        textAlign: 'center'
+                        padding: '15px 30px',
+                        background: showFeedback.type === 'success' ? '#228B22'
+                            : showFeedback.type === 'error' ? '#8B0000'
+                            : showFeedback.type === 'shield' ? '#4169E1'
+                            : '#C84C0C',
+                        ...pixelBorder(showFeedback.type === 'success' ? '#1D5A3A'
+                            : showFeedback.type === 'error' ? '#5a0000'
+                            : showFeedback.type === 'shield' ? '#2a4a8a'
+                            : '#8B3000', 6),
+                        fontSize: '16px',
+                        color: 'white', zIndex: 1000,
+                        textAlign: 'center',
+                        animation: 'popIn 0.2s ease-out'
                     }}>
-                        <div>{showFeedback.message}</div>
+                        <div style={{ textShadow: '2px 2px 0 #000' }}>{showFeedback.message}</div>
                         {showFeedback.combo >= 3 && (
-                            <div style={{ fontSize: '14px', marginTop: '4px' }}>🔥 {showFeedback.combo}x Combo!</div>
+                            <div style={{ fontSize: '10px', marginTop: '6px' }}>🔥 {showFeedback.combo}x COMBO!</div>
                         )}
                         {showFeedback.bonuses?.length > 0 && (
-                            <div style={{ fontSize: '12px', marginTop: '4px' }}>{showFeedback.bonuses.join(' • ')}</div>
+                            <div style={{ fontSize: '8px', marginTop: '4px', color: '#FFE4B5' }}>
+                                {showFeedback.bonuses.join(' • ')}
+                            </div>
                         )}
                         {showFeedback.dish && (
-                            <div style={{ fontSize: '40px', marginTop: '4px' }}>{showFeedback.dish}</div>
+                            <div style={{ fontSize: '36px', marginTop: '6px' }}>{showFeedback.dish}</div>
                         )}
                     </div>
                 )}
@@ -1974,6 +2461,7 @@ const CookOff = () => {
                     @keyframes opponentBounce { 0%, 100% { transform: translateY(0) scale(1.15); } 50% { transform: translateY(-5px) scale(1.15); } }
                     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
                     @keyframes glow { 0%, 100% { box-shadow: 0 0 10px ${worldTheme.glowColor}; } 50% { box-shadow: 0 0 25px ${worldTheme.glowColor}; } }
+                    @keyframes slideDown { 0% { transform: translateX(-50%) translateY(-20px); opacity: 0; } 100% { transform: translateX(-50%) translateY(0); opacity: 1; } }
                 `}</style>
             </div>
         );
