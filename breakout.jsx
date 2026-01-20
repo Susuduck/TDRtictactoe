@@ -1627,6 +1627,7 @@ const BreakoutGame = () => {
   const ballsRef = useRef([]);
   const bricksRef = useRef([]);
   const paddleRef = useRef(paddle);
+  const launchDelayRef = useRef(0); // Prevents immediate ball launch when starting game
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -1989,6 +1990,9 @@ const BreakoutGame = () => {
 
     // Click/touch to launch ball
     const handleClick = (e) => {
+      // Prevent immediate launch when game starts (same click that started the game)
+      if (Date.now() < launchDelayRef.current) return;
+
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -4147,6 +4151,9 @@ const BreakoutGame = () => {
     setBricks(createBricks(level, selectedEnemy));
     setPowerUps([]);
     setActiveEffects([]);
+    // Clear particles and floating texts from previous level
+    setParticles([]);
+    setFloatingTexts([]);
     // Paddle width scales with difficulty (smaller at higher levels)
     const baseWidth = Math.round(diff.basePaddleWidth);
     const startingWidth = baseWidth + (stats.upgrades.paddleSize * 10);
@@ -4160,6 +4167,8 @@ const BreakoutGame = () => {
     setEnemyProjectiles([]);
     setPaddleDebuffs({ petrified: 0, confused: 0, webbed: 0 });
     setLastEnemySpawn(Date.now());
+    // Prevent click that started the game from also launching the ball
+    launchDelayRef.current = Date.now() + 200;
     setGameState('playing');
     setIsPaused(false);
   };
@@ -4231,6 +4240,9 @@ const BreakoutGame = () => {
     setBricks(createBricks(1, enemy));
     setPowerUps([]);
     setActiveEffects([]);
+    // Clear particles and floating texts
+    setParticles([]);
+    setFloatingTexts([]);
     setGimmickData({});
     setTeddyMeter(0);
     setTeddyAbilityActive(null);
@@ -4238,6 +4250,8 @@ const BreakoutGame = () => {
     setChargeLevel(0);
     setIsCharging(false);
     setDashCooldown(0);
+    // Prevent click that started the game from also launching the ball
+    launchDelayRef.current = Date.now() + 200;
     setGameState('playing');
     setIsPaused(false);
   };
@@ -4730,25 +4744,30 @@ const BreakoutGame = () => {
                   })
                 )}
               </svg>
-              {/* Health bar for multi-hit enemies */}
+              {/* Health bar for multi-hit enemies - centered using left/right auto margin */}
               {enemy.maxHealth > 1 && (
                 <div style={{
                   position: 'absolute',
                   top: -8,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: enemy.width * 0.8,
-                  height: 4,
-                  background: '#333',
-                  borderRadius: 2,
-                  overflow: 'hidden',
+                  left: 0,
+                  right: 0,
+                  display: 'flex',
+                  justifyContent: 'center',
                 }}>
                   <div style={{
-                    width: `${(enemy.health / enemy.maxHealth) * 100}%`,
-                    height: '100%',
-                    background: enemy.health > enemy.maxHealth / 2 ? '#44dd44' : enemy.health > 1 ? '#dddd44' : '#dd4444',
-                    transition: 'width 0.1s',
-                  }} />
+                    width: enemy.width * 0.75,
+                    height: 4,
+                    background: '#333',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      width: `${(enemy.health / enemy.maxHealth) * 100}%`,
+                      height: '100%',
+                      background: enemy.health > enemy.maxHealth / 2 ? '#44dd44' : enemy.health > 1 ? '#dddd44' : '#dd4444',
+                      transition: 'width 0.1s',
+                    }} />
+                  </div>
                 </div>
               )}
             </div>
