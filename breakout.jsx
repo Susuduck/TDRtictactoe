@@ -2070,13 +2070,13 @@ const BreakoutGame = () => {
     switch (ability) {
       case 'supercharge':
         // Next ball hit does 3x damage and breaks through 3 bricks in a line
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 SUPERCHARGE!', '#ffd700');
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 'SUPERCHARGE!', '#ffd700');
         setTimeout(() => setTeddyAbilityActive(null), 10000); // 10s to use it
         break;
       case 'barrier':
         // 5-second invincible bottom
         setActiveEffects(e => [...e, 'teddy_barrier']);
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 BARRIER!', '#4080ff');
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 'BARRIER!', '#4080ff');
         setTimeout(() => {
           setActiveEffects(e => e.filter(ef => ef !== 'teddy_barrier'));
           setTeddyAbilityActive(null);
@@ -2084,7 +2084,7 @@ const BreakoutGame = () => {
         break;
       case 'split':
         // Paddle splits into two for 10 seconds
-        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🧸 SPLIT!', '#ff80ff');
+        addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 'SPLIT!', '#ff80ff');
         setTwinPaddle({ active: true });
         setTimeout(() => {
           setTwinPaddle(null);
@@ -2688,7 +2688,7 @@ const BreakoutGame = () => {
               ball.vy = -Math.abs(ball.vy);
               ball.y = CANVAS_HEIGHT - BALL_RADIUS;
               createParticles(ball.x, ball.y, '#ffd700', 15);
-              addFloatingText(ball.x, ball.y - 20, '🧸 SAVED!', '#ffd700');
+              addFloatingText(ball.x, ball.y - 20, 'SAVED!', '#ffd700');
               return true;
             }
             // Check for regular shield
@@ -2814,7 +2814,7 @@ const BreakoutGame = () => {
                 if (teddyAbilityActive === 'supercharge') {
                   damage = 3;
                   setTeddyAbilityActive(null); // Used up
-                  addFloatingText(brick.x + brick.width/2, brick.y, '🧸 SUPERCHARGE!', '#ffd700');
+                  addFloatingText(brick.x + brick.width/2, brick.y, 'SUPERCHARGE!', '#ffd700');
                   setScreenShake(true);
                   setTimeout(() => setScreenShake(false), 200);
                 }
@@ -4447,117 +4447,150 @@ const BreakoutGame = () => {
             width: CANVAS_WIDTH,
             marginBottom: '4px',
             padding: '4px 12px',
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(0,0,0,0.2)',
             borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '12px',
-            fontSize: '12px',
-            color: '#fff',
+            gap: '10px',
+            fontSize: '11px',
           }}>
-            <span style={{ color: '#888' }}>Enemies:</span>
+            <span style={{ color: '#555', fontWeight: '600', textTransform: 'uppercase', fontSize: '9px', letterSpacing: '0.5px' }}>Enemies</span>
             {Object.entries(enemyCounts).map(([type, count]) => (
-              <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <span>{ENEMY_EMOJIS[type] || '👾'}</span>
-                <span style={{ fontWeight: 'bold' }}>×{count}</span>
+              <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#aaa' }}>
+                <span style={{ fontSize: '13px' }}>{ENEMY_EMOJIS[type] || '👾'}</span>
+                <span style={{ fontWeight: '700', fontSize: '12px' }}>{count}</span>
               </span>
             ))}
           </div>
         );
       })()}
 
-      {/* Teddy Meter Bar */}
+      {/* Teddy Meter + Abilities */}
       <div style={{
         width: CANVAS_WIDTH,
-        marginBottom: '8px',
+        marginBottom: '6px',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        gap: '12px',
+        padding: '8px 12px',
+        background: 'rgba(0,0,0,0.25)',
+        borderRadius: '8px',
       }}>
-        <span style={{ fontSize: '20px' }}>🧸</span>
-        <div style={{
-          flex: 1,
-          height: '12px',
-          background: 'rgba(0,0,0,0.4)',
-          borderRadius: '6px',
-          overflow: 'hidden',
-          position: 'relative',
-        }}>
+        {/* Teddy icon + meter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <span style={{
+            fontSize: '18px',
+            opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5,
+            filter: teddyMeter >= TEDDY_METER_MAX ? 'drop-shadow(0 0 4px #ffd700)' : 'none',
+          }}>🧸</span>
           <div style={{
-            width: `${(teddyMeter / TEDDY_METER_MAX) * 100}%`,
-            height: '100%',
-            background: teddyMeter >= TEDDY_METER_MAX
-              ? 'linear-gradient(90deg, #ffd700, #ff8800)'
-              : 'linear-gradient(90deg, #8b5a2b, #d2691e)',
-            transition: 'width 0.2s',
-            boxShadow: teddyMeter >= TEDDY_METER_MAX ? '0 0 10px #ffd700' : 'none',
-          }} />
-          {teddyMeter >= TEDDY_METER_MAX && (
+            flex: 1,
+            maxWidth: '200px',
+            height: '6px',
+            background: 'rgba(0,0,0,0.5)',
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
             <div style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: '800',
-              color: '#fff',
-              textShadow: '0 0 5px #000',
-              animation: 'pulse 0.5s ease-in-out infinite',
-            }}>
-              READY! Q/W/E
-            </div>
-          )}
-        </div>
-        {teddyMeter >= TEDDY_METER_MAX && (
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ffd70033', borderRadius: '4px', color: '#ffd700' }}>Q:Supercharge</span>
-            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#4080ff33', borderRadius: '4px', color: '#4080ff' }}>W:Barrier</span>
-            <span style={{ fontSize: '12px', padding: '2px 6px', background: '#ff80ff33', borderRadius: '4px', color: '#ff80ff' }}>E:Split</span>
+              width: `${(teddyMeter / TEDDY_METER_MAX) * 100}%`,
+              height: '100%',
+              background: teddyMeter >= TEDDY_METER_MAX
+                ? 'linear-gradient(90deg, #ffd700, #ff8800)'
+                : 'linear-gradient(90deg, #8b5a2b, #d2691e)',
+              transition: 'width 0.2s',
+              boxShadow: teddyMeter >= TEDDY_METER_MAX ? '0 0 6px #ffd700' : 'none',
+            }} />
           </div>
-        )}
+        </div>
+
+        {/* Ability buttons - always visible, highlighted when ready */}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{
+            padding: '4px 10px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            background: teddyMeter >= TEDDY_METER_MAX ? 'rgba(255,215,0,0.2)' : 'rgba(255,255,255,0.05)',
+            color: teddyMeter >= TEDDY_METER_MAX ? '#ffd700' : '#444',
+            border: teddyMeter >= TEDDY_METER_MAX ? '1px solid rgba(255,215,0,0.4)' : '1px solid transparent',
+            transition: 'all 0.2s',
+          }}>
+            <span style={{ opacity: 0.7 }}>Q</span> Supercharge
+          </div>
+          <div style={{
+            padding: '4px 10px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            background: teddyMeter >= TEDDY_METER_MAX ? 'rgba(64,128,255,0.2)' : 'rgba(255,255,255,0.05)',
+            color: teddyMeter >= TEDDY_METER_MAX ? '#4080ff' : '#444',
+            border: teddyMeter >= TEDDY_METER_MAX ? '1px solid rgba(64,128,255,0.4)' : '1px solid transparent',
+            transition: 'all 0.2s',
+          }}>
+            <span style={{ opacity: 0.7 }}>W</span> Barrier
+          </div>
+          <div style={{
+            padding: '4px 10px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            background: teddyMeter >= TEDDY_METER_MAX ? 'rgba(255,128,255,0.2)' : 'rgba(255,255,255,0.05)',
+            color: teddyMeter >= TEDDY_METER_MAX ? '#ff80ff' : '#444',
+            border: teddyMeter >= TEDDY_METER_MAX ? '1px solid rgba(255,128,255,0.4)' : '1px solid transparent',
+            transition: 'all 0.2s',
+          }}>
+            <span style={{ opacity: 0.7 }}>E</span> Split
+          </div>
+        </div>
       </div>
 
-      {/* Dash cooldown indicator */}
-      {dashCooldown > 0 && (
+      {/* Status bar - dash cooldown + active effects */}
+      {(dashCooldown > 0 || activeEffects.length > 0) && (
         <div style={{
           width: CANVAS_WIDTH,
-          marginBottom: '4px',
-          fontSize: '11px',
-          color: '#888',
-          textAlign: 'center',
+          marginBottom: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
         }}>
-          Dash: {Math.ceil(dashCooldown / 1000)}s ⏱️
-        </div>
-      )}
-
-      {/* Active effects */}
-      {activeEffects.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          {dashCooldown > 0 && (
+            <div style={{
+              padding: '3px 10px',
+              background: 'rgba(100,100,100,0.2)',
+              borderRadius: '4px',
+              color: '#666',
+              fontSize: '10px',
+              fontWeight: '600',
+            }}>
+              DASH {Math.ceil(dashCooldown / 1000)}s
+            </div>
+          )}
           {activeEffects.includes('shield') && (
-            <div style={{ padding: '3px 10px', background: '#4080ff33', borderRadius: '12px', color: '#4080ff', fontSize: '11px' }}>
-              🛡️ Shield Active
+            <div style={{ padding: '3px 10px', background: 'rgba(64,128,255,0.2)', borderRadius: '4px', color: '#4080ff', fontSize: '10px', fontWeight: '600' }}>
+              SHIELD
             </div>
           )}
           {activeEffects.includes('laser') && (
-            <div style={{ padding: '3px 10px', background: '#ff00ff33', borderRadius: '12px', color: '#ff00ff', fontSize: '11px' }}>
-              🔫 Laser Active
+            <div style={{ padding: '3px 10px', background: 'rgba(255,0,255,0.2)', borderRadius: '4px', color: '#ff00ff', fontSize: '10px', fontWeight: '600' }}>
+              LASER
             </div>
           )}
           {activeEffects.includes('fast') && (
-            <div style={{ padding: '3px 10px', background: '#ffff0033', borderRadius: '12px', color: '#ffff00', fontSize: '11px' }}>
-              ⚡ Fast Ball
+            <div style={{ padding: '3px 10px', background: 'rgba(255,255,0,0.2)', borderRadius: '4px', color: '#ffff00', fontSize: '10px', fontWeight: '600' }}>
+              FAST
             </div>
           )}
           {activeEffects.includes('slow') && (
-            <div style={{ padding: '3px 10px', background: '#80c0ff33', borderRadius: '12px', color: '#80c0ff', fontSize: '11px' }}>
-              🐌 Slow Ball
+            <div style={{ padding: '3px 10px', background: 'rgba(128,192,255,0.2)', borderRadius: '4px', color: '#80c0ff', fontSize: '10px', fontWeight: '600' }}>
+              SLOW
             </div>
           )}
           {activeEffects.includes('frozen') && (
-            <div style={{ padding: '3px 10px', background: '#80e0ff33', borderRadius: '12px', color: '#80e0ff', fontSize: '11px' }}>
-              ❄️ FROZEN!
+            <div style={{ padding: '3px 10px', background: 'rgba(128,224,255,0.3)', borderRadius: '4px', color: '#80e0ff', fontSize: '10px', fontWeight: '700' }}>
+              FROZEN
             </div>
           )}
         </div>
@@ -5533,34 +5566,29 @@ const BreakoutGame = () => {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '40px 20px',
+      padding: '30px 20px',
       color: '#fff',
       minHeight: '100vh',
       overflowY: 'auto',
-      background: 'radial-gradient(ellipse at top, rgba(96, 160, 255, 0.1) 0%, transparent 50%)',
     }}>
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <h2 style={{
-          fontSize: '38px',
+          fontSize: '28px',
           fontWeight: '800',
-          marginBottom: '10px',
-          background: 'linear-gradient(135deg, #60a0ff, #a060ff)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 40px rgba(96, 160, 255, 0.3)',
-        }}>Choose Your Challenge</h2>
-        <p style={{ color: '#6a6a8a', fontSize: '15px' }}>Each enemy has unique brick abilities</p>
+          marginBottom: '6px',
+          color: '#fff',
+        }}>Select World</h2>
+        <p style={{ color: '#666', fontSize: '13px' }}>Each world has unique brick mechanics</p>
       </div>
 
       {/* Enemy Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '20px',
-        maxWidth: '1000px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '12px',
+        maxWidth: '900px',
         width: '100%',
-        padding: '0 10px',
       }}>
         {enemyDefs.map((enemy, idx) => {
           const bestScore = stats.highScores[enemy.id] || 0;
@@ -5577,63 +5605,26 @@ const BreakoutGame = () => {
               key={enemy.id}
               onClick={() => isUnlocked && selectEnemy(enemy)}
               style={{
-                background: isUnlocked
-                  ? `linear-gradient(180deg, rgba(30,35,50,0.95) 0%, rgba(20,25,40,0.98) 100%)`
-                  : 'linear-gradient(180deg, rgba(20,20,25,0.9) 0%, rgba(15,15,20,0.95) 100%)',
-                border: 'none',
-                borderRadius: '20px',
-                padding: '0',
+                background: 'rgba(25,28,40,0.9)',
+                borderRadius: '10px',
+                padding: '16px',
                 cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                transition: 'all 0.25s ease',
-                opacity: isUnlocked ? 1 : 0.6,
+                transition: 'all 0.15s ease',
+                opacity: isUnlocked ? 1 : 0.5,
                 position: 'relative',
-                overflow: 'hidden',
-                boxShadow: isUnlocked
-                  ? `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)`
-                  : 'inset 0 -2px 10px rgba(0,0,0,0.5)',
+                borderLeft: `3px solid ${isUnlocked ? enemy.color : '#333'}`,
               }}
               onMouseEnter={(e) => {
                 if (isUnlocked) {
-                  e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-                  e.currentTarget.style.boxShadow = `0 12px 40px ${enemy.color}33, inset 0 1px 0 rgba(255,255,255,0.1)`;
+                  e.currentTarget.style.background = 'rgba(35,38,55,0.95)';
+                  e.currentTarget.style.transform = 'translateX(4px)';
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = isUnlocked
-                  ? `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)`
-                  : 'inset 0 -2px 10px rgba(0,0,0,0.5)';
+                e.currentTarget.style.background = 'rgba(25,28,40,0.9)';
+                e.currentTarget.style.transform = 'translateX(0)';
               }}
             >
-              {/* Color accent bar at top */}
-              <div style={{
-                height: '4px',
-                background: isUnlocked
-                  ? `linear-gradient(90deg, ${enemy.color}, ${enemy.accentColor})`
-                  : 'rgba(60,60,60,0.5)',
-                boxShadow: isUnlocked ? `0 0 15px ${enemy.color}66` : 'none',
-              }} />
-
-              {/* Badge */}
-              {isUnlocked && (isPerfected || isAllLevelsComplete) && (
-                <div style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  fontSize: '11px',
-                  background: isPerfected
-                    ? 'linear-gradient(135deg, #ffd700, #ff8c00)'
-                    : `linear-gradient(135deg, ${enemy.color}, ${enemy.accentColor})`,
-                  color: isPerfected ? '#000' : '#fff',
-                  padding: '5px 12px',
-                  borderRadius: '20px',
-                  fontWeight: '800',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  boxShadow: isPerfected ? '0 0 15px rgba(255,215,0,0.5)' : `0 0 10px ${enemy.color}44`,
-                }}>{isPerfected ? '⭐ Perfect' : '✓ Done'}</div>
-              )}
-
               {/* Lock overlay */}
               {!isUnlocked && (
                 <div style={{
@@ -5642,126 +5633,50 @@ const BreakoutGame = () => {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  background: 'rgba(0,0,0,0.4)',
+                  background: 'rgba(0,0,0,0.5)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexDirection: 'column',
-                  gap: '10px',
+                  borderRadius: '10px',
                   zIndex: 10,
                 }}>
-                  <span style={{ fontSize: '40px' }}>🔒</span>
-                  <span style={{ fontSize: '12px', color: '#666' }}>
-                    Defeat {enemyDefs[idx - 1]?.name || 'previous enemy'} to unlock
-                  </span>
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ fontSize: '24px' }}>🔒</span>
+                    <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>
+                      Complete {enemyDefs[idx - 1]?.name}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Content */}
-              <div style={{ padding: '20px 24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '16px' }}>
-                  {/* Enemy Avatar */}
-                  <div style={{
-                    fontSize: '50px',
-                    width: '75px',
-                    height: '75px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isUnlocked
-                      ? `radial-gradient(circle, ${enemy.color}33 0%, transparent 70%)`
-                      : 'radial-gradient(circle, rgba(60,60,60,0.3) 0%, transparent 70%)',
-                    borderRadius: '50%',
-                    border: isUnlocked ? `2px solid ${enemy.color}44` : '2px solid rgba(60,60,60,0.3)',
-                    flexShrink: 0,
-                  }}>{enemy.emoji}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                {/* Enemy Avatar */}
+                <span style={{ fontSize: '36px' }}>{enemy.emoji}</span>
 
-                  {/* Enemy Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontWeight: '800',
-                      fontSize: '22px',
-                      color: isUnlocked ? '#fff' : '#555',
-                      textShadow: isUnlocked ? `0 0 20px ${enemy.color}44` : 'none',
-                      marginBottom: '2px',
-                    }}>{enemy.name}</div>
-                    <div style={{
-                      fontSize: '13px',
-                      color: isUnlocked ? enemy.color : '#444',
-                      fontWeight: '600',
-                      marginBottom: '6px',
-                    }}>{enemy.title}</div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: isUnlocked ? 'rgba(255,255,255,0.5)' : '#333',
-                      lineHeight: '1.4',
-                    }}>{enemy.gimmickDesc}</div>
+                {/* Enemy Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ fontWeight: '700', fontSize: '16px', color: '#fff' }}>{enemy.name}</span>
+                    {isPerfected && <span style={{ fontSize: '12px' }}>⭐</span>}
+                    {isAllLevelsComplete && !isPerfected && <span style={{ fontSize: '11px', color: '#4a4' }}>✓</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: enemy.color, fontWeight: '600', marginBottom: '4px' }}>
+                    {enemy.title}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.3' }}>
+                    {enemy.gimmickDesc}
                   </div>
                 </div>
 
-                {/* Progress Section */}
+                {/* Progress */}
                 {isUnlocked && (
-                  <div style={{
-                    background: 'rgba(0,0,0,0.25)',
-                    borderRadius: '12px',
-                    padding: '14px 16px',
-                  }}>
-                    {/* Progress Bar */}
-                    <div style={{ marginBottom: '12px' }}>
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '6px',
-                      }}>
-                        <span style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Progress
-                        </span>
-                        <span style={{ fontSize: '12px', color: '#ffd700', fontWeight: '700' }}>
-                          ⭐ {totalLevelStars}/{maxPossibleStars}
-                        </span>
-                      </div>
-                      <div style={{
-                        width: '100%',
-                        height: '6px',
-                        background: 'rgba(0,0,0,0.4)',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                      }}>
-                        <div style={{
-                          width: `${progressPercent}%`,
-                          height: '100%',
-                          background: isPerfected
-                            ? 'linear-gradient(90deg, #ffd700, #ff8c00)'
-                            : `linear-gradient(90deg, ${enemy.color}, ${enemy.accentColor})`,
-                          borderRadius: '3px',
-                          boxShadow: `0 0 8px ${isPerfected ? '#ffd700' : enemy.color}`,
-                          transition: 'width 0.3s ease',
-                        }} />
-                      </div>
+                  <div style={{ textAlign: 'right', minWidth: '60px' }}>
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: enemy.color }}>
+                      {highestLevel}<span style={{ fontSize: '11px', color: '#444' }}>/{MAX_LEVELS}</span>
                     </div>
-
-                    {/* Stats Row */}
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}>
-                      <div>
-                        <span style={{ fontSize: '11px', color: '#555' }}>Level </span>
-                        <span style={{
-                          fontSize: '16px',
-                          fontWeight: '800',
-                          color: enemy.color,
-                        }}>{highestLevel}</span>
-                        <span style={{ fontSize: '12px', color: '#444' }}>/{MAX_LEVELS}</span>
-                      </div>
-                      {bestScore > 0 && (
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase' }}>Best</div>
-                          <div style={{ fontSize: '16px', color: '#ffd700', fontWeight: '700' }}>{bestScore}</div>
-                        </div>
-                      )}
+                    <div style={{ fontSize: '11px', color: '#ffd700' }}>
+                      {totalLevelStars}/{maxPossibleStars} ★
                     </div>
                   </div>
                 )}
@@ -5775,27 +5690,21 @@ const BreakoutGame = () => {
       <button
         onClick={() => setGameState('menu')}
         style={{
-          marginTop: '40px',
-          padding: '14px 32px',
-          background: 'rgba(255,255,255,0.08)',
+          marginTop: '24px',
+          padding: '10px 20px',
+          background: 'transparent',
           border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: '14px',
-          color: '#888',
+          borderRadius: '6px',
+          color: '#666',
           cursor: 'pointer',
-          fontSize: '14px',
+          fontSize: '13px',
           fontWeight: '600',
-          transition: 'all 0.2s',
+          transition: 'all 0.15s',
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-          e.currentTarget.style.color = '#fff';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-          e.currentTarget.style.color = '#888';
-        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.color = '#aaa'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#666'; }}
       >
-        ← Back to Menu
+        ← Back
       </button>
     </div>
   );
@@ -5999,60 +5908,40 @@ const BreakoutGame = () => {
           </div>
         )}
 
-        {/* Enemy Header Card */}
+        {/* Enemy Header */}
         <div style={{
-          background: `linear-gradient(135deg, ${enemyColor}33 0%, ${enemyAccent}22 100%)`,
-          border: `2px solid ${enemyColor}66`,
-          borderRadius: '20px',
-          padding: '20px 40px',
-          marginBottom: '25px',
           display: 'flex',
           alignItems: 'center',
-          gap: '20px',
-          boxShadow: `0 10px 40px ${enemyColor}22`,
+          gap: '16px',
+          marginBottom: '20px',
+          padding: '16px 24px',
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '12px',
+          borderLeft: `3px solid ${enemyColor}`,
         }}>
-          <div style={{
-            fontSize: '60px',
-            width: '80px',
-            height: '80px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: `radial-gradient(circle, ${enemyColor}44 0%, transparent 70%)`,
-            borderRadius: '50%',
-          }}>{selectedEnemy?.emoji}</div>
-          <div>
-            <h2 style={{
-              color: '#fff',
-              fontSize: '28px',
-              margin: 0,
-              fontWeight: '800',
-              textShadow: `0 2px 10px ${enemyColor}66`,
-            }}>
-              {selectedEnemy?.name}
-            </h2>
-            <div style={{ color: enemyColor, fontSize: '14px', fontWeight: '600', marginTop: '2px' }}>
-              {selectedEnemy?.title}
+          <span style={{ fontSize: '40px' }}>{selectedEnemy?.emoji}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              <span style={{ fontSize: '22px', fontWeight: '800', color: '#fff' }}>{selectedEnemy?.name}</span>
+              <span style={{ fontSize: '12px', color: enemyColor, fontWeight: '600' }}>{selectedEnemy?.title}</span>
             </div>
-            {/* Star Progress Bar */}
-            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Star Progress */}
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{
-                width: '150px',
-                height: '8px',
-                background: 'rgba(0,0,0,0.4)',
-                borderRadius: '4px',
+                width: '120px',
+                height: '4px',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '2px',
                 overflow: 'hidden',
               }}>
                 <div style={{
                   width: `${(totalStars / maxStars) * 100}%`,
                   height: '100%',
                   background: 'linear-gradient(90deg, #ffd700, #ffaa00)',
-                  borderRadius: '4px',
-                  boxShadow: '0 0 10px #ffd700',
                 }} />
               </div>
-              <span style={{ color: '#ffd700', fontSize: '13px', fontWeight: '700' }}>
-                ⭐ {totalStars}/{maxStars}
+              <span style={{ color: '#ffd700', fontSize: '12px', fontWeight: '700' }}>
+                {totalStars}/{maxStars} ★
               </span>
             </div>
           </div>
@@ -6062,12 +5951,11 @@ const BreakoutGame = () => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '16px',
-          marginBottom: '30px',
-          padding: '25px',
+          gap: '10px',
+          marginBottom: '24px',
+          padding: '16px',
           background: 'rgba(0,0,0,0.2)',
-          borderRadius: '20px',
-          border: '1px solid rgba(255,255,255,0.05)',
+          borderRadius: '12px',
         }}>
           {Array.from({ length: MAX_LEVELS }, (_, i) => i + 1).map(level => {
             const isUnlocked = debugMode || level <= highestLevel;
@@ -6082,113 +5970,59 @@ const BreakoutGame = () => {
                 onClick={() => isUnlocked && startLevel(level, !hasVictory || level !== nextLevel)}
                 disabled={!isUnlocked}
                 style={{
-                  width: '105px',
-                  height: '130px',
-                  borderRadius: '14px',
-                  border: 'none',
+                  width: '90px',
+                  height: '100px',
+                  borderRadius: '8px',
+                  border: isNext ? `2px solid ${enemyColor}` : '1px solid rgba(255,255,255,0.1)',
                   padding: '0',
-                  background: isUnlocked
-                    ? `linear-gradient(180deg, #1e2235 0%, #151825 100%)`
-                    : `linear-gradient(180deg, #111318 0%, #0a0c10 100%)`,
+                  background: isUnlocked ? 'rgba(30,35,50,0.8)' : 'rgba(20,20,25,0.6)',
                   color: isUnlocked ? '#fff' : '#333',
                   cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.2s ease',
-                  boxShadow: isNext
-                    ? `0 0 25px ${enemyColor}66, 0 4px 15px rgba(0,0,0,0.4)`
-                    : isUnlocked
-                      ? '0 4px 15px rgba(0,0,0,0.3)'
-                      : 'inset 0 -2px 5px rgba(0,0,0,0.5)',
+                  transition: 'all 0.15s ease',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   position: 'relative',
                   overflow: 'hidden',
+                  opacity: isUnlocked ? 1 : 0.5,
                 }}
                 onMouseEnter={e => {
                   if (isUnlocked) {
-                    e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
-                    e.currentTarget.style.boxShadow = `0 12px 35px ${enemyColor}55, 0 8px 20px rgba(0,0,0,0.4)`;
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.borderColor = enemyColor;
                   }
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                  e.currentTarget.style.boxShadow = isNext
-                    ? `0 0 25px ${enemyColor}66, 0 4px 15px rgba(0,0,0,0.4)`
-                    : isUnlocked
-                      ? '0 4px 15px rgba(0,0,0,0.3)'
-                      : 'inset 0 -2px 5px rgba(0,0,0,0.5)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = isNext ? enemyColor : 'rgba(255,255,255,0.1)';
                 }}
               >
-                {/* Top accent bar */}
-                <div style={{
-                  width: '100%',
-                  height: '3px',
-                  background: isNext
-                    ? `linear-gradient(90deg, ${enemyColor}, ${enemyAccent})`
-                    : isCompleted
-                      ? `linear-gradient(90deg, ${enemyColor}88, ${enemyAccent}66)`
-                      : 'rgba(255,255,255,0.1)',
-                  boxShadow: isNext ? `0 0 10px ${enemyColor}` : 'none',
-                }} />
-
-                {/* Shine effect for next level */}
-                {isNext && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: '-100%',
-                    width: '100%',
-                    height: '100%',
-                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
-                    animation: 'shine 2s infinite',
-                  }} />
-                )}
-
                 {isUnlocked ? (
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    padding: '8px 6px 10px',
+                    padding: '8px 4px',
                     width: '100%',
+                    height: '100%',
+                    justifyContent: 'space-between',
                   }}>
                     {/* Level number */}
                     <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      width: '100%',
-                      marginBottom: '6px',
-                      padding: '0 4px',
-                    }}>
-                      <span style={{
-                        fontSize: '11px',
-                        color: '#666',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                      }}>Level</span>
-                      <span style={{
-                        fontSize: '18px',
-                        fontWeight: '800',
-                        color: isNext ? '#fff' : enemyColor,
-                        textShadow: isNext ? `0 0 10px ${enemyColor}` : 'none',
-                      }}>{level}</span>
-                    </div>
+                      fontSize: '20px',
+                      fontWeight: '800',
+                      color: isNext ? enemyColor : '#fff',
+                    }}>{level}</div>
 
                     {/* Mini preview */}
-                    {renderLevelPreview(level, isNext ? '#fff' : enemyColor, false, enemyId)}
+                    {renderLevelPreview(level, isNext ? enemyColor : '#666', false, enemyId)}
 
                     {/* Stars */}
-                    <div style={{
-                      display: 'flex',
-                      gap: '3px',
-                      marginTop: '8px',
-                    }}>
+                    <div style={{ display: 'flex', gap: '2px' }}>
                       {[1, 2, 3].map(s => (
                         <span key={s} style={{
-                          fontSize: '14px',
-                          color: s <= stars ? '#ffd700' : 'rgba(255,255,255,0.15)',
-                          textShadow: s <= stars ? '0 0 6px #ffd700' : 'none',
+                          fontSize: '12px',
+                          color: s <= stars ? '#ffd700' : 'rgba(255,255,255,0.2)',
                         }}>★</span>
                       ))}
                     </div>
@@ -6198,31 +6032,12 @@ const BreakoutGame = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    padding: '8px 6px 10px',
-                    width: '100%',
-                    opacity: 0.5,
+                    justifyContent: 'center',
+                    height: '100%',
+                    gap: '4px',
                   }}>
-                    {/* Level number */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      width: '100%',
-                      marginBottom: '6px',
-                      padding: '0 4px',
-                    }}>
-                      <span style={{ fontSize: '11px', color: '#444' }}>Level</span>
-                      <span style={{ fontSize: '18px', fontWeight: '800', color: '#444' }}>{level}</span>
-                    </div>
-
-                    {/* Locked preview */}
-                    {renderLevelPreview(level, '#333', true, enemyId)}
-
-                    {/* Lock icon */}
-                    <div style={{
-                      marginTop: '6px',
-                      fontSize: '16px',
-                    }}>🔒</div>
+                    <span style={{ fontSize: '16px', color: '#444', fontWeight: '700' }}>{level}</span>
+                    <span style={{ fontSize: '14px' }}>🔒</span>
                   </div>
                 )}
               </button>
@@ -6231,25 +6046,42 @@ const BreakoutGame = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={() => setGameState('select')}
+            style={{
+              padding: '10px 16px',
+              fontSize: '13px',
+              fontWeight: '600',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '6px',
+              color: '#888',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#888'; }}
+          >
+            ← Back
+          </button>
+
           {hasVictory && canContinue ? (
             <button
               onClick={() => startLevel(nextLevel, false)}
               style={{
-                padding: '16px 40px',
-                fontSize: '18px',
-                fontWeight: '800',
-                background: `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`,
+                padding: '12px 32px',
+                fontSize: '15px',
+                fontWeight: '700',
+                background: enemyColor,
                 border: 'none',
-                borderRadius: '14px',
+                borderRadius: '6px',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: `0 6px 25px ${enemyColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
+                transition: 'all 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
               Next Level →
             </button>
@@ -6257,68 +6089,38 @@ const BreakoutGame = () => {
             <button
               onClick={() => startLevel(highestLevel, true)}
               style={{
-                padding: '16px 40px',
-                fontSize: '18px',
-                fontWeight: '800',
-                background: `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`,
+                padding: '12px 32px',
+                fontSize: '15px',
+                fontWeight: '700',
+                background: enemyColor,
                 border: 'none',
-                borderRadius: '14px',
+                borderRadius: '6px',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: `0 6px 25px ${enemyColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
+                transition: 'all 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              {highestLevel === 1 ? '▶ Play' : `▶ Level ${highestLevel}`}
+              {highestLevel === 1 ? 'Play' : `Continue`}
             </button>
           )}
-          <button
-            onClick={() => setGameState('select')}
-            style={{
-              padding: '16px 28px',
-              fontSize: '14px',
-              fontWeight: '600',
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '14px',
-              color: '#aaa',
-              cursor: 'pointer',
-              backdropFilter: 'blur(10px)',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-              e.currentTarget.style.color = '#fff';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-              e.currentTarget.style.color = '#aaa';
-            }}
-          >
-            ← Enemies
-          </button>
+
           <button
             onClick={() => setGameState('menu')}
             style={{
-              padding: '16px 28px',
-              fontSize: '14px',
+              padding: '10px 16px',
+              fontSize: '13px',
               fontWeight: '600',
               background: 'transparent',
               border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '14px',
-              color: '#666',
+              borderRadius: '6px',
+              color: '#555',
               cursor: 'pointer',
+              transition: 'all 0.15s',
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-              e.currentTarget.style.color = '#888';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-              e.currentTarget.style.color = '#666';
-            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#888'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#555'; }}
           >
             Menu
           </button>
