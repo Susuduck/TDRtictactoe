@@ -21,6 +21,734 @@ const BreakoutGame = () => {
   const TEDDY_METER_MAX = 100;
   const KEYBOARD_SPEED = 12;
 
+  // === DIFFICULTY SCALING SYSTEM ===
+  // Global level = enemyIndex * 10 + levelNumber (1-100)
+  const getDifficulty = (enemyIndex, level) => {
+    const globalLevel = enemyIndex * 10 + level;
+    const t = (globalLevel - 1) / 99; // 0 to 1 progression
+
+    return {
+      globalLevel,
+      ballSpeed: 7 + t * 8,                    // 7 -> 15
+      brickHealthBonus: Math.floor(t * 6),     // 0 -> 6
+      basePaddleWidth: 120 - t * 40,           // 120 -> 80
+      powerUpChance: 0.15 - t * 0.10,          // 15% -> 5%
+      enemyCount: Math.floor(1 + t * 5),       // 1 -> 6
+      enemySpeed: 1 + t * 2,                   // 1 -> 3 multiplier
+      enemySpawnRate: 8000 - t * 5000,         // 8s -> 3s between spawns
+    };
+  };
+
+  // === PIXEL ART ENEMY SPRITES ===
+  // Each sprite is a 2D array where each value is a color or null (transparent)
+  // Sprites are 16x16 pixels, scaled up when rendered
+  const ENEMY_SPRITES = {
+    // Slime - simple bouncing blob
+    slime: {
+      frames: [
+        // Frame 1 - squished
+        [
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '....GGGGGG......',
+          '...GGGGGGGG.....',
+          '..GGgGGgGGGG....',
+          '..GGGGGGGGGG....',
+          '.GGGGGGGGGGGG...',
+          '.GGGGGGGGGGGG...',
+          '................',
+        ],
+        // Frame 2 - normal
+        [
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '.....GGGG.......',
+          '....GGGGGG......',
+          '...GGGGGGGG.....',
+          '...GGgGGgGG.....',
+          '...GGGGGGGG.....',
+          '..GGGGGGGGGG....',
+          '..GGGGGGGGGG....',
+          '...GGGGGGGG.....',
+          '................',
+          '................',
+        ],
+        // Frame 3 - stretched
+        [
+          '................',
+          '................',
+          '................',
+          '................',
+          '.....GGGG.......',
+          '....GGGGGG......',
+          '....GGGGGG......',
+          '...GGgGGgGG.....',
+          '...GGGGGGGG.....',
+          '...GGGGGGGG.....',
+          '....GGGGGG......',
+          '....GGGGGG......',
+          '.....GGGG.......',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'G': '#44dd44', 'g': '#ffffff' }, // Green body, white eyes
+      width: 16, height: 16, scale: 2,
+      health: 1, points: 50, paddleReward: 5,
+    },
+
+    // Bat - flying enemy with wing flap
+    bat: {
+      frames: [
+        // Wings up
+        [
+          '................',
+          '..P........P....',
+          '..PP......PP....',
+          '..PPP....PPP....',
+          '...PPP..PPP.....',
+          '...PPPPPPPP.....',
+          '....PPPPPP......',
+          '....PrPPrP......',
+          '....PPPPPP......',
+          '.....PPPP.......',
+          '.....P..P.......',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        // Wings down
+        [
+          '................',
+          '................',
+          '................',
+          '....PPPPPP......',
+          '....PrPPrP......',
+          '....PPPPPP......',
+          '...PPPPPPPP.....',
+          '..PPP....PPP....',
+          '..PP......PP....',
+          '..P........P....',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'P': '#8844aa', 'r': '#ff4444' }, // Purple body, red eyes
+      width: 16, height: 16, scale: 2,
+      health: 2, points: 100, paddleReward: 8,
+    },
+
+    // Ghost - spooky phasing enemy
+    ghost: {
+      frames: [
+        // Normal
+        [
+          '................',
+          '................',
+          '.....WWWW.......',
+          '....WWWWWW......',
+          '...WWWWWWWW.....',
+          '...WbWWWbWW.....',
+          '...WWWWWWWW.....',
+          '...WWWWWWWW.....',
+          '...WWWWWWWW.....',
+          '...WWWWWWWW.....',
+          '...WW.WW.WW.....',
+          '....W..W..W.....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        // Faded
+        [
+          '................',
+          '................',
+          '.....wwww.......',
+          '....wwwwww......',
+          '...wwwwwwww.....',
+          '...wbwwwbww.....',
+          '...wwwwwwww.....',
+          '...wwwwwwww.....',
+          '...wwwwwwww.....',
+          '...wwwwwwww.....',
+          '...ww.ww.ww.....',
+          '....w..w..w.....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'W': '#ffffff', 'w': 'rgba(255,255,255,0.4)', 'b': '#222222' },
+      width: 16, height: 16, scale: 2,
+      health: 3, points: 200, paddleReward: 12,
+    },
+
+    // Mini-boss - larger, tougher enemy
+    miniboss: {
+      frames: [
+        // Normal
+        [
+          '....RRRRRR......',
+          '...RRRRRRRR.....',
+          '..RRRRRRRRRR....',
+          '..RRrRRRRrRR....',
+          '..RRRRRRRRRR....',
+          '..RRRRRRRRRR....',
+          '..RR.RRRR.RR....',
+          '..RRRRRRRRRR....',
+          '...RRRRRRRR.....',
+          '...RRR..RRR.....',
+          '..RRRR..RRRR....',
+          '..RRRR..RRRR....',
+          '..RRR....RRR....',
+          '................',
+          '................',
+          '................',
+        ],
+        // Angry
+        [
+          '....RRRRRR......',
+          '...RRRRRRRR.....',
+          '..RRRRRRRRRR....',
+          '..RRrRRRRrRR....',
+          '..RRRRRRRRRR....',
+          '..RR.RRRR.RR....',
+          '..RRRRRRRRRR....',
+          '..RRRRRRRRRR....',
+          '...RRRRRRRR.....',
+          '...RRR..RRR.....',
+          '..RRRR..RRRR....',
+          '..RRRR..RRRR....',
+          '..RRR....RRR....',
+          '................',
+          '................',
+          '................',
+        ],
+      ],
+      colors: { 'R': '#dd3333', 'r': '#ffff44' }, // Red body, yellow eyes
+      width: 16, height: 16, scale: 3,
+      health: 5, points: 500, paddleReward: 20,
+    },
+  };
+
+  // World-themed color variants for enemies
+  const ENEMY_THEME_COLORS = {
+    brick_goblin: { primary: '#44dd44', secondary: '#22aa22' },  // Green
+    magnet_mage: { primary: '#4488ff', secondary: '#2266dd' },   // Blue
+    wind_witch: { primary: '#88ddaa', secondary: '#55aa77' },    // Teal
+    shadow_smith: { primary: '#aa66cc', secondary: '#7744aa' },  // Purple
+    fire_phoenix: { primary: '#ff6644', secondary: '#dd4422' },  // Orange
+    frost_fairy: { primary: '#66ddff', secondary: '#44aadd' },   // Cyan
+    time_tortoise: { primary: '#ddaa44', secondary: '#aa7722' }, // Gold
+    void_vampire: { primary: '#aa4466', secondary: '#772244' },  // Crimson
+    thunder_titan: { primary: '#ffdd44', secondary: '#ddaa22' }, // Yellow
+    chaos_champion: { primary: '#ff44ff', secondary: '#dd22dd' }, // Magenta
+  };
+
+  // Level definitions - hand-crafted layouts for each enemy
+  // Legend: '.'=empty, '1'=1-hit, '2'=2-hit, '3'=3-hit, '#'=indestructible, '*'=powerup, 'X'=explosive
+  const LEVEL_DEFINITIONS = {
+    // BRICK GOBLIN - Simple shapes, learning levels
+    brick_goblin: [
+      // Level 1: Welcome bars - easiest intro
+      [
+        '111111111111',
+        '............',
+        '222222222222',
+        '............',
+        '111111111111',
+        '............',
+      ],
+      // Level 2: Arrow pointing down
+      [
+        '.....22.....',
+        '....2222....',
+        '...222222...',
+        '..22222222..',
+        '.....22.....',
+        '.....22.....',
+      ],
+      // Level 3: Heart shape
+      [
+        '.22....22...',
+        '2222..2222..',
+        '2222222222..',
+        '.22222222...',
+        '..222222....',
+        '....22......',
+      ],
+      // Level 4: Diamond
+      [
+        '.....11.....',
+        '....2222....',
+        '...222222...',
+        '...222222...',
+        '....2222....',
+        '.....11.....',
+      ],
+      // Level 5: Simple face
+      [
+        '.2222222222.',
+        '.2..2..2..2.',
+        '.2222222222.',
+        '.2........2.',
+        '.2.222222.2.',
+        '.2222222222.',
+      ],
+      // Level 6: Castle
+      [
+        '3.3.3.3.3.3.',
+        '333333333333',
+        '33.#33#.3333',
+        '333333333333',
+        '33333..33333',
+        '33333..33333',
+      ],
+      // Level 7: Goblin (their mascot)
+      [
+        '..333333333.',
+        '.3*322223*3.',
+        '.3333333333.',
+        '..3.3333.3..',
+        '...333333...',
+        '....3..3....',
+      ],
+      // Level 8: Zigzag challenge
+      [
+        '3333........',
+        '..#333......',
+        '....#333....',
+        '......#333..',
+        '........#333',
+        '333333333333',
+      ],
+      // Level 9: Fortress
+      [
+        '#2#2#2#2#2#2',
+        '222222222222',
+        '22.2*22*2.22',
+        '222222222222',
+        '22...22...22',
+        '#2#2#..#2#2#',
+      ],
+      // Level 10: Boss - The Goblin King
+      [
+        '333#3333#333',
+        '3*33333333*3',
+        '33333##33333',
+        '##33333333##',
+        '3333X33X3333',
+        '333333333333',
+      ],
+    ],
+
+    // MAGNET MAGE - Introduces BUMPERS (O)
+    magnet_mage: [
+      // Level 1: Magnetic poles - 2 bumpers intro!
+      [
+        '222..O...222',
+        '222......222',
+        '............',
+        '............',
+        '222......222',
+        '222..O...222',
+      ],
+      // Level 2: Horseshoe magnet - bumper in center
+      [
+        '33........33',
+        '333......333',
+        '333..O...333',
+        '333......333',
+        '3333333333..',
+        '..33333333..',
+      ],
+      // Level 3: Circular orbit - bumpers ring
+      [
+        '...222222...',
+        '..2..O...2..',
+        '.2........2.',
+        '.2........2.',
+        '..2..O...2..',
+        '...222222...',
+      ],
+      // Level 4: Figure 8 - bumper intersection
+      [
+        '..222..222..',
+        '.2....O....2',
+        '..222..222..',
+        '..222..222..',
+        '.2....O....2',
+        '..222..222..',
+      ],
+      // Level 5: Magnetic field - bumper grid
+      [
+        '2..O..2..O..',
+        '.2..2..2..2.',
+        '..2..2..2..2',
+        '2..2..2..2..',
+        '.2..O..2..O.',
+        '..2..2..2..2',
+      ],
+      // Level 6: Repulsion - bumpers protect
+      [
+        '333..O...333',
+        '333#....#333',
+        '...#.O..#...',
+        '...#....#...',
+        '333#....#333',
+        '333..O...333',
+      ],
+      // Level 7: Spiral with bumpers
+      [
+        '333333333...',
+        '....O...33..',
+        '.3333333.3..',
+        '.3...O...3..',
+        '.3.33333.3..',
+        '.3.3*..333..',
+      ],
+      // Level 8: Atom - bumper nucleus
+      [
+        '....33......',
+        '.333.O333...',
+        '33..33..33..',
+        '33..OO..33..',
+        '.333..333...',
+        '....33......',
+      ],
+      // Level 9: Magnetic maze
+      [
+        '#.#.#.#.#.#.',
+        '.222222222.#',
+        '#.........#.',
+        '.#.........#',
+        '#.222222222.',
+        '.#.#.#.#.#.#',
+      ],
+      // Level 10: Magnet Mage Boss
+      [
+        '33#3333#3333',
+        '333*3333*333',
+        '..33333333..',
+        '..33333333..',
+        '333*3333*333',
+        '33#3333#3333',
+      ],
+    ],
+
+    // WIND WITCH - Introduces PORTALS (@1 pairs)
+    wind_witch: [
+      // Level 1: Gentle breeze - 1 portal pair intro!
+      [
+        '@12.2.2.2.@1',
+        '.2.2.2.2.2.2',
+        '2.2.2.2.2.2.',
+        '.2.2.2.2.2.2',
+        '............',
+        '............',
+      ],
+      // Level 2: Wave - portal shortcut
+      [
+        '22.......@1.',
+        '..22........',
+        '....22......',
+        '......22....',
+        '........22..',
+        '@1........22',
+      ],
+      // Level 3: Double wave - 2 portal pairs
+      [
+        '@1......@2..',
+        '..22......22',
+        '....22......',
+        '@2......@1..',
+        '..22......22',
+        '....22......',
+      ],
+      // Level 4: Tornado - portal in eye
+      [
+        '.....33.....',
+        '....3333....',
+        '...22@122...',
+        '..22@12222..',
+        '.1111111111.',
+        '111111111111',
+      ],
+      // Level 5: Swirl - portal + bumpers
+      [
+        '..O.2222222.',
+        '...2....@1..',
+        '..2.22222...',
+        '..2.2.O.2...',
+        '..2.22222...',
+        '@1.2222..O..',
+      ],
+      // Level 6: Cloud - hidden portal
+      [
+        '...2222222..',
+        '..222@12222.',
+        '.22222222222',
+        '.22222222222',
+        '..222@12222.',
+        '....22222...',
+      ],
+      // Level 7: Lightning bolt - portal chain
+      [
+        '@1....33333.',
+        '.....333.@2.',
+        '....333.....',
+        '@2.33333....',
+        '.....333....',
+        '......3333@1',
+      ],
+      // Level 8: Gusts - 2 portal pairs
+      [
+        '@1.222.@2....',
+        '..222..#..22',
+        '@2222....222',
+        '222..#..222.',
+        '22..#..222..',
+        '...#.@1.22..',
+      ],
+      // Level 9: Storm
+      [
+        '3X3.3X3.3X3.',
+        '333333333333',
+        '.#.#.#.#.#.#',
+        '333333333333',
+        '3X3.3X3.3X3.',
+        '............',
+      ],
+      // Level 10: Wind Witch Boss
+      [
+        '..3333333...',
+        '.33*3333*33.',
+        '333333333333',
+        '#....33....#',
+        '.333333333..',
+        '..#......#..',
+      ],
+    ],
+
+    // SHADOW SMITH - Introduces SPAWNERS (S)
+    shadow_smith: [
+      // Level 1: Shadows - 1 spawner intro!
+      [
+        '22..22.S22..',
+        '..22..22..22',
+        '22..22..22..',
+        '..22..22..22',
+        '22..22..22..',
+        '..22..22..22',
+      ],
+      // Level 2: Corridor - spawner behind wall
+      [
+        '######S#####',
+        '#..........#',
+        '#.########.#',
+        '#.########.#',
+        '#..........#',
+        '############',
+      ],
+      // Level 3: Hidden chamber - 2 spawners
+      [
+        '33333S333333',
+        '3..........3',
+        '3.333..333.3',
+        '3.3.*..*.3.3',
+        '3.333..333.3',
+        '33333S333333',
+      ],
+      // Level 4: Forge - spawner + bumpers
+      [
+        '#.S#33#S.#..',
+        '.333333333..',
+        '.33O333O33..',
+        '.33#33#33...',
+        '.333333333..',
+        '#..#..#..#..',
+      ],
+      // Level 5: Anvil - protected spawner
+      [
+        '....3S33....',
+        '...333333...',
+        '..33333333..',
+        '333333333333',
+        '.....##.....',
+        '....####....',
+      ],
+      // Level 6: Crossed swords - spawner + portals
+      [
+        'S........S..',
+        '.3..@1..3...',
+        '..3....3....',
+        '...3333.....',
+        '..3....3....',
+        '.3..@1..3...',
+      ],
+      // Level 7: Dungeon - 3 spawners!
+      [
+        '#S#2#2#2#S#2',
+        '2.........2.',
+        '#.22..22..#.',
+        '2....S....2.',
+        '#.22..22..#.',
+        '#2#2#2#2#2#2',
+      ],
+      // Level 8: Shadow maze - spawner maze
+      [
+        '###S###.###.',
+        '..#...#...#.',
+        '.##.#.#S#.#.',
+        '.#..#.#.#...',
+        '.#.##.###.##',
+        'S..........#',
+      ],
+      // Level 9: The void
+      [
+        '333333333333',
+        '3#3#3#3#3#3#',
+        '333333333333',
+        '3*3*3*3*3*3*',
+        '333333333333',
+        '3#3#3#3#3#3#',
+      ],
+      // Level 10: Shadow Smith Boss
+      [
+        '#33#33#33#33',
+        '3333333333*3',
+        '33########33',
+        '33########33',
+        '3*3333333333',
+        '#33#33#33#33',
+      ],
+    ],
+
+    // FIRE PHOENIX - ALL FEATURES COMBINED (midpoint world!)
+    fire_phoenix: [
+      // Level 1: Embers - review bumpers
+      [
+        '..1.O.1...1.',
+        '.1.1.1.1.1..',
+        '1...1...1..1',
+        '.1.1.1.1.1..',
+        '..1.O.1...1.',
+        '............',
+      ],
+      // Level 2: Rising flames - bumpers + explosives
+      [
+        '.....O......',
+        '..2......2..',
+        '.222.O..222.',
+        '22222..22222',
+        '222222222222',
+        '33X333X33333',
+      ],
+      // Level 3: Fireball - portals
+      [
+        '@1..2222..@1',
+        '..22222222..',
+        '.2222222222.',
+        '.2222222222.',
+        '..22222222..',
+        '@2..2222..@2',
+      ],
+      // Level 4: Candles - spawners!
+      [
+        'S.1...1...1S',
+        '.222.222.222',
+        '.2#2.2#2.2#2',
+        '.2#2.2#2.2#2',
+        '.2#2.2#2.2#2',
+        '.###.###.###',
+      ],
+      // Level 5: Wings spread - all features!
+      [
+        'S..O....O..S',
+        '33........33',
+        '333.@1@1.333',
+        '33333333333.',
+        '.3333333333.',
+        '..33333333..',
+      ],
+      // Level 6: Inferno - intense combo
+      [
+        '1X1X1X1X1X1X',
+        '222O2222O222',
+        '33333S333333',
+        '333333333333',
+        '222O2222O222',
+        '1X1X1X1X1X1X',
+      ],
+      // Level 7: Phoenix rising - portal wings
+      [
+        '@1..33..@2..',
+        '...3333.....',
+        '..33O.33....',
+        '.33....33...',
+        '@2333333@1..',
+        '..333333....',
+      ],
+      // Level 8: Fire maze - everything!
+      [
+        '#S#333#.#333',
+        '.X.3O3.X.333',
+        '#@1333#@1333',
+        '333#.#333#.#',
+        '333.X.333.X.',
+        '333#.#333#.#',
+      ],
+      // Level 9: Volcano
+      [
+        '....XXX.....',
+        '...X333X....',
+        '..X33333X...',
+        '.X3333333X..',
+        '#333333333#.',
+        '############',
+      ],
+      // Level 10: Fire Phoenix Boss
+      [
+        '..*3333*33..',
+        '..33333333..',
+        '.3333##3333.',
+        '333333333333',
+        '3X33X33X33X3',
+        '#3#3#33#3#3#',
+      ],
+    ],
+  };
+
+  // Default fallback pattern for enemies without custom levels
+  const DEFAULT_LEVEL = [
+    '222222222222',
+    '222222222222',
+    '222222222222',
+    '222222222222',
+    '222222222222',
+    '222222222222',
+  ];
+
   // Game state
   const [gameState, setGameState] = useState('menu');
   const [paddle, setPaddle] = useState({ x: CANVAS_WIDTH / 2 - PADDLE_WIDTH / 2, width: PADDLE_WIDTH, vx: 0 });
@@ -41,6 +769,16 @@ const BreakoutGame = () => {
 
   // Gimmick state
   const [gimmickData, setGimmickData] = useState({});
+
+  // === ENEMY SYSTEM ===
+  const [enemies, setEnemies] = useState([]);
+  const [lastEnemySpawn, setLastEnemySpawn] = useState(0);
+  const [difficulty, setDifficulty] = useState(null); // Current difficulty settings
+
+  // === PINBALL FEATURES ===
+  const [bumpers, setBumpers] = useState([]); // Circular bounce objects
+  const [portals, setPortals] = useState([]); // Paired teleporters
+  const [spawners, setSpawners] = useState([]); // Enemy spawn points
 
   // Visual effects
   const [particles, setParticles] = useState([]);
@@ -634,125 +1372,162 @@ const BreakoutGame = () => {
     return healthTiers.length - 1;
   };
 
-  // Create brick layout with designed obstacle patterns
+  // Portal pair colors
+  const PORTAL_COLORS = [
+    { primary: '#4488ff', secondary: '#88bbff' }, // Blue
+    { primary: '#ff8844', secondary: '#ffbb88' }, // Orange
+    { primary: '#44ff88', secondary: '#88ffbb' }, // Green
+    { primary: '#ff44ff', secondary: '#ff88ff' }, // Purple
+  ];
+
+  // Create brick layout from hand-crafted level definitions
+  // Also creates bumpers, portals, and spawners
   const createBricks = useCallback((level, enemy) => {
     const newBricks = [];
+    const newBumpers = [];
+    const newPortals = [];
+    const newSpawners = [];
+    const portalPairs = {}; // Track portal pairs by number
 
-    // Obstacle patterns for each level - these are walls/barriers
-    // Returns positions where obstacles should be placed: [{row, col, health}]
-    const obstaclePatterns = [
-      // Level 1: No obstacles
-      [],
-      // Level 2: Simple horizontal bar
-      [{r: 3, c: 3}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 3, c: 6}],
-      // Level 3: Two pillars
-      [{r: 1, c: 2}, {r: 2, c: 2}, {r: 3, c: 2}, {r: 1, c: 7}, {r: 2, c: 7}, {r: 3, c: 7}],
-      // Level 4: V shape barrier
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 2}, {r: 4, c: 7}],
-      // Level 5: Horizontal bars on sides
-      [{r: 2, c: 0}, {r: 2, c: 1}, {r: 2, c: 2}, {r: 2, c: 7}, {r: 2, c: 8}, {r: 2, c: 9}],
-      // Level 6: Diamond in center
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 3}, {r: 3, c: 6}, {r: 4, c: 4}, {r: 4, c: 5}],
-      // Level 7: Maze-like with corridors
-      [{r: 1, c: 3}, {r: 2, c: 3}, {r: 3, c: 3}, {r: 1, c: 6}, {r: 2, c: 6}, {r: 4, c: 6},
-       {r: 4, c: 4}, {r: 4, c: 5}],
-      // Level 8: Cross pattern
-      [{r: 2, c: 4}, {r: 2, c: 5}, {r: 3, c: 4}, {r: 3, c: 5}, {r: 1, c: 4}, {r: 1, c: 5},
-       {r: 2, c: 3}, {r: 2, c: 6}],
-    ];
+    const enemyId = enemy?.id || 'brick_goblin';
+    const themeColor = ENEMY_THEME_COLORS[enemyId] || ENEMY_THEME_COLORS.brick_goblin;
 
-    // Brick layout patterns
-    const layoutPatterns = [
-      () => true, // Full grid
-      (r, c) => (r + c) % 2 === 0, // Checkerboard
-      (r, c) => r < 4, // Top heavy
-      (r, c) => Math.abs(c - 4.5) < (BRICK_ROWS - r), // Pyramid
-      (r, c) => r === 0 || r === BRICK_ROWS - 1 || c === 0 || c === BRICK_COLS - 1, // Border
-      (r, c) => (r < 2) || (r >= 4), // Gap in middle
-      (r, c) => Math.abs(r - 2.5) + Math.abs(c - 4.5) < 5, // Diamond
-      (r, c) => c < 3 || c > 6, // Side columns
-    ];
+    // Get level definition for this enemy
+    const enemyLevels = LEVEL_DEFINITIONS[enemyId] || LEVEL_DEFINITIONS.brick_goblin;
+    const levelIndex = Math.min(level - 1, enemyLevels.length - 1);
+    const levelDef = enemyLevels[levelIndex] || DEFAULT_LEVEL;
 
-    const layoutPattern = layoutPatterns[(level - 1) % layoutPatterns.length];
-    const obstacles = obstaclePatterns[(level - 1) % obstaclePatterns.length] || [];
-    const obstacleSet = new Set(obstacles.map(o => `${o.r}-${o.c}`));
+    // Global difficulty scaling (1-100)
+    const enemyIndex = enemyDefs.findIndex(e => e.id === enemyId) || 0;
+    const diff = getDifficulty(enemyIndex, level);
+    const healthBonus = diff.brickHealthBonus;
 
-    // Level-based scaling for brick health
-    const baseHealth = 1 + Math.floor(level / 3); // More health at higher levels
-    const maxExtraHealth = Math.min(level, 6); // Cap extra health
-    const powerUpChance = Math.max(0.12 - level * 0.01, 0.04);
+    for (let row = 0; row < levelDef.length; row++) {
+      const rowStr = levelDef[row];
+      for (let col = 0; col < rowStr.length && col < BRICK_COLS; col++) {
+        const char = rowStr[col];
+        if (char === '.') continue; // Empty space
 
-    // Add extra rows at higher levels
-    const extraRows = Math.min(Math.floor(level / 3), 2);
-    const totalRows = BRICK_ROWS + extraRows;
-
-    for (let row = 0; row < totalRows; row++) {
-      for (let col = 0; col < BRICK_COLS; col++) {
         const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
         const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
+        const centerX = x + BRICK_WIDTH / 2;
+        const centerY = y + BRICK_HEIGHT / 2;
 
-        // Check if this is an obstacle position
-        const isObstacle = obstacleSet.has(`${row}-${col}`);
+        // === PINBALL FEATURES ===
 
-        if (isObstacle) {
-          // Create indestructible obstacle
-          newBricks.push({
-            id: `${row}-${col}`,
-            x, y,
-            width: BRICK_WIDTH,
-            height: BRICK_HEIGHT,
-            health: 9999,
-            maxHealth: 9999,
-            type: 'obstacle',
-            color: '#2a2a4e',
-            invisible: false,
-            canRegenerate: false,
+        // Bumper (O)
+        if (char === 'O') {
+          newBumpers.push({
+            id: `bumper-${row}-${col}`,
+            x: centerX,
+            y: centerY,
+            radius: 18,
+            active: true,
+            hitTimer: 0, // For hit animation
+            points: 25,
+            color: themeColor.primary,
           });
           continue;
         }
 
-        // Apply layout pattern (skip if not part of pattern)
-        if (row < BRICK_ROWS && !layoutPattern(row, col)) continue;
+        // Portal (@1, @2, @3, @4 - pairs)
+        if (char === '@') {
+          // Check next char for pair number
+          const nextChar = col + 1 < rowStr.length ? rowStr[col + 1] : '1';
+          const pairNum = parseInt(nextChar) || 1;
+          const pairIndex = Math.min(pairNum - 1, 3);
 
-        // Determine brick health based on row and level
-        // Top rows are tougher
-        let health = baseHealth + Math.max(0, 3 - row);
+          const portal = {
+            id: `portal-${row}-${col}`,
+            x: centerX,
+            y: centerY,
+            radius: 20,
+            pairId: pairNum,
+            colors: PORTAL_COLORS[pairIndex],
+            animPhase: Math.random() * Math.PI * 2,
+            cooldown: 0, // Prevent instant re-teleport
+          };
 
-        // Add some randomness
-        if (Math.random() < 0.3) {
-          health += Math.floor(Math.random() * maxExtraHealth);
+          newPortals.push(portal);
+
+          // Track pairs
+          if (!portalPairs[pairNum]) portalPairs[pairNum] = [];
+          portalPairs[pairNum].push(portal);
+          continue;
+        }
+
+        // Portal pair number (skip, handled above)
+        if ('1234'.includes(char) && col > 0 && rowStr[col-1] === '@') {
+          continue;
+        }
+
+        // Spawner (S)
+        if (char === 'S') {
+          newSpawners.push({
+            id: `spawner-${row}-${col}`,
+            x: x,
+            y: y,
+            width: BRICK_WIDTH,
+            height: BRICK_HEIGHT,
+            health: 3 + Math.floor(level / 10), // 3-5 hits based on level
+            maxHealth: 3 + Math.floor(level / 10),
+            lastSpawn: Date.now(),
+            spawnInterval: 6000 - level * 30, // 6s down to 3s
+            shakeAmount: 0,
+            color: themeColor.primary,
+          });
+          continue;
+        }
+
+        // === BRICKS ===
+        let health, type, color;
+
+        switch (char) {
+          case '1': // 1-hit brick
+            health = 1 + healthBonus;
+            type = 'normal';
+            break;
+          case '2': // 2-hit brick
+            health = 2 + healthBonus;
+            type = 'normal';
+            break;
+          case '3': // 3-hit brick (strong)
+            health = 3 + healthBonus;
+            type = 'normal';
+            break;
+          case '#': // Indestructible obstacle
+            health = 9999;
+            type = 'obstacle';
+            break;
+          case '*': // Power-up brick
+            health = 1 + healthBonus;
+            type = 'powerup';
+            break;
+          case 'X': // Explosive brick
+            health = 1;
+            type = 'explosive';
+            break;
+          default:
+            continue; // Unknown character, skip
         }
 
         // Cap health
         health = Math.min(health, 12);
 
-        let type = 'normal';
-
-        // Power-up bricks
-        if (Math.random() < powerUpChance) {
-          type = 'powerup';
+        // Determine color
+        if (type === 'obstacle') {
+          color = '#2a2a4e';
+        } else if (type === 'explosive') {
+          color = '#ff4400';
+        } else if (type === 'powerup') {
+          color = '#ffd700';
+        } else {
+          color = getColorForHealth(health);
         }
 
-        // Explosive bricks at level 4+
-        if (level >= 4 && Math.random() < 0.05 && type !== 'powerup') {
-          type = 'explosive';
-          health = 1; // Explosives are fragile
-        }
-
-        // Boss brick for titan king
-        if (enemy?.gimmick === 'boss_bricks' && row === 0 && col === 4) {
-          health = 10 + level * 3;
-          type = 'boss';
-        }
-
-        // Invisible bricks
-        const invisChance = enemy?.gimmick === 'invisible_bricks' ? Math.min(0.2 + level * 0.05, 0.5) : 0;
-        const isInvisible = Math.random() < invisChance;
-
-        // Color is determined by health
-        const color = type === 'explosive' ? '#ff4400' :
-                      type === 'boss' ? '#ffd700' :
-                      getColorForHealth(health);
+        // Invisible bricks for Shadow Smith
+        const invisChance = enemy?.gimmick === 'invisible_bricks' ? Math.min(0.15 + level * 0.03, 0.4) : 0;
+        const isInvisible = type === 'normal' && Math.random() < invisChance;
 
         newBricks.push({
           id: `${row}-${col}`,
@@ -764,10 +1539,24 @@ const BreakoutGame = () => {
           type,
           color,
           invisible: isInvisible,
-          canRegenerate: enemy?.gimmick === 'regenerating_bricks' && Math.random() < 0.2,
+          canRegenerate: enemy?.gimmick === 'regenerating_bricks' && type === 'normal' && Math.random() < 0.15,
         });
       }
     }
+
+    // Link portal pairs
+    newPortals.forEach(portal => {
+      const pair = portalPairs[portal.pairId];
+      if (pair && pair.length === 2) {
+        const other = pair.find(p => p.id !== portal.id);
+        if (other) portal.linkedPortalId = other.id;
+      }
+    });
+
+    // Set pinball feature states
+    setBumpers(newBumpers);
+    setPortals(newPortals);
+    setSpawners(newSpawners);
 
     return newBricks;
   }, []);
@@ -1384,6 +2173,224 @@ const BreakoutGame = () => {
       // Decay brick hit flash
       setBricks(prev => prev.map(b => b.hitFlash > 0 ? { ...b, hitFlash: b.hitFlash - 0.1 * deltaTime } : b));
 
+      // === ENEMY SYSTEM UPDATE ===
+      // Spawn enemies based on difficulty
+      if (difficulty && enemies.length < difficulty.enemyCount) {
+        const timeSinceSpawn = now - lastEnemySpawn;
+        if (timeSinceSpawn > difficulty.enemySpawnRate) {
+          const newEnemy = spawnEnemy();
+          if (newEnemy) {
+            setEnemies(prev => [...prev, newEnemy]);
+            setLastEnemySpawn(now);
+          }
+        }
+      }
+
+      // Update enemy positions
+      updateEnemies(deltaTime * 16.67); // Pass actual ms delta
+
+      // Ball-Enemy collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached) return ball;
+
+          enemies.forEach(enemy => {
+            // Skip phased ghosts
+            if (enemy.isPhased) return;
+
+            // Circle-rectangle collision
+            const closestX = Math.max(enemy.x, Math.min(ball.x, enemy.x + enemy.width));
+            const closestY = Math.max(enemy.y, Math.min(ball.y, enemy.y + enemy.height));
+            const distX = ball.x - closestX;
+            const distY = ball.y - closestY;
+            const dist = Math.sqrt(distX * distX + distY * distY);
+
+            if (dist < BALL_RADIUS) {
+              // Hit enemy!
+              damageEnemy(enemy.id, ball.damage || 1);
+
+              // Bounce ball
+              if (Math.abs(distX) > Math.abs(distY)) {
+                ball.vx = -ball.vx;
+              } else {
+                ball.vy = -ball.vy;
+              }
+            }
+          });
+
+          return ball;
+        });
+      });
+
+      // === PINBALL FEATURE COLLISIONS ===
+
+      // Ball-Bumper collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached) return ball;
+
+          bumpers.forEach(bumper => {
+            const dx = ball.x - bumper.x;
+            const dy = ball.y - bumper.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < BALL_RADIUS + bumper.radius) {
+              // Hit bumper! Bounce with force
+              const angle = Math.atan2(dy, dx);
+              const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+              const boostSpeed = Math.max(speed * 1.2, ball.baseSpeed * 1.1); // Boost on hit
+
+              ball.vx = Math.cos(angle) * boostSpeed;
+              ball.vy = Math.sin(angle) * boostSpeed;
+
+              // Move ball outside bumper
+              ball.x = bumper.x + Math.cos(angle) * (BALL_RADIUS + bumper.radius + 2);
+              ball.y = bumper.y + Math.sin(angle) * (BALL_RADIUS + bumper.radius + 2);
+
+              // Score and visual feedback
+              setScore(s => s + bumper.points);
+              addFloatingText(bumper.x, bumper.y - 20, `+${bumper.points}`, bumper.color);
+
+              // Trigger hit animation
+              setBumpers(prev => prev.map(b =>
+                b.id === bumper.id ? { ...b, hitTimer: 10 } : b
+              ));
+            }
+          });
+
+          return ball;
+        });
+      });
+
+      // Ball-Portal collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached || ball.portalCooldown > 0) return ball;
+
+          for (const portal of portals) {
+            if (portal.cooldown > 0) continue;
+
+            const dx = ball.x - portal.x;
+            const dy = ball.y - portal.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < BALL_RADIUS + portal.radius * 0.6) {
+              // Find linked portal
+              const linkedPortal = portals.find(p => p.id === portal.linkedPortalId);
+              if (linkedPortal) {
+                // Teleport ball to linked portal
+                const exitAngle = Math.atan2(ball.vy, ball.vx);
+                ball.x = linkedPortal.x + Math.cos(exitAngle) * (linkedPortal.radius + BALL_RADIUS + 5);
+                ball.y = linkedPortal.y + Math.sin(exitAngle) * (linkedPortal.radius + BALL_RADIUS + 5);
+
+                // Set cooldown to prevent instant re-teleport
+                ball.portalCooldown = 30;
+
+                // Visual feedback
+                createParticles(portal.x, portal.y, portal.colors.primary, 8);
+                createParticles(linkedPortal.x, linkedPortal.y, linkedPortal.colors.secondary, 8);
+
+                // Set portal cooldowns
+                setPortals(prev => prev.map(p =>
+                  p.id === portal.id || p.id === linkedPortal.id
+                    ? { ...p, cooldown: 30 }
+                    : p
+                ));
+
+                break; // Only teleport once per frame
+              }
+            }
+          }
+
+          // Decay portal cooldown
+          if (ball.portalCooldown > 0) {
+            ball.portalCooldown--;
+          }
+
+          return ball;
+        });
+      });
+
+      // Ball-Spawner collision
+      setBalls(prevBalls => {
+        return prevBalls.map(ball => {
+          if (ball.attached) return ball;
+
+          spawners.forEach(spawner => {
+            if (spawner.health <= 0) return;
+
+            // Rectangle collision
+            const closestX = Math.max(spawner.x, Math.min(ball.x, spawner.x + spawner.width));
+            const closestY = Math.max(spawner.y, Math.min(ball.y, spawner.y + spawner.height));
+            const dx = ball.x - closestX;
+            const dy = ball.y - closestY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < BALL_RADIUS) {
+              // Damage spawner
+              setSpawners(prev => prev.map(s => {
+                if (s.id !== spawner.id) return s;
+                const newHealth = s.health - 1;
+                if (newHealth <= 0) {
+                  // Spawner destroyed!
+                  setScore(sc => sc + 200);
+                  addFloatingText(s.x + s.width/2, s.y, '+200 DESTROYED!', '#ffd700');
+                  createParticles(s.x + s.width/2, s.y + s.height/2, s.color, 20);
+                  return { ...s, health: 0 };
+                }
+                return { ...s, health: newHealth, shakeAmount: 8 };
+              }));
+
+              // Bounce ball
+              if (Math.abs(dx) > Math.abs(dy)) {
+                ball.vx = -ball.vx;
+              } else {
+                ball.vy = -ball.vy;
+              }
+            }
+          });
+
+          return ball;
+        });
+      });
+
+      // Update bumper hit timers
+      setBumpers(prev => prev.map(b => ({
+        ...b,
+        hitTimer: Math.max(0, b.hitTimer - deltaTime)
+      })));
+
+      // Update portal cooldowns
+      setPortals(prev => prev.map(p => ({
+        ...p,
+        cooldown: Math.max(0, p.cooldown - 1),
+        animPhase: p.animPhase + 0.05
+      })));
+
+      // Update spawners - spawn enemies and decay shake
+      setSpawners(prev => prev.map(s => {
+        if (s.health <= 0) return s;
+
+        let updated = { ...s, shakeAmount: Math.max(0, s.shakeAmount - 0.5) };
+
+        // Check if should spawn enemy
+        if (now - s.lastSpawn > s.spawnInterval && enemies.length < (difficulty?.enemyCount || 3) + 2) {
+          // Spawn an enemy from this spawner
+          const newEnemy = spawnEnemy();
+          if (newEnemy) {
+            // Position enemy at spawner
+            newEnemy.x = s.x + s.width / 2 - newEnemy.width / 2;
+            newEnemy.y = s.y + s.height;
+            setEnemies(e => [...e, newEnemy]);
+            updated.lastSpawn = now;
+            // Visual feedback
+            createParticles(s.x + s.width/2, s.y + s.height, s.color, 6);
+          }
+        }
+
+        return updated;
+      }));
+
       // Check level complete (obstacles don't count toward completion)
       setBricks(prev => {
         const remaining = prev.filter(b => b.health > 0 && b.type !== 'boss' && b.type !== 'obstacle');
@@ -1401,7 +2408,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel]);
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, paddle, spawnPowerUp, createParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners]);
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -1445,8 +2452,16 @@ const BreakoutGame = () => {
         showPowerUpAnnouncement('🐌', 'SLOW DOWN!', '#80c0ff', true);
         break;
       case 'life':
-        setLives(l => l + 1);
-        showPowerUpAnnouncement('❤️', 'EXTRA LIFE!', '#ff4444', true);
+        // Heal paddle (restore width)
+        setPaddle(p => {
+          const healAmount = 20;
+          const maxWidth = 200;
+          const newWidth = Math.min(maxWidth, p.width + healAmount);
+          const newPaddle = { ...p, width: newWidth };
+          paddleRef.current = newPaddle;
+          return newPaddle;
+        });
+        showPowerUpAnnouncement('💚', 'HEAL!', '#44ff66', true);
         break;
       case 'laser':
         setActiveEffects(e => [...e, 'laser']);
@@ -1544,11 +2559,10 @@ const BreakoutGame = () => {
     }
   };
 
-  const createBall = (level = 1) => {
-    // Ball speed increases with level (scaled for 2x canvas)
-    const baseSpeed = 7;
-    const speedBonus = Math.min(level * 0.6, 6); // Up to +6 speed at level 10
-    const totalSpeed = baseSpeed + speedBonus;
+  const createBall = (level = 1, enemyIndex = 0) => {
+    // Use difficulty system for ball speed (scales from level 1-100)
+    const diff = getDifficulty(enemyIndex, level);
+    const totalSpeed = diff.ballSpeed;
 
     // Use paddle position from ref for ball spawn location
     const currentPaddle = paddleRef.current;
@@ -1567,16 +2581,33 @@ const BreakoutGame = () => {
   };
 
   const handleBallLost = () => {
-    setLives(l => {
-      const newLives = l - 1;
-      if (newLives <= 0) {
+    // Paddle-as-health: shrink paddle when ball is lost
+    const PADDLE_DAMAGE = 15; // Pixels lost per ball drop
+    const MIN_PADDLE_WIDTH = 30; // Game over threshold
+
+    setPaddle(p => {
+      const newWidth = Math.max(MIN_PADDLE_WIDTH - 1, p.width - PADDLE_DAMAGE);
+      // Keep paddle centered after shrinking
+      const widthDiff = p.width - newWidth;
+      const newX = Math.max(0, Math.min(CANVAS_WIDTH - newWidth, p.x + widthDiff / 2));
+
+      if (newWidth < MIN_PADDLE_WIDTH) {
+        // Game over!
         handleGameOver();
       }
-      return newLives;
+
+      const newPaddle = { ...p, x: newX, width: newWidth };
+      paddleRef.current = newPaddle;
+      return newPaddle;
     });
+
     setCombo(0);
     setScreenShake(true);
     setTimeout(() => setScreenShake(false), 300);
+
+    // Visual feedback - flash red
+    setFlashColor('#ff4444');
+    setTimeout(() => setFlashColor(null), 150);
 
     // Spawn falling broken heart animation
     const heartX = CANVAS_WIDTH / 2;
@@ -1596,6 +2627,176 @@ const BreakoutGame = () => {
       ]
     }]);
   };
+
+  // === ENEMY SYSTEM ===
+  const spawnEnemy = useCallback(() => {
+    if (!difficulty) return null;
+
+    // Determine enemy type based on difficulty
+    const roll = Math.random();
+    let type;
+    if (difficulty.globalLevel >= 70 && roll < 0.15) {
+      type = 'miniboss';
+    } else if (difficulty.globalLevel >= 40 && roll < 0.35) {
+      type = 'ghost';
+    } else if (difficulty.globalLevel >= 20 && roll < 0.55) {
+      type = 'bat';
+    } else {
+      type = 'slime';
+    }
+
+    const sprite = ENEMY_SPRITES[type];
+    const enemyId = selectedEnemy?.id || 'brick_goblin';
+    const themeColors = ENEMY_THEME_COLORS[enemyId] || ENEMY_THEME_COLORS.brick_goblin;
+
+    // Spawn position - from top or sides
+    const side = Math.random();
+    let x, y, vx, vy;
+    const size = sprite.width * sprite.scale;
+
+    if (side < 0.6) {
+      // Top spawn
+      x = 100 + Math.random() * (CANVAS_WIDTH - 200);
+      y = -size;
+      vx = (Math.random() - 0.5) * 2 * difficulty.enemySpeed;
+      vy = (0.5 + Math.random() * 0.5) * difficulty.enemySpeed;
+    } else if (side < 0.8) {
+      // Left spawn
+      x = -size;
+      y = 100 + Math.random() * 200;
+      vx = (0.5 + Math.random() * 0.5) * difficulty.enemySpeed;
+      vy = (Math.random() - 0.5) * difficulty.enemySpeed;
+    } else {
+      // Right spawn
+      x = CANVAS_WIDTH + size;
+      y = 100 + Math.random() * 200;
+      vx = -(0.5 + Math.random() * 0.5) * difficulty.enemySpeed;
+      vy = (Math.random() - 0.5) * difficulty.enemySpeed;
+    }
+
+    return {
+      id: Date.now() + Math.random(),
+      type,
+      x, y, vx, vy,
+      health: sprite.health,
+      maxHealth: sprite.health,
+      frame: 0,
+      frameTimer: 0,
+      width: size,
+      height: size,
+      themeColors,
+      phaseTimer: 0, // For ghost phasing
+      isPhased: false,
+    };
+  }, [difficulty, selectedEnemy]);
+
+  const updateEnemies = useCallback((deltaTime) => {
+    if (!difficulty) return;
+
+    setEnemies(prevEnemies => {
+      return prevEnemies.map(enemy => {
+        const sprite = ENEMY_SPRITES[enemy.type];
+        let { x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased } = enemy;
+
+        // Update animation frame
+        frameTimer += deltaTime;
+        if (frameTimer > 200) { // 200ms per frame
+          frame = (frame + 1) % sprite.frames.length;
+          frameTimer = 0;
+        }
+
+        // Type-specific AI
+        switch (enemy.type) {
+          case 'slime':
+            // Bounces horizontally, drifts down slowly
+            x += vx;
+            y += vy * 0.3;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) {
+              vx = -vx;
+              x = Math.max(0, Math.min(CANVAS_WIDTH - enemy.width, x));
+            }
+            // Bounce off top area
+            if (y < 60) {
+              vy = Math.abs(vy);
+            }
+            break;
+
+          case 'bat':
+            // Sine wave movement
+            x += vx;
+            y += Math.sin(Date.now() / 300) * 2;
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) {
+              vx = -vx;
+            }
+            // Stay in upper half
+            if (y > CANVAS_HEIGHT / 2) {
+              vy = -Math.abs(vy);
+            } else if (y < 60) {
+              vy = Math.abs(vy);
+            }
+            y += vy * 0.2;
+            break;
+
+          case 'ghost':
+            // Phases in and out, drifts toward ball
+            phaseTimer += deltaTime;
+            if (phaseTimer > 2000) {
+              isPhased = !isPhased;
+              phaseTimer = 0;
+            }
+            // Slow drift
+            x += vx * 0.5;
+            y += vy * 0.5;
+            // Bounce off walls
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2) vy = -vy;
+            break;
+
+          case 'miniboss':
+            // Slow, deliberate movement
+            x += vx * 0.3;
+            y += vy * 0.2;
+            // Stay in play area
+            if (x <= 0 || x >= CANVAS_WIDTH - enemy.width) vx = -vx;
+            if (y <= 60 || y >= CANVAS_HEIGHT / 2 - 50) vy = -vy;
+            break;
+        }
+
+        // Keep in bounds vertically (don't go below middle of screen)
+        y = Math.max(60, Math.min(CANVAS_HEIGHT / 2, y));
+
+        return { ...enemy, x, y, vx, vy, frame, frameTimer, phaseTimer, isPhased };
+      }).filter(enemy => {
+        // Remove enemies that somehow got way off screen
+        return enemy.y < CANVAS_HEIGHT && enemy.x > -100 && enemy.x < CANVAS_WIDTH + 100;
+      });
+    });
+  }, [difficulty]);
+
+  const damageEnemy = useCallback((enemyId, damage = 1) => {
+    setEnemies(prev => {
+      const updated = prev.map(enemy => {
+        if (enemy.id === enemyId) {
+          const newHealth = enemy.health - damage;
+          if (newHealth <= 0) {
+            // Enemy killed - reward player
+            const sprite = ENEMY_SPRITES[enemy.type];
+            setScore(s => s + sprite.points);
+            setPaddle(p => ({ ...p, width: Math.min(200, p.width + sprite.paddleReward) }));
+            addFloatingText(enemy.x + enemy.width/2, enemy.y, `+${sprite.points}`, '#ffdd44');
+
+            // Spawn particles
+            createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, enemy.themeColors.primary, 15);
+
+            return null; // Mark for removal
+          }
+          return { ...enemy, health: newHealth };
+        }
+        return enemy;
+      });
+      return updated.filter(e => e !== null);
+    });
+  }, [addFloatingText, createParticles]);
 
   const handleLevelComplete = () => {
     const completedLevel = currentLevel;
@@ -1651,6 +2852,11 @@ const BreakoutGame = () => {
 
   // Start a specific level
   const startLevel = (level, fresh = false) => {
+    // Calculate difficulty based on enemy and level
+    const enemyIndex = enemyDefs.findIndex(e => e.id === selectedEnemy?.id) || 0;
+    const diff = getDifficulty(enemyIndex, level);
+    setDifficulty(diff);
+
     // If fresh start (from level select, not continuing), reset everything
     if (fresh || !victoryInfo) {
       setScore(0);
@@ -1668,13 +2874,18 @@ const BreakoutGame = () => {
     setVictoryInfo(null);
     setCurrentLevel(level);
     setBricks(createBricks(level, selectedEnemy));
-    setBalls([createBall(level)]);
+    setBalls([createBall(level, enemyIndex)]);
     setPowerUps([]);
     setActiveEffects([]);
-    const startingWidth = PADDLE_WIDTH + (stats.upgrades.paddleSize * 10);
+    // Paddle width scales with difficulty (smaller at higher levels)
+    const baseWidth = Math.round(diff.basePaddleWidth);
+    const startingWidth = baseWidth + (stats.upgrades.paddleSize * 10);
     const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
     setPaddle(nextPaddle);
     paddleRef.current = nextPaddle;
+    // Reset enemy system
+    setEnemies([]);
+    setLastEnemySpawn(Date.now());
     setGameState('playing');
     setIsPaused(false);
   };
@@ -1818,11 +3029,33 @@ const BreakoutGame = () => {
         </div>
         <div style={{ textAlign: 'center' }}>
           <span style={{ fontSize: '12px', color: '#888' }}>Level {currentLevel}</span>
-          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '4px' }}>
-            {Array.from({ length: lives }).map((_, i) => (
-              <span key={i} style={{ fontSize: '16px' }}>❤️</span>
-            ))}
+          {/* Paddle Health Bar */}
+          <div style={{
+            width: '80px',
+            height: '10px',
+            background: 'rgba(0,0,0,0.5)',
+            borderRadius: '5px',
+            overflow: 'hidden',
+            marginTop: '4px',
+            border: '1px solid rgba(255,255,255,0.2)',
+          }}>
+            {(() => {
+              const healthRatio = Math.min(1, Math.max(0, (paddle.width - 30) / 90));
+              const barColor = healthRatio < 0.33 ? '#ff4444' : healthRatio < 0.66 ? '#ffcc44' : '#44ff66';
+              return (
+                <div style={{
+                  width: `${healthRatio * 100}%`,
+                  height: '100%',
+                  background: barColor,
+                  transition: 'width 0.2s, background 0.3s',
+                  boxShadow: `0 0 6px ${barColor}`,
+                }} />
+              );
+            })()}
           </div>
+          <span style={{ fontSize: '10px', color: '#666', marginTop: '2px', display: 'block' }}>
+            {Math.round(paddle.width)}px
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '24px' }}>{selectedEnemy?.emoji}</span>
@@ -2058,6 +3291,143 @@ const BreakoutGame = () => {
           </div>
         ))}
 
+        {/* === PINBALL FEATURES === */}
+
+        {/* Bumpers */}
+        {bumpers.map(bumper => (
+          <div
+            key={bumper.id}
+            style={{
+              position: 'absolute',
+              left: bumper.x - bumper.radius,
+              top: bumper.y - bumper.radius,
+              width: bumper.radius * 2,
+              height: bumper.radius * 2,
+              borderRadius: '50%',
+              background: `radial-gradient(circle at 30% 30%, ${bumper.color}ff 0%, ${bumper.color}aa 50%, ${bumper.color}66 100%)`,
+              border: `3px solid ${bumper.color}`,
+              boxShadow: bumper.hitTimer > 0
+                ? `0 0 20px ${bumper.color}, 0 0 40px ${bumper.color}, inset 0 0 15px rgba(255,255,255,0.5)`
+                : `0 0 10px ${bumper.color}88, inset 0 -3px 6px rgba(0,0,0,0.3)`,
+              transform: bumper.hitTimer > 0 ? 'scale(1.2)' : 'scale(1)',
+              transition: 'transform 0.1s, box-shadow 0.1s',
+            }}
+          >
+            {/* Inner ring */}
+            <div style={{
+              position: 'absolute',
+              inset: '20%',
+              borderRadius: '50%',
+              background: bumper.hitTimer > 0
+                ? 'radial-gradient(circle, #ffffff 0%, #ffffffaa 100%)'
+                : `radial-gradient(circle, ${bumper.color}dd 0%, ${bumper.color}88 100%)`,
+              boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)',
+            }} />
+          </div>
+        ))}
+
+        {/* Portals */}
+        {portals.map(portal => {
+          if (!portal.linkedPortalId) return null; // Don't render unpaired portals
+          const pulseSize = Math.sin(portal.animPhase) * 3;
+          return (
+            <div
+              key={portal.id}
+              style={{
+                position: 'absolute',
+                left: portal.x - portal.radius - pulseSize,
+                top: portal.y - portal.radius - pulseSize,
+                width: (portal.radius + pulseSize) * 2,
+                height: (portal.radius + pulseSize) * 2,
+                borderRadius: '50%',
+                background: `conic-gradient(from ${portal.animPhase}rad, ${portal.colors.primary}, ${portal.colors.secondary}, ${portal.colors.primary})`,
+                opacity: portal.cooldown > 0 ? 0.5 : 1,
+                boxShadow: `0 0 15px ${portal.colors.primary}, inset 0 0 20px ${portal.colors.secondary}88`,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {/* Inner void */}
+              <div style={{
+                position: 'absolute',
+                inset: '25%',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, #000000 0%, #111122 100%)',
+                boxShadow: 'inset 0 0 10px rgba(0,0,0,0.8)',
+              }} />
+              {/* Swirl effect */}
+              <div style={{
+                position: 'absolute',
+                inset: '10%',
+                borderRadius: '50%',
+                background: `conic-gradient(from ${-portal.animPhase * 2}rad, transparent 0%, ${portal.colors.primary}44 25%, transparent 50%, ${portal.colors.secondary}44 75%, transparent 100%)`,
+              }} />
+            </div>
+          );
+        })}
+
+        {/* Spawners */}
+        {spawners.map(spawner => spawner.health > 0 && (
+          <div
+            key={spawner.id}
+            style={{
+              position: 'absolute',
+              left: spawner.x + (Math.random() - 0.5) * spawner.shakeAmount,
+              top: spawner.y + (Math.random() - 0.5) * spawner.shakeAmount,
+              width: spawner.width,
+              height: spawner.height,
+              borderRadius: '6px',
+              background: `linear-gradient(180deg,
+                ${spawner.health <= 1 ? '#ff4444' : spawner.health <= 2 ? '#ff8844' : '#333'}ee 0%,
+                #1a1a2e 50%,
+                #0a0a1e 100%)`,
+              border: `3px solid ${spawner.health <= 1 ? '#ff4444' : spawner.health <= 2 ? '#ff8844' : spawner.color}`,
+              boxShadow: `0 0 ${spawner.shakeAmount > 0 ? 20 : 10}px ${spawner.health <= 1 ? '#ff4444' : spawner.color}88,
+                         inset 0 -5px 15px rgba(0,0,0,0.5)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Cave/door opening */}
+            <div style={{
+              width: '60%',
+              height: '70%',
+              background: 'radial-gradient(ellipse at center bottom, #000 0%, #111 60%, transparent 100%)',
+              borderRadius: '50% 50% 0 0',
+              boxShadow: 'inset 0 -5px 10px rgba(0,0,0,0.8)',
+            }} />
+            {/* Eyes in the darkness */}
+            <div style={{
+              position: 'absolute',
+              display: 'flex',
+              gap: '8px',
+              top: '30%',
+            }}>
+              <div style={{ width: 6, height: 6, background: spawner.color, borderRadius: '50%', boxShadow: `0 0 6px ${spawner.color}` }} />
+              <div style={{ width: 6, height: 6, background: spawner.color, borderRadius: '50%', boxShadow: `0 0 6px ${spawner.color}` }} />
+            </div>
+            {/* Health indicator */}
+            <div style={{
+              position: 'absolute',
+              bottom: 2,
+              left: '10%',
+              right: '10%',
+              height: 3,
+              background: '#000',
+              borderRadius: 2,
+            }}>
+              <div style={{
+                width: `${(spawner.health / spawner.maxHealth) * 100}%`,
+                height: '100%',
+                background: spawner.health <= 1 ? '#ff4444' : spawner.health <= 2 ? '#ffaa44' : '#44ff44',
+                borderRadius: 2,
+                transition: 'width 0.2s',
+              }} />
+            </div>
+          </div>
+        ))}
+
         {/* Power-ups */}
         {powerUps.map(pu => (
           <div
@@ -2081,6 +3451,77 @@ const BreakoutGame = () => {
             {pu.emoji}
           </div>
         ))}
+
+        {/* Enemies */}
+        {enemies.map(enemy => {
+          const sprite = ENEMY_SPRITES[enemy.type];
+          const frameData = sprite.frames[enemy.frame];
+          const pixelSize = sprite.scale;
+          const themeColor = enemy.themeColors.primary;
+
+          return (
+            <div
+              key={enemy.id}
+              style={{
+                position: 'absolute',
+                left: enemy.x,
+                top: enemy.y,
+                width: enemy.width,
+                height: enemy.height,
+                opacity: enemy.isPhased ? 0.4 : 1,
+                transition: 'opacity 0.3s',
+                filter: enemy.health < enemy.maxHealth ? 'brightness(1.3)' : 'none',
+              }}
+            >
+              {/* Pixel art rendering */}
+              <svg width={enemy.width} height={enemy.height} style={{ display: 'block' }}>
+                {frameData.map((row, y) =>
+                  row.split('').map((char, x) => {
+                    if (char === '.') return null;
+                    // Get color - use theme color for main body, keep special colors
+                    let color = sprite.colors[char];
+                    if (!color) return null;
+                    // Replace primary color with theme
+                    if (char === 'G' || char === 'P' || char === 'R') {
+                      color = themeColor;
+                    }
+                    return (
+                      <rect
+                        key={`${x}-${y}`}
+                        x={x * pixelSize}
+                        y={y * pixelSize}
+                        width={pixelSize}
+                        height={pixelSize}
+                        fill={color}
+                      />
+                    );
+                  })
+                )}
+              </svg>
+              {/* Health bar for multi-hit enemies */}
+              {enemy.maxHealth > 1 && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: enemy.width * 0.8,
+                  height: 4,
+                  background: '#333',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${(enemy.health / enemy.maxHealth) * 100}%`,
+                    height: '100%',
+                    background: enemy.health > enemy.maxHealth / 2 ? '#44dd44' : enemy.health > 1 ? '#dddd44' : '#dd4444',
+                    transition: 'width 0.1s',
+                  }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Balls */}
         {balls.map(ball => {
@@ -2124,30 +3565,52 @@ const BreakoutGame = () => {
         );
         })}
 
-        {/* Paddle */}
-        <div style={{
-          position: 'absolute',
-          left: paddle.x,
-          top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
-          width: paddle.width,
-          height: PADDLE_HEIGHT,
-          background: activeEffects.includes('frozen')
+        {/* Paddle - color changes based on health (width) */}
+        {(() => {
+          // Calculate paddle health ratio (30px = dead, 120px = full, 200px = max)
+          const healthRatio = Math.min(1, (paddle.width - 30) / 90); // 0-1 scale
+          const isLowHealth = healthRatio < 0.33;
+          const isMedHealth = healthRatio < 0.66;
+
+          // Health-based colors
+          const healthGradient = activeEffects.includes('frozen')
             ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
             : activeEffects.includes('laser')
               ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
               : isDashing
                 ? 'linear-gradient(180deg, #ffd700, #ff8800)'
-                : 'linear-gradient(180deg, #60a0ff, #4080e0)',
-          borderRadius: '6px',
-          boxShadow: activeEffects.includes('frozen')
+                : isLowHealth
+                  ? 'linear-gradient(180deg, #ff6060, #dd4040)'
+                  : isMedHealth
+                    ? 'linear-gradient(180deg, #ffcc60, #ddaa40)'
+                    : 'linear-gradient(180deg, #60ff80, #40dd60)';
+
+          const healthGlow = activeEffects.includes('frozen')
             ? '0 0 20px #80e0ff'
             : activeEffects.includes('laser')
               ? '0 0 20px #ff60ff'
               : isDashing
                 ? '0 0 25px #ffd700'
-                : '0 0 15px rgba(96, 160, 255, 0.5)',
-          transition: isDashing ? 'none' : 'left 0.05s',
-        }} />
+                : isLowHealth
+                  ? '0 0 20px #ff6060'
+                  : isMedHealth
+                    ? '0 0 15px #ffcc60'
+                    : '0 0 15px #60ff80';
+
+          return (
+            <div style={{
+              position: 'absolute',
+              left: paddle.x,
+              top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM,
+              width: paddle.width,
+              height: PADDLE_HEIGHT,
+              background: healthGradient,
+              borderRadius: '6px',
+              boxShadow: healthGlow,
+              transition: isDashing ? 'none' : 'left 0.05s, width 0.2s, background 0.3s',
+            }} />
+          );
+        })()}
 
         {/* Twin Paddle (Teddy Twins ability) */}
         {twinPaddle?.active && (
@@ -2542,157 +4005,359 @@ const BreakoutGame = () => {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '40px',
+      padding: '40px 20px',
       color: '#fff',
       minHeight: '100vh',
       overflowY: 'auto',
+      background: 'radial-gradient(ellipse at top, rgba(96, 160, 255, 0.1) 0%, transparent 50%)',
     }}>
-      <h2 style={{
-        fontSize: '32px',
-        fontWeight: '800',
-        marginBottom: '8px',
-        color: '#60a0ff',
-      }}>Choose Your Challenge</h2>
-      <p style={{ color: '#6a6a8a', marginBottom: '30px' }}>Each enemy has unique brick abilities</p>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+        <h2 style={{
+          fontSize: '38px',
+          fontWeight: '800',
+          marginBottom: '10px',
+          background: 'linear-gradient(135deg, #60a0ff, #a060ff)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 40px rgba(96, 160, 255, 0.3)',
+        }}>Choose Your Challenge</h2>
+        <p style={{ color: '#6a6a8a', fontSize: '15px' }}>Each enemy has unique brick abilities</p>
+      </div>
 
+      {/* Enemy Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '16px',
-        maxWidth: '900px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '20px',
+        maxWidth: '1000px',
         width: '100%',
+        padding: '0 10px',
       }}>
         {enemyDefs.map((enemy, idx) => {
           const bestScore = stats.highScores[enemy.id] || 0;
           const isUnlocked = isEnemyUnlocked(idx);
-          const stars = getEnemyStars(enemy.id);
-          const isComplete = isEnemyComplete(enemy.id);
           const highestLevel = stats.highestLevels[enemy.id] || 0;
           const totalLevelStars = getTotalStarsForEnemy(enemy.id);
-          const maxPossibleStars = MAX_LEVELS * 3; // 3 stars per level
+          const maxPossibleStars = MAX_LEVELS * 3;
           const isPerfected = totalLevelStars >= maxPossibleStars;
+          const isAllLevelsComplete = highestLevel >= MAX_LEVELS;
+          const progressPercent = (totalLevelStars / maxPossibleStars) * 100;
+
           return (
             <div
               key={enemy.id}
               onClick={() => isUnlocked && selectEnemy(enemy)}
               style={{
-                background: !isUnlocked
-                  ? 'rgba(40, 40, 40, 0.5)'
-                  : isComplete
-                    ? `linear-gradient(135deg, ${enemy.color}33, ${enemy.accentColor}22)`
-                    : `linear-gradient(135deg, ${enemy.color}22, ${enemy.accentColor}11)`,
-                border: `2px solid ${isUnlocked ? enemy.color : '#444'}44`,
-                borderRadius: '12px',
-                padding: '20px',
+                background: isUnlocked
+                  ? `linear-gradient(180deg, rgba(30,35,50,0.95) 0%, rgba(20,25,40,0.98) 100%)`
+                  : 'linear-gradient(180deg, rgba(20,20,25,0.9) 0%, rgba(15,15,20,0.95) 100%)',
+                border: 'none',
+                borderRadius: '20px',
+                padding: '0',
                 cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                transition: 'all 0.2s',
-                opacity: isUnlocked ? 1 : 0.5,
+                transition: 'all 0.25s ease',
+                opacity: isUnlocked ? 1 : 0.6,
                 position: 'relative',
+                overflow: 'hidden',
+                boxShadow: isUnlocked
+                  ? `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)`
+                  : 'inset 0 -2px 10px rgba(0,0,0,0.5)',
               }}
-              onMouseOver={(e) => {
+              onMouseEnter={(e) => {
                 if (isUnlocked) {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.borderColor = enemy.color;
-                  e.currentTarget.style.boxShadow = `0 8px 30px ${enemy.color}33`;
+                  e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+                  e.currentTarget.style.boxShadow = `0 12px 40px ${enemy.color}33, inset 0 1px 0 rgba(255,255,255,0.1)`;
                 }
               }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = `${isUnlocked ? enemy.color : '#444'}44`;
-                e.currentTarget.style.boxShadow = 'none';
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = isUnlocked
+                  ? `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)`
+                  : 'inset 0 -2px 10px rgba(0,0,0,0.5)';
               }}
             >
+              {/* Color accent bar at top */}
+              <div style={{
+                height: '4px',
+                background: isUnlocked
+                  ? `linear-gradient(90deg, ${enemy.color}, ${enemy.accentColor})`
+                  : 'rgba(60,60,60,0.5)',
+                boxShadow: isUnlocked ? `0 0 15px ${enemy.color}66` : 'none',
+              }} />
+
+              {/* Badge */}
+              {isUnlocked && (isPerfected || isAllLevelsComplete) && (
+                <div style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  fontSize: '11px',
+                  background: isPerfected
+                    ? 'linear-gradient(135deg, #ffd700, #ff8c00)'
+                    : `linear-gradient(135deg, ${enemy.color}, ${enemy.accentColor})`,
+                  color: isPerfected ? '#000' : '#fff',
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  fontWeight: '800',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  boxShadow: isPerfected ? '0 0 15px rgba(255,215,0,0.5)' : `0 0 10px ${enemy.color}44`,
+                }}>{isPerfected ? '⭐ Perfect' : '✓ Done'}</div>
+              )}
+
+              {/* Lock overlay */}
               {!isUnlocked && (
                 <div style={{
                   position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  fontSize: '18px',
-                  background: 'rgba(0,0,0,0.5)',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0,0,0,0.4)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}>🔒</div>
-              )}
-              {(highestLevel >= MAX_LEVELS || isPerfected) && (
-                <div style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  fontSize: '12px',
-                  background: isPerfected ? 'linear-gradient(135deg, #ffd700, #ff8c00)' : `${enemy.color}40`,
-                  color: isPerfected ? '#000' : enemy.color,
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontWeight: '700',
-                  boxShadow: isPerfected ? '0 0 10px rgba(255,215,0,0.5)' : 'none',
-                }}>{isPerfected ? '⭐ PERFECTED' : '✓ COMPLETED'}</div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{
-                  fontSize: '40px',
-                  width: '60px',
-                  height: '60px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: isUnlocked ? `${enemy.color}33` : 'rgba(60,60,60,0.5)',
-                  borderRadius: '12px',
-                }}>{isUnlocked ? enemy.emoji : '🔒'}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700', fontSize: '18px', color: isUnlocked ? enemy.color : '#666' }}>{enemy.name}</div>
-                  <div style={{ fontSize: '12px', color: isUnlocked ? '#888' : '#555' }}>{enemy.title}</div>
-                  <div style={{ fontSize: '11px', color: isUnlocked ? '#666' : '#444', marginTop: '4px' }}>{enemy.gimmickDesc}</div>
+                  flexDirection: 'column',
+                  gap: '10px',
+                  zIndex: 10,
+                }}>
+                  <span style={{ fontSize: '40px' }}>🔒</span>
+                  <span style={{ fontSize: '12px', color: '#666' }}>
+                    Defeat {enemyDefs[idx - 1]?.name || 'previous enemy'} to unlock
+                  </span>
                 </div>
-              </div>
-              {/* Level and star progress */}
-              {isUnlocked && (
-                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '13px', color: '#aaa' }}>
-                      Level <span style={{ color: enemy.color, fontWeight: '700' }}>{highestLevel}/{MAX_LEVELS}</span>
+              )}
+
+              {/* Content */}
+              <div style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '16px' }}>
+                  {/* Enemy Avatar */}
+                  <div style={{
+                    fontSize: '50px',
+                    width: '75px',
+                    height: '75px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isUnlocked
+                      ? `radial-gradient(circle, ${enemy.color}33 0%, transparent 70%)`
+                      : 'radial-gradient(circle, rgba(60,60,60,0.3) 0%, transparent 70%)',
+                    borderRadius: '50%',
+                    border: isUnlocked ? `2px solid ${enemy.color}44` : '2px solid rgba(60,60,60,0.3)',
+                    flexShrink: 0,
+                  }}>{enemy.emoji}</div>
+
+                  {/* Enemy Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: '800',
+                      fontSize: '22px',
+                      color: isUnlocked ? '#fff' : '#555',
+                      textShadow: isUnlocked ? `0 0 20px ${enemy.color}44` : 'none',
+                      marginBottom: '2px',
+                    }}>{enemy.name}</div>
+                    <div style={{
+                      fontSize: '13px',
+                      color: isUnlocked ? enemy.color : '#444',
+                      fontWeight: '600',
+                      marginBottom: '6px',
+                    }}>{enemy.title}</div>
+                    <div style={{
+                      fontSize: '12px',
+                      color: isUnlocked ? 'rgba(255,255,255,0.5)' : '#333',
+                      lineHeight: '1.4',
+                    }}>{enemy.gimmickDesc}</div>
+                  </div>
+                </div>
+
+                {/* Progress Section */}
+                {isUnlocked && (
+                  <div style={{
+                    background: 'rgba(0,0,0,0.25)',
+                    borderRadius: '12px',
+                    padding: '14px 16px',
+                  }}>
+                    {/* Progress Bar */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '6px',
+                      }}>
+                        <span style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Progress
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#ffd700', fontWeight: '700' }}>
+                          ⭐ {totalLevelStars}/{maxPossibleStars}
+                        </span>
+                      </div>
+                      <div style={{
+                        width: '100%',
+                        height: '6px',
+                        background: 'rgba(0,0,0,0.4)',
+                        borderRadius: '3px',
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: `${progressPercent}%`,
+                          height: '100%',
+                          background: isPerfected
+                            ? 'linear-gradient(90deg, #ffd700, #ff8c00)'
+                            : `linear-gradient(90deg, ${enemy.color}, ${enemy.accentColor})`,
+                          borderRadius: '3px',
+                          boxShadow: `0 0 8px ${isPerfected ? '#ffd700' : enemy.color}`,
+                          transition: 'width 0.3s ease',
+                        }} />
+                      </div>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#666' }}>
-                      ⭐ {totalLevelStars}/{maxPossibleStars}
+
+                    {/* Stats Row */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#555' }}>Level </span>
+                        <span style={{
+                          fontSize: '16px',
+                          fontWeight: '800',
+                          color: enemy.color,
+                        }}>{highestLevel}</span>
+                        <span style={{ fontSize: '12px', color: '#444' }}>/{MAX_LEVELS}</span>
+                      </div>
+                      {bestScore > 0 && (
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '10px', color: '#555', textTransform: 'uppercase' }}>Best</div>
+                          <div style={{ fontSize: '16px', color: '#ffd700', fontWeight: '700' }}>{bestScore}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {bestScore > 0 && (
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '10px', color: '#666' }}>Best Score</div>
-                      <div style={{ fontSize: '14px', color: '#ffd700', fontWeight: '600' }}>{bestScore}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {!isUnlocked && idx > 0 && (
-                <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
-                  Defeat {enemyDefs[idx - 1].name} to unlock
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })}
       </div>
 
+      {/* Back Button */}
       <button
         onClick={() => setGameState('menu')}
         style={{
-          marginTop: '30px',
-          padding: '10px 24px',
-          background: 'rgba(255,255,255,0.1)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          borderRadius: '8px',
-          color: '#8888aa',
+          marginTop: '40px',
+          padding: '14px 32px',
+          background: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: '14px',
+          color: '#888',
           cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: '600',
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+          e.currentTarget.style.color = '#fff';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+          e.currentTarget.style.color = '#888';
         }}
       >
-        ← Back
+        ← Back to Menu
       </button>
     </div>
   );
+
+  // Generate mini preview grid for a level
+  const renderLevelPreview = (level, color, isLocked, enemyId) => {
+    // Get level definition from LEVEL_DEFINITIONS
+    const enemyLevels = LEVEL_DEFINITIONS[enemyId] || LEVEL_DEFINITIONS.brick_goblin;
+    const levelIndex = Math.min(level - 1, enemyLevels.length - 1);
+    const levelDef = enemyLevels[levelIndex];
+
+    const PREVIEW_COLS = 12; // Match level definition width
+    const PREVIEW_ROWS = levelDef.length;
+
+    // Color mapping for brick types and pinball features
+    const getBrickColor = (char, baseColor) => {
+      if (isLocked) {
+        switch (char) {
+          case '#': return '#222';
+          case 'X': return '#331111';
+          case '*': return '#112211';
+          case 'O': return '#333'; // Bumper
+          case '@': return '#224'; // Portal
+          case 'S': return '#322'; // Spawner
+          default: return '#1a1a1a';
+        }
+      }
+      switch (char) {
+        case '1': return baseColor;
+        case '2': return baseColor;
+        case '3': return baseColor;
+        case '#': return '#4a4a6e'; // Indestructible - gray/purple
+        case '*': return '#44cc44'; // Powerup - green
+        case 'X': return '#ff6644'; // Explosive - orange/red
+        case 'O': return '#ffcc44'; // Bumper - yellow
+        case '@': return '#4488ff'; // Portal - blue
+        case 'S': return '#aa44aa'; // Spawner - purple
+        default: return 'transparent';
+      }
+    };
+
+    const getBrickOpacity = (char, row) => {
+      if (isLocked) return 0.3;
+      switch (char) {
+        case '1': return 0.5 + row * 0.05;
+        case '2': return 0.7 + row * 0.04;
+        case '3': return 0.85 + row * 0.02;
+        case '#': return 1;
+        case '*': return 0.9;
+        case 'X': return 0.95;
+        case 'O': return 1; // Bumper
+        case '@': return 0.8; // Portal
+        case 'S': return 1; // Spawner
+        default: return 0;
+      }
+    };
+
+    const cells = [];
+    for (let r = 0; r < PREVIEW_ROWS; r++) {
+      const rowStr = levelDef[r] || '';
+      for (let c = 0; c < PREVIEW_COLS; c++) {
+        const char = c < rowStr.length ? rowStr[c] : '.';
+        const cellColor = getBrickColor(char, color);
+        const opacity = getBrickOpacity(char, r);
+
+        cells.push(
+          <div key={`${r}-${c}`} style={{
+            width: '5px',
+            height: '4px',
+            background: cellColor,
+            borderRadius: '1px',
+            opacity: opacity,
+          }} />
+        );
+      }
+    }
+
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${PREVIEW_COLS}, 5px)`,
+        gap: '1px',
+        padding: '4px',
+        background: 'rgba(0,0,0,0.3)',
+        borderRadius: '6px',
+      }}>
+        {cells}
+      </div>
+    );
+  };
 
   // Level Select Screen
   const renderLevelSelect = () => {
@@ -2703,86 +4368,176 @@ const BreakoutGame = () => {
     const hasVictory = victoryInfo !== null;
     const nextLevel = hasVictory ? victoryInfo.level + 1 : 1;
     const canContinue = nextLevel <= MAX_LEVELS;
+    const totalStars = getTotalStarsForEnemy(enemyId);
+    const maxStars = MAX_LEVELS * 3;
 
     return (
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '40px',
+        padding: '30px 20px',
         color: '#fff',
         minHeight: '100vh',
+        background: `radial-gradient(ellipse at top, ${enemyColor}15 0%, transparent 50%)`,
       }}>
-        {/* Victory Banner */}
+        {/* Victory Celebration */}
         {hasVictory && (
           <div style={{
-            background: `linear-gradient(135deg, ${enemyColor}33, ${enemyAccent}22)`,
-            border: `2px solid ${enemyColor}`,
-            borderRadius: '16px',
-            padding: '20px 40px',
-            marginBottom: '30px',
+            background: `linear-gradient(180deg, ${enemyColor}22 0%, transparent 100%)`,
+            borderBottom: `2px solid ${enemyColor}44`,
+            padding: '25px 50px',
+            marginBottom: '20px',
             textAlign: 'center',
-            boxShadow: `0 0 30px ${enemyColor}33`,
+            width: '100%',
+            maxWidth: '600px',
+            position: 'relative',
           }}>
-            <h2 style={{ color: '#ffd700', fontSize: '28px', margin: '0 0 10px 0' }}>
-              Level {victoryInfo.level} Complete! 🎉
+            <div style={{
+              position: 'absolute',
+              top: '-10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'linear-gradient(135deg, #ffd700, #ffaa00)',
+              color: '#000',
+              padding: '6px 20px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: '800',
+              letterSpacing: '1px',
+            }}>VICTORY</div>
+            <h2 style={{
+              color: '#fff',
+              fontSize: '32px',
+              margin: '15px 0 20px 0',
+              textShadow: `0 0 30px ${enemyColor}`,
+            }}>
+              Level {victoryInfo.level} Complete!
             </h2>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginBottom: '10px' }}>
-              <div>
-                <div style={{ color: '#888', fontSize: '12px' }}>Score</div>
-                <div style={{ color: '#ffd700', fontSize: '24px', fontWeight: 'bold' }}>{victoryInfo.score}</div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '40px',
+              marginBottom: '15px',
+            }}>
+              <div style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '15px 25px',
+                borderRadius: '12px',
+                minWidth: '100px',
+              }}>
+                <div style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Score</div>
+                <div style={{ color: '#ffd700', fontSize: '28px', fontWeight: '800' }}>{victoryInfo.score}</div>
               </div>
-              <div>
-                <div style={{ color: '#888', fontSize: '12px' }}>Stars Earned</div>
-                <div style={{ fontSize: '24px' }}>
+              <div style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '15px 25px',
+                borderRadius: '12px',
+              }}>
+                <div style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>Rating</div>
+                <div style={{ fontSize: '32px', display: 'flex', gap: '4px' }}>
                   {[1, 2, 3].map(s => (
-                    <span key={s} style={{ color: s <= victoryInfo.stars ? '#ffd700' : '#444' }}>★</span>
+                    <span key={s} style={{
+                      color: s <= victoryInfo.stars ? '#ffd700' : '#333',
+                      textShadow: s <= victoryInfo.stars ? '0 0 10px #ffd700' : 'none',
+                      transform: s <= victoryInfo.stars ? 'scale(1.1)' : 'scale(0.9)',
+                      display: 'inline-block',
+                    }}>★</span>
                   ))}
                 </div>
               </div>
             </div>
             {victoryInfo.isNewBest && (
               <div style={{
-                background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+                background: 'linear-gradient(135deg, #ff6b6b, #ffd700)',
                 color: '#000',
-                padding: '4px 12px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 'bold',
+                padding: '8px 20px',
+                borderRadius: '20px',
+                fontSize: '14px',
+                fontWeight: '800',
                 display: 'inline-block',
-              }}>🏆 NEW BEST!</div>
+                animation: 'pulse 1s infinite',
+              }}>🏆 NEW HIGH SCORE!</div>
             )}
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '10px' }}>
-          <span style={{ fontSize: '48px' }}>{selectedEnemy?.emoji}</span>
+        {/* Enemy Header Card */}
+        <div style={{
+          background: `linear-gradient(135deg, ${enemyColor}33 0%, ${enemyAccent}22 100%)`,
+          border: `2px solid ${enemyColor}66`,
+          borderRadius: '20px',
+          padding: '20px 40px',
+          marginBottom: '25px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          boxShadow: `0 10px 40px ${enemyColor}22`,
+        }}>
+          <div style={{
+            fontSize: '60px',
+            width: '80px',
+            height: '80px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: `radial-gradient(circle, ${enemyColor}44 0%, transparent 70%)`,
+            borderRadius: '50%',
+          }}>{selectedEnemy?.emoji}</div>
           <div>
-            <h2 style={{ color: enemyColor, fontSize: '28px', margin: 0, fontWeight: '800' }}>
+            <h2 style={{
+              color: '#fff',
+              fontSize: '28px',
+              margin: 0,
+              fontWeight: '800',
+              textShadow: `0 2px 10px ${enemyColor}66`,
+            }}>
               {selectedEnemy?.name}
             </h2>
-            <div style={{ color: '#888', fontSize: '14px' }}>{selectedEnemy?.title}</div>
+            <div style={{ color: enemyColor, fontSize: '14px', fontWeight: '600', marginTop: '2px' }}>
+              {selectedEnemy?.title}
+            </div>
+            {/* Star Progress Bar */}
+            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '150px',
+                height: '8px',
+                background: 'rgba(0,0,0,0.4)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${(totalStars / maxStars) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #ffd700, #ffaa00)',
+                  borderRadius: '4px',
+                  boxShadow: '0 0 10px #ffd700',
+                }} />
+              </div>
+              <span style={{ color: '#ffd700', fontSize: '13px', fontWeight: '700' }}>
+                ⭐ {totalStars}/{maxStars}
+              </span>
+            </div>
           </div>
         </div>
-
-        <h3 style={{ color: '#aaa', margin: '20px 0', fontSize: '18px', fontWeight: '400' }}>
-          {hasVictory ? 'Continue or replay a level' : 'Select a level to play'}
-        </h3>
 
         {/* Level Grid */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '12px',
+          gap: '16px',
           marginBottom: '30px',
-          maxWidth: '500px',
+          padding: '25px',
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: '20px',
+          border: '1px solid rgba(255,255,255,0.05)',
         }}>
           {Array.from({ length: MAX_LEVELS }, (_, i) => i + 1).map(level => {
             const isUnlocked = level <= highestLevel;
             const levelData = getLevelStats(enemyId, level);
-            const isNext = level === nextLevel;
+            const isNext = level === nextLevel && (hasVictory || level === highestLevel);
             const isCompleted = levelData.completed;
+            const stars = levelData.stars;
 
             return (
               <button
@@ -2790,44 +4545,148 @@ const BreakoutGame = () => {
                 onClick={() => isUnlocked && startLevel(level, !hasVictory || level !== nextLevel)}
                 disabled={!isUnlocked}
                 style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '12px',
-                  border: isNext ? `3px solid #ffd700` : `2px solid ${isUnlocked ? enemyColor : '#333'}`,
+                  width: '105px',
+                  height: '130px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  padding: '0',
                   background: isUnlocked
-                    ? isNext
-                      ? `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`
-                      : isCompleted
-                        ? `linear-gradient(135deg, ${enemyColor}44, ${enemyAccent}33)`
-                        : 'rgba(30, 30, 50, 0.8)'
-                    : '#1a1a2a',
-                  color: isUnlocked ? '#fff' : '#555',
+                    ? `linear-gradient(180deg, #1e2235 0%, #151825 100%)`
+                    : `linear-gradient(180deg, #111318 0%, #0a0c10 100%)`,
+                  color: isUnlocked ? '#fff' : '#333',
                   cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                  transition: 'transform 0.15s, box-shadow 0.15s',
-                  boxShadow: isNext ? `0 0 20px ${enemyColor}66` : 'none',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isNext
+                    ? `0 0 25px ${enemyColor}66, 0 4px 15px rgba(0,0,0,0.4)`
+                    : isUnlocked
+                      ? '0 4px 15px rgba(0,0,0,0.3)'
+                      : 'inset 0 -2px 5px rgba(0,0,0,0.5)',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
+                  position: 'relative',
+                  overflow: 'hidden',
                 }}
-                onMouseEnter={e => isUnlocked && (e.currentTarget.style.transform = 'scale(1.08)')}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseEnter={e => {
+                  if (isUnlocked) {
+                    e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
+                    e.currentTarget.style.boxShadow = `0 12px 35px ${enemyColor}55, 0 8px 20px rgba(0,0,0,0.4)`;
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                  e.currentTarget.style.boxShadow = isNext
+                    ? `0 0 25px ${enemyColor}66, 0 4px 15px rgba(0,0,0,0.4)`
+                    : isUnlocked
+                      ? '0 4px 15px rgba(0,0,0,0.3)'
+                      : 'inset 0 -2px 5px rgba(0,0,0,0.5)';
+                }}
               >
+                {/* Top accent bar */}
+                <div style={{
+                  width: '100%',
+                  height: '3px',
+                  background: isNext
+                    ? `linear-gradient(90deg, ${enemyColor}, ${enemyAccent})`
+                    : isCompleted
+                      ? `linear-gradient(90deg, ${enemyColor}88, ${enemyAccent}66)`
+                      : 'rgba(255,255,255,0.1)',
+                  boxShadow: isNext ? `0 0 10px ${enemyColor}` : 'none',
+                }} />
+
+                {/* Shine effect for next level */}
+                {isNext && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '-100%',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
+                    animation: 'shine 2s infinite',
+                  }} />
+                )}
+
                 {isUnlocked ? (
-                  <>
-                    <span style={{ fontSize: '22px', fontWeight: 'bold' }}>{level}</span>
-                    <div style={{ fontSize: '14px', letterSpacing: '-1px' }}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '8px 6px 10px',
+                    width: '100%',
+                  }}>
+                    {/* Level number */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      marginBottom: '6px',
+                      padding: '0 4px',
+                    }}>
+                      <span style={{
+                        fontSize: '11px',
+                        color: '#666',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}>Level</span>
+                      <span style={{
+                        fontSize: '18px',
+                        fontWeight: '800',
+                        color: isNext ? '#fff' : enemyColor,
+                        textShadow: isNext ? `0 0 10px ${enemyColor}` : 'none',
+                      }}>{level}</span>
+                    </div>
+
+                    {/* Mini preview */}
+                    {renderLevelPreview(level, isNext ? '#fff' : enemyColor, false, enemyId)}
+
+                    {/* Stars */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '3px',
+                      marginTop: '8px',
+                    }}>
                       {[1, 2, 3].map(s => (
-                        <span key={s} style={{ color: s <= levelData.stars ? '#ffd700' : '#444' }}>★</span>
+                        <span key={s} style={{
+                          fontSize: '14px',
+                          color: s <= stars ? '#ffd700' : 'rgba(255,255,255,0.15)',
+                          textShadow: s <= stars ? '0 0 6px #ffd700' : 'none',
+                        }}>★</span>
                       ))}
                     </div>
-                    {levelData.bestScore > 0 && (
-                      <span style={{ fontSize: '9px', color: '#888' }}>{levelData.bestScore}</span>
-                    )}
-                  </>
+                  </div>
                 ) : (
-                  <span style={{ fontSize: '24px' }}>🔒</span>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '8px 6px 10px',
+                    width: '100%',
+                    opacity: 0.5,
+                  }}>
+                    {/* Level number */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      marginBottom: '6px',
+                      padding: '0 4px',
+                    }}>
+                      <span style={{ fontSize: '11px', color: '#444' }}>Level</span>
+                      <span style={{ fontSize: '18px', fontWeight: '800', color: '#444' }}>{level}</span>
+                    </div>
+
+                    {/* Locked preview */}
+                    {renderLevelPreview(level, '#333', true, enemyId)}
+
+                    {/* Lock icon */}
+                    <div style={{
+                      marginTop: '6px',
+                      fontSize: '16px',
+                    }}>🔒</div>
+                  </div>
                 )}
               </button>
             );
@@ -2835,72 +4694,110 @@ const BreakoutGame = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          {hasVictory && canContinue && (
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {hasVictory && canContinue ? (
             <button
               onClick={() => startLevel(nextLevel, false)}
               style={{
-                padding: '14px 32px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                background: `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`,
+                padding: '16px 40px',
+                fontSize: '18px',
+                fontWeight: '800',
+                background: `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`,
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '14px',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: `0 4px 20px ${enemyColor}44`,
+                boxShadow: `0 6px 25px ${enemyColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              Continue to Level {nextLevel} →
+              Next Level →
             </button>
-          )}
-          {!hasVictory && (
+          ) : (
             <button
               onClick={() => startLevel(highestLevel, true)}
               style={{
-                padding: '14px 32px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                background: `linear-gradient(135deg, ${enemyColor}, ${enemyAccent})`,
+                padding: '16px 40px',
+                fontSize: '18px',
+                fontWeight: '800',
+                background: `linear-gradient(180deg, ${enemyColor} 0%, ${enemyAccent} 100%)`,
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '14px',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: `0 4px 20px ${enemyColor}44`,
+                boxShadow: `0 6px 25px ${enemyColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              {highestLevel === 1 ? 'Start Game' : `Continue Level ${highestLevel}`}
+              {highestLevel === 1 ? '▶ Play' : `▶ Level ${highestLevel}`}
             </button>
           )}
           <button
             onClick={() => setGameState('select')}
             style={{
-              padding: '14px 24px',
+              padding: '16px 28px',
               fontSize: '14px',
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '10px',
+              fontWeight: '600',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '14px',
               color: '#aaa',
               cursor: 'pointer',
+              backdropFilter: 'blur(10px)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              e.currentTarget.style.color = '#aaa';
             }}
           >
-            ← Back to Enemies
+            ← Enemies
           </button>
           <button
             onClick={() => setGameState('menu')}
             style={{
-              padding: '14px 24px',
+              padding: '16px 28px',
               fontSize: '14px',
+              fontWeight: '600',
               background: 'transparent',
-              border: '1px solid #444',
-              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '14px',
               color: '#666',
               cursor: 'pointer',
             }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+              e.currentTarget.style.color = '#888';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.color = '#666';
+            }}
           >
-            Main Menu
+            Menu
           </button>
         </div>
+
+        {/* CSS Keyframes */}
+        <style>{`
+          @keyframes shine {
+            0% { left: -100%; }
+            50%, 100% { left: 100%; }
+          }
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+        `}</style>
       </div>
     );
   };
