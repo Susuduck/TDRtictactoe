@@ -414,6 +414,7 @@ const CookOff = () => {
     const [onFire, setOnFire] = useState(false);
     const [encouragement, setEncouragement] = useState(null);
     const [opponentMood, setOpponentMood] = useState('neutral'); // neutral, happy, worried, excited, taunting
+    const [shieldsUsed, setShieldsUsed] = useState(0); // Track mistake shields used this match
     const [ambientParticles, setAmbientParticles] = useState([]);
 
     // Refs
@@ -442,6 +443,140 @@ const CookOff = () => {
     useEffect(() => {
         localStorage.setItem('cookoff_progression_v3', JSON.stringify(progression));
     }, [progression]);
+
+    // ========================================
+    // RESTAURANT UPGRADE SYSTEM (RPG Elements)
+    // ========================================
+
+    // Upgrade definitions with tiers and effects
+    const upgradeDefinitions = {
+        kitchen: {
+            name: 'Kitchen Equipment',
+            icon: '🍳',
+            description: 'Better equipment means faster cooking',
+            tiers: [
+                { name: 'Basic Stove', cost: 0, bonus: { timerBonus: 0 }, desc: 'A simple gas stove' },
+                { name: 'Pro Range', cost: 500, bonus: { timerBonus: 0.5 }, desc: '+0.5s on all orders' },
+                { name: 'Industrial Kitchen', cost: 1500, bonus: { timerBonus: 1.0 }, desc: '+1s on all orders' },
+                { name: 'Master Chef Suite', cost: 4000, bonus: { timerBonus: 1.5 }, desc: '+1.5s on all orders' },
+                { name: 'Legendary Kitchen', cost: 10000, bonus: { timerBonus: 2.0 }, desc: '+2s on all orders' }
+            ]
+        },
+        staff: {
+            name: 'Kitchen Staff',
+            icon: '👨‍🍳',
+            description: 'Helpful staff provide various bonuses',
+            tiers: [
+                { name: 'Solo Chef', cost: 0, bonus: { comboBonus: 0 }, desc: 'Just you' },
+                { name: 'Prep Cook', cost: 400, bonus: { comboBonus: 5 }, desc: '+5 points per combo' },
+                { name: 'Line Cook', cost: 1200, bonus: { comboBonus: 10 }, desc: '+10 points per combo' },
+                { name: 'Sous Chef', cost: 3500, bonus: { comboBonus: 15 }, desc: '+15 points per combo' },
+                { name: 'Dream Team', cost: 8000, bonus: { comboBonus: 25 }, desc: '+25 points per combo' }
+            ]
+        },
+        decor: {
+            name: 'Restaurant Decor',
+            icon: '🏠',
+            description: 'Better ambiance keeps customers patient',
+            tiers: [
+                { name: 'Bare Walls', cost: 0, bonus: { mistakeShield: 0 }, desc: 'Plain and simple' },
+                { name: 'Nice Paint', cost: 300, bonus: { mistakeShield: 0 }, desc: 'Fresh colors' },
+                { name: 'Cozy Corner', cost: 1000, bonus: { mistakeShield: 1 }, desc: 'First mistake forgiven once' },
+                { name: 'Elegant Dining', cost: 3000, bonus: { mistakeShield: 1 }, desc: 'Classy atmosphere' },
+                { name: 'Five Star', cost: 7500, bonus: { mistakeShield: 2 }, desc: 'Two mistakes forgiven' }
+            ]
+        },
+        reputation: {
+            name: 'Reputation',
+            icon: '⭐',
+            description: 'Fame brings bigger tips',
+            tiers: [
+                { name: 'Unknown', cost: 0, bonus: { scoreMultiplier: 1.0 }, desc: '1x score' },
+                { name: 'Local Favorite', cost: 600, bonus: { scoreMultiplier: 1.1 }, desc: '1.1x score' },
+                { name: 'City Famous', cost: 2000, bonus: { scoreMultiplier: 1.2 }, desc: '1.2x score' },
+                { name: 'Regional Star', cost: 5000, bonus: { scoreMultiplier: 1.35 }, desc: '1.35x score' },
+                { name: 'Legendary', cost: 12000, bonus: { scoreMultiplier: 1.5 }, desc: '1.5x score' }
+            ]
+        }
+    };
+
+    // Restaurant state
+    const [restaurant, setRestaurant] = useState(() => {
+        const saved = localStorage.getItem('cookoff_restaurant_v1');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+        return {
+            name: 'My Restaurant',
+            coins: 0,
+            totalCoinsEarned: 0,
+            upgrades: {
+                kitchen: 0,
+                staff: 0,
+                decor: 0,
+                reputation: 0
+            }
+        };
+    });
+
+    useEffect(() => {
+        localStorage.setItem('cookoff_restaurant_v1', JSON.stringify(restaurant));
+    }, [restaurant]);
+
+    // Calculate total bonuses from upgrades
+    const getUpgradeBonuses = useCallback(() => {
+        const bonuses = {
+            timerBonus: 0,
+            comboBonus: 0,
+            mistakeShield: 0,
+            scoreMultiplier: 1.0
+        };
+
+        Object.keys(upgradeDefinitions).forEach(key => {
+            const tier = restaurant.upgrades[key];
+            const tierData = upgradeDefinitions[key].tiers[tier];
+            if (tierData && tierData.bonus) {
+                Object.keys(tierData.bonus).forEach(bonusKey => {
+                    if (bonusKey === 'scoreMultiplier') {
+                        bonuses[bonusKey] = tierData.bonus[bonusKey];
+                    } else {
+                        bonuses[bonusKey] += tierData.bonus[bonusKey];
+                    }
+                });
+            }
+        });
+
+        return bonuses;
+    }, [restaurant.upgrades]);
+
+    // Purchase upgrade
+    const purchaseUpgrade = useCallback((category) => {
+        const currentTier = restaurant.upgrades[category];
+        const nextTier = currentTier + 1;
+        const tierData = upgradeDefinitions[category].tiers[nextTier];
+
+        if (!tierData || restaurant.coins < tierData.cost) return false;
+
+        setRestaurant(prev => ({
+            ...prev,
+            coins: prev.coins - tierData.cost,
+            upgrades: {
+                ...prev.upgrades,
+                [category]: nextTier
+            }
+        }));
+
+        return true;
+    }, [restaurant]);
+
+    // Add coins (called after completing levels)
+    const addCoins = useCallback((amount) => {
+        setRestaurant(prev => ({
+            ...prev,
+            coins: prev.coins + amount,
+            totalCoinsEarned: prev.totalCoinsEarned + amount
+        }));
+    }, []);
 
     // Calculate total stars for a world
     const getWorldStars = useCallback((worldId) => {
@@ -562,6 +697,10 @@ const CookOff = () => {
         // Add time for recipe size
         time += (size - 2) * 0.6;
 
+        // Add kitchen upgrade bonus
+        const bonuses = getUpgradeBonuses();
+        time += bonuses.timerBonus;
+
         // Speed round reduction
         if (speedRound) time = Math.max(3, time * 0.65);
 
@@ -628,6 +767,7 @@ const CookOff = () => {
         setCombo(0);
         setMaxCombo(0);
         setStreak(0);
+        setShieldsUsed(0); // Reset shields
         setGameTime(90);
         setShowFeedback(null);
         setScreenShake(false);
@@ -834,6 +974,7 @@ const CookOff = () => {
     // Handle order complete
     const handleOrderComplete = useCallback(() => {
         const world = selectedWorld;
+        const upgradeBonuses = getUpgradeBonuses();
         let points = 100;
         let bonusMessages = [];
 
@@ -855,6 +996,8 @@ const CookOff = () => {
         setMaxCombo(m => Math.max(m, newCombo));
         if (newCombo >= 2) {
             points += newCombo * 15;
+            // Add staff upgrade combo bonus
+            points += upgradeBonuses.comboBonus;
         }
 
         // Streak
@@ -882,6 +1025,11 @@ const CookOff = () => {
         if (isSpeedRound) {
             points = Math.floor(points * 1.5);
             bonusMessages.push('SPEED 1.5X!');
+        }
+
+        // Apply reputation score multiplier
+        if (upgradeBonuses.scoreMultiplier > 1) {
+            points = Math.floor(points * upgradeBonuses.scoreMultiplier);
         }
 
         setScore(s => s + points);
@@ -918,6 +1066,29 @@ const CookOff = () => {
 
     // Handle order failed
     const handleOrderFailed = useCallback((reason) => {
+        const bonuses = getUpgradeBonuses();
+        const availableShields = bonuses.mistakeShield - shieldsUsed;
+
+        // Check if we have a mistake shield available
+        if (availableShields > 0) {
+            setShieldsUsed(s => s + 1);
+            setShowFeedback({ type: 'shield', message: 'SHIELD SAVED YOU!' });
+            setCombo(0);
+            setStreak(0);
+            setOnFire(false);
+
+            setTimeout(() => {
+                setShowFeedback(null);
+                setCurrentOrder(null);
+                setSecondOrder(null);
+                generateOrder();
+                if (selectedWorld?.special === 'multi_order') {
+                    generateSecondOrder();
+                }
+            }, 600);
+            return;
+        }
+
         setMistakes(m => {
             const newMistakes = m + 1;
             if (newMistakes >= 3) {
@@ -1012,7 +1183,22 @@ const CookOff = () => {
                 return { levelStars: newLevelStars, bestScores: newBestScores };
             });
         }
-    }, [gameState, score, levelConfig, selectedWorld, currentLevel, mistakes, getLevelStars]);
+
+        // Award coins based on performance
+        if (mistakes < 3) {
+            // Base coins from score (every 100 points = 10 coins)
+            let coinsEarned = Math.floor(score / 10);
+
+            // Bonus for excellence
+            if (starsEarned >= 1) coinsEarned += 50;
+            else if (starsEarned >= 0.5) coinsEarned += 20;
+
+            // Bonus for world difficulty
+            coinsEarned += selectedWorld.id * 5;
+
+            addCoins(coinsEarned);
+        }
+    }, [gameState, score, levelConfig, selectedWorld, currentLevel, mistakes, getLevelStars, addCoins]);
 
     // Keyboard
     useEffect(() => {
@@ -1120,56 +1306,349 @@ const CookOff = () => {
         return theme.timerRed;
     };
 
+    // Pixel-art style border helper
+    const pixelBorder = (color, size = 4) => ({
+        boxShadow: `
+            ${size}px 0 0 0 ${color},
+            -${size}px 0 0 0 ${color},
+            0 ${size}px 0 0 ${color},
+            0 -${size}px 0 0 ${color}
+        `,
+        borderRadius: '2px'
+    });
+
     // MENU SCREEN
     if (gameState === 'menu') {
+        const totalStars = progression.levelStars.flat().reduce((a, b) => a + b, 0);
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, #2d1f1a 100%)`,
+                background: 'linear-gradient(180deg, #2C1810 0%, #1a0f0a 100%)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '40px 20px', color: theme.text
+                padding: '30px 20px', color: theme.text,
+                fontFamily: '"Press Start 2P", monospace',
+                imageRendering: 'pixelated'
             }}>
-                <div style={{ fontSize: '80px', marginBottom: '10px', animation: 'bounce 1s infinite' }}>👨‍🍳</div>
-                <h1 style={{ fontSize: '42px', marginBottom: '5px', color: theme.accent, textShadow: '0 0 20px rgba(255,69,0,0.5)' }}>
+                {/* Coins display */}
+                <div style={{
+                    position: 'absolute', top: '15px', right: '15px',
+                    background: '#3d2817',
+                    padding: '10px 15px',
+                    ...pixelBorder('#8B4513'),
+                    display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                    <span style={{ fontSize: '20px' }}>🪙</span>
+                    <span style={{ color: theme.gold, fontSize: '14px', fontWeight: 'bold' }}>
+                        {restaurant.coins.toLocaleString()}
+                    </span>
+                </div>
+
+                {/* Title banner */}
+                <div style={{
+                    background: '#8B4513',
+                    padding: '15px 40px',
+                    marginBottom: '20px',
+                    ...pixelBorder('#5D3A1A', 6),
+                    transform: 'rotate(-2deg)'
+                }}>
+                    <div style={{ fontSize: '60px', textAlign: 'center' }}>👨‍🍳</div>
+                </div>
+
+                <h1 style={{
+                    fontSize: '32px', marginBottom: '5px',
+                    color: theme.accent,
+                    textShadow: '4px 4px 0 #000',
+                    letterSpacing: '2px'
+                }}>
                     COOK-OFF
                 </h1>
-                <p style={{ color: theme.textSecondary, marginBottom: '10px', fontSize: '22px' }}>Kitchen Chaos</p>
-                <p style={{ color: theme.textMuted, marginBottom: '30px', textAlign: 'center', maxWidth: '450px', lineHeight: '1.6' }}>
-                    Master 10 worlds of culinary chaos! Complete levels to earn stars and unlock new challenges!
+                <p style={{
+                    color: '#DEB887',
+                    marginBottom: '8px', fontSize: '14px',
+                    textShadow: '2px 2px 0 #000'
+                }}>
+                    Kitchen Chaos
                 </p>
 
-                <button
-                    onClick={() => setGameState('select')}
-                    style={{
-                        padding: '18px 60px', fontSize: '22px',
-                        background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
-                        border: 'none', borderRadius: '12px', color: 'white',
-                        cursor: 'pointer', fontWeight: 'bold',
-                        boxShadow: '0 6px 20px rgba(255, 69, 0, 0.4)',
-                        transition: 'transform 0.2s, box-shadow 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 69, 0, 0.6)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 69, 0, 0.4)';
-                    }}
-                >
-                    START COOKING
-                </button>
+                {/* Stats display */}
+                <div style={{
+                    display: 'flex', gap: '20px', marginBottom: '25px',
+                    fontSize: '11px'
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: theme.gold }}>⭐ {totalStars}/100</div>
+                        <div style={{ color: theme.textMuted, fontSize: '9px' }}>STARS</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: '#90EE90' }}>🏆 {restaurant.totalCoinsEarned}</div>
+                        <div style={{ color: theme.textMuted, fontSize: '9px' }}>TOTAL EARNED</div>
+                    </div>
+                </div>
+
+                {/* Main buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '280px' }}>
+                    <button
+                        onClick={() => setGameState('select')}
+                        style={{
+                            padding: '16px 30px', fontSize: '14px',
+                            background: '#C84C0C',
+                            border: 'none', color: 'white',
+                            cursor: 'pointer', fontWeight: 'bold',
+                            ...pixelBorder('#8B3000'),
+                            fontFamily: 'inherit',
+                            transition: 'transform 0.1s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                        🍳 START COOKING
+                    </button>
+
+                    <button
+                        onClick={() => setGameState('restaurant')}
+                        style={{
+                            padding: '16px 30px', fontSize: '14px',
+                            background: '#2E8B57',
+                            border: 'none', color: 'white',
+                            cursor: 'pointer', fontWeight: 'bold',
+                            ...pixelBorder('#1D5A3A'),
+                            fontFamily: 'inherit',
+                            transition: 'transform 0.1s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                        🏠 MY RESTAURANT
+                    </button>
+                </div>
 
                 <a href="../menu.html" style={{
-                    marginTop: '25px', color: theme.textMuted,
-                    textDecoration: 'none', fontSize: '14px'
+                    marginTop: '30px', color: theme.textMuted,
+                    textDecoration: 'none', fontSize: '10px',
+                    fontFamily: 'inherit'
                 }}>← Back to Menu</a>
 
                 <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
                     @keyframes bounce {
-                        0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-10px); }
+                        0%, 100% { transform: translateY(0) rotate(-2deg); }
+                        50% { transform: translateY(-8px) rotate(-2deg); }
                     }
+                `}</style>
+            </div>
+        );
+    }
+
+    // RESTAURANT UPGRADE SCREEN
+    if (gameState === 'restaurant') {
+        const bonuses = getUpgradeBonuses();
+
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(180deg, #2C1810 0%, #1a0f0a 100%)',
+                padding: '20px', color: theme.text,
+                fontFamily: '"Press Start 2P", monospace'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
+                    <button
+                        onClick={() => setGameState('menu')}
+                        style={{
+                            background: '#5D3A1A', border: 'none',
+                            color: theme.text, padding: '10px 15px',
+                            cursor: 'pointer', fontSize: '10px',
+                            ...pixelBorder('#3d2817'),
+                            fontFamily: 'inherit'
+                        }}
+                    >
+                        ← BACK
+                    </button>
+
+                    <h2 style={{
+                        color: '#DEB887', fontSize: '16px',
+                        textShadow: '3px 3px 0 #000'
+                    }}>
+                        🏠 MY RESTAURANT
+                    </h2>
+
+                    <div style={{
+                        background: '#3d2817',
+                        padding: '10px 15px',
+                        ...pixelBorder('#5D3A1A'),
+                        display: 'flex', alignItems: 'center', gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '16px' }}>🪙</span>
+                        <span style={{ color: theme.gold, fontSize: '12px' }}>
+                            {restaurant.coins.toLocaleString()}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Current Bonuses Summary */}
+                <div style={{
+                    background: '#3d2817',
+                    padding: '15px',
+                    marginBottom: '20px',
+                    ...pixelBorder('#5D3A1A')
+                }}>
+                    <div style={{ fontSize: '10px', color: '#DEB887', marginBottom: '10px' }}>
+                        ACTIVE BONUSES:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '9px' }}>
+                        {bonuses.timerBonus > 0 && (
+                            <span style={{ color: '#90EE90' }}>⏱️ +{bonuses.timerBonus}s timer</span>
+                        )}
+                        {bonuses.comboBonus > 0 && (
+                            <span style={{ color: '#87CEEB' }}>⚡ +{bonuses.comboBonus} combo pts</span>
+                        )}
+                        {bonuses.mistakeShield > 0 && (
+                            <span style={{ color: '#FFB6C1' }}>🛡️ {bonuses.mistakeShield} shield(s)</span>
+                        )}
+                        {bonuses.scoreMultiplier > 1 && (
+                            <span style={{ color: theme.gold }}>⭐ {bonuses.scoreMultiplier}x score</span>
+                        )}
+                        {bonuses.timerBonus === 0 && bonuses.comboBonus === 0 &&
+                         bonuses.mistakeShield === 0 && bonuses.scoreMultiplier === 1 && (
+                            <span style={{ color: theme.textMuted }}>No upgrades yet - purchase below!</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Upgrade Categories */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '15px'
+                }}>
+                    {Object.entries(upgradeDefinitions).map(([key, category]) => {
+                        const currentTier = restaurant.upgrades[key];
+                        const currentTierData = category.tiers[currentTier];
+                        const nextTier = currentTier + 1;
+                        const nextTierData = category.tiers[nextTier];
+                        const canAfford = nextTierData && restaurant.coins >= nextTierData.cost;
+                        const isMaxed = !nextTierData;
+
+                        return (
+                            <div
+                                key={key}
+                                style={{
+                                    background: '#3d2817',
+                                    padding: '15px',
+                                    ...pixelBorder(isMaxed ? theme.gold : '#5D3A1A')
+                                }}
+                            >
+                                {/* Category Header */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    marginBottom: '12px'
+                                }}>
+                                    <span style={{ fontSize: '28px' }}>{category.icon}</span>
+                                    <div>
+                                        <div style={{ fontSize: '11px', color: '#DEB887' }}>
+                                            {category.name}
+                                        </div>
+                                        <div style={{ fontSize: '8px', color: theme.textMuted }}>
+                                            {category.description}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Current Tier */}
+                                <div style={{
+                                    background: '#2C1810',
+                                    padding: '10px',
+                                    marginBottom: '10px',
+                                    borderLeft: `4px solid ${theme.success}`
+                                }}>
+                                    <div style={{ fontSize: '10px', color: theme.success }}>
+                                        CURRENT: {currentTierData.name}
+                                    </div>
+                                    <div style={{ fontSize: '8px', color: theme.textMuted, marginTop: '4px' }}>
+                                        {currentTierData.desc}
+                                    </div>
+                                </div>
+
+                                {/* Tier Progress */}
+                                <div style={{
+                                    display: 'flex', gap: '4px', marginBottom: '12px'
+                                }}>
+                                    {category.tiers.map((tier, i) => (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                flex: 1, height: '8px',
+                                                background: i <= currentTier ? theme.gold : '#1a0f0a',
+                                                ...pixelBorder(i <= currentTier ? '#B8860B' : '#3d2817', 2)
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Next Upgrade */}
+                                {nextTierData ? (
+                                    <div>
+                                        <div style={{
+                                            background: '#2C1810',
+                                            padding: '10px',
+                                            marginBottom: '10px',
+                                            borderLeft: `4px solid ${theme.accent}`,
+                                            opacity: canAfford ? 1 : 0.6
+                                        }}>
+                                            <div style={{ fontSize: '10px', color: theme.accent }}>
+                                                NEXT: {nextTierData.name}
+                                            </div>
+                                            <div style={{ fontSize: '8px', color: theme.textMuted, marginTop: '4px' }}>
+                                                {nextTierData.desc}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => purchaseUpgrade(key)}
+                                            disabled={!canAfford}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                background: canAfford ? '#C84C0C' : '#4a3020',
+                                                border: 'none',
+                                                color: canAfford ? 'white' : theme.textMuted,
+                                                cursor: canAfford ? 'pointer' : 'not-allowed',
+                                                fontSize: '10px',
+                                                ...pixelBorder(canAfford ? '#8B3000' : '#3d2817'),
+                                                fontFamily: 'inherit',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <span>🪙 {nextTierData.cost.toLocaleString()}</span>
+                                            <span>UPGRADE</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        padding: '15px',
+                                        background: `${theme.gold}22`,
+                                        fontSize: '10px',
+                                        color: theme.gold,
+                                        ...pixelBorder(theme.gold, 2)
+                                    }}>
+                                        ⭐ MAX LEVEL ⭐
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
                 `}</style>
             </div>
         );
@@ -1729,14 +2208,16 @@ const CookOff = () => {
                     </div>
                 )}
 
-                {/* Encouragement */}
+                {/* Encouragement - positioned at very top to not cover gameplay */}
                 {encouragement && (
                     <div style={{
-                        position: 'fixed', top: '18%', left: '50%',
+                        position: 'fixed', top: '8px', left: '50%',
                         transform: 'translateX(-50%)',
-                        padding: '12px 25px', background: theme.success,
-                        borderRadius: '12px', fontSize: '16px', fontWeight: 'bold',
-                        color: 'white', zIndex: 50, animation: 'popIn 0.3s ease-out'
+                        padding: '8px 20px', background: theme.success,
+                        borderRadius: '20px', fontSize: '13px', fontWeight: 'bold',
+                        color: 'white', zIndex: 1000, animation: 'slideDown 0.3s ease-out',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
+                        border: '2px solid rgba(255,255,255,0.3)'
                     }}>
                         {encouragement}
                     </div>
@@ -1974,6 +2455,7 @@ const CookOff = () => {
                     @keyframes opponentBounce { 0%, 100% { transform: translateY(0) scale(1.15); } 50% { transform: translateY(-5px) scale(1.15); } }
                     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
                     @keyframes glow { 0%, 100% { box-shadow: 0 0 10px ${worldTheme.glowColor}; } 50% { box-shadow: 0 0 25px ${worldTheme.glowColor}; } }
+                    @keyframes slideDown { 0% { transform: translateX(-50%) translateY(-20px); opacity: 0; } 100% { transform: translateX(-50%) translateY(0); opacity: 1; } }
                 `}</style>
             </div>
         );
