@@ -2974,9 +2974,14 @@ const BreakoutGame = () => {
   useEffect(() => {
     if (gameState !== 'playing' || isPaused) return;
 
+    // CRITICAL: Reset lastTimeRef when game loop starts to avoid huge deltaTime
+    // on first frame (which would cause ball to fly across screen instantly)
+    lastTimeRef.current = Date.now();
+
     const gameLoop = () => {
       const now = Date.now();
-      const deltaTime = (now - lastTimeRef.current) / 16.67; // Normalize to ~60fps
+      // Cap deltaTime to prevent physics explosions if tab was backgrounded
+      const deltaTime = Math.min(3.0, (now - lastTimeRef.current) / 16.67); // Normalize to ~60fps, cap at 3 frames
       lastTimeRef.current = now;
 
       // Update dash cooldown
