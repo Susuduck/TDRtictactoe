@@ -270,14 +270,14 @@ const BreakoutGame = () => {
   const LEVEL_DEFINITIONS = {
     // BRICK GOBLIN - Simple shapes, learning levels
     brick_goblin: [
-      // Level 1: Welcome bars - easiest intro
+      // Level 1: Welcome pyramid
       [
+        '....1111....',
+        '...222222...',
+        '..11111111..',
+        '.2222222222.',
         '111111111111',
-        '............',
         '222222222222',
-        '............',
-        '111111111111',
-        '............',
       ],
       // Level 2: Arrow pointing down
       [
@@ -2874,7 +2874,6 @@ const BreakoutGame = () => {
     setVictoryInfo(null);
     setCurrentLevel(level);
     setBricks(createBricks(level, selectedEnemy));
-    setBalls([createBall(level, enemyIndex)]);
     setPowerUps([]);
     setActiveEffects([]);
     // Paddle width scales with difficulty (smaller at higher levels)
@@ -2883,6 +2882,8 @@ const BreakoutGame = () => {
     const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
     setPaddle(nextPaddle);
     paddleRef.current = nextPaddle;
+    // Create ball AFTER paddle is positioned so it spawns in correct location
+    setBalls([createBall(level, enemyIndex)]);
     // Reset enemy system
     setEnemies([]);
     setLastEnemySpawn(Date.now());
