@@ -521,14 +521,14 @@ const BreakoutGame = () => {
         '.....333....',
         '......3333@1',
       ],
-      // Level 8: Gusts - 3 portal pairs!
+      // Level 8: Gusts - 2 portal pairs
       [
-        '@1.222.@2..@3',
+        '@1.222.@2....',
         '..222..#..22',
-        '@2222.@3.222',
+        '@2222....222',
         '222..#..222.',
         '22..#..222..',
-        '@3.#.@1222.@2',
+        '...#.@1.22..',
       ],
       // Level 9: Storm
       [
@@ -4282,13 +4282,16 @@ const BreakoutGame = () => {
     const PREVIEW_COLS = 12; // Match level definition width
     const PREVIEW_ROWS = levelDef.length;
 
-    // Color mapping for brick types
+    // Color mapping for brick types and pinball features
     const getBrickColor = (char, baseColor) => {
       if (isLocked) {
         switch (char) {
           case '#': return '#222';
           case 'X': return '#331111';
           case '*': return '#112211';
+          case 'O': return '#333'; // Bumper
+          case '@': return '#224'; // Portal
+          case 'S': return '#322'; // Spawner
           default: return '#1a1a1a';
         }
       }
@@ -4299,6 +4302,9 @@ const BreakoutGame = () => {
         case '#': return '#4a4a6e'; // Indestructible - gray/purple
         case '*': return '#44cc44'; // Powerup - green
         case 'X': return '#ff6644'; // Explosive - orange/red
+        case 'O': return '#ffcc44'; // Bumper - yellow
+        case '@': return '#4488ff'; // Portal - blue
+        case 'S': return '#aa44aa'; // Spawner - purple
         default: return 'transparent';
       }
     };
@@ -4312,6 +4318,9 @@ const BreakoutGame = () => {
         case '#': return 1;
         case '*': return 0.9;
         case 'X': return 0.95;
+        case 'O': return 1; // Bumper
+        case '@': return 0.8; // Portal
+        case 'S': return 1; // Spawner
         default: return 0;
       }
     };
