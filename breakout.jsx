@@ -4806,16 +4806,34 @@ const BreakoutGame = () => {
 
         {/* Balls */}
         {balls.map(ball => {
-          // For attached balls, ALWAYS position relative to paddle (ignore stored x/y)
-          // This ensures the ball appears on the paddle even if state is stale
+          // Skip rendering if ball object is malformed
+          if (!ball || typeof ball.x !== 'number' || typeof ball.y !== 'number') {
+            return null;
+          }
+
           const paddleTop = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
           const isAttached = ball.attached === true;
-          const ballTop = isAttached
-            ? paddleTop - BALL_RADIUS * 2  // Just above paddle
-            : ball.y - BALL_RADIUS;
-          const ballLeft = isAttached
-            ? paddle.x + paddle.width / 2 - BALL_RADIUS
-            : ball.x - BALL_RADIUS;
+
+          // For attached balls, ALWAYS position at paddle (ignore stored position)
+          // For free balls, use stored position but clamp to valid range
+          let ballTop, ballLeft;
+
+          if (isAttached) {
+            // Attached: always at paddle
+            ballTop = paddleTop - BALL_RADIUS * 2;
+            ballLeft = paddle.x + paddle.width / 2 - BALL_RADIUS;
+          } else {
+            // Free: use stored position
+            ballTop = ball.y - BALL_RADIUS;
+            ballLeft = ball.x - BALL_RADIUS;
+
+            // Safety: if a "free" ball is in the bottom area where attached balls should be,
+            // and its velocity is 0 (hasn't launched), treat it as attached
+            if (ballTop > paddleTop - BALL_RADIUS * 3 && Math.abs(ball.vy || 0) < 1) {
+              ballTop = paddleTop - BALL_RADIUS * 2;
+              ballLeft = paddle.x + paddle.width / 2 - BALL_RADIUS;
+            }
+          }
 
           return (
           <div
