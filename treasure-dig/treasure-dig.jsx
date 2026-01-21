@@ -150,7 +150,7 @@ const TreasureDig = () => {
     );
 
     // Status Column - left side resource display
-    const StatusColumn = ({ digs, score, treasuresFound, treasureCount, combo, friends, objective, modeColor }) => (
+    const StatusColumn = ({ digs, score, treasuresFound, treasureCount, combo, friends, objective, modeColor, phase }) => (
         <div style={{
             width: '160px',
             display: 'flex',
@@ -165,18 +165,20 @@ const TreasureDig = () => {
                 padding: '12px',
                 boxShadow: `0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 ${theme.borderLight}`
             }}>
-                {/* Digs */}
+                {/* Scans/Digs */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>⛏️</span>
+                    <span style={{ fontSize: '24px' }}>{phase === 'prospect' ? '📡' : '⛏️'}</span>
                     <div>
                         <div style={{
                             fontSize: '28px',
                             fontWeight: 'bold',
-                            color: digs <= 3 ? theme.error : theme.text,
+                            color: digs <= 1 ? theme.error : (phase === 'prospect' ? theme.modeScan : theme.text),
                             lineHeight: 1,
-                            textShadow: digs <= 3 ? `0 0 10px ${theme.error}` : 'none'
+                            textShadow: digs <= 1 ? `0 0 10px ${theme.error}` : 'none'
                         }}>{digs}</div>
-                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>Digs</div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>
+                            {phase === 'prospect' ? 'Scans' : 'Digs'}
+                        </div>
                     </div>
                 </div>
                 {/* Coins */}
@@ -1435,7 +1437,7 @@ const TreasureDig = () => {
 
         // Set up phase state
         setGamePhase('prospect');
-        setScansRemaining(Math.floor(size * 1.5)); // Scans scale with grid size
+        setScansRemaining(2); // Only 2 radar scans - each scan affects adjacent tiles too!
         setMarkedTiles([]);
         setExcavatedItems([]);
         setSelectedForBasket([]);
@@ -1962,13 +1964,9 @@ const TreasureDig = () => {
 
     // === PHASE SYSTEM HANDLERS ===
 
-    // PROSPECT PHASE: Scan a tile to get signal strength
-    const handleScan = useCallback((x, y) => {
-        if (gamePhase !== 'prospect' || scansRemaining <= 0) return;
-
-        const key = `${x}_${y}`;
-        if (signalStrengths[key] !== undefined) return; // Already scanned
-
+    // Helper: Calculate signal strength for a tile
+    const calculateSignalStrength = useCallback((tx, ty) => {
+        const key = `${tx}_${ty}`;
         const content = hiddenContents[key];
         let strength = 0;
         let signalType = 'empty';
@@ -1988,51 +1986,106 @@ const TreasureDig = () => {
                 signalType = 'weak';
             }
         }
+        return { strength, signalType };
+    }, [hiddenContents]);
 
-        // Add some noise/variance to make it interesting
-        const variance = Math.random() * 0.3 - 0.15;
-        strength = Math.max(0, strength + variance);
+    // PROSPECT PHASE: Scan a tile - RADAR STYLE (100% center, 50% adjacent)
+    const handleScan = useCallback((x, y) => {
+        // Strict bounds checking
+        if (gamePhase !== 'prospect') return;
+        if (scansRemaining <= 0) {
+            setPhaseMessage('❌ No scans left! Mark tiles and dig, or skip scanning.');
+            return;
+        }
 
-        setSignalStrengths(prev => ({ ...prev, [key]: { strength, signalType } }));
-        setScansRemaining(prev => prev - 1);
+        const centerKey = `${x}_${y}`;
 
-        // Get world-themed feedback
+        // Get world scan theme for feedback
         const worldId = selectedOpponent?.id || 0;
         const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
-        const feedback = strength >= 2.5 ? scanTheme.strong
-            : strength >= 1.5 ? scanTheme.medium
-            : strength >= 0.5 ? scanTheme.weak
+
+        // Calculate signal for center tile (100% accuracy)
+        const centerSignal = calculateSignalStrength(x, y);
+        const centerVariance = Math.random() * 0.2 - 0.1; // Small variance
+        const centerStrength = Math.max(0, centerSignal.strength + centerVariance);
+
+        // Build new signal strengths including center
+        const newSignals = { [centerKey]: { strength: centerStrength, signalType: centerSignal.signalType } };
+
+        // Scan adjacent tiles at 50% strength (attenuated signal)
+        const adjacent = [
+            { dx: -1, dy: -1 }, { dx: 0, dy: -1 }, { dx: 1, dy: -1 },
+            { dx: -1, dy: 0 },                      { dx: 1, dy: 0 },
+            { dx: -1, dy: 1 },  { dx: 0, dy: 1 },  { dx: 1, dy: 1 }
+        ];
+
+        let strongAdjacentCount = 0;
+        adjacent.forEach(({ dx, dy }) => {
+            const ax = x + dx;
+            const ay = y + dy;
+            // Check bounds
+            if (ax >= 0 && ax < gridSize && ay >= 0 && ay < gridSize) {
+                const adjKey = `${ax}_${ay}`;
+                // Don't overwrite existing scans
+                if (signalStrengths[adjKey] === undefined) {
+                    const adjSignal = calculateSignalStrength(ax, ay);
+                    // 50% signal strength for adjacent, with more noise
+                    const adjVariance = Math.random() * 0.4 - 0.2;
+                    const adjStrength = Math.max(0, (adjSignal.strength * 0.5) + adjVariance);
+                    newSignals[adjKey] = { strength: adjStrength, signalType: adjSignal.signalType, isAdjacent: true };
+                    if (adjSignal.strength >= 2.5) strongAdjacentCount++;
+                }
+            }
+        });
+
+        // Update all signals at once
+        setSignalStrengths(prev => ({ ...prev, ...newSignals }));
+
+        // Decrement scans (with safety check)
+        setScansRemaining(prev => Math.max(0, prev - 1));
+
+        // Get feedback for center tile
+        const feedback = centerStrength >= 2.5 ? scanTheme.strong
+            : centerStrength >= 1.5 ? scanTheme.medium
+            : centerStrength >= 0.5 ? scanTheme.weak
             : scanTheme.none;
 
-        // Visual feedback with world theme!
+        // Visual feedback
         setLastDigResult({
             x, y,
             emoji: feedback.emoji,
-            label: feedback.label,
+            label: feedback.label + (strongAdjacentCount > 0 ? ` (+${strongAdjacentCount} nearby!)` : ''),
             color: feedback.color,
-            tier: strength >= 2.5 ? 1 : strength >= 1.5 ? 3 : strength >= 0.5 ? 5 : 7
+            tier: centerStrength >= 2.5 ? 1 : centerStrength >= 1.5 ? 3 : centerStrength >= 0.5 ? 5 : 7
         });
 
-        // Check if we're out of scans
+        // Add to event log
+        addEventLog(`Scanned (${x},${y}): ${feedback.label}`);
+
+        // Prompt to mark and dig
         if (scansRemaining <= 1) {
             setTimeout(() => {
-                setPhaseMessage('📍 Mark tiles you want to dig, then click READY TO DIG!');
+                setPhaseMessage('📍 Right-click tiles to MARK them, then click READY TO DIG!');
             }, 500);
         }
-    }, [gamePhase, scansRemaining, signalStrengths, hiddenContents]);
+    }, [gamePhase, scansRemaining, signalStrengths, calculateSignalStrength, gridSize, selectedOpponent, addEventLog]);
 
     // PROSPECT PHASE: Mark/unmark a tile for digging
     const handleMark = useCallback((x, y) => {
         if (gamePhase !== 'prospect') return;
 
-        const key = `${x}_${y}`;
         setMarkedTiles(prev => {
-            if (prev.some(t => t.x === x && t.y === y)) {
+            const isAlreadyMarked = prev.some(t => t.x === x && t.y === y);
+            if (isAlreadyMarked) {
+                addEventLog(`Unmarked tile (${x},${y})`);
                 return prev.filter(t => !(t.x === x && t.y === y));
+            } else {
+                addEventLog(`Marked tile (${x},${y}) for digging`);
+                setMascotMoodTemp('happy', 500);
+                return [...prev, { x, y }];
             }
-            return [...prev, { x, y }];
         });
-    }, [gamePhase]);
+    }, [gamePhase, addEventLog, setMascotMoodTemp]);
 
     // Transition to DIG phase
     const startDigPhase = useCallback(() => {
@@ -3353,7 +3406,8 @@ const TreasureDig = () => {
                 {/* Tutorial overlay */}
                 {showTutorial && <TutorialOverlay />}
 
-                {/* === MAIN THREE-COLUMN LAYOUT === */}
+                {/* === MAIN THREE-COLUMN LAYOUT - only during prospect/dig phases === */}
+                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
                 <div style={{
                     display: 'flex',
                     gap: '20px',
@@ -3371,6 +3425,7 @@ const TreasureDig = () => {
                         friends={friendsFound}
                         objective={levelConfig?.bonusObjective?.desc}
                         modeColor={currentModeColor}
+                        phase={gamePhase}
                     />
 
                     {/* === CENTER COLUMN: Board with ornate frame === */}
@@ -3389,8 +3444,8 @@ const TreasureDig = () => {
                             ] : null}
                         />
 
-                        {/* Last scan/dig feedback - floating above board */}
-                        {lastDigResult && (
+                        {/* Last scan/dig feedback - only during prospect/dig phases */}
+                        {lastDigResult && (gamePhase === 'prospect' || gamePhase === 'dig') && (
                             <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
                                 padding: '8px 24px', borderRadius: '20px',
@@ -3705,6 +3760,7 @@ const TreasureDig = () => {
                                 <button
                                     onClick={() => {
                                         setGamePhase('sort');
+                                        setLastDigResult(null); // Clear scan feedback
                                         setPhaseMessage('🧺 SORT PHASE - Choose what to keep!');
                                         addEventLog('Moving to sort phase...');
                                     }}
@@ -3749,6 +3805,7 @@ const TreasureDig = () => {
                         <EventLog events={eventLog} />
                     </div>
                 </div> {/* End three-column layout */}
+                )}
 
                 {/* SORT PHASE - Visual two-panel basket experience */}
                 {gamePhase === 'sort' && excavatedItems.length > 0 && (
@@ -3913,6 +3970,30 @@ const TreasureDig = () => {
                             <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
                                 ← Click items to remove
                             </div>
+
+                            {/* REVEAL BUTTON - proceed to reveal phase */}
+                            <button
+                                onClick={startRevealPhase}
+                                disabled={selectedForBasket.length === 0}
+                                style={{
+                                    marginTop: '15px',
+                                    padding: '12px 30px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    background: selectedForBasket.length > 0
+                                        ? `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 100%)`
+                                        : '#444',
+                                    color: selectedForBasket.length > 0 ? theme.bgDark : theme.textMuted,
+                                    border: selectedForBasket.length > 0 ? `2px solid ${theme.gold}` : '2px solid #555',
+                                    borderRadius: '10px',
+                                    cursor: selectedForBasket.length > 0 ? 'pointer' : 'not-allowed',
+                                    boxShadow: selectedForBasket.length > 0 ? `0 4px 15px ${theme.goldGlow}` : 'none',
+                                    transition: 'all 0.2s',
+                                    width: '100%'
+                                }}
+                            >
+                                ✨ Reveal What's Inside! ({selectedForBasket.length} items)
+                            </button>
                         </div>
                     </div>
                 )}
