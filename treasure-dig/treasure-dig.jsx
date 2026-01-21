@@ -3329,11 +3329,11 @@ const TreasureDig = () => {
         if (digsRemaining - digCost <= 0 && treasurePositions.length > 0) {
             setTimeout(() => setGameState('result'), 800);
         }
-    }, [gameState, digsRemaining, grid, activeTool, frozenTiles, treasurePositions,
+    }, [gameState, gamePhase, digsRemaining, grid, activeTool, frozenTiles, treasurePositions,
         decoyPositions, gemPositions, collectiblePositions, gridSize, combo, maxCombo, moveHistory,
         selectedOpponent, getMinTreasureDistance, getMinDecoyDistance,
         handleRadar, handleXRay, handleSonar, handleFlag, handleSpecialTile, moveTreasure,
-        addHitEffect, triggerShake, addToBasket]);
+        addHitEffect, triggerShake, addToBasket, handleTileClick]);
 
     // Hint system
     const getHint = useCallback(() => {
