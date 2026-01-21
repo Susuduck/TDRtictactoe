@@ -5802,8 +5802,15 @@ const BreakoutGame = () => {
           }
 
           // Determine trail color based on ball state
-          const trailColor = ball.mega ? '#ffd700' : ball.burning ? '#ff6030' : ball.charged ? '#40ff40' : '#ffffff';
-          const trailIntensity = ball.mega ? 1 : ball.burning ? 0.8 : ball.charged ? 0.6 + (ball.chargedHits || 0) * 0.1 : 0.3;
+          // Charged ball: green (0 hits) -> yellow (1 hit) -> red (2 hits) -> white (3+ hits, discharged)
+          const chargedHits = ball.chargedHits || 0;
+          const trailColor = ball.mega ? '#ffd700'
+            : ball.burning ? '#ff6030'
+            : ball.charged && chargedHits === 0 ? '#40ff40'  // Green - full charge
+            : ball.charged && chargedHits === 1 ? '#ffff40'  // Yellow - after 1st hit
+            : ball.charged && chargedHits === 2 ? '#ff4040'  // Red - after 2nd hit
+            : '#ffffff';
+          const trailIntensity = ball.mega ? 1 : ball.burning ? 0.8 : ball.charged ? 0.7 - chargedHits * 0.1 : 0.3;
           const speed = Math.sqrt((ball.vx || 0) ** 2 + (ball.vy || 0) ** 2);
           const showTrail = !isAttached && speed > 3;
 
@@ -5836,6 +5843,7 @@ const BreakoutGame = () => {
             )}
 
             {/* Main ball */}
+            {/* Charged ball colors: green (0 hits) -> yellow (1 hit) -> red (2 hits) -> white (3+ hits) */}
             <div
               style={{
                 position: 'absolute',
@@ -5847,25 +5855,25 @@ const BreakoutGame = () => {
                   ? 'radial-gradient(circle, #ffd700 0%, #ff8800 50%, #ff4400 100%)'
                   : ball.burning
                     ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
-                    : ball.charged && ball.chargedHits >= 3
+                    : ball.charged && (ball.chargedHits || 0) === 0
                       ? 'radial-gradient(circle, #40ff40 0%, #20cc20 100%)' // Green - full charge
-                      : ball.charged && ball.chargedHits === 2
-                        ? 'radial-gradient(circle, #80ff40 0%, #60cc20 100%)' // Lime green
-                        : ball.charged && ball.chargedHits === 1
-                          ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow
-                          : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal
+                      : ball.charged && ball.chargedHits === 1
+                        ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow - after 1st hit
+                        : ball.charged && ball.chargedHits === 2
+                          ? 'radial-gradient(circle, #ff4040 0%, #cc2020 100%)' // Red - after 2nd hit
+                          : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal or discharged
                 borderRadius: '50%',
                 boxShadow: ball.mega
                   ? '0 0 20px #ffd700, 0 0 40px #ff8800, 0 0 60px #ff4400'
                   : ball.burning
                     ? '0 0 15px #ff6030, 0 0 30px #ff3000'
-                    : ball.charged && ball.chargedHits >= 3
-                    ? '0 0 20px #40ff40, 0 0 10px #20cc20'
-                    : ball.charged && ball.chargedHits === 2
-                      ? '0 0 15px #80ff40'
+                    : ball.charged && (ball.chargedHits || 0) === 0
+                      ? '0 0 20px #40ff40, 0 0 10px #20cc20'
                       : ball.charged && ball.chargedHits === 1
-                        ? '0 0 12px #ffff40'
-                        : '0 0 10px rgba(255,255,255,0.5)',
+                        ? '0 0 15px #ffff40, 0 0 8px #cccc20'
+                        : ball.charged && ball.chargedHits === 2
+                          ? '0 0 12px #ff4040, 0 0 6px #cc2020'
+                          : '0 0 10px rgba(255,255,255,0.5)',
                 transform: ball.mega ? 'scale(1.5)' : 'scale(1)',
                 transition: 'transform 0.2s',
               }}
@@ -5874,37 +5882,50 @@ const BreakoutGame = () => {
         );
         })}
 
-        {/* Paddle - color changes based on health (width) */}
+        {/* Paddle - color changes based on health (width), shrinks slightly when charging */}
         {(() => {
           // Calculate paddle health ratio (30px = dead, 120px = full, 200px = max)
           const healthRatio = Math.min(1, (paddle.width - 30) / 90); // 0-1 scale
           const isLowHealth = healthRatio < 0.33;
           const isMedHealth = healthRatio < 0.66;
 
-          // Health-based colors
-          const healthGradient = activeEffects.includes('frozen')
-            ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
-            : activeEffects.includes('laser')
-              ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
-              : isDashing
-                ? 'linear-gradient(180deg, #ffd700, #ff8800)'
-                : isLowHealth
-                  ? 'linear-gradient(180deg, #ff6060, #dd4040)'
-                  : isMedHealth
-                    ? 'linear-gradient(180deg, #ffcc60, #ddaa40)'
-                    : 'linear-gradient(180deg, #60ff80, #40dd60)';
+          // Charging shrink effect (up to 8% smaller at full charge)
+          const chargeShrink = isCharging && balls.some(b => b.attached)
+            ? 1 - (chargeLevel / 100) * 0.08
+            : 1;
 
-          const healthGlow = activeEffects.includes('frozen')
-            ? '0 0 20px #80e0ff'
-            : activeEffects.includes('laser')
-              ? '0 0 20px #ff60ff'
-              : isDashing
-                ? '0 0 25px #ffd700'
-                : isLowHealth
-                  ? '0 0 20px #ff6060'
-                  : isMedHealth
-                    ? '0 0 15px #ffcc60'
-                    : '0 0 15px #60ff80';
+          // Health-based colors (override with charge color when charging)
+          const healthGradient = isCharging && balls.some(b => b.attached)
+            ? chargeLevel > 50
+              ? 'linear-gradient(180deg, #ffd700, #ff8800)' // Gold when high charge
+              : 'linear-gradient(180deg, #4080e0, #3060b0)' // Blue when charging
+            : activeEffects.includes('frozen')
+              ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
+              : activeEffects.includes('laser')
+                ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
+                : isDashing
+                  ? 'linear-gradient(180deg, #ffd700, #ff8800)'
+                  : isLowHealth
+                    ? 'linear-gradient(180deg, #ff6060, #dd4040)'
+                    : isMedHealth
+                      ? 'linear-gradient(180deg, #ffcc60, #ddaa40)'
+                      : 'linear-gradient(180deg, #60ff80, #40dd60)';
+
+          const healthGlow = isCharging && balls.some(b => b.attached)
+            ? chargeLevel > 50
+              ? '0 0 20px #ffd700'
+              : '0 0 15px #4080e0'
+            : activeEffects.includes('frozen')
+              ? '0 0 20px #80e0ff'
+              : activeEffects.includes('laser')
+                ? '0 0 20px #ff60ff'
+                : isDashing
+                  ? '0 0 25px #ffd700'
+                  : isLowHealth
+                    ? '0 0 20px #ff6060'
+                    : isMedHealth
+                      ? '0 0 15px #ffcc60'
+                      : '0 0 15px #60ff80';
 
           return (
             <div style={{
@@ -5916,9 +5937,10 @@ const BreakoutGame = () => {
               background: healthGradient,
               borderRadius: '6px',
               boxShadow: healthGlow,
-              transform: `translateX(${paddle.x}px)`,
+              transform: `translateX(${paddle.x}px) scaleX(${chargeShrink})`,
+              transformOrigin: 'center',
               willChange: 'transform', // Hint to browser for GPU acceleration
-              transition: 'width 0.2s, background 0.3s',
+              transition: 'transform 0.1s, background 0.2s',
             }} />
           );
         })()}
