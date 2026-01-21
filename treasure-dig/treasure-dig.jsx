@@ -150,7 +150,7 @@ const TreasureDig = () => {
     );
 
     // Status Column - left side resource display
-    const StatusColumn = ({ digs, score, treasuresFound, treasureCount, combo, friends, objective, modeColor }) => (
+    const StatusColumn = ({ digs, score, treasuresFound, treasureCount, combo, friends, objective, modeColor, phase }) => (
         <div style={{
             width: '160px',
             display: 'flex',
@@ -165,18 +165,20 @@ const TreasureDig = () => {
                 padding: '12px',
                 boxShadow: `0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 ${theme.borderLight}`
             }}>
-                {/* Digs */}
+                {/* Scans/Digs */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>⛏️</span>
+                    <span style={{ fontSize: '24px' }}>{phase === 'prospect' ? '📡' : '⛏️'}</span>
                     <div>
                         <div style={{
                             fontSize: '28px',
                             fontWeight: 'bold',
-                            color: digs <= 3 ? theme.error : theme.text,
+                            color: digs <= 1 ? theme.error : (phase === 'prospect' ? theme.modeScan : theme.text),
                             lineHeight: 1,
-                            textShadow: digs <= 3 ? `0 0 10px ${theme.error}` : 'none'
+                            textShadow: digs <= 1 ? `0 0 10px ${theme.error}` : 'none'
                         }}>{digs}</div>
-                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>Digs</div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>
+                            {phase === 'prospect' ? 'Scans' : 'Digs'}
+                        </div>
                     </div>
                 </div>
                 {/* Coins */}
@@ -561,6 +563,253 @@ const TreasureDig = () => {
         </div>
     );
 
+    // Mechanic Panel - displays world-specific mechanic status
+    const MechanicPanel = ({ worldId, mechanicState, onToggleScanMode }) => {
+        const mechanic = worldMechanics[worldId] || worldMechanics[0];
+        if (!mechanic) return null;
+
+        // Don't show panel for tutorial world (Funky Frog has passive triangulation)
+        if (worldId === 0 && !mechanicState.triangulationScans?.length) return null;
+
+        const renderMechanicContent = () => {
+            switch (mechanic.primaryMechanic) {
+                case 'triangulation':
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px' }}>📐</span>
+                            <span style={{ color: theme.textSecondary, fontSize: '11px' }}>
+                                {mechanicState.triangulationScans?.length || 0} scans triangulated
+                            </span>
+                        </div>
+                    );
+
+                case 'peckMeter':
+                    const peckPct = ((mechanicState.peckMeter || 0) / (mechanicState.peckThreshold || 3)) * 100;
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <span style={{ fontSize: '14px' }}>🐔</span>
+                            <div style={{ flex: 1, height: '8px', background: theme.bgDark, borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{
+                                    width: `${peckPct}%`,
+                                    height: '100%',
+                                    background: peckPct >= 66 ? '#ef4444' : peckPct >= 33 ? '#f59e0b' : '#22c55e',
+                                    transition: 'width 0.3s, background 0.3s'
+                                }} />
+                            </div>
+                            <span style={{ color: theme.textMuted, fontSize: '10px', minWidth: '40px' }}>
+                                {mechanicState.peckMeter || 0}/{mechanicState.peckThreshold || 3}
+                            </span>
+                        </div>
+                    );
+
+                case 'dualFrequency':
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <button
+                                onClick={() => onToggleScanMode?.('A')}
+                                style={{
+                                    padding: '4px 12px',
+                                    background: mechanicState.scanMode === 'A' ? mechanic.mechanicRules?.scanModeA?.color : 'transparent',
+                                    border: `2px solid ${mechanic.mechanicRules?.scanModeA?.color || '#06b6d4'}`,
+                                    borderRadius: '4px',
+                                    color: mechanicState.scanMode === 'A' ? '#000' : mechanic.mechanicRules?.scanModeA?.color,
+                                    cursor: 'pointer',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                {mechanic.mechanicRules?.scanModeA?.name || 'Mode A'}
+                            </button>
+                            <button
+                                onClick={() => onToggleScanMode?.('B')}
+                                style={{
+                                    padding: '4px 12px',
+                                    background: mechanicState.scanMode === 'B' ? mechanic.mechanicRules?.scanModeB?.color : 'transparent',
+                                    border: `2px solid ${mechanic.mechanicRules?.scanModeB?.color || '#d946ef'}`,
+                                    borderRadius: '4px',
+                                    color: mechanicState.scanMode === 'B' ? '#000' : mechanic.mechanicRules?.scanModeB?.color,
+                                    cursor: 'pointer',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                {mechanic.mechanicRules?.scanModeB?.name || 'Mode B'}
+                            </button>
+                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>
+                                🦖 {mechanicState.roarCounter || 0}/{mechanic.mechanicRules?.roarInterval || 4}
+                            </span>
+                        </div>
+                    );
+
+                case 'chargeSystem':
+                    const chargePct = ((mechanicState.chargeLevel || 0) / (mechanicState.maxCharge || 5)) * 100;
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <span style={{ fontSize: '14px' }}>⚡</span>
+                            <div style={{ flex: 1, display: 'flex', gap: '2px' }}>
+                                {Array.from({ length: mechanicState.maxCharge || 5 }).map((_, i) => (
+                                    <div key={i} style={{
+                                        width: '16px', height: '20px',
+                                        background: i < (mechanicState.chargeLevel || 0) ? '#38bdf8' : theme.bgDark,
+                                        borderRadius: '2px',
+                                        border: `1px solid ${i < (mechanicState.chargeLevel || 0) ? '#0ea5e9' : theme.border}`,
+                                        boxShadow: i < (mechanicState.chargeLevel || 0) ? '0 0 6px #38bdf8' : 'none'
+                                    }} />
+                                ))}
+                            </div>
+                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>CHARGE</span>
+                        </div>
+                    );
+
+                case 'fogOfWar':
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px' }}>🌫️</span>
+                            <span style={{ color: theme.textSecondary, fontSize: '11px' }}>
+                                {mechanicState.fogTiles?.length || 0} tiles fogged
+                            </span>
+                            {mechanicState.lanternActive && (
+                                <span style={{ color: '#fcd34d', fontSize: '11px' }}>🏮 Lantern active!</span>
+                            )}
+                        </div>
+                    );
+
+                case 'momentum':
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '14px' }}>❄️</span>
+                                <span style={{
+                                    color: (mechanicState.coldTimer || 15) <= 5 ? '#ef4444' : theme.textSecondary,
+                                    fontSize: '11px',
+                                    fontWeight: (mechanicState.coldTimer || 15) <= 5 ? 'bold' : 'normal'
+                                }}>
+                                    {mechanicState.coldTimer || 15} turns
+                                </span>
+                            </div>
+                            {(mechanicState.iceCracks?.length || 0) > 0 && (
+                                <span style={{ color: '#7dd3fc', fontSize: '11px' }}>
+                                    🧊 {mechanicState.iceCracks?.length} cracks
+                                </span>
+                            )}
+                        </div>
+                    );
+
+                case 'shifting':
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px' }}>🐍</span>
+                            <span style={{ color: theme.textSecondary, fontSize: '11px' }}>
+                                Shift in {(mechanic.mechanicRules?.shiftInterval || 3) - (mechanicState.shiftCounter || 0)} actions
+                            </span>
+                            {(mechanicState.anchorTiles?.length || 0) > 0 && (
+                                <span style={{ color: '#fbbf24', fontSize: '10px' }}>
+                                    📍 {mechanicState.anchorTiles?.length} anchors
+                                </span>
+                            )}
+                        </div>
+                    );
+
+                case 'depthLayers':
+                    const deepCount = Object.values(mechanicState.tileDepths || {}).filter(d => d > 1).length;
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px' }}>🐺</span>
+                            <span style={{ color: theme.textSecondary, fontSize: '11px' }}>
+                                {deepCount} tiles need double dig
+                            </span>
+                        </div>
+                    );
+
+                case 'combined':
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '14px' }}>👑</span>
+                            <span style={{ color: '#fcd34d', fontSize: '11px', fontWeight: 'bold' }}>
+                                ULTIMATE CHALLENGE
+                            </span>
+                            <span style={{ color: theme.textMuted, fontSize: '10px' }}>
+                                All mechanics active
+                            </span>
+                        </div>
+                    );
+
+                default:
+                    return null;
+            }
+        };
+
+        const content = renderMechanicContent();
+        if (!content) return null;
+
+        return (
+            <div style={{
+                background: `linear-gradient(135deg, ${mechanic.uiTheme?.accentColors?.scan || theme.modeScan}15, transparent)`,
+                border: `1px solid ${mechanic.uiTheme?.accentColors?.scan || theme.modeScan}30`,
+                borderRadius: '8px',
+                padding: '8px 12px',
+                marginBottom: '8px'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '4px'
+                }}>
+                    <span style={{
+                        fontSize: '10px',
+                        color: mechanic.uiTheme?.accentColors?.scan || theme.modeScan,
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        {mechanic.name}
+                    </span>
+                </div>
+                {content}
+                {mechanic.description && (
+                    <div style={{
+                        fontSize: '9px',
+                        color: theme.textMuted,
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                    }}>
+                        {mechanic.description}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // Mechanic Alert Popup - shows mechanic-triggered events
+    const MechanicAlertPopup = ({ alert }) => {
+        if (!alert) return null;
+
+        const bgColor = alert.type === 'error' ? 'rgba(239, 68, 68, 0.9)'
+            : alert.type === 'warning' ? 'rgba(245, 158, 11, 0.9)'
+            : 'rgba(34, 197, 94, 0.9)';
+
+        return (
+            <div style={{
+                position: 'fixed',
+                top: '20%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: bgColor,
+                color: '#fff',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                zIndex: 1000,
+                animation: 'popIn 0.3s ease-out'
+            }}>
+                {alert.message}
+            </div>
+        );
+    };
+
     // World themes - visual and gameplay elements for each world
     const worldThemes = {
         0: { // Frog - Swamp
@@ -748,6 +997,197 @@ const TreasureDig = () => {
             none: { emoji: '🪙', label: 'Nothing', color: '#665500' }
         }
     };
+
+    // ============================================
+    // WORLD MECHANICS SYSTEM
+    // Each world gets: 1 primary mechanic, 1 resource pressure, UI theme
+    // ============================================
+    const worldMechanics = {
+        0: { // Funky Frog - Murky Swamp
+            name: 'Signal Drift',
+            description: 'Readings are noisy - scan from different angles for better accuracy',
+            primaryMechanic: 'triangulation', // Multiple scans improve accuracy
+            resourcePressure: null, // Tutorial world - no pressure
+            uiTheme: {
+                frameMaterial: 'moss-brass', // Brass with moss accents
+                accentColors: { scan: '#2dd4bf', mark: '#84cc16', dig: '#22c55e' },
+                particles: 'bubbles', // Rising bubbles
+                glowStyle: 'bioluminescent'
+            },
+            mechanicRules: {
+                signalNoise: 0.3, // Base noise in readings
+                triangulationBonus: true, // Adjacent scans reduce noise
+                adjacentScanBoost: 0.5 // 50% accuracy boost from adjacent scans
+            }
+        },
+        1: { // Cheeky Chicken - Sunny Farm
+            name: 'Peck Meter',
+            description: 'Scanning startles chickens - decoys may move!',
+            primaryMechanic: 'peckMeter', // Scans add to peck meter, triggers decoy movement
+            resourcePressure: 'decoyMovement',
+            uiTheme: {
+                frameMaterial: 'wood-warm', // Warm wooden frames
+                accentColors: { scan: '#fbbf24', mark: '#f97316', dig: '#dc2626' },
+                particles: 'feathers', // Feather puffs on dig
+                glowStyle: 'sunny'
+            },
+            mechanicRules: {
+                peckThreshold: 3, // After 3 scans, decoys may move
+                eggClusterBonus: true, // Adjacent scans reveal nest patterns
+                shinyDoubleValue: true // Gems worth 2x in basket
+            }
+        },
+        2: { // Disco Dinosaur - Prehistoric Jungle
+            name: 'Dual Frequency',
+            description: 'Two treasure types - toggle between scan modes A and B!',
+            primaryMechanic: 'dualFrequency', // Two scan modes for two treasure types
+            resourcePressure: 'roarEvent',
+            uiTheme: {
+                frameMaterial: 'neon-jungle', // Glowing vines
+                accentColors: { scan: '#06b6d4', mark: '#d946ef', dig: '#f43f5e' },
+                particles: 'synth-pulse', // Synth wave pulses
+                glowStyle: 'neon'
+            },
+            mechanicRules: {
+                scanModeA: { color: '#06b6d4', name: 'Teal Pulse' },
+                scanModeB: { color: '#d946ef', name: 'Magenta Pulse' },
+                roarInterval: 4, // Every 4 scans, weak signals reshuffle
+                footprintTrails: true // Some tiles show directional hints
+            }
+        },
+        3: { // Radical Raccoon - Urban Night
+            name: 'Decoy AI',
+            description: 'Decoys cluster where you look - read behavior, not raw signals!',
+            primaryMechanic: 'decoyAI', // Decoys move toward scanned areas
+            resourcePressure: 'pickpocket',
+            uiTheme: {
+                frameMaterial: 'crt-metal', // CRT monitor style
+                accentColors: { scan: '#a3e635', mark: '#facc15', dig: '#f87171' },
+                particles: 'scanlines', // CRT scanlines
+                glowStyle: 'streetlight'
+            },
+            mechanicRules: {
+                decoyAttraction: 0.7, // 70% chance decoys move toward scans
+                streetlightSweep: true, // Line-of-sight mechanic
+                pickpocketPenalty: 10, // Lose coins when hitting decoy
+                gloveProtection: true // Glove item prevents pickpocket
+            }
+        },
+        4: { // Electric Eel - Ocean Depths
+            name: 'Charge Management',
+            description: 'Scanning costs charge - dig near strong signals to recharge!',
+            primaryMechanic: 'chargeSystem', // Battery gauge for scans
+            resourcePressure: 'shockRisk',
+            uiTheme: {
+                frameMaterial: 'glass-aqua', // Glass with water effects
+                accentColors: { scan: '#38bdf8', mark: '#22d3ee', dig: '#0ea5e9' },
+                particles: 'bubbles-caustic', // Bubbles with caustic lighting
+                glowStyle: 'oscilloscope'
+            },
+            mechanicRules: {
+                maxCharge: 5,
+                scanCost: 1,
+                rechargeOnStrongDig: 2, // Recharge 2 when digging strong signal
+                currentFlowBend: true, // Sonar cone bends with currents
+                shockStunTurns: 1 // Skip 1 turn if shocked
+            }
+        },
+        5: { // Mysterious Moth - Enchanted Forest
+            name: 'Fog of War',
+            description: 'Tiles hidden until scanned - some re-fog over time!',
+            primaryMechanic: 'fogOfWar', // Hidden tiles, lantern items
+            resourcePressure: 'illusions',
+            uiTheme: {
+                frameMaterial: 'parchment-mystic', // Old parchment with runes
+                accentColors: { scan: '#c084fc', mark: '#e879f9', dig: '#a855f7' },
+                particles: 'moth-flutter', // Drifting moths
+                glowStyle: 'ethereal'
+            },
+            mechanicRules: {
+                fogRefreshTurns: 5, // Tiles re-fog after 5 turns
+                lanternRadius: 2, // Lantern reveals 2-tile radius permanently
+                illusionChance: 0.2 // 20% chance weak signals appear strong
+            }
+        },
+        6: { // Professor Penguin - Frozen Tundra
+            name: 'Momentum',
+            description: 'Actions have momentum - digs slide, repeated scans crack ice!',
+            primaryMechanic: 'momentum', // Sliding digs, ice cracking
+            resourcePressure: 'coldTimer',
+            uiTheme: {
+                frameMaterial: 'ice-glass', // Frosted glass panels
+                accentColors: { scan: '#7dd3fc', mark: '#67e8f9', dig: '#06b6d4' },
+                particles: 'snowflakes', // Gentle snowfall
+                glowStyle: 'frost'
+            },
+            mechanicRules: {
+                slideDistance: 1, // Slide 1 tile after dig
+                crackThreshold: 2, // 2 adjacent scans crack ice
+                crackReveals: 'line', // Crack reveals entire line
+                coldTimerTurns: 15, // Lose dig if >15 turns
+                iceCreakSound: true
+            }
+        },
+        7: { // Sly Snake - Desert Temple
+            name: 'Shifting Rooms',
+            description: 'The temple shifts! Rows and columns rotate periodically.',
+            primaryMechanic: 'shifting', // Board rotation
+            resourcePressure: 'trapDoors',
+            uiTheme: {
+                frameMaterial: 'sandstone-gold', // Sandstone with gold runes
+                accentColors: { scan: '#fbbf24', mark: '#f59e0b', dig: '#d97706' },
+                particles: 'sand-drift', // Drifting sand particles
+                glowStyle: 'rune'
+            },
+            mechanicRules: {
+                shiftInterval: 3, // Shift every 3 actions
+                shiftType: 'rotate', // Rotate rows/columns
+                anchorTiles: true, // Some tiles are fixed (hieroglyphs)
+                trapDoorChance: 0.1 // 10% chance wrong dig opens pit
+            }
+        },
+        8: { // Wolf Warrior - Crystal Caves
+            name: 'Deep Dig',
+            description: 'Two layers to dig - clear rubble first, then extract treasure!',
+            primaryMechanic: 'depthLayers', // Two-layer digging
+            resourcePressure: 'echoPatterns',
+            uiTheme: {
+                frameMaterial: 'crystal-dark', // Dark crystal with refractions
+                accentColors: { scan: '#a78bfa', mark: '#c084fc', dig: '#8b5cf6' },
+                particles: 'crystal-sparkle', // Prismatic sparkles
+                glowStyle: 'prismatic'
+            },
+            mechanicRules: {
+                layerCount: 2, // 2 layers to dig
+                echoScanBounce: true, // Scans bounce off walls
+                crystalResonance: true, // Crystals amplify weak signals
+                resonanceRadius: 2
+            }
+        },
+        9: { // Grand Master Grizzly - Royal Vault
+            name: 'Ultimate Challenge',
+            description: 'Master all mechanics - limited scans, shifting rooms, deep digs!',
+            primaryMechanic: 'combined', // Multiple mechanics active
+            resourcePressure: 'strict',
+            uiTheme: {
+                frameMaterial: 'gilded-ornate', // Gilded frames with filigree
+                accentColors: { scan: '#fcd34d', mark: '#fbbf24', dig: '#f59e0b' },
+                particles: 'golden-dust', // Golden particles
+                glowStyle: 'royal'
+            },
+            mechanicRules: {
+                activeMechanics: ['dualFrequency', 'shifting', 'depthLayers'],
+                shiftInterval: 3,
+                layerCount: 2,
+                strictCapacity: true, // Reduced basket capacity
+                rankSystem: true, // S/A/B rank at end
+                fullRevealAnimation: true // Full JRPG item card reveal
+            }
+        }
+    };
+
+    // Get world mechanic config for current opponent
+    const getWorldMechanic = (opponentId) => worldMechanics[opponentId] || worldMechanics[0];
 
     // FUN distance feedback - "Treasure Sense" reactions!
     const getDistanceInfo = (distance, gridSize) => {
@@ -1119,6 +1559,51 @@ const TreasureDig = () => {
     const [digEffects, setDigEffects] = useState([]); // Dig/excavate effects
     const [revealCards, setRevealCards] = useState([]); // Item reveal popup cards
 
+    // ============================================
+    // WORLD MECHANIC STATE VARIABLES
+    // ============================================
+    // Funky Frog: Triangulation tracking
+    const [triangulationScans, setTriangulationScans] = useState([]); // {x, y} positions of scans
+
+    // Cheeky Chicken: Peck meter triggers decoy movement
+    const [peckMeter, setPeckMeter] = useState(0);
+    const [peckThreshold, setPeckThreshold] = useState(3);
+
+    // Disco Dinosaur: Dual frequency scan modes
+    const [scanMode, setScanMode] = useState('A'); // 'A' or 'B'
+    const [roarCounter, setRoarCounter] = useState(0);
+
+    // Radical Raccoon: Decoy AI behavior
+    const [decoyHistory, setDecoyHistory] = useState([]); // Track where player scans
+    const [gloveProtected, setGloveProtected] = useState(false);
+
+    // Electric Eel: Charge management
+    const [chargeLevel, setChargeLevel] = useState(5);
+    const [maxCharge, setMaxCharge] = useState(5);
+    const [stunned, setStunned] = useState(false);
+
+    // Mysterious Moth: Fog of war
+    const [fogTiles, setFogTiles] = useState([]); // Tiles currently fogged
+    const [fogTimers, setFogTimers] = useState({}); // {key: turnsUntilRefog}
+    const [lanternActive, setLanternActive] = useState(false);
+
+    // Professor Penguin: Momentum/sliding + cold timer
+    const [iceCracks, setIceCracks] = useState([]); // {x, y} cracked tiles
+    const [coldTimer, setColdTimer] = useState(15);
+
+    // Sly Snake: Shifting rooms
+    const [shiftCounter, setShiftCounter] = useState(0);
+    const [anchorTiles, setAnchorTiles] = useState([]); // Fixed hieroglyph tiles
+
+    // Wolf Warrior: Deep dig + echo
+    const [tileDepths, setTileDepths] = useState({}); // {key: depthRemaining}
+
+    // Grand Master Grizzly: Combined mechanics tracker
+    const [activeMechanicStates, setActiveMechanicStates] = useState({});
+
+    // Universal mechanic display
+    const [mechanicAlert, setMechanicAlert] = useState(null); // {message, type, duration}
+
     // Add event to log
     const addEventLog = useCallback((message) => {
         setEventLog(prev => [...prev.slice(-20), message]);
@@ -1154,6 +1639,16 @@ const TreasureDig = () => {
     useEffect(() => {
         localStorage.setItem('treasuredig_progression_v3', JSON.stringify(progression));
     }, [progression]);
+
+    // Clear mechanic alert after duration
+    useEffect(() => {
+        if (mechanicAlert) {
+            const timer = setTimeout(() => {
+                setMechanicAlert(null);
+            }, mechanicAlert.duration || 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [mechanicAlert]);
 
     // Calculate total stars for an opponent (sum of all level stars, max 10)
     const getStars = (idx) => {
@@ -1435,7 +1930,7 @@ const TreasureDig = () => {
 
         // Set up phase state
         setGamePhase('prospect');
-        setScansRemaining(Math.floor(size * 1.5)); // Scans scale with grid size
+        setScansRemaining(2); // Only 2 radar scans - each scan affects adjacent tiles too!
         setMarkedTiles([]);
         setExcavatedItems([]);
         setSelectedForBasket([]);
@@ -1443,6 +1938,74 @@ const TreasureDig = () => {
         setCombinedItems([]);
         setSignalStrengths({});
         setPhaseMessage('🔍 PROSPECT PHASE - Scan tiles to detect signals!');
+
+        // ============================================
+        // INITIALIZE WORLD-SPECIFIC MECHANICS
+        // ============================================
+        const mechanic = worldMechanics[opp.id] || worldMechanics[0];
+
+        // Reset all world mechanic states
+        setTriangulationScans([]);
+        setPeckMeter(0);
+        setPeckThreshold(mechanic.mechanicRules?.peckThreshold || 3);
+        setScanMode('A');
+        setRoarCounter(0);
+        setDecoyHistory([]);
+        setGloveProtected(false);
+        setChargeLevel(mechanic.mechanicRules?.maxCharge || 5);
+        setMaxCharge(mechanic.mechanicRules?.maxCharge || 5);
+        setStunned(false);
+        setFogTiles([]);
+        setFogTimers({});
+        setLanternActive(false);
+        setIceCracks([]);
+        setColdTimer(mechanic.mechanicRules?.coldTimerTurns || 15);
+        setShiftCounter(0);
+        setAnchorTiles([]);
+        setTileDepths({});
+        setActiveMechanicStates({});
+        setMechanicAlert(null);
+
+        // World-specific initialization
+        if (mechanic.primaryMechanic === 'fogOfWar') {
+            // Start with all tiles fogged except center
+            const foggedTiles = [];
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    // Leave center 2x2 area visible
+                    const cx = Math.floor(size / 2);
+                    const cy = Math.floor(size / 2);
+                    if (Math.abs(x - cx) > 1 || Math.abs(y - cy) > 1) {
+                        foggedTiles.push({ x, y });
+                    }
+                }
+            }
+            setFogTiles(foggedTiles);
+        }
+
+        if (mechanic.primaryMechanic === 'depthLayers') {
+            // Set all tiles to require 2 digs
+            const depths = {};
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    depths[`${x}_${y}`] = mechanic.mechanicRules?.layerCount || 2;
+                }
+            }
+            setTileDepths(depths);
+        }
+
+        if (mechanic.primaryMechanic === 'shifting') {
+            // Mark some tiles as anchors (can't be shifted)
+            const anchors = [];
+            const anchorCount = Math.floor(size * 0.3);
+            for (let i = 0; i < anchorCount; i++) {
+                anchors.push({
+                    x: Math.floor(Math.random() * size),
+                    y: Math.floor(Math.random() * size)
+                });
+            }
+            setAnchorTiles(anchors);
+        }
 
         return { size, treasures, config };
     }, []);
@@ -1962,13 +2525,9 @@ const TreasureDig = () => {
 
     // === PHASE SYSTEM HANDLERS ===
 
-    // PROSPECT PHASE: Scan a tile to get signal strength
-    const handleScan = useCallback((x, y) => {
-        if (gamePhase !== 'prospect' || scansRemaining <= 0) return;
-
-        const key = `${x}_${y}`;
-        if (signalStrengths[key] !== undefined) return; // Already scanned
-
+    // Helper: Calculate signal strength for a tile
+    const calculateSignalStrength = useCallback((tx, ty) => {
+        const key = `${tx}_${ty}`;
         const content = hiddenContents[key];
         let strength = 0;
         let signalType = 'empty';
@@ -1988,51 +2547,245 @@ const TreasureDig = () => {
                 signalType = 'weak';
             }
         }
+        return { strength, signalType };
+    }, [hiddenContents]);
 
-        // Add some noise/variance to make it interesting
-        const variance = Math.random() * 0.3 - 0.15;
-        strength = Math.max(0, strength + variance);
+    // PROSPECT PHASE: Scan a tile - RADAR STYLE with WORLD MECHANICS
+    const handleScan = useCallback((x, y) => {
+        // Strict bounds checking
+        if (gamePhase !== 'prospect') return;
+        if (scansRemaining <= 0) {
+            setPhaseMessage('❌ No scans left! Mark tiles and dig, or skip scanning.');
+            return;
+        }
 
-        setSignalStrengths(prev => ({ ...prev, [key]: { strength, signalType } }));
-        setScansRemaining(prev => prev - 1);
-
-        // Get world-themed feedback
         const worldId = selectedOpponent?.id || 0;
+        const mechanic = worldMechanics[worldId] || worldMechanics[0];
         const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
-        const feedback = strength >= 2.5 ? scanTheme.strong
-            : strength >= 1.5 ? scanTheme.medium
-            : strength >= 0.5 ? scanTheme.weak
+
+        // ============================================
+        // WORLD-SPECIFIC PRE-SCAN CHECKS
+        // ============================================
+
+        // Electric Eel: Check charge before scanning
+        if (mechanic.primaryMechanic === 'chargeSystem') {
+            if (chargeLevel <= 0) {
+                setPhaseMessage('⚡ No charge! Find strong signals to recharge.');
+                setMechanicAlert({ message: 'OUT OF CHARGE!', type: 'error', duration: 1500 });
+                return;
+            }
+            setChargeLevel(prev => Math.max(0, prev - (mechanic.mechanicRules?.scanCost || 1)));
+        }
+
+        // Professor Penguin: Check cold timer and decrement
+        if (mechanic.primaryMechanic === 'momentum') {
+            setColdTimer(prev => {
+                const newTime = prev - 1;
+                if (newTime <= 3) {
+                    setMechanicAlert({ message: `❄️ FREEZING! ${newTime} turns left!`, type: 'warning', duration: 1000 });
+                }
+                return newTime;
+            });
+        }
+
+        const centerKey = `${x}_${y}`;
+
+        // ============================================
+        // CALCULATE BASE SIGNAL STRENGTH
+        // ============================================
+        const centerSignal = calculateSignalStrength(x, y);
+        let centerVariance = Math.random() * 0.2 - 0.1;
+
+        // Funky Frog: Add noise based on mechanic rules, reduced by triangulation
+        if (mechanic.primaryMechanic === 'triangulation') {
+            const noiseLevel = mechanic.mechanicRules?.signalNoise || 0.3;
+            // Check if we have adjacent scans for triangulation bonus
+            const nearbyScans = triangulationScans.filter(s =>
+                Math.abs(s.x - x) <= 2 && Math.abs(s.y - y) <= 2
+            );
+            const triangulationReduction = nearbyScans.length * (mechanic.mechanicRules?.adjacentScanBoost || 0.5);
+            centerVariance += (Math.random() * noiseLevel * 2 - noiseLevel) * Math.max(0.1, 1 - triangulationReduction);
+
+            if (nearbyScans.length > 0) {
+                setMechanicAlert({ message: `📐 Triangulation! +${Math.round(triangulationReduction * 100)}% accuracy`, type: 'info', duration: 1000 });
+            }
+            setTriangulationScans(prev => [...prev, { x, y }]);
+        }
+
+        // Disco Dinosaur: Dual frequency - only detect matching signal type
+        if (mechanic.primaryMechanic === 'dualFrequency') {
+            // Increment roar counter
+            setRoarCounter(prev => {
+                const newCount = prev + 1;
+                if (newCount >= (mechanic.mechanicRules?.roarInterval || 4)) {
+                    setMechanicAlert({ message: '🦖 ROAR! Weak signals reshuffled!', type: 'warning', duration: 1500 });
+                    // Reshuffle logic could go here
+                    return 0;
+                }
+                return newCount;
+            });
+        }
+
+        // Mysterious Moth: Clear fog from scanned area
+        if (mechanic.primaryMechanic === 'fogOfWar') {
+            const clearedTiles = [{ x, y }];
+            // Clear center and immediate adjacent tiles
+            [{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: 0, dy: 1 }].forEach(({ dx, dy }) => {
+                clearedTiles.push({ x: x + dx, y: y + dy });
+            });
+            setFogTiles(prev => prev.filter(f =>
+                !clearedTiles.some(c => c.x === f.x && c.y === f.y)
+            ));
+        }
+
+        let centerStrength = Math.max(0, centerSignal.strength + centerVariance);
+
+        // Build new signal strengths including center
+        const newSignals = { [centerKey]: { strength: centerStrength, signalType: centerSignal.signalType, scanMode } };
+
+        // Scan adjacent tiles at 50% strength (attenuated signal)
+        const adjacent = [
+            { dx: -1, dy: -1 }, { dx: 0, dy: -1 }, { dx: 1, dy: -1 },
+            { dx: -1, dy: 0 },                      { dx: 1, dy: 0 },
+            { dx: -1, dy: 1 },  { dx: 0, dy: 1 },  { dx: 1, dy: 1 }
+        ];
+
+        let strongAdjacentCount = 0;
+        adjacent.forEach(({ dx, dy }) => {
+            const ax = x + dx;
+            const ay = y + dy;
+            if (ax >= 0 && ax < gridSize && ay >= 0 && ay < gridSize) {
+                const adjKey = `${ax}_${ay}`;
+                if (signalStrengths[adjKey] === undefined) {
+                    const adjSignal = calculateSignalStrength(ax, ay);
+                    const adjVariance = Math.random() * 0.4 - 0.2;
+                    const adjStrength = Math.max(0, (adjSignal.strength * 0.5) + adjVariance);
+                    newSignals[adjKey] = { strength: adjStrength, signalType: adjSignal.signalType, isAdjacent: true };
+                    if (adjSignal.strength >= 2.5) strongAdjacentCount++;
+                }
+            }
+        });
+
+        // Update all signals at once
+        setSignalStrengths(prev => ({ ...prev, ...newSignals }));
+
+        // Decrement scans (with safety check)
+        setScansRemaining(prev => Math.max(0, prev - 1));
+
+        // ============================================
+        // WORLD-SPECIFIC POST-SCAN EFFECTS
+        // ============================================
+
+        // Cheeky Chicken: Increment peck meter, trigger decoy movement
+        if (mechanic.primaryMechanic === 'peckMeter') {
+            setPeckMeter(prev => {
+                const newPeck = prev + 1;
+                if (newPeck >= peckThreshold) {
+                    setMechanicAlert({ message: '🐔 SQUAWK! Decoys scattered!', type: 'warning', duration: 1500 });
+                    // Move some decoys randomly
+                    setDecoyPositions(decoys => decoys.map(d => {
+                        if (Math.random() < 0.5) {
+                            const dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+                            const dir = dirs[Math.floor(Math.random() * dirs.length)];
+                            const nx = Math.max(0, Math.min(gridSize - 1, d.x + dir.dx));
+                            const ny = Math.max(0, Math.min(gridSize - 1, d.y + dir.dy));
+                            return { x: nx, y: ny };
+                        }
+                        return d;
+                    }));
+                    return 0; // Reset peck meter
+                }
+                return newPeck;
+            });
+        }
+
+        // Radical Raccoon: Track scan history, decoys move toward scanned areas
+        if (mechanic.primaryMechanic === 'decoyAI') {
+            setDecoyHistory(prev => [...prev, { x, y }]);
+            if (Math.random() < (mechanic.mechanicRules?.decoyAttraction || 0.7)) {
+                setDecoyPositions(decoys => decoys.map(d => {
+                    // Move decoy toward most scanned area
+                    const dx = x > d.x ? 1 : x < d.x ? -1 : 0;
+                    const dy = y > d.y ? 1 : y < d.y ? -1 : 0;
+                    const nx = Math.max(0, Math.min(gridSize - 1, d.x + dx));
+                    const ny = Math.max(0, Math.min(gridSize - 1, d.y + dy));
+                    return { x: nx, y: ny };
+                }));
+            }
+        }
+
+        // Professor Penguin: Check for ice cracking (adjacent scans)
+        if (mechanic.primaryMechanic === 'momentum') {
+            const adjacentScansCount = adjacent.filter(({ dx, dy }) => {
+                const adjKey = `${x + dx}_${y + dy}`;
+                return signalStrengths[adjKey] !== undefined;
+            }).length;
+
+            if (adjacentScansCount >= (mechanic.mechanicRules?.crackThreshold || 2)) {
+                setIceCracks(prev => [...prev, { x, y }]);
+                setMechanicAlert({ message: '🧊 CRACK! Ice line revealed!', type: 'info', duration: 1200 });
+            }
+        }
+
+        // Sly Snake: Increment shift counter, trigger room shift
+        if (mechanic.primaryMechanic === 'shifting') {
+            setShiftCounter(prev => {
+                const newCount = prev + 1;
+                if (newCount >= (mechanic.mechanicRules?.shiftInterval || 3)) {
+                    setMechanicAlert({ message: '🐍 The temple shifts!', type: 'warning', duration: 1500 });
+                    // Shift logic would go here (rotate a row/column)
+                    return 0;
+                }
+                return newCount;
+            });
+        }
+
+        // Get feedback for center tile
+        const feedback = centerStrength >= 2.5 ? scanTheme.strong
+            : centerStrength >= 1.5 ? scanTheme.medium
+            : centerStrength >= 0.5 ? scanTheme.weak
             : scanTheme.none;
 
-        // Visual feedback with world theme!
+        // Visual feedback with mechanic-specific label additions
+        let extraLabel = '';
+        if (strongAdjacentCount > 0) extraLabel += ` (+${strongAdjacentCount} nearby!)`;
+        if (mechanic.primaryMechanic === 'dualFrequency') extraLabel += ` [Mode ${scanMode}]`;
+        if (mechanic.primaryMechanic === 'chargeSystem') extraLabel += ` [⚡${chargeLevel}]`;
+
         setLastDigResult({
             x, y,
             emoji: feedback.emoji,
-            label: feedback.label,
+            label: feedback.label + extraLabel,
             color: feedback.color,
-            tier: strength >= 2.5 ? 1 : strength >= 1.5 ? 3 : strength >= 0.5 ? 5 : 7
+            tier: centerStrength >= 2.5 ? 1 : centerStrength >= 1.5 ? 3 : centerStrength >= 0.5 ? 5 : 7
         });
 
-        // Check if we're out of scans
+        addEventLog(`Scanned (${x},${y}): ${feedback.label}`);
+
         if (scansRemaining <= 1) {
             setTimeout(() => {
-                setPhaseMessage('📍 Mark tiles you want to dig, then click READY TO DIG!');
+                setPhaseMessage('📍 Right-click tiles to MARK them, then click READY TO DIG!');
             }, 500);
         }
-    }, [gamePhase, scansRemaining, signalStrengths, hiddenContents]);
+    }, [gamePhase, scansRemaining, signalStrengths, calculateSignalStrength, gridSize, selectedOpponent, addEventLog,
+        chargeLevel, scanMode, triangulationScans, peckThreshold, setMascotMoodTemp]);
 
     // PROSPECT PHASE: Mark/unmark a tile for digging
     const handleMark = useCallback((x, y) => {
         if (gamePhase !== 'prospect') return;
 
-        const key = `${x}_${y}`;
         setMarkedTiles(prev => {
-            if (prev.some(t => t.x === x && t.y === y)) {
+            const isAlreadyMarked = prev.some(t => t.x === x && t.y === y);
+            if (isAlreadyMarked) {
+                addEventLog(`Unmarked tile (${x},${y})`);
                 return prev.filter(t => !(t.x === x && t.y === y));
+            } else {
+                addEventLog(`Marked tile (${x},${y}) for digging`);
+                setMascotMoodTemp('happy', 500);
+                return [...prev, { x, y }];
             }
-            return [...prev, { x, y }];
         });
-    }, [gamePhase]);
+    }, [gamePhase, addEventLog, setMascotMoodTemp]);
 
     // Transition to DIG phase
     const startDigPhase = useCallback(() => {
@@ -2045,32 +2798,140 @@ const TreasureDig = () => {
         setPhaseMessage('⛏️ DIG PHASE - Excavate your marked tiles!');
     }, [markedTiles, gridSize]);
 
-    // DIG PHASE: Excavate a tile
+    // DIG PHASE: Excavate a tile with WORLD MECHANICS
     const handleExcavate = useCallback((x, y) => {
         if (gamePhase !== 'dig' || digsRemaining <= 0) return;
 
+        const worldId = selectedOpponent?.id || 0;
+        const mechanic = worldMechanics[worldId] || worldMechanics[0];
         const key = `${x}_${y}`;
         const tile = grid[y]?.[x];
         if (!tile || tile.dug) return;
+
+        // ============================================
+        // WORLD-SPECIFIC PRE-DIG CHECKS
+        // ============================================
+
+        // Wolf Warrior: Deep dig - check if tile needs multiple digs
+        if (mechanic.primaryMechanic === 'depthLayers') {
+            const currentDepth = tileDepths[key] || 1;
+            if (currentDepth > 1) {
+                // First dig only clears rubble
+                setTileDepths(prev => ({ ...prev, [key]: currentDepth - 1 }));
+                setDigsRemaining(prev => Math.max(0, prev - 1));
+                setMechanicAlert({ message: '⛏️ Rubble cleared! Dig again to extract.', type: 'info', duration: 1200 });
+                addEventLog(`Cleared rubble at (${x},${y}) - ${currentDepth - 1} layers left`);
+
+                // Mark as partially dug but not fully excavated
+                setGrid(g => {
+                    const newGrid = [...g];
+                    newGrid[y] = [...newGrid[y]];
+                    newGrid[y][x] = { ...newGrid[y][x], dugDepth: (tile.dugDepth || 0) + 1, partiallyDug: true };
+                    return newGrid;
+                });
+
+                if (digsRemaining <= 1) {
+                    setTimeout(() => {
+                        setGamePhase('sort');
+                        setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
+                    }, 500);
+                }
+                return; // Don't fully excavate yet
+            }
+        }
+
+        // Sly Snake: Check for trap door
+        if (mechanic.primaryMechanic === 'shifting' && mechanic.mechanicRules?.trapDoorChance) {
+            if (Math.random() < mechanic.mechanicRules.trapDoorChance) {
+                setMechanicAlert({ message: '🕳️ TRAP DOOR! Dig wasted!', type: 'error', duration: 1500 });
+                setDigsRemaining(prev => Math.max(0, prev - 1));
+                addEventLog(`Trap door sprung at (${x},${y})!`);
+
+                if (digsRemaining <= 1) {
+                    setTimeout(() => {
+                        setGamePhase('sort');
+                        setPhaseMessage('🧺 SORT PHASE - Choose what to keep!');
+                    }, 500);
+                }
+                return; // Dig consumed but nothing revealed
+            }
+        }
 
         // Mark tile as dug
         setGrid(g => {
             const newGrid = [...g];
             newGrid[y] = [...newGrid[y]];
-            newGrid[y][x] = { ...newGrid[y][x], dug: true, dugDepth: 1 };
+            newGrid[y][x] = { ...newGrid[y][x], dug: true, dugDepth: mechanic.mechanicRules?.layerCount || 1 };
             return newGrid;
         });
         setDugTiles(prev => [...prev, { x, y }]);
-        setDigsRemaining(prev => Math.max(0, prev - 1)); // Never go negative!
+        setDigsRemaining(prev => Math.max(0, prev - 1));
 
         // Get what was at this tile
         const content = hiddenContents[key];
+
+        // ============================================
+        // WORLD-SPECIFIC POST-DIG EFFECTS
+        // ============================================
+
+        // Electric Eel: Recharge on strong signal dig
+        if (mechanic.primaryMechanic === 'chargeSystem') {
+            const signalInfo = signalStrengths[key];
+            if (signalInfo && signalInfo.strength >= 2.5) {
+                const rechargeAmount = mechanic.mechanicRules?.rechargeOnStrongDig || 2;
+                setChargeLevel(prev => Math.min(maxCharge, prev + rechargeAmount));
+                setMechanicAlert({ message: `⚡ +${rechargeAmount} CHARGE!`, type: 'info', duration: 1000 });
+            }
+            // Check for shock risk on empty tiles
+            if (!content && Math.random() < 0.2) {
+                setStunned(true);
+                setMechanicAlert({ message: '⚡ SHOCKED! Skip next action.', type: 'error', duration: 1500 });
+                setTimeout(() => setStunned(false), 2000);
+            }
+        }
+
+        // Professor Penguin: Sliding dig - dig continues in a direction
+        if (mechanic.primaryMechanic === 'momentum' && mechanic.mechanicRules?.slideDistance) {
+            const slideDir = { dx: Math.random() > 0.5 ? 1 : -1, dy: Math.random() > 0.5 ? 1 : -1 };
+            const slideX = x + slideDir.dx;
+            const slideY = y + slideDir.dy;
+
+            if (slideX >= 0 && slideX < gridSize && slideY >= 0 && slideY < gridSize) {
+                const slideTile = grid[slideY]?.[slideX];
+                if (slideTile && !slideTile.dug && digsRemaining > 1) {
+                    setMechanicAlert({ message: '⛷️ SLIDE! Bonus dig!', type: 'info', duration: 1000 });
+                    // Queue the slide dig
+                    setTimeout(() => handleExcavate(slideX, slideY), 400);
+                }
+            }
+        }
+
+        // Radical Raccoon: Pickpocket penalty on decoy
+        if (mechanic.primaryMechanic === 'decoyAI' && content?.type === 'junk') {
+            if (!gloveProtected) {
+                const penalty = mechanic.mechanicRules?.pickpocketPenalty || 10;
+                setScore(prev => Math.max(0, prev - penalty));
+                setMechanicAlert({ message: `🦝 PICKPOCKET! -${penalty} coins!`, type: 'error', duration: 1500 });
+            } else {
+                setMechanicAlert({ message: '🧤 Glove protected you!', type: 'info', duration: 1000 });
+            }
+        }
+
+        // Cheeky Chicken: Shiny bonus (gems worth double)
+        let bonusMultiplier = 1;
+        if (mechanic.primaryMechanic === 'peckMeter' && mechanic.mechanicRules?.shinyDoubleValue) {
+            if (content?.type === 'collectible' && content?.itemKey?.includes('gem')) {
+                bonusMultiplier = 2;
+                setMechanicAlert({ message: '✨ SHINY! Double value!', type: 'info', duration: 1000 });
+            }
+        }
+
         if (content) {
             const excavatedItem = {
                 id: `${key}_${Date.now()}`,
                 ...content,
                 x, y,
-                // If dirt clump, we don't know what it is yet!
+                points: (content.points || 0) * bonusMultiplier,
                 displayEmoji: content.isDirt ? '🟤' : content.emoji,
                 displayName: content.isDirt ? 'Dirt Clump' : content.name,
             };
@@ -2084,7 +2945,8 @@ const TreasureDig = () => {
                 setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
             }, 500);
         }
-    }, [gamePhase, digsRemaining, grid, hiddenContents, BASKET_CAPACITY]);
+    }, [gamePhase, digsRemaining, grid, hiddenContents, BASKET_CAPACITY, selectedOpponent, tileDepths,
+        signalStrengths, maxCharge, gloveProtected, gridSize, addEventLog]);
 
     // SORT PHASE: Toggle item selection
     const toggleItemSelection = useCallback((itemId) => {
@@ -3301,6 +4163,9 @@ const TreasureDig = () => {
                 position: 'relative',
                 overflow: 'hidden'
             }}>
+                {/* Mechanic Alert Popup - shows world-specific alerts */}
+                <MechanicAlertPopup alert={mechanicAlert} />
+
                 {/* Ambient floating particles - more subtle */}
                 {ambientParticles.map((p, idx) => (
                     <div
@@ -3353,7 +4218,8 @@ const TreasureDig = () => {
                 {/* Tutorial overlay */}
                 {showTutorial && <TutorialOverlay />}
 
-                {/* === MAIN THREE-COLUMN LAYOUT === */}
+                {/* === MAIN THREE-COLUMN LAYOUT - only during prospect/dig phases === */}
+                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
                 <div style={{
                     display: 'flex',
                     gap: '20px',
@@ -3371,6 +4237,7 @@ const TreasureDig = () => {
                         friends={friendsFound}
                         objective={levelConfig?.bonusObjective?.desc}
                         modeColor={currentModeColor}
+                        phase={gamePhase}
                     />
 
                     {/* === CENTER COLUMN: Board with ornate frame === */}
@@ -3389,8 +4256,30 @@ const TreasureDig = () => {
                             ] : null}
                         />
 
-                        {/* Last scan/dig feedback - floating above board */}
-                        {lastDigResult && (
+                        {/* World Mechanic Panel - shows world-specific mechanic status */}
+                        <MechanicPanel
+                            worldId={opp?.id || 0}
+                            mechanicState={{
+                                triangulationScans,
+                                peckMeter,
+                                peckThreshold,
+                                scanMode,
+                                roarCounter,
+                                chargeLevel,
+                                maxCharge,
+                                fogTiles,
+                                lanternActive,
+                                coldTimer,
+                                iceCracks,
+                                shiftCounter,
+                                anchorTiles,
+                                tileDepths
+                            }}
+                            onToggleScanMode={(mode) => setScanMode(mode)}
+                        />
+
+                        {/* Last scan/dig feedback - only during prospect/dig phases */}
+                        {lastDigResult && (gamePhase === 'prospect' || gamePhase === 'dig') && (
                             <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
                                 padding: '8px 24px', borderRadius: '20px',
@@ -3705,6 +4594,7 @@ const TreasureDig = () => {
                                 <button
                                     onClick={() => {
                                         setGamePhase('sort');
+                                        setLastDigResult(null); // Clear scan feedback
                                         setPhaseMessage('🧺 SORT PHASE - Choose what to keep!');
                                         addEventLog('Moving to sort phase...');
                                     }}
@@ -3749,170 +4639,397 @@ const TreasureDig = () => {
                         <EventLog events={eventLog} />
                     </div>
                 </div> {/* End three-column layout */}
+                )}
 
-                {/* SORT PHASE - Visual two-panel basket experience */}
+                {/* ========================================== */}
+                {/* PACKUP PHASE - Full-screen Workbench UI */}
+                {/* ========================================== */}
                 {gamePhase === 'sort' && excavatedItems.length > 0 && (
                     <div style={{
+                        flex: 1,
                         display: 'flex',
-                        gap: '20px',
-                        marginBottom: '15px',
-                        justifyContent: 'center',
-                        alignItems: 'stretch',
-                        flexWrap: 'wrap'
+                        flexDirection: 'column',
+                        gap: '12px',
+                        padding: '0 20px'
                     }}>
-                        {/* LEFT: Excavation Table - items you dug up */}
+                        {/* Phase Ribbon - centered status bar */}
                         <div style={{
-                            flex: '1 1 300px',
-                            maxWidth: '400px',
-                            padding: '20px',
-                            background: 'linear-gradient(180deg, #4a3a2a 0%, #3a2a1a 100%)',
-                            borderRadius: '12px',
-                            border: '3px solid #6a5a4a',
-                            boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.5)'
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: '20px',
+                            padding: '10px 24px',
+                            background: `linear-gradient(90deg, transparent 0%, ${theme.gold}15 50%, transparent 100%)`,
+                            borderRadius: '20px',
+                            border: `1px solid ${theme.gold}40`
                         }}>
+                            <span style={{ fontSize: '18px', fontWeight: 'bold', color: theme.gold }}>
+                                🧺 PACKUP
+                            </span>
+                            <span style={{ color: theme.textSecondary, fontSize: '13px' }}>
+                                {selectedForBasket.length}/{BASKET_CAPACITY} kept
+                            </span>
+                            <span style={{ color: theme.textMuted, fontSize: '13px' }}>•</span>
+                            <span style={{ color: theme.textSecondary, fontSize: '13px' }}>
+                                {excavatedItems.length - selectedForBasket.length} on table
+                            </span>
+                            {levelConfig?.bonusObjective && (
+                                <>
+                                    <span style={{ color: theme.textMuted, fontSize: '13px' }}>•</span>
+                                    <span style={{ color: theme.gold, fontSize: '12px' }}>
+                                        ⭐ {levelConfig.bonusObjective.desc}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Main Workbench - dominant 2-pane layout */}
+                        <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            gap: '16px',
+                            minHeight: '400px',
+                            maxHeight: '65vh'
+                        }}>
+                            {/* LEFT PANEL: Excavation Table (60%) */}
                             <div style={{
-                                textAlign: 'center',
-                                marginBottom: '15px',
-                                fontSize: '16px',
-                                color: '#c8b898',
-                                fontWeight: 'bold',
-                                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
-                            }}>
-                                🪨 Excavation Table
-                            </div>
-                            <div style={{
+                                flex: '1.5',
                                 display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '8px',
-                                justifyContent: 'center',
-                                minHeight: '100px'
+                                flexDirection: 'column',
+                                background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                                border: `3px solid ${theme.frameBrass}`,
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                boxShadow: `0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 ${theme.frameBrassLight}`
                             }}>
-                                {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).map(item => (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => toggleItemSelection(item.id)}
-                                        style={{
-                                            width: '70px',
-                                            height: '70px',
-                                            background: item.isDirt ? 'radial-gradient(circle, #8B4513 30%, #5a3010 100%)' : 'radial-gradient(circle, #3a4a3a 30%, #2a3a2a 100%)',
-                                            borderRadius: '50%',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.3)',
-                                            transition: 'all 0.2s',
-                                            border: '2px solid #5a4a3a'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1.1) translateY(-5px)';
-                                            e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.5)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1)';
-                                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
-                                        }}
-                                        title={item.isDirt ? 'Mystery dirt clump - could be treasure!' : item.displayName}
-                                    >
-                                        <span style={{ fontSize: '28px', filter: 'drop-shadow(1px 2px 2px rgba(0,0,0,0.5))' }}>
-                                            {item.displayEmoji}
+                                {/* Table Header */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    background: `linear-gradient(90deg, ${theme.frameBrassDark} 0%, ${theme.frameBrass} 50%, ${theme.frameBrassDark} 100%)`,
+                                    borderBottom: `2px solid ${theme.frameBrassDark}`
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>🪨</span>
+                                        <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '14px' }}>
+                                            Excavation Table
+                                        </span>
+                                        <span style={{
+                                            background: theme.bgDark,
+                                            padding: '2px 10px',
+                                            borderRadius: '10px',
+                                            fontSize: '12px',
+                                            color: theme.textSecondary
+                                        }}>
+                                            {excavatedItems.filter(i => !selectedForBasket.includes(i.id)).length} items
                                         </span>
                                     </div>
-                                ))}
-                                {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).length === 0 && (
-                                    <div style={{ color: '#6a5a4a', fontStyle: 'italic', padding: '20px' }}>
-                                        Table empty!
-                                    </div>
-                                )}
+                                    {/* Quick action: Auto-Pack Best */}
+                                    <button
+                                        onClick={() => {
+                                            // Auto-pack highest value items first
+                                            const unselected = excavatedItems.filter(i => !selectedForBasket.includes(i.id));
+                                            const sorted = [...unselected].sort((a, b) => (b.points || 0) - (a.points || 0));
+                                            const slotsAvailable = BASKET_CAPACITY - selectedForBasket.length;
+                                            const toPack = sorted.slice(0, slotsAvailable).map(i => i.id);
+                                            setSelectedForBasket(prev => [...prev, ...toPack]);
+                                            addEventLog(`Auto-packed ${toPack.length} best items`);
+                                        }}
+                                        disabled={selectedForBasket.length >= BASKET_CAPACITY || excavatedItems.filter(i => !selectedForBasket.includes(i.id)).length === 0}
+                                        style={{
+                                            padding: '6px 12px',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold',
+                                            background: theme.success,
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            opacity: selectedForBasket.length >= BASKET_CAPACITY ? 0.5 : 1
+                                        }}
+                                    >
+                                        ⚡ Auto-Pack Best
+                                    </button>
+                                </div>
+
+                                {/* Items Grid */}
+                                <div style={{
+                                    flex: 1,
+                                    padding: '16px',
+                                    overflowY: 'auto',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                                    gap: '12px',
+                                    alignContent: 'flex-start'
+                                }}>
+                                    {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).map(item => {
+                                        // Determine rarity for frame color
+                                        const rarity = item.points >= 50 ? 'legendary' : item.points >= 20 ? 'rare' : item.points >= 10 ? 'uncommon' : 'common';
+                                        const rarityColors = {
+                                            legendary: { border: '#ffd700', glow: 'rgba(255,215,0,0.4)', bg: '#4a4020' },
+                                            rare: { border: '#a78bfa', glow: 'rgba(167,139,250,0.3)', bg: '#3a3050' },
+                                            uncommon: { border: '#22c55e', glow: 'rgba(34,197,94,0.2)', bg: '#2a4030' },
+                                            common: { border: theme.border, glow: 'none', bg: theme.bgFrameInner }
+                                        };
+                                        const rc = rarityColors[rarity];
+
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => {
+                                                    if (selectedForBasket.length < BASKET_CAPACITY) {
+                                                        toggleItemSelection(item.id);
+                                                        addEventLog(`Added ${item.displayName || 'item'} to basket`);
+                                                    }
+                                                }}
+                                                style={{
+                                                    aspectRatio: '1',
+                                                    background: item.isDirt
+                                                        ? 'radial-gradient(circle, #6a4a2a 30%, #4a3020 100%)'
+                                                        : `radial-gradient(circle, ${rc.bg} 30%, ${theme.bgDark} 100%)`,
+                                                    border: `3px solid ${rc.border}`,
+                                                    borderRadius: '10px',
+                                                    cursor: selectedForBasket.length >= BASKET_CAPACITY ? 'not-allowed' : 'pointer',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '4px',
+                                                    boxShadow: rc.glow !== 'none' ? `0 0 12px ${rc.glow}, inset 0 -2px 8px rgba(0,0,0,0.3)` : 'inset 0 -2px 8px rgba(0,0,0,0.3)',
+                                                    transition: 'all 0.15s',
+                                                    position: 'relative',
+                                                    opacity: selectedForBasket.length >= BASKET_CAPACITY ? 0.5 : 1
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (selectedForBasket.length < BASKET_CAPACITY) {
+                                                        e.currentTarget.style.transform = 'scale(1.08) translateY(-4px)';
+                                                        e.currentTarget.style.boxShadow = `0 8px 20px rgba(0,0,0,0.4), 0 0 15px ${rc.glow}`;
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                    e.currentTarget.style.boxShadow = rc.glow !== 'none' ? `0 0 12px ${rc.glow}` : 'none';
+                                                }}
+                                                title={item.isDirt ? '🟤 Mystery dirt clump - could be treasure or junk!' : `${item.displayName} (${item.points || '?'} pts)`}
+                                            >
+                                                <span style={{
+                                                    fontSize: '32px',
+                                                    filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.5))'
+                                                }}>
+                                                    {item.displayEmoji}
+                                                </span>
+                                                {!item.isDirt && (
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        color: theme.textSecondary,
+                                                        textAlign: 'center',
+                                                        maxWidth: '90%',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {item.points || '?'}pts
+                                                    </span>
+                                                )}
+                                                {item.isDirt && (
+                                                    <span style={{ fontSize: '9px', color: '#8a6a4a' }}>???</span>
+                                                )}
+                                                {/* Rarity indicator for legendaries */}
+                                                {rarity === 'legendary' && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '-4px',
+                                                        right: '-4px',
+                                                        fontSize: '12px',
+                                                        animation: 'pulse 1.5s infinite'
+                                                    }}>⭐</div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).length === 0 && (
+                                        <div style={{
+                                            gridColumn: '1 / -1',
+                                            textAlign: 'center',
+                                            padding: '40px',
+                                            color: theme.textMuted
+                                        }}>
+                                            All items packed! ✓
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
-                                Click items to add to basket →
+
+                            {/* RIGHT PANEL: Basket (40%) */}
+                            <div style={{
+                                flex: '1',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                                border: `3px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}`,
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                boxShadow: selectedForBasket.length >= BASKET_CAPACITY
+                                    ? `0 0 20px rgba(239,68,68,0.3)`
+                                    : `0 0 20px ${theme.goldGlow}`,
+                                transition: 'border-color 0.3s, box-shadow 0.3s'
+                            }}>
+                                {/* Basket Header */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    background: selectedForBasket.length >= BASKET_CAPACITY
+                                        ? `linear-gradient(90deg, ${theme.error}40 0%, ${theme.error}20 100%)`
+                                        : `linear-gradient(90deg, ${theme.gold}40 0%, ${theme.gold}20 100%)`,
+                                    borderBottom: `2px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}40`
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>🧺</span>
+                                        <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '14px' }}>
+                                            Your Basket
+                                        </span>
+                                    </div>
+                                    <span style={{
+                                        background: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.bgDark,
+                                        padding: '4px 12px',
+                                        borderRadius: '12px',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        color: selectedForBasket.length >= BASKET_CAPACITY ? '#fff' : theme.gold
+                                    }}>
+                                        {selectedForBasket.length}/{BASKET_CAPACITY}
+                                    </span>
+                                </div>
+
+                                {/* Basket Slots Grid */}
+                                <div style={{
+                                    flex: 1,
+                                    padding: '16px',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(4, 1fr)',
+                                    gridTemplateRows: 'repeat(2, 1fr)',
+                                    gap: '10px'
+                                }}>
+                                    {Array.from({ length: BASKET_CAPACITY }).map((_, idx) => {
+                                        const item = excavatedItems.find(i => i.id === selectedForBasket[idx]);
+                                        const isEmpty = !item;
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                onClick={() => item && toggleItemSelection(item.id)}
+                                                style={{
+                                                    background: isEmpty
+                                                        ? `linear-gradient(135deg, ${theme.bgDark} 0%, ${theme.bgFrameInner} 100%)`
+                                                        : item.isDirt
+                                                            ? 'radial-gradient(circle, #6a4a2a 30%, #4a3020 100%)'
+                                                            : `radial-gradient(circle, ${theme.bgFrameInner} 30%, ${theme.bgDark} 100%)`,
+                                                    border: isEmpty
+                                                        ? `2px dashed ${theme.border}`
+                                                        : `3px solid ${theme.gold}`,
+                                                    borderRadius: '10px',
+                                                    cursor: item ? 'pointer' : 'default',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '4px',
+                                                    transition: 'all 0.15s',
+                                                    boxShadow: item ? `0 0 10px ${theme.goldGlow}` : 'inset 0 2px 8px rgba(0,0,0,0.3)'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (item) {
+                                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                }}
+                                                title={item ? 'Click to remove from basket' : `Slot ${idx + 1} - empty`}
+                                            >
+                                                {item ? (
+                                                    <>
+                                                        <span style={{ fontSize: '28px', filter: 'drop-shadow(1px 2px 2px rgba(0,0,0,0.4))' }}>
+                                                            {item.displayEmoji}
+                                                        </span>
+                                                        <span style={{ fontSize: '9px', color: theme.textMuted }}>
+                                                            {item.isDirt ? '???' : `${item.points || '?'}pts`}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <span style={{ fontSize: '24px', opacity: 0.2 }}>+</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div style={{
+                                    padding: '12px 16px',
+                                    borderTop: `1px solid ${theme.border}`,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
+                                }}>
+                                    {/* Clear Basket */}
+                                    {selectedForBasket.length > 0 && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedForBasket([]);
+                                                addEventLog('Cleared basket');
+                                            }}
+                                            style={{
+                                                padding: '8px',
+                                                fontSize: '12px',
+                                                background: 'transparent',
+                                                color: theme.textMuted,
+                                                border: `1px solid ${theme.border}`,
+                                                borderRadius: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            🗑️ Clear Basket
+                                        </button>
+                                    )}
+
+                                    {/* CONFIRM - Reveal Button */}
+                                    <button
+                                        onClick={startRevealPhase}
+                                        disabled={selectedForBasket.length === 0}
+                                        style={{
+                                            padding: '14px 24px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            background: selectedForBasket.length > 0
+                                                ? `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 100%)`
+                                                : '#444',
+                                            color: selectedForBasket.length > 0 ? theme.bgDark : theme.textMuted,
+                                            border: selectedForBasket.length > 0 ? `2px solid ${theme.gold}` : '2px solid #555',
+                                            borderRadius: '10px',
+                                            cursor: selectedForBasket.length > 0 ? 'pointer' : 'not-allowed',
+                                            boxShadow: selectedForBasket.length > 0 ? `0 4px 20px ${theme.goldGlow}` : 'none',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        ✨ Reveal What's Inside!
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* RIGHT: Your Basket */}
+                        {/* Bottom hint strip */}
                         <div style={{
-                            flex: '1 1 250px',
-                            maxWidth: '350px',
-                            padding: '20px',
-                            background: 'linear-gradient(180deg, #4a4030 0%, #3a3020 100%)',
-                            borderRadius: '12px',
-                            border: `3px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}`,
-                            boxShadow: `0 0 20px ${selectedForBasket.length >= BASKET_CAPACITY ? 'rgba(232,90,80,0.3)' : 'rgba(244,197,66,0.2)'}`
+                            textAlign: 'center',
+                            fontSize: '11px',
+                            color: theme.textMuted,
+                            padding: '8px'
                         }}>
-                            <div style={{
-                                textAlign: 'center',
-                                marginBottom: '10px',
-                                fontSize: '16px',
-                                color: theme.gold,
-                                fontWeight: 'bold'
-                            }}>
-                                🧺 Your Basket
-                                <span style={{
-                                    marginLeft: '10px',
-                                    padding: '3px 10px',
-                                    background: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.bgDark,
-                                    borderRadius: '12px',
-                                    fontSize: '14px',
-                                    color: selectedForBasket.length >= BASKET_CAPACITY ? '#fff' : theme.textSecondary
-                                }}>
-                                    {selectedForBasket.length}/{BASKET_CAPACITY}
-                                </span>
-                            </div>
-
-                            {/* Basket visual */}
-                            <div style={{
-                                position: 'relative',
-                                minHeight: '150px',
-                                background: 'radial-gradient(ellipse at bottom, #8a6a3a 0%, #5a4020 60%, transparent 100%)',
-                                borderRadius: '0 0 50% 50%',
-                                padding: '20px',
-                                paddingBottom: '40px',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '6px',
-                                justifyContent: 'center',
-                                alignContent: 'flex-start'
-                            }}>
-                                {excavatedItems.filter(item => selectedForBasket.includes(item.id)).map((item, idx) => (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => toggleItemSelection(item.id)}
-                                        style={{
-                                            width: '50px',
-                                            height: '50px',
-                                            background: item.isDirt ? '#6a4a2a' : '#3a4a3a',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                            transition: 'all 0.2s',
-                                            animation: 'popIn 0.3s ease-out'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1.15)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1)';
-                                        }}
-                                        title="Click to remove from basket"
-                                    >
-                                        <span style={{ fontSize: '24px' }}>{item.displayEmoji}</span>
-                                    </div>
-                                ))}
-                                {selectedForBasket.length === 0 && (
-                                    <div style={{ color: '#7a6a5a', fontStyle: 'italic', textAlign: 'center', width: '100%', paddingTop: '30px' }}>
-                                        Basket empty!<br/>
-                                        <span style={{ fontSize: '12px' }}>Click items to add</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
-                                ← Click items to remove
-                            </div>
+                            💡 Click items to move between table and basket • Dirt clumps hide their true value until revealed
                         </div>
                     </div>
                 )}
