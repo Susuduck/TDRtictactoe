@@ -3683,9 +3683,9 @@ const BreakoutGame = () => {
               updated = { ...updated, armorCrackTimer: newTimer };
             }
           }
-          // Decay death timer for dying bricks
+          // Decay death timer for dying bricks - fast and punchy
           if (b.dying && b.deathTimer > 0) {
-            updated = { ...updated, deathTimer: b.deathTimer - 0.05 * deltaTime };
+            updated = { ...updated, deathTimer: b.deathTimer - 0.12 * deltaTime };
           }
           return updated;
         })
@@ -5156,16 +5156,25 @@ const BreakoutGame = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              // Dying bricks: pop out then fade
+              // Dying bricks: explosive shatter animation
               opacity: brick.dying
-                ? Math.min(1, brick.deathTimer) // Fade from 1 to 0
+                ? Math.max(0, brick.deathTimer * brick.deathTimer) // Faster fade (quadratic)
                 : brick.invisible ? 0.2 : 1,
               transform: brick.dying
-                ? `scale(${1 + (1 - brick.deathTimer) * 0.15})` // Start at 1.0, grow to 1.15 as it dies
+                ? (() => {
+                    const t = 1 - brick.deathTimer; // 0 to 1 as brick dies
+                    const shake = Math.sin(t * 50) * (1 - t) * 8; // Violent shake that decays
+                    const scale = t < 0.1 ? 1 + t * 3 : 1.3 - t * 0.5; // Quick pop then shrink
+                    const rotate = shake * 2; // Rotation from shake
+                    const skewX = Math.sin(t * 30) * (1 - t) * 5; // Distortion
+                    return `scale(${scale}) rotate(${rotate}deg) skewX(${skewX}deg) translate(${shake}px, ${shake * 0.5}px)`;
+                  })()
                 : brick.armorCracking
                   ? `scale(${1 + Math.sin(brick.armorCrackTimer * 10) * 0.02})` // Subtle shake when cracking
                   : 'none',
-              filter: brick.dying && brick.deathTimer > 0.7 ? 'brightness(1.3)' : 'none', // Brief bright flash at start
+              filter: brick.dying
+                ? `brightness(${1 + (1 - brick.deathTimer) * 2}) contrast(${1 + (1 - brick.deathTimer) * 0.5}) saturate(${1.5 - brick.deathTimer * 0.5})`
+                : 'none', // Intense bright flash that builds
               pointerEvents: brick.dying ? 'none' : 'auto',
             }}
           >
@@ -5247,13 +5256,13 @@ const BreakoutGame = () => {
                 }}
               >
                 {brick.crackPattern.map((crack, idx) => {
-                  // Build polyline points string
+                  // Build polyline points string (no % - SVG uses viewBox coordinates)
                   const pointsStr = crack.points
-                    ? crack.points.map(p => `${p.x}%,${p.y}%`).join(' ')
-                    : `${crack.x1}%,${crack.y1}% ${crack.x2}%,${crack.y2}%`;
+                    ? crack.points.map(p => `${p.x},${p.y}`).join(' ')
+                    : `${crack.x1},${crack.y1} ${crack.x2},${crack.y2}`;
                   const offsetPointsStr = crack.points
-                    ? crack.points.map(p => `${p.x + 1}%,${p.y + 1}%`).join(' ')
-                    : `${crack.x1 + 1}%,${crack.y1 + 1}% ${crack.x2 + 1}%,${crack.y2 + 1}%`;
+                    ? crack.points.map(p => `${p.x + 1},${p.y + 1}`).join(' ')
+                    : `${crack.x1 + 1},${crack.y1 + 1} ${crack.x2 + 1},${crack.y2 + 1}`;
 
                   return (
                     <g key={idx}>
