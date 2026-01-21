@@ -2914,37 +2914,71 @@ const BreakoutGame = () => {
                   armorCrackTimer = 1; // Will count down
                   pendingColor = newColor; // Color to change to after crack animation
 
-                  // Generate jagged earthquake-style crack pattern
+                  // Generate earthquake-style crack pattern - two types:
+                  // Type 1: Through-cracks (edge to edge)
+                  // Type 2: Nexus cracks (multiple cracks meeting at a point)
                   crackPattern = [];
-                  const numCracks = 2 + Math.floor(Math.random() * 2);
-                  for (let i = 0; i < numCracks; i++) {
-                    // Start from an edge
-                    const startEdge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
-                    let startX, startY;
-                    if (startEdge === 0) { startX = 20 + Math.random() * 60; startY = 0; }
-                    else if (startEdge === 1) { startX = 100; startY = 20 + Math.random() * 60; }
-                    else if (startEdge === 2) { startX = 20 + Math.random() * 60; startY = 100; }
-                    else { startX = 0; startY = 20 + Math.random() * 60; }
+                  const crackType = Math.random() < 0.5 ? 'through' : 'nexus';
 
-                    // End toward center or opposite edge
-                    const endX = 30 + Math.random() * 40;
-                    const endY = 30 + Math.random() * 40;
-
-                    // Create jagged path with 4-6 points
+                  // Helper to create jagged path between two points
+                  const createJaggedPath = (startX, startY, endX, endY) => {
                     const points = [{ x: startX, y: startY }];
-                    const numSegments = 3 + Math.floor(Math.random() * 3);
-                    for (let j = 1; j <= numSegments; j++) {
+                    const numSegments = 3 + Math.floor(Math.random() * 2);
+                    for (let j = 1; j < numSegments; j++) {
                       const t = j / numSegments;
-                      // Interpolate but add random zigzag offset
                       const baseX = startX + (endX - startX) * t;
                       const baseY = startY + (endY - startY) * t;
-                      const jitter = 15 - t * 10; // More jitter at start, less at end
+                      const jitter = 12;
                       points.push({
-                        x: baseX + (Math.random() - 0.5) * jitter * 2,
-                        y: baseY + (Math.random() - 0.5) * jitter * 2,
+                        x: Math.max(0, Math.min(100, baseX + (Math.random() - 0.5) * jitter)),
+                        y: Math.max(0, Math.min(100, baseY + (Math.random() - 0.5) * jitter)),
                       });
                     }
-                    crackPattern.push({ points });
+                    points.push({ x: endX, y: endY });
+                    return points;
+                  };
+
+                  // Get random point on edge (0=top, 1=right, 2=bottom, 3=left)
+                  const getEdgePoint = (edge) => {
+                    if (edge === 0) return { x: 15 + Math.random() * 70, y: 0 };
+                    if (edge === 1) return { x: 100, y: 15 + Math.random() * 70 };
+                    if (edge === 2) return { x: 15 + Math.random() * 70, y: 100 };
+                    return { x: 0, y: 15 + Math.random() * 70 };
+                  };
+
+                  if (crackType === 'through') {
+                    // 1-2 cracks that go completely through the brick
+                    const numCracks = 1 + Math.floor(Math.random() * 2);
+                    for (let i = 0; i < numCracks; i++) {
+                      const startEdge = Math.floor(Math.random() * 4);
+                      // End on opposite or adjacent edge (not same edge)
+                      let endEdge = (startEdge + 2) % 4; // Prefer opposite
+                      if (Math.random() < 0.3) endEdge = (startEdge + 1) % 4; // Sometimes adjacent
+
+                      const start = getEdgePoint(startEdge);
+                      const end = getEdgePoint(endEdge);
+                      crackPattern.push({ points: createJaggedPath(start.x, start.y, end.x, end.y) });
+                    }
+                  } else {
+                    // Nexus type: 2-4 cracks meeting at a central point
+                    const nexusX = 35 + Math.random() * 30;
+                    const nexusY = 35 + Math.random() * 30;
+                    const numCracks = 2 + Math.floor(Math.random() * 3);
+                    const usedEdges = [];
+
+                    for (let i = 0; i < numCracks; i++) {
+                      // Pick an edge we haven't used yet (or allow repeats if we've used all)
+                      let edge;
+                      if (usedEdges.length < 4) {
+                        do { edge = Math.floor(Math.random() * 4); } while (usedEdges.includes(edge));
+                        usedEdges.push(edge);
+                      } else {
+                        edge = Math.floor(Math.random() * 4);
+                      }
+
+                      const edgePoint = getEdgePoint(edge);
+                      crackPattern.push({ points: createJaggedPath(edgePoint.x, edgePoint.y, nexusX, nexusY) });
+                    }
                   }
 
                   // Small score bonus for cracking armor
