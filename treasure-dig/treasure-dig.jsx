@@ -4614,7 +4614,7 @@ const TreasureDig = () => {
                                 </button>
                             )}
                         </div>
-                    </div> {/* End center column */}
+                    </div>
 
                     {/* === RIGHT COLUMN: Commands, Bag, Log === */}
                     <div style={{ width: '170px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -4638,7 +4638,7 @@ const TreasureDig = () => {
                         {/* Event Log */}
                         <EventLog events={eventLog} />
                     </div>
-                </div> {/* End three-column layout */}
+                </div>
                 )}
 
                 {/* ========================================== */}
