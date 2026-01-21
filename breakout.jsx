@@ -5246,6 +5246,8 @@ const BreakoutGame = () => {
             {/* Armor crack overlay - jagged earthquake-style cracks */}
             {brick.crackPattern && brick.crackPattern.length > 0 && !brick.invisible && !brick.dying && (
               <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
                 style={{
                   position: 'absolute',
                   inset: 0,
