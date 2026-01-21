@@ -2360,23 +2360,23 @@ const BreakoutGame = () => {
   const createBrickShatterParticles = useCallback((x, y, width, height, color) => {
     const now = Date.now();
     const newParticles = [];
-    // Create brick fragment particles
-    for (let i = 0; i < 12; i++) {
-      const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.5;
-      const speed = 2 + Math.random() * 4;
+    // Create brick fragment particles (reduced count for cleaner look)
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
+      const speed = 1.5 + Math.random() * 3;
       newParticles.push({
         id: now + Math.random(),
         x: x + (Math.random() - 0.5) * width * 0.5,
         y: y + (Math.random() - 0.5) * height * 0.5,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 2,
+        vy: Math.sin(angle) * speed - 1,
         color,
-        size: 4 + Math.random() * 6,
-        life: 1.2,
+        size: 3 + Math.random() * 4,
+        life: 1.0,
         createdAt: now,
         isBrickShard: true,
         rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 15,
+        rotationSpeed: (Math.random() - 0.5) * 10,
       });
     }
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
@@ -2914,21 +2914,37 @@ const BreakoutGame = () => {
                   armorCrackTimer = 1; // Will count down
                   pendingColor = newColor; // Color to change to after crack animation
 
-                  // Generate crack pattern for this armor layer
+                  // Generate jagged earthquake-style crack pattern
                   crackPattern = [];
-                  const numCracks = 3 + Math.floor(Math.random() * 3);
+                  const numCracks = 2 + Math.floor(Math.random() * 2);
                   for (let i = 0; i < numCracks; i++) {
-                    // Create cracks that span more of the brick
+                    // Start from an edge
                     const startEdge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
-                    let x1, y1, x2, y2;
-                    if (startEdge === 0) { x1 = Math.random() * 100; y1 = 0; }
-                    else if (startEdge === 1) { x1 = 100; y1 = Math.random() * 100; }
-                    else if (startEdge === 2) { x1 = Math.random() * 100; y1 = 100; }
-                    else { x1 = 0; y1 = Math.random() * 100; }
-                    // End point toward center-ish
-                    x2 = 30 + Math.random() * 40;
-                    y2 = 30 + Math.random() * 40;
-                    crackPattern.push({ x1, y1, x2, y2 });
+                    let startX, startY;
+                    if (startEdge === 0) { startX = 20 + Math.random() * 60; startY = 0; }
+                    else if (startEdge === 1) { startX = 100; startY = 20 + Math.random() * 60; }
+                    else if (startEdge === 2) { startX = 20 + Math.random() * 60; startY = 100; }
+                    else { startX = 0; startY = 20 + Math.random() * 60; }
+
+                    // End toward center or opposite edge
+                    const endX = 30 + Math.random() * 40;
+                    const endY = 30 + Math.random() * 40;
+
+                    // Create jagged path with 4-6 points
+                    const points = [{ x: startX, y: startY }];
+                    const numSegments = 3 + Math.floor(Math.random() * 3);
+                    for (let j = 1; j <= numSegments; j++) {
+                      const t = j / numSegments;
+                      // Interpolate but add random zigzag offset
+                      const baseX = startX + (endX - startX) * t;
+                      const baseY = startY + (endY - startY) * t;
+                      const jitter = 15 - t * 10; // More jitter at start, less at end
+                      points.push({
+                        x: baseX + (Math.random() - 0.5) * jitter * 2,
+                        y: baseY + (Math.random() - 0.5) * jitter * 2,
+                      });
+                    }
+                    crackPattern.push({ points });
                   }
 
                   // Small score bonus for cracking armor
@@ -3037,7 +3053,7 @@ const BreakoutGame = () => {
                   crackPattern,
                   // Dying state - quick pop animation
                   dying: newHealth <= 0,
-                  deathTimer: newHealth <= 0 ? 0.4 : undefined, // Fast death
+                  deathTimer: newHealth <= 0 ? 1.0 : undefined, // Death animation
                   deathColor: newHealth <= 0 ? oldColor : undefined,
                   // Don't change color if armor is cracking (will change when crack finishes)
                   color: brick.type === 'boss' ? '#ffd700' :
@@ -3154,9 +3170,9 @@ const BreakoutGame = () => {
               updated = { ...updated, armorCrackTimer: newTimer };
             }
           }
-          // Decay death timer for dying bricks (fast!)
+          // Decay death timer for dying bricks
           if (b.dying && b.deathTimer > 0) {
-            updated = { ...updated, deathTimer: b.deathTimer - 0.08 * deltaTime };
+            updated = { ...updated, deathTimer: b.deathTimer - 0.05 * deltaTime };
           }
           return updated;
         })
@@ -4627,16 +4643,16 @@ const BreakoutGame = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              // Dying bricks: quick pop then fade (no rotation)
+              // Dying bricks: pop out then fade
               opacity: brick.dying
-                ? Math.max(0, brick.deathTimer * 2.5) // Fast fade
+                ? Math.min(1, brick.deathTimer) // Fade from 1 to 0
                 : brick.invisible ? 0.2 : 1,
               transform: brick.dying
-                ? `scale(${1 + (0.4 - brick.deathTimer) * 0.5})` // Pop out then shrink
+                ? `scale(${1 + (1 - brick.deathTimer) * 0.15})` // Start at 1.0, grow to 1.15 as it dies
                 : brick.armorCracking
                   ? `scale(${1 + Math.sin(brick.armorCrackTimer * 10) * 0.02})` // Subtle shake when cracking
                   : 'none',
-              filter: brick.dying ? 'brightness(1.5)' : 'none', // Bright flash on death
+              filter: brick.dying && brick.deathTimer > 0.7 ? 'brightness(1.3)' : 'none', // Brief bright flash at start
               pointerEvents: brick.dying ? 'none' : 'auto',
             }}
           >
@@ -4705,7 +4721,7 @@ const BreakoutGame = () => {
                 textShadow: '0 1px 2px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.5)',
               }}>{brick.health}</span>
             )}
-            {/* Armor crack overlay - shows damage on multi-hit bricks */}
+            {/* Armor crack overlay - jagged earthquake-style cracks */}
             {brick.crackPattern && brick.crackPattern.length > 0 && !brick.invisible && !brick.dying && (
               <svg
                 style={{
@@ -4717,30 +4733,38 @@ const BreakoutGame = () => {
                   overflow: 'visible',
                 }}
               >
-                {brick.crackPattern.map((crack, idx) => (
-                  <g key={idx}>
-                    {/* Main crack line */}
-                    <line
-                      x1={`${crack.x1}%`}
-                      y1={`${crack.y1}%`}
-                      x2={`${crack.x2}%`}
-                      y2={`${crack.y2}%`}
-                      stroke="rgba(0,0,0,0.6)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    {/* Highlight edge */}
-                    <line
-                      x1={`${crack.x1 + 1}%`}
-                      y1={`${crack.y1 + 1}%`}
-                      x2={`${crack.x2 + 1}%`}
-                      y2={`${crack.y2 + 1}%`}
-                      stroke="rgba(255,255,255,0.3)"
-                      strokeWidth="1"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                ))}
+                {brick.crackPattern.map((crack, idx) => {
+                  // Build polyline points string
+                  const pointsStr = crack.points
+                    ? crack.points.map(p => `${p.x}%,${p.y}%`).join(' ')
+                    : `${crack.x1}%,${crack.y1}% ${crack.x2}%,${crack.y2}%`;
+                  const offsetPointsStr = crack.points
+                    ? crack.points.map(p => `${p.x + 1}%,${p.y + 1}%`).join(' ')
+                    : `${crack.x1 + 1}%,${crack.y1 + 1}% ${crack.x2 + 1}%,${crack.y2 + 1}%`;
+
+                  return (
+                    <g key={idx}>
+                      {/* Dark crack line */}
+                      <polyline
+                        points={pointsStr}
+                        fill="none"
+                        stroke="rgba(0,0,0,0.7)"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {/* Light highlight edge for depth */}
+                      <polyline
+                        points={offsetPointsStr}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.25)"
+                        strokeWidth="1"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                  );
+                })}
               </svg>
             )}
             {/* Hit flash overlay */}
