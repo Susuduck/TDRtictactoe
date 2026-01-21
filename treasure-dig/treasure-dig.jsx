@@ -138,6 +138,80 @@ const TreasureDig = () => {
         }
     };
 
+    // WORLD-THEMED SCANNING TOOLS - Each world has unique detection flavor
+    const worldScanThemes = {
+        0: { // Swamp
+            tool: 'Bubble Detector', toolEmoji: '🫧',
+            strong: { emoji: '🫧', label: 'BUBBLES RISING!', color: '#44ddaa' },
+            medium: { emoji: '💧', label: 'Ripples...', color: '#44aa88' },
+            weak: { emoji: '〰️', label: 'Tiny bubbles', color: '#448866' },
+            none: { emoji: '🌿', label: 'Still water', color: '#446644' }
+        },
+        1: { // Farm
+            tool: 'Chicken Helper', toolEmoji: '🐔',
+            strong: { emoji: '🐔', label: 'CLUCKING WILDLY!', color: '#ffaa00' },
+            medium: { emoji: '🐣', label: 'Scratching...', color: '#ddaa44' },
+            weak: { emoji: '🥚', label: 'Pecking around', color: '#aa8844' },
+            none: { emoji: '🌾', label: 'Nothing here', color: '#886644' }
+        },
+        2: { // Prehistoric
+            tool: 'Dino Sense', toolEmoji: '🦕',
+            strong: { emoji: '🦖', label: 'GROUND SHAKING!', color: '#ff6644' },
+            medium: { emoji: '🦴', label: 'Vibrations...', color: '#dd8844' },
+            weak: { emoji: '🪨', label: 'Faint tremor', color: '#aa7744' },
+            none: { emoji: '🌴', label: 'Silence', color: '#668844' }
+        },
+        3: { // Urban
+            tool: 'Metal Detector', toolEmoji: '📡',
+            strong: { emoji: '📡', label: 'BEEPING CRAZY!', color: '#ff4444' },
+            medium: { emoji: '📶', label: 'Strong beep', color: '#ffaa00' },
+            weak: { emoji: '📻', label: 'Faint signal', color: '#44aa44' },
+            none: { emoji: '🔇', label: 'Silent', color: '#666666' }
+        },
+        4: { // Underwater
+            tool: 'Sonar Ping', toolEmoji: '🔊',
+            strong: { emoji: '🔊', label: 'PING PING PING!', color: '#44ddff' },
+            medium: { emoji: '🔉', label: 'Echo return', color: '#44aadd' },
+            weak: { emoji: '🔈', label: 'Faint echo', color: '#4488aa' },
+            none: { emoji: '🫧', label: 'Nothing', color: '#446688' }
+        },
+        5: { // Forest
+            tool: 'Firefly Guide', toolEmoji: '✨',
+            strong: { emoji: '✨', label: 'GLOWING BRIGHT!', color: '#ffff44' },
+            medium: { emoji: '🌟', label: 'Flickering...', color: '#dddd44' },
+            weak: { emoji: '💫', label: 'Dim glow', color: '#aaaa44' },
+            none: { emoji: '🌙', label: 'Dark', color: '#666644' }
+        },
+        6: { // Arctic
+            tool: 'Ice Radar', toolEmoji: '❄️',
+            strong: { emoji: '🧊', label: 'COLD SPIKE!', color: '#44ddff' },
+            medium: { emoji: '❄️', label: 'Chilly...', color: '#44aadd' },
+            weak: { emoji: '🌨️', label: 'Cool breeze', color: '#4488aa' },
+            none: { emoji: '☁️', label: 'Nothing', color: '#666688' }
+        },
+        7: { // Desert
+            tool: 'Dowsing Rod', toolEmoji: '🪄',
+            strong: { emoji: '🪄', label: 'PULLING HARD!', color: '#ffaa44' },
+            medium: { emoji: '〽️', label: 'Twitching...', color: '#ddaa44' },
+            weak: { emoji: '➰', label: 'Slight pull', color: '#aa8844' },
+            none: { emoji: '🏜️', label: 'Nothing', color: '#886644' }
+        },
+        8: { // Cave
+            tool: 'Echo Crystal', toolEmoji: '💎',
+            strong: { emoji: '💎', label: 'RESONATING!', color: '#aa44ff' },
+            medium: { emoji: '🔮', label: 'Humming...', color: '#8844dd' },
+            weak: { emoji: '💠', label: 'Faint tone', color: '#6644aa' },
+            none: { emoji: '🕯️', label: 'Silent', color: '#444466' }
+        },
+        9: { // Vault
+            tool: 'Treasure Sense', toolEmoji: '👑',
+            strong: { emoji: '👑', label: 'GOLDEN GLOW!', color: '#ffdd00' },
+            medium: { emoji: '💰', label: 'Shimmering...', color: '#ddaa00' },
+            weak: { emoji: '✨', label: 'Faint sparkle', color: '#aa8800' },
+            none: { emoji: '🪙', label: 'Nothing', color: '#665500' }
+        }
+    };
+
     // FUN distance feedback - "Treasure Sense" reactions!
     const getDistanceInfo = (distance, gridSize) => {
         if (distance === 0) return { color: '#ffd700', label: 'JACKPOT!', emoji: '🎯', tier: 0 };
@@ -1364,13 +1438,21 @@ const TreasureDig = () => {
         setSignalStrengths(prev => ({ ...prev, [key]: { strength, signalType } }));
         setScansRemaining(prev => prev - 1);
 
-        // Visual feedback
+        // Get world-themed feedback
+        const worldId = selectedOpponent?.id || 0;
+        const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
+        const feedback = strength >= 2.5 ? scanTheme.strong
+            : strength >= 1.5 ? scanTheme.medium
+            : strength >= 0.5 ? scanTheme.weak
+            : scanTheme.none;
+
+        // Visual feedback with world theme!
         setLastDigResult({
             x, y,
-            emoji: strength >= 2.5 ? '📡' : strength >= 1.5 ? '📶' : strength >= 0.5 ? '〰️' : '❌',
-            label: strength >= 2.5 ? 'STRONG SIGNAL!' : strength >= 1.5 ? 'Medium signal' : strength >= 0.5 ? 'Weak signal' : 'Nothing',
-            color: strength >= 2.5 ? '#ff4444' : strength >= 1.5 ? '#ffaa00' : strength >= 0.5 ? '#44aa44' : '#666666',
-            tier: strength >= 2.5 ? 1 : strength >= 1.5 ? 3 : 5
+            emoji: feedback.emoji,
+            label: feedback.label,
+            color: feedback.color,
+            tier: strength >= 2.5 ? 1 : strength >= 1.5 ? 3 : strength >= 0.5 ? 5 : 7
         });
 
         // Check if we're out of scans
@@ -1421,7 +1503,7 @@ const TreasureDig = () => {
             return newGrid;
         });
         setDugTiles(prev => [...prev, { x, y }]);
-        setDigsRemaining(prev => prev - 1);
+        setDigsRemaining(prev => Math.max(0, prev - 1)); // Never go negative!
 
         // Get what was at this tile
         const content = hiddenContents[key];
@@ -1606,13 +1688,16 @@ const TreasureDig = () => {
 
     // Legacy dig handler (for backwards compatibility)
     const handleDig = useCallback((x, y) => {
-        // Route to new phase system
-        if (['prospect', 'dig'].includes(gamePhase)) {
-            handleTileClick(x, y);
+        // Route to new phase system - ALL phase states go through new system
+        if (['prospect', 'dig', 'sort', 'reveal', 'score'].includes(gamePhase)) {
+            if (gamePhase === 'prospect' || gamePhase === 'dig') {
+                handleTileClick(x, y);
+            }
+            // Other phases ignore tile clicks
             return;
         }
 
-        // Legacy code below for non-phase gameplay
+        // Legacy code below - should NOT run during normal gameplay now
         if (gameState !== 'playing' || digsRemaining <= 0) return;
 
         const tile = grid[y]?.[x];
@@ -2754,7 +2839,8 @@ const TreasureDig = () => {
                     >ESC</button>
                 </div>
 
-                {/* Tools bar */}
+                {/* OLD Tools bar - HIDDEN during phase gameplay */}
+                {false && (
                 <div style={{
                     display: 'flex', gap: '10px', marginBottom: '10px',
                     padding: '10px 15px', background: theme.bgPanel, borderRadius: '10px',
@@ -2797,6 +2883,7 @@ const TreasureDig = () => {
                         💡 Hint [H]
                     </button>
                 </div>
+                )}
 
                 {/* Bonus objective display */}
                 {levelConfig?.bonusObjective && (
@@ -2866,27 +2953,35 @@ const TreasureDig = () => {
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: theme.accent, marginBottom: '4px' }}>
                         {phaseMessage || 'Ready to hunt!'}
                     </div>
-                    {gamePhase === 'prospect' && (
-                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
-                            🖱️ Left-click to SCAN • Right-click to MARK for digging
-                        </div>
-                    )}
+                    {gamePhase === 'prospect' && (() => {
+                        const worldId = selectedOpponent?.id || 0;
+                        const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
+                        return (
+                            <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
+                                {scanTheme.toolEmoji} Using <strong style={{ color: theme.accent }}>{scanTheme.tool}</strong> • Right-click to MARK
+                            </div>
+                        );
+                    })()}
                     {gamePhase === 'dig' && (
                         <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
-                            🖱️ Click tiles to DIG them up!
+                            ⛏️ Click tiles to DIG them up!
                         </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '8px' }}>
-                        {gamePhase === 'prospect' && (
+                        {gamePhase === 'prospect' && (() => {
+                            const worldId = selectedOpponent?.id || 0;
+                            const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
+                            return (
                             <>
                                 <span style={{ color: theme.textSecondary }}>
-                                    📡 Scans: <strong style={{ color: scansRemaining > 3 ? theme.success : theme.error }}>{scansRemaining}</strong>
+                                    {scanTheme.toolEmoji} Scans: <strong style={{ color: scansRemaining > 3 ? theme.success : theme.error }}>{scansRemaining}</strong>
                                 </span>
                                 <span style={{ color: theme.textSecondary }}>
                                     ⛏️ Marked: <strong style={{ color: theme.gold }}>{markedTiles.length}</strong>
                                 </span>
                             </>
-                        )}
+                            );
+                        })()}
                         {gamePhase === 'dig' && (
                             <>
                                 <span style={{ color: theme.textSecondary }}>
@@ -2985,60 +3080,169 @@ const TreasureDig = () => {
                     </div>
                 </div>
 
-                {/* SORT PHASE - Item selection UI */}
+                {/* SORT PHASE - Visual two-panel basket experience */}
                 {gamePhase === 'sort' && excavatedItems.length > 0 && (
                     <div style={{
+                        display: 'flex',
+                        gap: '20px',
                         marginBottom: '15px',
-                        padding: '15px',
-                        background: '#2a2820',
-                        borderRadius: '12px',
-                        border: `2px solid ${theme.border}`
+                        justifyContent: 'center',
+                        alignItems: 'stretch',
+                        flexWrap: 'wrap'
                     }}>
-                        <div style={{ textAlign: 'center', marginBottom: '10px', color: theme.textSecondary }}>
-                            Click items to add/remove from basket:
-                        </div>
+                        {/* LEFT: Excavation Table - items you dug up */}
                         <div style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '10px',
-                            justifyContent: 'center'
+                            flex: '1 1 300px',
+                            maxWidth: '400px',
+                            padding: '20px',
+                            background: 'linear-gradient(180deg, #4a3a2a 0%, #3a2a1a 100%)',
+                            borderRadius: '12px',
+                            border: '3px solid #6a5a4a',
+                            boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.5)'
                         }}>
-                            {excavatedItems.map(item => {
-                                const isSelected = selectedForBasket.includes(item.id);
-                                return (
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '15px',
+                                fontSize: '16px',
+                                color: '#c8b898',
+                                fontWeight: 'bold',
+                                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                            }}>
+                                🪨 Excavation Table
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '8px',
+                                justifyContent: 'center',
+                                minHeight: '100px'
+                            }}>
+                                {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).map(item => (
                                     <div
                                         key={item.id}
                                         onClick={() => toggleItemSelection(item.id)}
                                         style={{
-                                            padding: '10px 15px',
-                                            background: isSelected ? `${theme.success}33` : '#1a1815',
-                                            border: `2px solid ${isSelected ? theme.success : theme.border}`,
-                                            borderRadius: '10px',
+                                            width: '70px',
+                                            height: '70px',
+                                            background: item.isDirt ? 'radial-gradient(circle, #8B4513 30%, #5a3010 100%)' : 'radial-gradient(circle, #3a4a3a 30%, #2a3a2a 100%)',
+                                            borderRadius: '50%',
                                             cursor: 'pointer',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             alignItems: 'center',
-                                            gap: '4px',
-                                            minWidth: '80px',
-                                            transition: 'all 0.15s',
-                                            transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                                            boxShadow: isSelected ? '0 4px 12px rgba(80,200,120,0.3)' : 'none'
+                                            justifyContent: 'center',
+                                            boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.3)',
+                                            transition: 'all 0.2s',
+                                            border: '2px solid #5a4a3a'
                                         }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'scale(1.1) translateY(-5px)';
+                                            e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.5)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'scale(1)';
+                                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
+                                        }}
+                                        title={item.isDirt ? 'Mystery dirt clump - could be treasure!' : item.displayName}
                                     >
-                                        <span style={{ fontSize: '32px' }}>{item.displayEmoji}</span>
-                                        <span style={{
-                                            fontSize: '11px',
-                                            color: item.isDirt ? theme.textMuted : theme.textSecondary,
-                                            textAlign: 'center'
-                                        }}>
-                                            {item.displayName}
+                                        <span style={{ fontSize: '28px', filter: 'drop-shadow(1px 2px 2px rgba(0,0,0,0.5))' }}>
+                                            {item.displayEmoji}
                                         </span>
-                                        {isSelected && (
-                                            <span style={{ fontSize: '14px', color: theme.success }}>✓</span>
-                                        )}
                                     </div>
-                                );
-                            })}
+                                ))}
+                                {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).length === 0 && (
+                                    <div style={{ color: '#6a5a4a', fontStyle: 'italic', padding: '20px' }}>
+                                        Table empty!
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
+                                Click items to add to basket →
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Your Basket */}
+                        <div style={{
+                            flex: '1 1 250px',
+                            maxWidth: '350px',
+                            padding: '20px',
+                            background: 'linear-gradient(180deg, #4a4030 0%, #3a3020 100%)',
+                            borderRadius: '12px',
+                            border: `3px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}`,
+                            boxShadow: `0 0 20px ${selectedForBasket.length >= BASKET_CAPACITY ? 'rgba(232,90,80,0.3)' : 'rgba(244,197,66,0.2)'}`
+                        }}>
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '10px',
+                                fontSize: '16px',
+                                color: theme.gold,
+                                fontWeight: 'bold'
+                            }}>
+                                🧺 Your Basket
+                                <span style={{
+                                    marginLeft: '10px',
+                                    padding: '3px 10px',
+                                    background: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.bgDark,
+                                    borderRadius: '12px',
+                                    fontSize: '14px',
+                                    color: selectedForBasket.length >= BASKET_CAPACITY ? '#fff' : theme.textSecondary
+                                }}>
+                                    {selectedForBasket.length}/{BASKET_CAPACITY}
+                                </span>
+                            </div>
+
+                            {/* Basket visual */}
+                            <div style={{
+                                position: 'relative',
+                                minHeight: '150px',
+                                background: 'radial-gradient(ellipse at bottom, #8a6a3a 0%, #5a4020 60%, transparent 100%)',
+                                borderRadius: '0 0 50% 50%',
+                                padding: '20px',
+                                paddingBottom: '40px',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '6px',
+                                justifyContent: 'center',
+                                alignContent: 'flex-start'
+                            }}>
+                                {excavatedItems.filter(item => selectedForBasket.includes(item.id)).map((item, idx) => (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => toggleItemSelection(item.id)}
+                                        style={{
+                                            width: '50px',
+                                            height: '50px',
+                                            background: item.isDirt ? '#6a4a2a' : '#3a4a3a',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                                            transition: 'all 0.2s',
+                                            animation: 'popIn 0.3s ease-out'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'scale(1.15)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'scale(1)';
+                                        }}
+                                        title="Click to remove from basket"
+                                    >
+                                        <span style={{ fontSize: '24px' }}>{item.displayEmoji}</span>
+                                    </div>
+                                ))}
+                                {selectedForBasket.length === 0 && (
+                                    <div style={{ color: '#7a6a5a', fontStyle: 'italic', textAlign: 'center', width: '100%', paddingTop: '30px' }}>
+                                        Basket empty!<br/>
+                                        <span style={{ fontSize: '12px' }}>Click items to add</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
+                                ← Click items to remove
+                            </div>
                         </div>
                     </div>
                 )}
@@ -3326,23 +3530,7 @@ const TreasureDig = () => {
                                     );
                                 }
 
-                                // Collectible hint - subtle sparkle on tiles with goodies
-                                if (collectibleHere && !isFlagged && !isFrozen && !isSpecialTile) {
-                                    // Add a subtle sparkle indicator
-                                    if (!specialIndicator) {
-                                        specialIndicator = (
-                                            <span style={{
-                                                position: 'absolute',
-                                                top: 2, right: 2,
-                                                fontSize: tileSize * 0.25,
-                                                opacity: 0.6,
-                                                animation: 'pulse 1.5s infinite'
-                                            }}>
-                                                ✨
-                                            </span>
-                                        );
-                                    }
-                                }
+                                // REMOVED: Collectible sparkles - no more hints! Everything is hidden.
 
                                 // Illuminated tiles (from spotlight) get a glow
                                 if (isIlluminated && !isDug) {
@@ -3534,8 +3722,11 @@ const TreasureDig = () => {
                 </div>
                 )}
 
-                {/* Legend - updated for phase system */}
-                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                {/* Legend - updated for phase system with world themes */}
+                {(gamePhase === 'prospect' || gamePhase === 'dig') && (() => {
+                    const worldId = selectedOpponent?.id || 0;
+                    const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
+                    return (
                 <div style={{
                     marginTop: '12px', textAlign: 'center',
                     color: theme.textMuted, fontSize: '12px',
@@ -3546,9 +3737,9 @@ const TreasureDig = () => {
                 }}>
                     {gamePhase === 'prospect' ? (
                         <>
-                            <span>📡 = Strong Signal (treasure OR junk!)</span>
-                            <span>📶 = Medium Signal</span>
-                            <span>〰️ = Weak Signal (small items)</span>
+                            <span>{scanTheme.strong.emoji} = {scanTheme.strong.label.replace('!', '')} (treasure OR junk!)</span>
+                            <span>{scanTheme.medium.emoji} = {scanTheme.medium.label.replace('...', '')}</span>
+                            <span>{scanTheme.weak.emoji} = {scanTheme.weak.label}</span>
                             <span>⛏️ = Marked for digging</span>
                         </>
                     ) : (
@@ -3559,7 +3750,8 @@ const TreasureDig = () => {
                         </>
                     )}
                 </div>
-                )}
+                    );
+                })()}
 
                 {/* Par info */}
                 {levelConfig && (
