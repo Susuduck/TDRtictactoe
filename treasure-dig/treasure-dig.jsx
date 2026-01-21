@@ -138,20 +138,72 @@ const TreasureDig = () => {
         }
     };
 
-    // Enhanced distance feedback with clear visual language
+    // Enhanced distance feedback - emoji-based, no boring numbers!
     const getDistanceInfo = (distance, gridSize) => {
         const maxDist = Math.sqrt(2) * gridSize;
         const ratio = distance / maxDist;
 
-        if (distance === 0) return { color: theme.treasure, label: 'TREASURE!', emoji: '💎', tier: 0 };
-        if (distance <= 1.5) return { color: '#ff0000', label: 'BURNING!', emoji: '🔥', tier: 1 };
-        if (distance <= 2.5) return { color: '#ff4400', label: 'Very Hot', emoji: '🌡️', tier: 2 };
-        if (distance <= 3.5) return { color: '#ff8800', label: 'Hot', emoji: '☀️', tier: 3 };
-        if (distance <= 5) return { color: '#ddaa00', label: 'Warm', emoji: '🌤️', tier: 4 };
-        if (distance <= 7) return { color: '#88bb44', label: 'Lukewarm', emoji: '🌿', tier: 5 };
-        if (distance <= 9) return { color: '#44aadd', label: 'Cool', emoji: '❄️', tier: 6 };
-        if (distance <= 12) return { color: '#4466ff', label: 'Cold', emoji: '🧊', tier: 7 };
-        return { color: '#6644ff', label: 'Freezing', emoji: '🥶', tier: 8 };
+        if (distance === 0) return { color: theme.treasure, label: 'FOUND!', emoji: '⭐', tier: 0, showNumber: false };
+        if (distance <= 1.5) return { color: '#ff0000', label: 'BURNING!', emoji: '🔥', tier: 1, showNumber: false };
+        if (distance <= 2.5) return { color: '#ff4400', label: 'HOT!', emoji: '🔥', tier: 2, showNumber: false };
+        if (distance <= 3.5) return { color: '#ff8800', label: 'Warm', emoji: '☀️', tier: 3, showNumber: false };
+        if (distance <= 5) return { color: '#ddaa00', label: 'Mild', emoji: '🌤️', tier: 4, showNumber: false };
+        if (distance <= 7) return { color: '#88bb44', label: 'Cool', emoji: '🌿', tier: 5, showNumber: false };
+        if (distance <= 9) return { color: '#44aadd', label: 'Cold', emoji: '❄️', tier: 6, showNumber: false };
+        if (distance <= 12) return { color: '#4466ff', label: 'Freezing', emoji: '🧊', tier: 7, showNumber: false };
+        return { color: '#6644ff', label: 'ICY', emoji: '🥶', tier: 8, showNumber: false };
+    };
+
+    // COLLECTIBLES SYSTEM - Fun items to find beyond just treasure!
+    const collectibleTypes = {
+        // Common finds - themed to world
+        coin: { emoji: '🪙', name: 'Coin', points: 10, rarity: 'common' },
+        bottlecap: { emoji: '🧢', name: 'Bottle Cap', points: 5, rarity: 'common', trackTotal: true },
+        shell: { emoji: '🐚', name: 'Shell', points: 8, rarity: 'common' },
+        leaf: { emoji: '🍂', name: 'Leaf', points: 5, rarity: 'common' },
+
+        // Food items - fun and silly
+        hotdog: { emoji: '🌭', name: 'Hot Dog', points: 15, rarity: 'uncommon' },
+        pizza: { emoji: '🍕', name: 'Pizza Slice', points: 15, rarity: 'uncommon' },
+        donut: { emoji: '🍩', name: 'Donut', points: 12, rarity: 'uncommon' },
+        burger: { emoji: '🍔', name: 'Burger', points: 18, rarity: 'uncommon' },
+        icecream: { emoji: '🍦', name: 'Ice Cream', points: 12, rarity: 'uncommon' },
+
+        // Critters - little friends!
+        bug: { emoji: '🐛', name: 'Bug Buddy', points: 8, rarity: 'common', effect: 'friend' },
+        frog: { emoji: '🐸', name: 'Frog Friend', points: 12, rarity: 'uncommon', effect: 'friend' },
+        snail: { emoji: '🐌', name: 'Snail Pal', points: 10, rarity: 'common', effect: 'friend' },
+        butterfly: { emoji: '🦋', name: 'Butterfly', points: 15, rarity: 'uncommon', effect: 'friend' },
+        ladybug: { emoji: '🐞', name: 'Ladybug', points: 12, rarity: 'uncommon', effect: 'friend' },
+        worm: { emoji: '🪱', name: 'Worm Buddy', points: 6, rarity: 'common', effect: 'friend' },
+
+        // Shiny things
+        gem: { emoji: '💎', name: 'Gem', points: 25, rarity: 'rare' },
+        crystal: { emoji: '🔮', name: 'Crystal', points: 30, rarity: 'rare' },
+        star: { emoji: '⭐', name: 'Star', points: 20, rarity: 'rare' },
+        ring: { emoji: '💍', name: 'Ring', points: 35, rarity: 'rare' },
+
+        // Silly/random
+        sock: { emoji: '🧦', name: 'Lost Sock', points: 3, rarity: 'common' },
+        key: { emoji: '🔑', name: 'Mystery Key', points: 15, rarity: 'uncommon' },
+        bone: { emoji: '🦴', name: 'Bone', points: 8, rarity: 'common' },
+        mushroom: { emoji: '🍄', name: 'Mushroom', points: 10, rarity: 'common' },
+        acorn: { emoji: '🌰', name: 'Acorn', points: 6, rarity: 'common' },
+        feather: { emoji: '🪶', name: 'Feather', points: 7, rarity: 'common' },
+    };
+
+    // World-specific collectible pools
+    const worldCollectibles = {
+        0: ['coin', 'frog', 'snail', 'leaf', 'mushroom', 'worm'], // Swamp
+        1: ['coin', 'hotdog', 'donut', 'bug', 'acorn', 'feather'], // Farm
+        2: ['bone', 'crystal', 'shell', 'gem', 'frog', 'leaf'], // Prehistoric
+        3: ['bottlecap', 'pizza', 'burger', 'sock', 'key', 'coin'], // Urban
+        4: ['shell', 'gem', 'crystal', 'star', 'coin', 'ring'], // Underwater
+        5: ['butterfly', 'mushroom', 'gem', 'ladybug', 'leaf', 'crystal'], // Forest
+        6: ['icecream', 'gem', 'crystal', 'coin', 'star', 'shell'], // Arctic
+        7: ['bone', 'gem', 'ring', 'key', 'coin', 'crystal'], // Desert
+        8: ['crystal', 'gem', 'star', 'coin', 'ring', 'bone'], // Cave
+        9: ['gem', 'ring', 'crystal', 'star', 'coin', 'key'], // Vault
     };
 
     // Opponents with progressive mechanics - each teaches new patterns
@@ -323,6 +375,11 @@ const TreasureDig = () => {
     const [frozenTiles, setFrozenTiles] = useState([]);
     const [deepTiles, setDeepTiles] = useState([]);
 
+    // Collectibles system - items scattered around to find
+    const [collectiblePositions, setCollectiblePositions] = useState([]); // {x, y, type, collected}
+    const [collectedItems, setCollectedItems] = useState([]); // Items found this level (treasure basket)
+    const [friendsFound, setFriendsFound] = useState(0); // Little critter friends
+
     // World-themed special tiles
     const [specialTiles, setSpecialTiles] = useState([]); // {x, y, type, activated, direction?}
     const [illuminatedTiles, setIlluminatedTiles] = useState([]); // For spotlight reveals
@@ -472,12 +529,34 @@ const TreasureDig = () => {
             : [];
         setDecoyPositions(decoys);
 
-        // Place gems
+        // Place gems (old system - keeping for backwards compat but collectibles replace this)
         const gems = opp.special.includes('gems')
-            ? placeItemsSmart(size, 4 + Math.floor(level / 2), [...treasures, ...decoys], 1)
+            ? placeItemsSmart(size, 2, [...treasures, ...decoys], 1)
                 .map(g => ({ ...g, value: [15, 25, 50][Math.floor(Math.random() * 3)], type: Math.random() > 0.7 ? 'dig' : 'points' }))
             : [];
         setGemPositions(gems);
+
+        // PLACE COLLECTIBLES - fun items to find!
+        // More collectibles in early worlds to make them more fun
+        // Scale: early worlds have more items, later worlds have fewer but more valuable
+        const collectiblePool = worldCollectibles[opp.id] || worldCollectibles[0];
+        const baseCollectibles = opp.id <= 2 ? 8 : opp.id <= 5 ? 6 : 4; // More in early worlds
+        const numCollectibles = baseCollectibles + Math.floor(level / 3);
+        const collectibleExclusions = [...treasures, ...decoys, ...gems];
+        const collectibleSpots = placeItemsSmart(size, numCollectibles, collectibleExclusions, 1);
+
+        const collectibles = collectibleSpots.map(pos => {
+            // Pick a random collectible from the world's pool
+            const typeKey = collectiblePool[Math.floor(Math.random() * collectiblePool.length)];
+            return {
+                ...pos,
+                type: typeKey,
+                collected: false
+            };
+        });
+        setCollectiblePositions(collectibles);
+        setCollectedItems([]); // Reset basket
+        setFriendsFound(0);
 
         // Place frozen tiles
         const frozen = opp.special.includes('frozen')
@@ -1138,7 +1217,7 @@ const TreasureDig = () => {
             return;
         }
 
-        // Check for gem
+        // Check for gem (legacy system)
         const foundGem = gemPositions.find(g => g.x === x && g.y === y);
         if (foundGem) {
             if (foundGem.type === 'dig') {
@@ -1149,7 +1228,40 @@ const TreasureDig = () => {
                 addHitEffect(x, y, `💎 +${foundGem.value}`, 'gem');
             }
             setGemPositions(g => g.filter(pos => !(pos.x === x && pos.y === y)));
-            return;
+        }
+
+        // CHECK FOR COLLECTIBLES - fun items!
+        const foundCollectible = collectiblePositions.find(c => c.x === x && c.y === y && !c.collected);
+        if (foundCollectible) {
+            const itemInfo = collectibleTypes[foundCollectible.type];
+            if (itemInfo) {
+                // Add points
+                setScore(s => s + itemInfo.points);
+
+                // Add to basket
+                setCollectedItems(items => [...items, {
+                    type: foundCollectible.type,
+                    emoji: itemInfo.emoji,
+                    name: itemInfo.name,
+                    points: itemInfo.points,
+                    time: Date.now()
+                }]);
+
+                // Mark as collected
+                setCollectiblePositions(c => c.map(col =>
+                    col.x === x && col.y === y ? { ...col, collected: true } : col
+                ));
+
+                // Special effect for critter friends
+                if (itemInfo.effect === 'friend') {
+                    setFriendsFound(f => f + 1);
+                    addHitEffect(x, y, `${itemInfo.emoji} New friend! +${itemInfo.points}`, 'friend');
+                } else {
+                    addHitEffect(x, y, `${itemInfo.emoji} +${itemInfo.points}`, 'collectible');
+                }
+
+                triggerShake(0.4);
+            }
         }
 
         // Regular dig feedback
@@ -1166,7 +1278,7 @@ const TreasureDig = () => {
             setTimeout(() => setGameState('result'), 800);
         }
     }, [gameState, digsRemaining, grid, activeTool, frozenTiles, treasurePositions,
-        decoyPositions, gemPositions, gridSize, combo, maxCombo, moveHistory,
+        decoyPositions, gemPositions, collectiblePositions, gridSize, combo, maxCombo, moveHistory,
         selectedOpponent, getMinTreasureDistance, getMinDecoyDistance,
         handleRadar, handleXRay, handleSonar, handleFlag, handleSpecialTile, moveTreasure,
         addHitEffect, triggerShake]);
@@ -2070,6 +2182,17 @@ const TreasureDig = () => {
                                 🔥 {combo}x COMBO
                             </div>
                         )}
+                        {friendsFound > 0 && (
+                            <div style={{
+                                background: `linear-gradient(135deg, #50c878, #3a9858)`,
+                                padding: '4px 12px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                color: 'white'
+                            }}>
+                                🐾 {friendsFound} friend{friendsFound > 1 ? 's' : ''}
+                            </div>
+                        )}
                     </div>
                     <div style={{ color: opp?.color || theme.accent, fontWeight: 'bold' }}>
                         {opp?.emoji} {opp?.name} - Level {currentLevel}
@@ -2144,29 +2267,28 @@ const TreasureDig = () => {
                     </div>
                 )}
 
-                {/* Last dig feedback */}
+                {/* Last dig feedback - emoji only, no boring numbers! */}
                 {lastDigResult && (
                     <div style={{
                         textAlign: 'center', marginBottom: '8px',
-                        padding: '10px 25px', borderRadius: '10px',
+                        padding: '12px 30px', borderRadius: '12px',
                         background: `${lastDigResult.color}25`,
                         border: `2px solid ${lastDigResult.color}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px',
+                        animation: lastDigResult.tier <= 2 ? 'pulse 0.5s' : 'none'
                     }}>
-                        <span style={{ fontSize: '28px' }}>{lastDigResult.emoji}</span>
-                        <span style={{ color: lastDigResult.color, fontSize: '20px', fontWeight: 'bold' }}>
-                            {lastDigResult.label}
-                        </span>
+                        <span style={{ fontSize: '36px' }}>{lastDigResult.emoji}</span>
                         <span style={{
-                            color: theme.text,
+                            color: lastDigResult.color,
                             fontSize: '24px',
                             fontWeight: 'bold',
-                            background: theme.bgDark,
-                            padding: '4px 12px',
-                            borderRadius: '8px'
+                            textShadow: lastDigResult.tier <= 2 ? `0 0 10px ${lastDigResult.color}` : 'none'
                         }}>
-                            {lastDigResult.distance.toFixed(1)} away
+                            {lastDigResult.label}
                         </span>
+                        {lastDigResult.tier <= 2 && (
+                            <span style={{ fontSize: '24px' }}>🎯</span>
+                        )}
                     </div>
                 )}
 
@@ -2180,6 +2302,44 @@ const TreasureDig = () => {
                         fontWeight: 'bold'
                     }}>
                         Click a tile to use {activeTool.toUpperCase()} (or press key again to cancel)
+                    </div>
+                )}
+
+                {/* TREASURE BASKET - Show collected items! */}
+                {collectedItems.length > 0 && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        marginBottom: '10px',
+                        padding: '8px 16px',
+                        background: `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`,
+                        borderRadius: '20px',
+                        border: `1px solid ${theme.border}`,
+                        flexWrap: 'wrap',
+                        maxWidth: '500px'
+                    }}>
+                        <span style={{ fontSize: '16px', marginRight: '4px' }}>🧺</span>
+                        {collectedItems.slice(-12).map((item, idx) => (
+                            <span
+                                key={idx}
+                                style={{
+                                    fontSize: '18px',
+                                    animation: idx === collectedItems.length - 1 ? 'pop 0.3s ease-out' : 'none',
+                                    filter: idx < collectedItems.length - 5 ? 'grayscale(30%)' : 'none',
+                                    opacity: idx < collectedItems.length - 8 ? 0.6 : 1
+                                }}
+                                title={item.name}
+                            >
+                                {item.emoji}
+                            </span>
+                        ))}
+                        {collectedItems.length > 12 && (
+                            <span style={{ color: theme.textMuted, fontSize: '12px' }}>
+                                +{collectedItems.length - 12}
+                            </span>
+                        )}
                     </div>
                 )}
 
@@ -2246,17 +2406,20 @@ const TreasureDig = () => {
                                     );
                                 }
 
+                                // Check for collectible at this position (undug only)
+                                const collectibleHere = !isDug && collectiblePositions.find(c => c.x === x && c.y === y && !c.collected);
+                                const collectibleInfo = collectibleHere ? collectibleTypes[collectibleHere.type] : null;
+
                                 if (isDug) {
                                     bgColor = tile.distanceInfo?.color || dugTileColor;
                                     borderColor = tile.distanceInfo?.color || wTheme.tileAccent;
+                                    // Show EMOJI instead of boring numbers!
                                     content = (
                                         <span style={{
-                                            fontSize: tileSize * 0.45,
-                                            fontWeight: 'bold',
-                                            color: '#fff',
-                                            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+                                            fontSize: tileSize * 0.55,
+                                            textShadow: '1px 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.5)'
                                         }}>
-                                            {typeof tile.distance === 'number' ? tile.distance?.toFixed(1) : tile.distance}
+                                            {tile.distanceInfo?.emoji || '❓'}
                                         </span>
                                     );
                                     specialIndicator = null; // Clear indicator when dug
@@ -2283,6 +2446,24 @@ const TreasureDig = () => {
                                             ~{tile.distance?.toFixed(1)}
                                         </span>
                                     );
+                                }
+
+                                // Collectible hint - subtle sparkle on tiles with goodies
+                                if (collectibleHere && !isFlagged && !isFrozen && !isSpecialTile) {
+                                    // Add a subtle sparkle indicator
+                                    if (!specialIndicator) {
+                                        specialIndicator = (
+                                            <span style={{
+                                                position: 'absolute',
+                                                top: 2, right: 2,
+                                                fontSize: tileSize * 0.25,
+                                                opacity: 0.6,
+                                                animation: 'pulse 1.5s infinite'
+                                            }}>
+                                                ✨
+                                            </span>
+                                        );
+                                    }
                                 }
 
                                 // Illuminated tiles (from spotlight) get a glow
@@ -2379,13 +2560,19 @@ const TreasureDig = () => {
                                         left: effectX + 12,
                                         top: effectY + 12,
                                         transform: 'translate(-50%, -50%)',
-                                        fontSize: e.type === 'treasure' ? '20px' : e.type === 'combo' ? '18px' : '14px',
+                                        fontSize: e.type === 'treasure' ? '20px'
+                                            : e.type === 'combo' ? '18px'
+                                            : e.type === 'friend' ? '18px'
+                                            : e.type === 'collectible' ? '16px'
+                                            : '14px',
                                         fontWeight: 'bold',
                                         color: e.type === 'treasure' ? theme.gold
                                             : e.type === 'decoy' ? theme.error
                                             : e.type === 'gem' ? theme.gem
                                             : e.type === 'combo' ? theme.hot
                                             : e.type === 'error' ? theme.error
+                                            : e.type === 'friend' ? '#50c878'
+                                            : e.type === 'collectible' ? '#f4c542'
                                             : theme.text,
                                         pointerEvents: 'none',
                                         animation: 'floatUp 1.2s ease-out forwards',
@@ -2410,11 +2597,12 @@ const TreasureDig = () => {
                     background: theme.bgPanel,
                     borderRadius: '8px'
                 }}>
-                    <span>🔥 Hot = Close (0-3)</span>
-                    <span>☀️ Warm (3-5)</span>
-                    <span>❄️ Cold (7-12)</span>
-                    <span>🥶 Freezing (12+)</span>
-                    <span style={{ color: theme.textSecondary }}>| Right-click to flag</span>
+                    <span>🔥 = Close!</span>
+                    <span>☀️ = Warm</span>
+                    <span>❄️ = Cold</span>
+                    <span>🥶 = Far</span>
+                    <span>✨ = Treasure!</span>
+                    <span style={{ color: theme.textSecondary }}>Right-click to flag</span>
                 </div>
 
                 {/* Par info */}
@@ -2436,6 +2624,11 @@ const TreasureDig = () => {
                     @keyframes pulse {
                         0%, 100% { transform: scale(1); opacity: 0.9; }
                         50% { transform: scale(1.15); opacity: 1; }
+                    }
+                    @keyframes pop {
+                        0% { transform: scale(0); }
+                        50% { transform: scale(1.3); }
+                        100% { transform: scale(1); }
                     }
                     @keyframes float-0 {
                         0%, 100% { transform: translate(0, 0) rotate(0deg); }
@@ -2551,6 +2744,24 @@ const TreasureDig = () => {
 
                         <span style={{ color: theme.textMuted }}>Max Combo:</span>
                         <span style={{ color: theme.warm, textAlign: 'right' }}>{maxCombo}x</span>
+
+                        {collectedItems.length > 0 && (
+                            <>
+                                <span style={{ color: theme.textMuted }}>Items Found:</span>
+                                <span style={{ color: '#f4c542', textAlign: 'right' }}>
+                                    {collectedItems.length} 🧺
+                                </span>
+                            </>
+                        )}
+
+                        {friendsFound > 0 && (
+                            <>
+                                <span style={{ color: theme.textMuted }}>Friends Made:</span>
+                                <span style={{ color: '#50c878', textAlign: 'right' }}>
+                                    {friendsFound} 🐾
+                                </span>
+                            </>
+                        )}
 
                         {won && (
                             <>
