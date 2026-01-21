@@ -2914,11 +2914,11 @@ const BreakoutGame = () => {
                   armorCrackTimer = 1; // Will count down
                   pendingColor = newColor; // Color to change to after crack animation
 
-                  // Generate earthquake-style crack pattern - two types:
-                  // Type 1: Through-cracks (edge to edge)
-                  // Type 2: Nexus cracks (multiple cracks meeting at a point)
+                  // Generate earthquake-style crack pattern - can mix both types:
+                  // Through-cracks: edge to edge cracks
+                  // Nexus cracks: multiple cracks meeting at a point
+                  // A brick can have: just throughs, just nexus, or both!
                   crackPattern = [];
-                  const crackType = Math.random() < 0.5 ? 'through' : 'nexus';
 
                   // Helper to create jagged path between two points
                   const createJaggedPath = (startX, startY, endX, endY) => {
@@ -2946,12 +2946,20 @@ const BreakoutGame = () => {
                     return { x: 0, y: 15 + Math.random() * 70 };
                   };
 
-                  if (crackType === 'through') {
-                    // 1-2 cracks that go completely through the brick
-                    const numCracks = 1 + Math.floor(Math.random() * 2);
-                    for (let i = 0; i < numCracks; i++) {
+                  // Decide how many of each type (can have both!)
+                  // 60% chance for through-cracks, 60% chance for nexus - often get both
+                  const hasThroughCracks = Math.random() < 0.6;
+                  const hasNexusCracks = Math.random() < 0.6;
+
+                  // Ensure at least one type
+                  const finalHasThrough = hasThroughCracks || !hasNexusCracks;
+                  const finalHasNexus = hasNexusCracks || !hasThroughCracks;
+
+                  // Add through-cracks (0-2 cracks going edge to edge)
+                  if (finalHasThrough) {
+                    const numThroughCracks = 1 + Math.floor(Math.random() * 2);
+                    for (let i = 0; i < numThroughCracks; i++) {
                       const startEdge = Math.floor(Math.random() * 4);
-                      // End on opposite or adjacent edge (not same edge)
                       let endEdge = (startEdge + 2) % 4; // Prefer opposite
                       if (Math.random() < 0.3) endEdge = (startEdge + 1) % 4; // Sometimes adjacent
 
@@ -2959,15 +2967,16 @@ const BreakoutGame = () => {
                       const end = getEdgePoint(endEdge);
                       crackPattern.push({ points: createJaggedPath(start.x, start.y, end.x, end.y) });
                     }
-                  } else {
-                    // Nexus type: 2-4 cracks meeting at a central point
-                    const nexusX = 35 + Math.random() * 30;
-                    const nexusY = 35 + Math.random() * 30;
-                    const numCracks = 2 + Math.floor(Math.random() * 3);
+                  }
+
+                  // Add nexus cracks (2-4 cracks meeting at a central point)
+                  if (finalHasNexus) {
+                    const nexusX = 25 + Math.random() * 50;
+                    const nexusY = 25 + Math.random() * 50;
+                    const numNexusCracks = 2 + Math.floor(Math.random() * 3);
                     const usedEdges = [];
 
-                    for (let i = 0; i < numCracks; i++) {
-                      // Pick an edge we haven't used yet (or allow repeats if we've used all)
+                    for (let i = 0; i < numNexusCracks; i++) {
                       let edge;
                       if (usedEdges.length < 4) {
                         do { edge = Math.floor(Math.random() * 4); } while (usedEdges.includes(edge));
