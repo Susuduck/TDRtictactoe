@@ -380,6 +380,14 @@ const TreasureDig = () => {
     const [collectedItems, setCollectedItems] = useState([]); // Items found this level (treasure basket)
     const [friendsFound, setFriendsFound] = useState(0); // Little critter friends
 
+    // Basket animation system
+    const [fallingItems, setFallingItems] = useState([]); // Items currently falling into basket
+    const [basketItems, setBasketItems] = useState([]); // Items that have landed in basket
+    const [basketFull, setBasketFull] = useState(false); // Triggers lid animation
+    const [truckDriving, setTruckDriving] = useState(false); // Truck animation state
+    const [truckPosition, setTruckPosition] = useState(-200); // Truck X position
+    const BASKET_CAPACITY = 8; // Items before basket is "full"
+
     // World-themed special tiles
     const [specialTiles, setSpecialTiles] = useState([]); // {x, y, type, activated, direction?}
     const [illuminatedTiles, setIlluminatedTiles] = useState([]); // For spotlight reveals
@@ -555,8 +563,14 @@ const TreasureDig = () => {
             };
         });
         setCollectiblePositions(collectibles);
-        setCollectedItems([]); // Reset basket
+        setCollectedItems([]); // Reset collected items list
         setFriendsFound(0);
+        // Reset basket animation state
+        setFallingItems([]);
+        setBasketItems([]);
+        setBasketFull(false);
+        setTruckDriving(false);
+        setTruckPosition(-200);
 
         // Place frozen tiles
         const frozen = opp.special.includes('frozen')
@@ -781,6 +795,109 @@ const TreasureDig = () => {
         setScreenShake(true);
         setTimeout(() => setScreenShake(false), 150 * intensity);
     }, []);
+
+    // Add item to basket with falling physics animation
+    const addToBasket = useCallback((emoji, name, points) => {
+        const id = Date.now() + Math.random();
+        const startX = 30 + Math.random() * 40; // Random X position above basket
+
+        // Create falling item
+        const fallingItem = {
+            id,
+            emoji,
+            name,
+            points,
+            x: startX,
+            y: -50, // Start above screen
+            vy: 0, // Velocity Y
+            vx: (Math.random() - 0.5) * 2, // Slight horizontal drift
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 15,
+            landed: false,
+            bounces: 0
+        };
+
+        setFallingItems(items => [...items, fallingItem]);
+
+        // Physics simulation
+        let item = { ...fallingItem };
+        const gravity = 0.8;
+        const bounce = 0.5;
+        const basketTop = 280; // Y position where items land
+        const friction = 0.95;
+
+        const animate = () => {
+            if (item.landed) return;
+
+            item.vy += gravity;
+            item.y += item.vy;
+            item.x += item.vx;
+            item.rotation += item.rotationSpeed;
+            item.vx *= friction;
+
+            // Bounce when hitting basket
+            if (item.y >= basketTop) {
+                item.y = basketTop;
+                item.vy = -item.vy * bounce;
+                item.bounces++;
+                item.rotationSpeed *= 0.5;
+
+                // Stop after enough bounces
+                if (Math.abs(item.vy) < 2 || item.bounces >= 3) {
+                    item.landed = true;
+                    item.y = basketTop;
+
+                    // Move to basket items
+                    setFallingItems(f => f.filter(fi => fi.id !== id));
+                    setBasketItems(b => {
+                        const newItems = [...b, { id, emoji, name, points, x: item.x }];
+
+                        // Check if basket is full
+                        if (newItems.length >= BASKET_CAPACITY && !basketFull) {
+                            setTimeout(() => {
+                                setBasketFull(true);
+                                // Start truck animation after lid closes
+                                setTimeout(() => {
+                                    setTruckDriving(true);
+                                    // Animate truck driving in
+                                    let truckX = -200;
+                                    const driveIn = setInterval(() => {
+                                        truckX += 8;
+                                        setTruckPosition(truckX);
+                                        if (truckX >= 50) {
+                                            clearInterval(driveIn);
+                                            // Pause, then drive out
+                                            setTimeout(() => {
+                                                const driveOut = setInterval(() => {
+                                                    truckX += 12;
+                                                    setTruckPosition(truckX);
+                                                    if (truckX >= 400) {
+                                                        clearInterval(driveOut);
+                                                        // Reset basket
+                                                        setBasketItems([]);
+                                                        setBasketFull(false);
+                                                        setTruckDriving(false);
+                                                        setTruckPosition(-200);
+                                                    }
+                                                }, 30);
+                                            }, 800);
+                                        }
+                                    }, 30);
+                                }, 600);
+                            }, 100);
+                        }
+                        return newItems;
+                    });
+                    return;
+                }
+            }
+
+            setFallingItems(f => f.map(fi => fi.id === id ? { ...item } : fi));
+            requestAnimationFrame(animate);
+        };
+
+        requestAnimationFrame(animate);
+    }, [basketFull, BASKET_CAPACITY]);
 
     // Use a tool
     const useTool = useCallback((toolName) => {
@@ -1238,7 +1355,7 @@ const TreasureDig = () => {
                 // Add points
                 setScore(s => s + itemInfo.points);
 
-                // Add to basket
+                // Add to collected items list (for stats)
                 setCollectedItems(items => [...items, {
                     type: foundCollectible.type,
                     emoji: itemInfo.emoji,
@@ -1246,6 +1363,9 @@ const TreasureDig = () => {
                     points: itemInfo.points,
                     time: Date.now()
                 }]);
+
+                // Trigger falling animation into basket!
+                addToBasket(itemInfo.emoji, itemInfo.name, itemInfo.points);
 
                 // Mark as collected
                 setCollectiblePositions(c => c.map(col =>
@@ -1255,9 +1375,9 @@ const TreasureDig = () => {
                 // Special effect for critter friends
                 if (itemInfo.effect === 'friend') {
                     setFriendsFound(f => f + 1);
-                    addHitEffect(x, y, `${itemInfo.emoji} New friend! +${itemInfo.points}`, 'friend');
+                    addHitEffect(x, y, `${itemInfo.emoji} New friend!`, 'friend');
                 } else {
-                    addHitEffect(x, y, `${itemInfo.emoji} +${itemInfo.points}`, 'collectible');
+                    addHitEffect(x, y, `${itemInfo.emoji}`, 'collectible');
                 }
 
                 triggerShake(0.4);
@@ -1281,7 +1401,7 @@ const TreasureDig = () => {
         decoyPositions, gemPositions, collectiblePositions, gridSize, combo, maxCombo, moveHistory,
         selectedOpponent, getMinTreasureDistance, getMinDecoyDistance,
         handleRadar, handleXRay, handleSonar, handleFlag, handleSpecialTile, moveTreasure,
-        addHitEffect, triggerShake]);
+        addHitEffect, triggerShake, addToBasket]);
 
     // Hint system
     const getHint = useCallback(() => {
@@ -2305,43 +2425,125 @@ const TreasureDig = () => {
                     </div>
                 )}
 
-                {/* TREASURE BASKET - Show collected items! */}
-                {collectedItems.length > 0 && (
+                {/* BIG TREASURE BASKET - On the right side with physics! */}
+                <div style={{
+                    position: 'fixed',
+                    right: '20px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '120px',
+                    height: '400px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    zIndex: 50,
+                    pointerEvents: 'none'
+                }}>
+                    {/* Falling items */}
+                    {fallingItems.map(item => (
+                        <div
+                            key={item.id}
+                            style={{
+                                position: 'absolute',
+                                left: `${item.x}%`,
+                                top: item.y,
+                                fontSize: '28px',
+                                transform: `rotate(${item.rotation}deg)`,
+                                zIndex: 60,
+                                filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.5))'
+                            }}
+                        >
+                            {item.emoji}
+                        </div>
+                    ))}
+
+                    {/* The Basket */}
                     <div style={{
+                        position: 'absolute',
+                        bottom: truckDriving ? 80 : 20,
+                        width: '100px',
+                        height: '120px',
+                        transition: truckDriving ? 'bottom 0.3s ease-out' : 'none',
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px',
-                        marginBottom: '10px',
-                        padding: '8px 16px',
-                        background: `linear-gradient(135deg, ${theme.bgPanel}, ${theme.bgDark})`,
-                        borderRadius: '20px',
-                        border: `1px solid ${theme.border}`,
-                        flexWrap: 'wrap',
-                        maxWidth: '500px'
+                        flexDirection: 'column',
+                        alignItems: 'center'
                     }}>
-                        <span style={{ fontSize: '16px', marginRight: '4px' }}>🧺</span>
-                        {collectedItems.slice(-12).map((item, idx) => (
-                            <span
-                                key={idx}
-                                style={{
-                                    fontSize: '18px',
-                                    animation: idx === collectedItems.length - 1 ? 'pop 0.3s ease-out' : 'none',
-                                    filter: idx < collectedItems.length - 5 ? 'grayscale(30%)' : 'none',
-                                    opacity: idx < collectedItems.length - 8 ? 0.6 : 1
-                                }}
-                                title={item.name}
-                            >
-                                {item.emoji}
-                            </span>
-                        ))}
-                        {collectedItems.length > 12 && (
-                            <span style={{ color: theme.textMuted, fontSize: '12px' }}>
-                                +{collectedItems.length - 12}
-                            </span>
+                        {/* Lid - appears when full */}
+                        {basketFull && (
+                            <div style={{
+                                fontSize: '60px',
+                                marginBottom: '-25px',
+                                animation: 'lidClose 0.4s ease-out forwards',
+                                zIndex: 62
+                            }}>
+                                🪵
+                            </div>
+                        )}
+
+                        {/* Basket body */}
+                        <div style={{
+                            fontSize: '80px',
+                            position: 'relative',
+                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
+                        }}>
+                            🧺
+                            {/* Items in basket */}
+                            <div style={{
+                                position: 'absolute',
+                                top: '25%',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                justifyContent: 'center',
+                                width: '50px',
+                                gap: '1px',
+                                opacity: basketFull ? 0 : 1,
+                                transition: 'opacity 0.3s'
+                            }}>
+                                {basketItems.slice(-6).map((item, idx) => (
+                                    <span key={item.id} style={{
+                                        fontSize: '14px',
+                                        animation: 'settleInBasket 0.3s ease-out'
+                                    }}>
+                                        {item.emoji}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Item count */}
+                        {basketItems.length > 0 && !basketFull && (
+                            <div style={{
+                                marginTop: '-10px',
+                                background: theme.gold,
+                                color: '#1a1815',
+                                padding: '2px 10px',
+                                borderRadius: '10px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                            }}>
+                                {basketItems.length}/{BASKET_CAPACITY}
+                            </div>
                         )}
                     </div>
-                )}
+
+                    {/* Truck - drives in when basket is full */}
+                    {truckDriving && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '10px',
+                            left: truckPosition,
+                            fontSize: '50px',
+                            transition: 'none',
+                            zIndex: 55,
+                            filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.5))'
+                        }}>
+                            🚚
+                        </div>
+                    )}
+                </div>
 
                 {/* Game grid */}
                 <div style={{
@@ -2629,6 +2831,16 @@ const TreasureDig = () => {
                         0% { transform: scale(0); }
                         50% { transform: scale(1.3); }
                         100% { transform: scale(1); }
+                    }
+                    @keyframes lidClose {
+                        0% { transform: translateY(-30px) rotate(-20deg); opacity: 0; }
+                        60% { transform: translateY(5px) rotate(5deg); opacity: 1; }
+                        100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                    }
+                    @keyframes settleInBasket {
+                        0% { transform: translateY(-10px) scale(1.5); }
+                        50% { transform: translateY(3px) scale(0.9); }
+                        100% { transform: translateY(0) scale(1); }
                     }
                     @keyframes float-0 {
                         0%, 100% { transform: translate(0, 0) rotate(0deg); }
