@@ -3372,22 +3372,35 @@ const BreakoutGame = () => {
                                brick.maxHealth >= 8 ? 30 :
                                brick.maxHealth >= 4 ? 20 : 10;
 
-                // Armor cracking effect - when tier changes, old layer breaks off
-                // Add visual crack pattern to the brick
+                // Armor cracking effect - when tier changes, show cracks THEN break
+                let armorCracking = brick.armorCracking || false;
+                let armorCrackTimer = brick.armorCrackTimer || 0;
+                let pendingColor = brick.pendingColor;
                 let crackPattern = brick.crackPattern || [];
+
                 if (newHealth > 0 && newTier !== oldTier && brick.type !== 'boss' && brick.type !== 'explosive') {
-                  createCrackingParticles(brick.x, brick.y, brick.width, brick.height, oldColor);
-                  // Add a random crack pattern to the brick (1-3 cracks per armor layer broken)
-                  const numCracks = 1 + Math.floor(Math.random() * 3);
+                  // Start armor cracking animation - cracks appear first
+                  armorCracking = true;
+                  armorCrackTimer = 1; // Will count down
+                  pendingColor = newColor; // Color to change to after crack animation
+
+                  // Generate crack pattern for this armor layer
+                  crackPattern = [];
+                  const numCracks = 3 + Math.floor(Math.random() * 3);
                   for (let i = 0; i < numCracks; i++) {
-                    crackPattern.push({
-                      x1: Math.random() * 100,
-                      y1: Math.random() * 100,
-                      x2: Math.random() * 100,
-                      y2: Math.random() * 100,
-                      angle: Math.random() * 360,
-                    });
+                    // Create cracks that span more of the brick
+                    const startEdge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+                    let x1, y1, x2, y2;
+                    if (startEdge === 0) { x1 = Math.random() * 100; y1 = 0; }
+                    else if (startEdge === 1) { x1 = 100; y1 = Math.random() * 100; }
+                    else if (startEdge === 2) { x1 = Math.random() * 100; y1 = 100; }
+                    else { x1 = 0; y1 = Math.random() * 100; }
+                    // End point toward center-ish
+                    x2 = 30 + Math.random() * 40;
+                    y2 = 30 + Math.random() * 40;
+                    crackPattern.push({ x1, y1, x2, y2 });
                   }
+
                   // Small score bonus for cracking armor
                   setScore(s => s + 5);
                 }
@@ -3396,7 +3409,6 @@ const BreakoutGame = () => {
                 if (ball.charged && ball.chargedHits > 0 && !usedChargedBonus) {
                   setScore(s => s + points * 0.5);
                   usedChargedBonus = true;
-                  // chargedHits will be decremented when returning ball state
                 }
 
                 // Build Teddy Meter on brick hits
@@ -3404,7 +3416,7 @@ const BreakoutGame = () => {
                 setTeddyMeter(prev => Math.min(TEDDY_METER_MAX, prev + meterGain));
 
                 if (newHealth <= 0) {
-                  // Brick destroyed - set dying state for animation
+                  // Brick destroyed - quick pop then gone
                   setScore(s => s + points * (1 + combo * 0.1));
                   setCombo(c => {
                     const newCombo = c + 1;
@@ -3482,20 +3494,25 @@ const BreakoutGame = () => {
                   }
                 }
 
-                // Update brick with new health, color, hit flash, crack pattern, and reveal if invisible
+                // Update brick state
                 return {
                   ...brick,
                   health: newHealth,
-                  hitFlash: 1, // Start flash effect
-                  invisible: false, // Reveal on hit (no mutation)
-                  crackPattern: crackPattern.length > 0 ? crackPattern : brick.crackPattern,
-                  // Set dying state for death animation
+                  hitFlash: 1,
+                  invisible: false,
+                  // Armor cracking state - cracks show, then armor breaks off
+                  armorCracking,
+                  armorCrackTimer,
+                  pendingColor,
+                  crackPattern,
+                  // Dying state - quick pop animation
                   dying: newHealth <= 0,
-                  deathTimer: newHealth <= 0 ? 1 : undefined,
+                  deathTimer: newHealth <= 0 ? 0.4 : undefined, // Fast death
                   deathColor: newHealth <= 0 ? oldColor : undefined,
+                  // Don't change color if armor is cracking (will change when crack finishes)
                   color: brick.type === 'boss' ? '#ffd700' :
                          brick.type === 'explosive' ? '#ff4400' :
-                         newColor
+                         armorCracking ? oldColor : newColor
                 };
               });
             });
@@ -3581,17 +3598,35 @@ const BreakoutGame = () => {
         .filter(heart => heart.opacity > 0 && heart.y < CANVAS_HEIGHT + 100)
       );
 
-      // Decay brick hit flash and death animations
+      // Decay brick hit flash, armor cracking, and death animations
       setBricks(prev => prev
         .map(b => {
           let updated = b;
           // Decay hit flash
           if (b.hitFlash > 0) {
-            updated = { ...updated, hitFlash: b.hitFlash - 0.1 * deltaTime };
+            updated = { ...updated, hitFlash: b.hitFlash - 0.15 * deltaTime };
           }
-          // Decay death timer for dying bricks
+          // Decay armor crack timer - when done, armor breaks off
+          if (b.armorCracking && b.armorCrackTimer > 0) {
+            const newTimer = b.armorCrackTimer - 0.04 * deltaTime;
+            if (newTimer <= 0) {
+              // Armor crack animation complete - break off the armor
+              createCrackingParticles(b.x, b.y, b.width, b.height, b.color);
+              updated = {
+                ...updated,
+                armorCracking: false,
+                armorCrackTimer: 0,
+                crackPattern: [], // Clear cracks for fresh layer
+                color: b.pendingColor || b.color,
+                pendingColor: undefined,
+              };
+            } else {
+              updated = { ...updated, armorCrackTimer: newTimer };
+            }
+          }
+          // Decay death timer for dying bricks (fast!)
           if (b.dying && b.deathTimer > 0) {
-            updated = { ...updated, deathTimer: b.deathTimer - 0.03 * deltaTime };
+            updated = { ...updated, deathTimer: b.deathTimer - 0.08 * deltaTime };
           }
           return updated;
         })
@@ -5062,12 +5097,16 @@ const BreakoutGame = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              // Dying bricks fade out and shatter
-              opacity: brick.dying ? brick.deathTimer : brick.invisible ? 0.2 : 1,
+              // Dying bricks: quick pop then fade (no rotation)
+              opacity: brick.dying
+                ? Math.max(0, brick.deathTimer * 2.5) // Fast fade
+                : brick.invisible ? 0.2 : 1,
               transform: brick.dying
-                ? `scale(${0.5 + brick.deathTimer * 0.5}) rotate(${(1 - brick.deathTimer) * 15}deg)`
-                : 'none',
-              transition: brick.dying ? 'none' : 'transform 0.1s',
+                ? `scale(${1 + (0.4 - brick.deathTimer) * 0.5})` // Pop out then shrink
+                : brick.armorCracking
+                  ? `scale(${1 + Math.sin(brick.armorCrackTimer * 10) * 0.02})` // Subtle shake when cracking
+                  : 'none',
+              filter: brick.dying ? 'brightness(1.5)' : 'none', // Bright flash on death
               pointerEvents: brick.dying ? 'none' : 'auto',
             }}
           >
@@ -5175,22 +5214,12 @@ const BreakoutGame = () => {
               </svg>
             )}
             {/* Hit flash overlay */}
-            {brick.hitFlash > 0 && (
+            {brick.hitFlash > 0 && !brick.dying && (
               <div style={{
                 position: 'absolute',
                 inset: 0,
                 background: 'white',
-                opacity: brick.hitFlash * 0.7,
-                borderRadius: '2px',
-                pointerEvents: 'none',
-              }} />
-            )}
-            {/* Death shatter overlay */}
-            {brick.dying && (
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                background: `linear-gradient(${45 + (1 - brick.deathTimer) * 90}deg, transparent 30%, rgba(255,255,255,0.5) 50%, transparent 70%)`,
+                opacity: brick.hitFlash * 0.5,
                 borderRadius: '2px',
                 pointerEvents: 'none',
               }} />
