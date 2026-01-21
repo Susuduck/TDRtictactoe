@@ -3807,193 +3807,395 @@ const TreasureDig = () => {
                 </div> {/* End three-column layout */}
                 )}
 
-                {/* SORT PHASE - Visual two-panel basket experience */}
+                {/* ========================================== */}
+                {/* PACKUP PHASE - Full-screen Workbench UI */}
+                {/* ========================================== */}
                 {gamePhase === 'sort' && excavatedItems.length > 0 && (
                     <div style={{
+                        flex: 1,
                         display: 'flex',
-                        gap: '20px',
-                        marginBottom: '15px',
-                        justifyContent: 'center',
-                        alignItems: 'stretch',
-                        flexWrap: 'wrap'
+                        flexDirection: 'column',
+                        gap: '12px',
+                        padding: '0 20px'
                     }}>
-                        {/* LEFT: Excavation Table - items you dug up */}
+                        {/* Phase Ribbon - centered status bar */}
                         <div style={{
-                            flex: '1 1 300px',
-                            maxWidth: '400px',
-                            padding: '20px',
-                            background: 'linear-gradient(180deg, #4a3a2a 0%, #3a2a1a 100%)',
-                            borderRadius: '12px',
-                            border: '3px solid #6a5a4a',
-                            boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.5)'
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: '20px',
+                            padding: '10px 24px',
+                            background: `linear-gradient(90deg, transparent 0%, ${theme.gold}15 50%, transparent 100%)`,
+                            borderRadius: '20px',
+                            border: `1px solid ${theme.gold}40`
                         }}>
+                            <span style={{ fontSize: '18px', fontWeight: 'bold', color: theme.gold }}>
+                                🧺 PACKUP
+                            </span>
+                            <span style={{ color: theme.textSecondary, fontSize: '13px' }}>
+                                {selectedForBasket.length}/{BASKET_CAPACITY} kept
+                            </span>
+                            <span style={{ color: theme.textMuted, fontSize: '13px' }}>•</span>
+                            <span style={{ color: theme.textSecondary, fontSize: '13px' }}>
+                                {excavatedItems.length - selectedForBasket.length} on table
+                            </span>
+                            {levelConfig?.bonusObjective && (
+                                <>
+                                    <span style={{ color: theme.textMuted, fontSize: '13px' }}>•</span>
+                                    <span style={{ color: theme.gold, fontSize: '12px' }}>
+                                        ⭐ {levelConfig.bonusObjective.desc}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Main Workbench - dominant 2-pane layout */}
+                        <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            gap: '16px',
+                            minHeight: '400px',
+                            maxHeight: '65vh'
+                        }}>
+                            {/* LEFT PANEL: Excavation Table (60%) */}
                             <div style={{
-                                textAlign: 'center',
-                                marginBottom: '15px',
-                                fontSize: '16px',
-                                color: '#c8b898',
-                                fontWeight: 'bold',
-                                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
-                            }}>
-                                🪨 Excavation Table
-                            </div>
-                            <div style={{
+                                flex: '1.5',
                                 display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '8px',
-                                justifyContent: 'center',
-                                minHeight: '100px'
+                                flexDirection: 'column',
+                                background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                                border: `3px solid ${theme.frameBrass}`,
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                boxShadow: `0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 ${theme.frameBrassLight}`
                             }}>
-                                {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).map(item => (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => toggleItemSelection(item.id)}
-                                        style={{
-                                            width: '70px',
-                                            height: '70px',
-                                            background: item.isDirt ? 'radial-gradient(circle, #8B4513 30%, #5a3010 100%)' : 'radial-gradient(circle, #3a4a3a 30%, #2a3a2a 100%)',
-                                            borderRadius: '50%',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.3)',
-                                            transition: 'all 0.2s',
-                                            border: '2px solid #5a4a3a'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1.1) translateY(-5px)';
-                                            e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.5)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1)';
-                                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
-                                        }}
-                                        title={item.isDirt ? 'Mystery dirt clump - could be treasure!' : item.displayName}
-                                    >
-                                        <span style={{ fontSize: '28px', filter: 'drop-shadow(1px 2px 2px rgba(0,0,0,0.5))' }}>
-                                            {item.displayEmoji}
+                                {/* Table Header */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    background: `linear-gradient(90deg, ${theme.frameBrassDark} 0%, ${theme.frameBrass} 50%, ${theme.frameBrassDark} 100%)`,
+                                    borderBottom: `2px solid ${theme.frameBrassDark}`
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>🪨</span>
+                                        <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '14px' }}>
+                                            Excavation Table
+                                        </span>
+                                        <span style={{
+                                            background: theme.bgDark,
+                                            padding: '2px 10px',
+                                            borderRadius: '10px',
+                                            fontSize: '12px',
+                                            color: theme.textSecondary
+                                        }}>
+                                            {excavatedItems.filter(i => !selectedForBasket.includes(i.id)).length} items
                                         </span>
                                     </div>
-                                ))}
-                                {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).length === 0 && (
-                                    <div style={{ color: '#6a5a4a', fontStyle: 'italic', padding: '20px' }}>
-                                        Table empty!
-                                    </div>
-                                )}
+                                    {/* Quick action: Auto-Pack Best */}
+                                    <button
+                                        onClick={() => {
+                                            // Auto-pack highest value items first
+                                            const unselected = excavatedItems.filter(i => !selectedForBasket.includes(i.id));
+                                            const sorted = [...unselected].sort((a, b) => (b.points || 0) - (a.points || 0));
+                                            const slotsAvailable = BASKET_CAPACITY - selectedForBasket.length;
+                                            const toPack = sorted.slice(0, slotsAvailable).map(i => i.id);
+                                            setSelectedForBasket(prev => [...prev, ...toPack]);
+                                            addEventLog(`Auto-packed ${toPack.length} best items`);
+                                        }}
+                                        disabled={selectedForBasket.length >= BASKET_CAPACITY || excavatedItems.filter(i => !selectedForBasket.includes(i.id)).length === 0}
+                                        style={{
+                                            padding: '6px 12px',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold',
+                                            background: theme.success,
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            opacity: selectedForBasket.length >= BASKET_CAPACITY ? 0.5 : 1
+                                        }}
+                                    >
+                                        ⚡ Auto-Pack Best
+                                    </button>
+                                </div>
+
+                                {/* Items Grid */}
+                                <div style={{
+                                    flex: 1,
+                                    padding: '16px',
+                                    overflowY: 'auto',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                                    gap: '12px',
+                                    alignContent: 'flex-start'
+                                }}>
+                                    {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).map(item => {
+                                        // Determine rarity for frame color
+                                        const rarity = item.points >= 50 ? 'legendary' : item.points >= 20 ? 'rare' : item.points >= 10 ? 'uncommon' : 'common';
+                                        const rarityColors = {
+                                            legendary: { border: '#ffd700', glow: 'rgba(255,215,0,0.4)', bg: '#4a4020' },
+                                            rare: { border: '#a78bfa', glow: 'rgba(167,139,250,0.3)', bg: '#3a3050' },
+                                            uncommon: { border: '#22c55e', glow: 'rgba(34,197,94,0.2)', bg: '#2a4030' },
+                                            common: { border: theme.border, glow: 'none', bg: theme.bgFrameInner }
+                                        };
+                                        const rc = rarityColors[rarity];
+
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => {
+                                                    if (selectedForBasket.length < BASKET_CAPACITY) {
+                                                        toggleItemSelection(item.id);
+                                                        addEventLog(`Added ${item.displayName || 'item'} to basket`);
+                                                    }
+                                                }}
+                                                style={{
+                                                    aspectRatio: '1',
+                                                    background: item.isDirt
+                                                        ? 'radial-gradient(circle, #6a4a2a 30%, #4a3020 100%)'
+                                                        : `radial-gradient(circle, ${rc.bg} 30%, ${theme.bgDark} 100%)`,
+                                                    border: `3px solid ${rc.border}`,
+                                                    borderRadius: '10px',
+                                                    cursor: selectedForBasket.length >= BASKET_CAPACITY ? 'not-allowed' : 'pointer',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '4px',
+                                                    boxShadow: rc.glow !== 'none' ? `0 0 12px ${rc.glow}, inset 0 -2px 8px rgba(0,0,0,0.3)` : 'inset 0 -2px 8px rgba(0,0,0,0.3)',
+                                                    transition: 'all 0.15s',
+                                                    position: 'relative',
+                                                    opacity: selectedForBasket.length >= BASKET_CAPACITY ? 0.5 : 1
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (selectedForBasket.length < BASKET_CAPACITY) {
+                                                        e.currentTarget.style.transform = 'scale(1.08) translateY(-4px)';
+                                                        e.currentTarget.style.boxShadow = `0 8px 20px rgba(0,0,0,0.4), 0 0 15px ${rc.glow}`;
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                    e.currentTarget.style.boxShadow = rc.glow !== 'none' ? `0 0 12px ${rc.glow}` : 'none';
+                                                }}
+                                                title={item.isDirt ? '🟤 Mystery dirt clump - could be treasure or junk!' : `${item.displayName} (${item.points || '?'} pts)`}
+                                            >
+                                                <span style={{
+                                                    fontSize: '32px',
+                                                    filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.5))'
+                                                }}>
+                                                    {item.displayEmoji}
+                                                </span>
+                                                {!item.isDirt && (
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        color: theme.textSecondary,
+                                                        textAlign: 'center',
+                                                        maxWidth: '90%',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {item.points || '?'}pts
+                                                    </span>
+                                                )}
+                                                {item.isDirt && (
+                                                    <span style={{ fontSize: '9px', color: '#8a6a4a' }}>???</span>
+                                                )}
+                                                {/* Rarity indicator for legendaries */}
+                                                {rarity === 'legendary' && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '-4px',
+                                                        right: '-4px',
+                                                        fontSize: '12px',
+                                                        animation: 'pulse 1.5s infinite'
+                                                    }}>⭐</div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {excavatedItems.filter(item => !selectedForBasket.includes(item.id)).length === 0 && (
+                                        <div style={{
+                                            gridColumn: '1 / -1',
+                                            textAlign: 'center',
+                                            padding: '40px',
+                                            color: theme.textMuted
+                                        }}>
+                                            All items packed! ✓
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
-                                Click items to add to basket →
+
+                            {/* RIGHT PANEL: Basket (40%) */}
+                            <div style={{
+                                flex: '1',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                                border: `3px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}`,
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                boxShadow: selectedForBasket.length >= BASKET_CAPACITY
+                                    ? `0 0 20px rgba(239,68,68,0.3)`
+                                    : `0 0 20px ${theme.goldGlow}`,
+                                transition: 'border-color 0.3s, box-shadow 0.3s'
+                            }}>
+                                {/* Basket Header */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    background: selectedForBasket.length >= BASKET_CAPACITY
+                                        ? `linear-gradient(90deg, ${theme.error}40 0%, ${theme.error}20 100%)`
+                                        : `linear-gradient(90deg, ${theme.gold}40 0%, ${theme.gold}20 100%)`,
+                                    borderBottom: `2px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}40`
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>🧺</span>
+                                        <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '14px' }}>
+                                            Your Basket
+                                        </span>
+                                    </div>
+                                    <span style={{
+                                        background: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.bgDark,
+                                        padding: '4px 12px',
+                                        borderRadius: '12px',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        color: selectedForBasket.length >= BASKET_CAPACITY ? '#fff' : theme.gold
+                                    }}>
+                                        {selectedForBasket.length}/{BASKET_CAPACITY}
+                                    </span>
+                                </div>
+
+                                {/* Basket Slots Grid */}
+                                <div style={{
+                                    flex: 1,
+                                    padding: '16px',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(4, 1fr)',
+                                    gridTemplateRows: 'repeat(2, 1fr)',
+                                    gap: '10px'
+                                }}>
+                                    {Array.from({ length: BASKET_CAPACITY }).map((_, idx) => {
+                                        const item = excavatedItems.find(i => i.id === selectedForBasket[idx]);
+                                        const isEmpty = !item;
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                onClick={() => item && toggleItemSelection(item.id)}
+                                                style={{
+                                                    background: isEmpty
+                                                        ? `linear-gradient(135deg, ${theme.bgDark} 0%, ${theme.bgFrameInner} 100%)`
+                                                        : item.isDirt
+                                                            ? 'radial-gradient(circle, #6a4a2a 30%, #4a3020 100%)'
+                                                            : `radial-gradient(circle, ${theme.bgFrameInner} 30%, ${theme.bgDark} 100%)`,
+                                                    border: isEmpty
+                                                        ? `2px dashed ${theme.border}`
+                                                        : `3px solid ${theme.gold}`,
+                                                    borderRadius: '10px',
+                                                    cursor: item ? 'pointer' : 'default',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '4px',
+                                                    transition: 'all 0.15s',
+                                                    boxShadow: item ? `0 0 10px ${theme.goldGlow}` : 'inset 0 2px 8px rgba(0,0,0,0.3)'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (item) {
+                                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                }}
+                                                title={item ? 'Click to remove from basket' : `Slot ${idx + 1} - empty`}
+                                            >
+                                                {item ? (
+                                                    <>
+                                                        <span style={{ fontSize: '28px', filter: 'drop-shadow(1px 2px 2px rgba(0,0,0,0.4))' }}>
+                                                            {item.displayEmoji}
+                                                        </span>
+                                                        <span style={{ fontSize: '9px', color: theme.textMuted }}>
+                                                            {item.isDirt ? '???' : `${item.points || '?'}pts`}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <span style={{ fontSize: '24px', opacity: 0.2 }}>+</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div style={{
+                                    padding: '12px 16px',
+                                    borderTop: `1px solid ${theme.border}`,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
+                                }}>
+                                    {/* Clear Basket */}
+                                    {selectedForBasket.length > 0 && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedForBasket([]);
+                                                addEventLog('Cleared basket');
+                                            }}
+                                            style={{
+                                                padding: '8px',
+                                                fontSize: '12px',
+                                                background: 'transparent',
+                                                color: theme.textMuted,
+                                                border: `1px solid ${theme.border}`,
+                                                borderRadius: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            🗑️ Clear Basket
+                                        </button>
+                                    )}
+
+                                    {/* CONFIRM - Reveal Button */}
+                                    <button
+                                        onClick={startRevealPhase}
+                                        disabled={selectedForBasket.length === 0}
+                                        style={{
+                                            padding: '14px 24px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            background: selectedForBasket.length > 0
+                                                ? `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 100%)`
+                                                : '#444',
+                                            color: selectedForBasket.length > 0 ? theme.bgDark : theme.textMuted,
+                                            border: selectedForBasket.length > 0 ? `2px solid ${theme.gold}` : '2px solid #555',
+                                            borderRadius: '10px',
+                                            cursor: selectedForBasket.length > 0 ? 'pointer' : 'not-allowed',
+                                            boxShadow: selectedForBasket.length > 0 ? `0 4px 20px ${theme.goldGlow}` : 'none',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        ✨ Reveal What's Inside!
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* RIGHT: Your Basket */}
+                        {/* Bottom hint strip */}
                         <div style={{
-                            flex: '1 1 250px',
-                            maxWidth: '350px',
-                            padding: '20px',
-                            background: 'linear-gradient(180deg, #4a4030 0%, #3a3020 100%)',
-                            borderRadius: '12px',
-                            border: `3px solid ${selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.gold}`,
-                            boxShadow: `0 0 20px ${selectedForBasket.length >= BASKET_CAPACITY ? 'rgba(232,90,80,0.3)' : 'rgba(244,197,66,0.2)'}`
+                            textAlign: 'center',
+                            fontSize: '11px',
+                            color: theme.textMuted,
+                            padding: '8px'
                         }}>
-                            <div style={{
-                                textAlign: 'center',
-                                marginBottom: '10px',
-                                fontSize: '16px',
-                                color: theme.gold,
-                                fontWeight: 'bold'
-                            }}>
-                                🧺 Your Basket
-                                <span style={{
-                                    marginLeft: '10px',
-                                    padding: '3px 10px',
-                                    background: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.bgDark,
-                                    borderRadius: '12px',
-                                    fontSize: '14px',
-                                    color: selectedForBasket.length >= BASKET_CAPACITY ? '#fff' : theme.textSecondary
-                                }}>
-                                    {selectedForBasket.length}/{BASKET_CAPACITY}
-                                </span>
-                            </div>
-
-                            {/* Basket visual */}
-                            <div style={{
-                                position: 'relative',
-                                minHeight: '150px',
-                                background: 'radial-gradient(ellipse at bottom, #8a6a3a 0%, #5a4020 60%, transparent 100%)',
-                                borderRadius: '0 0 50% 50%',
-                                padding: '20px',
-                                paddingBottom: '40px',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '6px',
-                                justifyContent: 'center',
-                                alignContent: 'flex-start'
-                            }}>
-                                {excavatedItems.filter(item => selectedForBasket.includes(item.id)).map((item, idx) => (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => toggleItemSelection(item.id)}
-                                        style={{
-                                            width: '50px',
-                                            height: '50px',
-                                            background: item.isDirt ? '#6a4a2a' : '#3a4a3a',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                            transition: 'all 0.2s',
-                                            animation: 'popIn 0.3s ease-out'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1.15)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'scale(1)';
-                                        }}
-                                        title="Click to remove from basket"
-                                    >
-                                        <span style={{ fontSize: '24px' }}>{item.displayEmoji}</span>
-                                    </div>
-                                ))}
-                                {selectedForBasket.length === 0 && (
-                                    <div style={{ color: '#7a6a5a', fontStyle: 'italic', textAlign: 'center', width: '100%', paddingTop: '30px' }}>
-                                        Basket empty!<br/>
-                                        <span style={{ fontSize: '12px' }}>Click items to add</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: '#8a7a6a' }}>
-                                ← Click items to remove
-                            </div>
-
-                            {/* REVEAL BUTTON - proceed to reveal phase */}
-                            <button
-                                onClick={startRevealPhase}
-                                disabled={selectedForBasket.length === 0}
-                                style={{
-                                    marginTop: '15px',
-                                    padding: '12px 30px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    background: selectedForBasket.length > 0
-                                        ? `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 100%)`
-                                        : '#444',
-                                    color: selectedForBasket.length > 0 ? theme.bgDark : theme.textMuted,
-                                    border: selectedForBasket.length > 0 ? `2px solid ${theme.gold}` : '2px solid #555',
-                                    borderRadius: '10px',
-                                    cursor: selectedForBasket.length > 0 ? 'pointer' : 'not-allowed',
-                                    boxShadow: selectedForBasket.length > 0 ? `0 4px 15px ${theme.goldGlow}` : 'none',
-                                    transition: 'all 0.2s',
-                                    width: '100%'
-                                }}
-                            >
-                                ✨ Reveal What's Inside! ({selectedForBasket.length} items)
-                            </button>
+                            💡 Click items to move between table and basket • Dirt clumps hide their true value until revealed
                         </div>
                     </div>
                 )}
