@@ -203,6 +203,72 @@ const TreasureDig = () => {
         9: ['gem', 'ring', 'crystal', 'star', 'coin', 'key'], // Vault
     };
 
+    // JUNK ITEMS - look like treasure (dirt clump) but aren't!
+    const junkTypes = {
+        rock: { emoji: '🪨', name: 'Just a Rock', points: 1 },
+        stick: { emoji: '🪵', name: 'Old Stick', points: 1 },
+        nail: { emoji: '📍', name: 'Rusty Nail', points: 2 },
+        can: { emoji: '🥫', name: 'Empty Can', points: 2 },
+        boot: { emoji: '🥾', name: 'Old Boot', points: 3 },
+        tire: { emoji: '⭕', name: 'Flat Tire', points: 2 },
+    };
+
+    // COMBINATION RECIPES - items that combine into something better!
+    const combinations = {
+        // Keys unlock things
+        'key+lockbox': { result: 'unlockedBox', emoji: '🎁', name: 'Unlocked Treasure Box!', points: 100, reveal: true },
+        'key+chest': { result: 'unlockedChest', emoji: '👑', name: 'Royal Treasure!', points: 150, reveal: true },
+
+        // Food combos
+        'bread+cheese': { result: 'sandwich', emoji: '🥪', name: 'Sandwich', points: 30 },
+        'bread+hotdog': { result: 'hotdogBun', emoji: '🌭', name: 'Hot Dog Deluxe', points: 35 },
+        'cone+icecream': { result: 'icecreamCone', emoji: '🍦', name: 'Ice Cream Cone', points: 25 },
+
+        // Matching pairs
+        'sock+sock': { result: 'sockPair', emoji: '🧦', name: 'Matching Socks!', points: 20, needsTwo: true },
+        'bone+bone': { result: 'skeleton', emoji: '💀', name: 'Mini Skeleton', points: 40, needsTwo: true },
+        'shell+shell': { result: 'necklace', emoji: '📿', name: 'Shell Necklace', points: 35, needsTwo: true },
+
+        // Gem crafting
+        'ring+gem': { result: 'jewelRing', emoji: '💍', name: 'Jeweled Ring', points: 75 },
+        'ring+crystal': { result: 'magicRing', emoji: '🔮', name: 'Magic Ring', points: 80 },
+        'gem+gem': { result: 'gemCluster', emoji: '💎', name: 'Gem Cluster', points: 60, needsTwo: true },
+        'crystal+crystal': { result: 'geode', emoji: '🪨', name: 'Giant Geode', points: 70, needsTwo: true },
+
+        // Critter friends
+        'bug+leaf': { result: 'bugHome', emoji: '🏠', name: 'Bug Home', points: 25 },
+        'worm+mushroom': { result: 'garden', emoji: '🌱', name: 'Mini Garden', points: 30 },
+        'frog+snail': { result: 'pondFriends', emoji: '🐸', name: 'Pond Pals', points: 35 },
+
+        // Map pieces
+        'mapHalf+mapHalf': { result: 'fullMap', emoji: '🗺️', name: 'Treasure Map!', points: 50, needsTwo: true, effect: 'revealTreasure' },
+
+        // Fossils
+        'bone+fossil': { result: 'dinosaur', emoji: '🦕', name: 'Dino Discovery!', points: 100 },
+
+        // Star power
+        'star+star': { result: 'constellation', emoji: '✨', name: 'Constellation', points: 50, needsTwo: true },
+        'star+coin': { result: 'luckyCoin', emoji: '🌟', name: 'Lucky Coin', points: 40 },
+
+        // Tool crafting
+        'battery+flashlight': { result: 'workingLight', emoji: '🔦', name: 'Working Flashlight', points: 30, effect: 'extraScan' },
+        'gear+gear': { result: 'robot', emoji: '🤖', name: 'Mini Robot!', points: 80, needsTwo: true },
+    };
+
+    // Additional combinable items (not in regular collectibles)
+    const specialItems = {
+        lockbox: { emoji: '📦', name: 'Locked Box', points: 10, isDirtClump: true },
+        chest: { emoji: '🧰', name: 'Locked Chest', points: 15, isDirtClump: true },
+        mapHalf: { emoji: '🗺️', name: 'Map Piece', points: 15, isDirtClump: false },
+        fossil: { emoji: '🦴', name: 'Fossil Fragment', points: 12, isDirtClump: true },
+        battery: { emoji: '🔋', name: 'Battery', points: 5, isDirtClump: false },
+        flashlight: { emoji: '🔦', name: 'Dead Flashlight', points: 5, isDirtClump: false },
+        gear: { emoji: '⚙️', name: 'Gear', points: 8, isDirtClump: false },
+        cone: { emoji: '🍦', name: 'Empty Cone', points: 3, isDirtClump: false },
+        bread: { emoji: '🍞', name: 'Bread', points: 5, isDirtClump: false },
+        cheese: { emoji: '🧀', name: 'Cheese', points: 5, isDirtClump: false },
+    };
+
     // Opponents with progressive mechanics - each teaches new patterns
     // Each world has a unique environment with themed special tiles
     const opponents = [
@@ -384,6 +450,21 @@ const TreasureDig = () => {
     const [truckDriving, setTruckDriving] = useState(false); // Truck animation state
     const [truckPosition, setTruckPosition] = useState(-200); // Truck X position
     const BASKET_CAPACITY = 8; // Items before basket is "full"
+
+    // PHASE SYSTEM - The new gameplay loop!
+    // Phases: 'prospect' -> 'dig' -> 'sort' -> 'reveal' -> 'score'
+    const [gamePhase, setGamePhase] = useState('prospect');
+    const [scansRemaining, setScansRemaining] = useState(0); // Scans for prospect phase
+    const [markedTiles, setMarkedTiles] = useState([]); // Tiles marked during prospect
+    const [excavatedItems, setExcavatedItems] = useState([]); // Items dug up (visible + dirt clumps)
+    const [selectedForBasket, setSelectedForBasket] = useState([]); // Items chosen in sort phase
+    const [revealedItems, setRevealedItems] = useState([]); // Items after dirt crumbles
+    const [combinedItems, setCombinedItems] = useState([]); // Items after combinations
+    const [phaseMessage, setPhaseMessage] = useState(''); // Current phase instruction
+    const [signalStrengths, setSignalStrengths] = useState({}); // Tile scan results {x_y: strength}
+
+    // What's hidden at each tile (treasure, junk, collectible, or nothing)
+    const [hiddenContents, setHiddenContents] = useState({}); // {x_y: {type, itemKey, isDirt}}
 
     // World-themed special tiles
     const [specialTiles, setSpecialTiles] = useState([]); // {x, y, type, activated, direction?}
@@ -669,6 +750,67 @@ const TreasureDig = () => {
         setRevealedTiles(treasures.map(t => ({ ...t, time: Date.now() })));
         setShowHint(false);
         setHintTile(null);
+
+        // === PHASE SYSTEM SETUP ===
+        // Create hidden contents map for the entire grid
+        const contents = {};
+        const junkKeys = Object.keys(junkTypes);
+        const specialItemKeys = Object.keys(specialItems);
+
+        // Place treasures (dirt clumps)
+        treasures.forEach(t => {
+            contents[`${t.x}_${t.y}`] = { type: 'treasure', itemKey: 'treasure', isDirt: true, emoji: '💎', name: 'Treasure!', points: 100 };
+        });
+
+        // Place decoys/junk (dirt clumps that look like treasure signals)
+        decoys.forEach(d => {
+            const junkKey = junkKeys[Math.floor(Math.random() * junkKeys.length)];
+            contents[`${d.x}_${d.y}`] = { type: 'junk', itemKey: junkKey, isDirt: true, ...junkTypes[junkKey] };
+        });
+
+        // Place collectibles (visible when dug)
+        collectibles.forEach(c => {
+            const collectible = collectibleTypes[c.type];
+            contents[`${c.x}_${c.y}`] = { type: 'collectible', itemKey: c.type, isDirt: false, ...collectible };
+        });
+
+        // Add some special combinable items scattered around
+        const specialCount = Math.floor(size * 0.8); // A few special items per level
+        const emptyTiles = [];
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                if (!contents[`${x}_${y}`]) emptyTiles.push({ x, y });
+            }
+        }
+        // Shuffle and place special items
+        const shuffledEmpty = emptyTiles.sort(() => Math.random() - 0.5);
+        for (let i = 0; i < Math.min(specialCount, shuffledEmpty.length); i++) {
+            const pos = shuffledEmpty[i];
+            const itemKey = specialItemKeys[Math.floor(Math.random() * specialItemKeys.length)];
+            const item = specialItems[itemKey];
+            contents[`${pos.x}_${pos.y}`] = { type: 'special', itemKey, isDirt: item.isDirtClump, ...item };
+        }
+
+        // Add extra junk to make decisions harder
+        const extraJunkCount = Math.floor(size * 0.5);
+        for (let i = specialCount; i < specialCount + extraJunkCount && i < shuffledEmpty.length; i++) {
+            const pos = shuffledEmpty[i];
+            const junkKey = junkKeys[Math.floor(Math.random() * junkKeys.length)];
+            contents[`${pos.x}_${pos.y}`] = { type: 'junk', itemKey: junkKey, isDirt: true, ...junkTypes[junkKey] };
+        }
+
+        setHiddenContents(contents);
+
+        // Set up phase state
+        setGamePhase('prospect');
+        setScansRemaining(Math.floor(size * 1.5)); // Scans scale with grid size
+        setMarkedTiles([]);
+        setExcavatedItems([]);
+        setSelectedForBasket([]);
+        setRevealedItems([]);
+        setCombinedItems([]);
+        setSignalStrengths({});
+        setPhaseMessage('🔍 PROSPECT PHASE - Scan tiles to detect signals!');
 
         return { size, treasures, config };
     }, []);
@@ -1186,8 +1328,291 @@ const TreasureDig = () => {
         setActiveTool(null);
     }, [grid, flaggedTiles, tools]);
 
-    // Main dig handler
+    // === PHASE SYSTEM HANDLERS ===
+
+    // PROSPECT PHASE: Scan a tile to get signal strength
+    const handleScan = useCallback((x, y) => {
+        if (gamePhase !== 'prospect' || scansRemaining <= 0) return;
+
+        const key = `${x}_${y}`;
+        if (signalStrengths[key] !== undefined) return; // Already scanned
+
+        const content = hiddenContents[key];
+        let strength = 0;
+        let signalType = 'empty';
+
+        if (content) {
+            if (content.type === 'treasure') {
+                strength = 3; // Strong signal
+                signalType = 'strong';
+            } else if (content.type === 'junk' && content.isDirt) {
+                strength = 3; // Junk also gives strong signal (the trap!)
+                signalType = 'strong';
+            } else if (content.type === 'special' && content.isDirt) {
+                strength = 2; // Medium signal for dirt-covered specials
+                signalType = 'medium';
+            } else if (content.type === 'collectible' || (content.type === 'special' && !content.isDirt)) {
+                strength = 1; // Weak signal for visible items
+                signalType = 'weak';
+            }
+        }
+
+        // Add some noise/variance to make it interesting
+        const variance = Math.random() * 0.3 - 0.15;
+        strength = Math.max(0, strength + variance);
+
+        setSignalStrengths(prev => ({ ...prev, [key]: { strength, signalType } }));
+        setScansRemaining(prev => prev - 1);
+
+        // Visual feedback
+        setLastDigResult({
+            x, y,
+            emoji: strength >= 2.5 ? '📡' : strength >= 1.5 ? '📶' : strength >= 0.5 ? '〰️' : '❌',
+            label: strength >= 2.5 ? 'STRONG SIGNAL!' : strength >= 1.5 ? 'Medium signal' : strength >= 0.5 ? 'Weak signal' : 'Nothing',
+            color: strength >= 2.5 ? '#ff4444' : strength >= 1.5 ? '#ffaa00' : strength >= 0.5 ? '#44aa44' : '#666666',
+            tier: strength >= 2.5 ? 1 : strength >= 1.5 ? 3 : 5
+        });
+
+        // Check if we're out of scans
+        if (scansRemaining <= 1) {
+            setTimeout(() => {
+                setPhaseMessage('📍 Mark tiles you want to dig, then click READY TO DIG!');
+            }, 500);
+        }
+    }, [gamePhase, scansRemaining, signalStrengths, hiddenContents]);
+
+    // PROSPECT PHASE: Mark/unmark a tile for digging
+    const handleMark = useCallback((x, y) => {
+        if (gamePhase !== 'prospect') return;
+
+        const key = `${x}_${y}`;
+        setMarkedTiles(prev => {
+            if (prev.some(t => t.x === x && t.y === y)) {
+                return prev.filter(t => !(t.x === x && t.y === y));
+            }
+            return [...prev, { x, y }];
+        });
+    }, [gamePhase]);
+
+    // Transition to DIG phase
+    const startDigPhase = useCallback(() => {
+        if (markedTiles.length === 0) {
+            setPhaseMessage('⚠️ Mark at least one tile to dig!');
+            return;
+        }
+        setGamePhase('dig');
+        setDigsRemaining(Math.min(markedTiles.length + 2, Math.floor(gridSize * 0.8))); // Limited digs!
+        setPhaseMessage('⛏️ DIG PHASE - Excavate your marked tiles!');
+    }, [markedTiles, gridSize]);
+
+    // DIG PHASE: Excavate a tile
+    const handleExcavate = useCallback((x, y) => {
+        if (gamePhase !== 'dig' || digsRemaining <= 0) return;
+
+        const key = `${x}_${y}`;
+        const tile = grid[y]?.[x];
+        if (!tile || tile.dug) return;
+
+        // Mark tile as dug
+        setGrid(g => {
+            const newGrid = [...g];
+            newGrid[y] = [...newGrid[y]];
+            newGrid[y][x] = { ...newGrid[y][x], dug: true, dugDepth: 1 };
+            return newGrid;
+        });
+        setDugTiles(prev => [...prev, { x, y }]);
+        setDigsRemaining(prev => prev - 1);
+
+        // Get what was at this tile
+        const content = hiddenContents[key];
+        if (content) {
+            const excavatedItem = {
+                id: `${key}_${Date.now()}`,
+                ...content,
+                x, y,
+                // If dirt clump, we don't know what it is yet!
+                displayEmoji: content.isDirt ? '🟤' : content.emoji,
+                displayName: content.isDirt ? 'Dirt Clump' : content.name,
+            };
+            setExcavatedItems(prev => [...prev, excavatedItem]);
+        }
+
+        // Check if we should transition to SORT
+        if (digsRemaining <= 1) {
+            setTimeout(() => {
+                setGamePhase('sort');
+                setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
+            }, 500);
+        }
+    }, [gamePhase, digsRemaining, grid, hiddenContents, BASKET_CAPACITY]);
+
+    // SORT PHASE: Toggle item selection
+    const toggleItemSelection = useCallback((itemId) => {
+        if (gamePhase !== 'sort') return;
+
+        setSelectedForBasket(prev => {
+            if (prev.includes(itemId)) {
+                return prev.filter(id => id !== itemId);
+            }
+            if (prev.length >= BASKET_CAPACITY) {
+                setPhaseMessage('🧺 Basket is full! Remove something first.');
+                return prev;
+            }
+            return [...prev, itemId];
+        });
+    }, [gamePhase, BASKET_CAPACITY]);
+
+    // Transition to REVEAL phase
+    const startRevealPhase = useCallback(() => {
+        if (selectedForBasket.length === 0) {
+            setPhaseMessage('⚠️ Select at least one item to keep!');
+            return;
+        }
+
+        // Get the selected items
+        const keptItems = excavatedItems.filter(item => selectedForBasket.includes(item.id));
+        setGamePhase('reveal');
+        setPhaseMessage('✨ REVEAL PHASE - See what you found!');
+
+        // Animate reveal - dirt clumps break apart
+        let revealIndex = 0;
+        const revealNext = () => {
+            if (revealIndex >= keptItems.length) {
+                // All revealed, do combinations!
+                setTimeout(() => processCombinations(keptItems), 500);
+                return;
+            }
+
+            const item = keptItems[revealIndex];
+            setRevealedItems(prev => [...prev, {
+                ...item,
+                displayEmoji: item.emoji, // Now show actual emoji
+                displayName: item.name,
+                justRevealed: true
+            }]);
+
+            revealIndex++;
+            setTimeout(revealNext, 600); // Stagger reveals
+        };
+
+        setTimeout(revealNext, 300);
+    }, [selectedForBasket, excavatedItems]);
+
+    // Process item combinations
+    const processCombinations = useCallback((items) => {
+        const usedIndices = new Set();
+        const results = [];
+        const combos = [];
+
+        // Check for all possible combinations
+        for (let i = 0; i < items.length; i++) {
+            if (usedIndices.has(i)) continue;
+
+            for (let j = i + 1; j < items.length; j++) {
+                if (usedIndices.has(j)) continue;
+
+                const item1 = items[i];
+                const item2 = items[j];
+
+                // Try both orders
+                const key1 = `${item1.itemKey}+${item2.itemKey}`;
+                const key2 = `${item2.itemKey}+${item1.itemKey}`;
+
+                const combo = combinations[key1] || combinations[key2];
+                if (combo) {
+                    // Check if it needs two of same
+                    if (combo.needsTwo && item1.itemKey !== item2.itemKey) continue;
+
+                    usedIndices.add(i);
+                    usedIndices.add(j);
+                    combos.push({
+                        item1, item2, result: combo,
+                        id: `combo_${Date.now()}_${i}_${j}`
+                    });
+                }
+            }
+        }
+
+        // Add uncombined items
+        items.forEach((item, i) => {
+            if (!usedIndices.has(i)) {
+                results.push(item);
+            }
+        });
+
+        // Add combo results
+        combos.forEach(c => {
+            results.push({
+                id: c.id,
+                emoji: c.result.emoji,
+                name: c.result.name,
+                points: c.result.points,
+                isCombo: true,
+                from: [c.item1, c.item2]
+            });
+        });
+
+        setCombinedItems(results);
+        setPhaseMessage(combos.length > 0 ? '🎉 COMBINATIONS FOUND!' : '📦 Here\'s your haul!');
+
+        // Calculate score and transition to result screen
+        setTimeout(() => {
+            const totalPoints = results.reduce((sum, item) => sum + (item.points || 0), 0);
+            const foundTreasure = results.some(item => item.type === 'treasure');
+            setScore(totalPoints);
+            setTreasuresFound(foundTreasure ? 1 : 0);
+
+            // Clear treasure positions if found (for win condition)
+            if (foundTreasure) {
+                setTreasurePositions([]);
+            }
+
+            // Short delay to admire the haul, then show result screen
+            setTimeout(() => {
+                setGameState('result');
+            }, 1500);
+        }, combos.length > 0 ? 2000 : 1000);
+    }, [combinations]);
+
+    // Skip to dig phase (use remaining scans on random tiles)
+    const skipToDigPhase = useCallback(() => {
+        setGamePhase('dig');
+        setDigsRemaining(Math.max(5, Math.floor(gridSize * 0.7)));
+        setPhaseMessage('⛏️ DIG PHASE - Excavate tiles to find items!');
+    }, [gridSize]);
+
+    // Main tile click handler - routes to appropriate phase handler
+    const handleTileClick = useCallback((x, y, isRightClick = false) => {
+        if (gameState !== 'playing') return;
+
+        // Handle based on current phase
+        if (gamePhase === 'prospect') {
+            if (isRightClick) {
+                handleMark(x, y); // Right-click to mark
+            } else {
+                handleScan(x, y); // Left-click to scan
+            }
+            return;
+        }
+
+        if (gamePhase === 'dig') {
+            handleExcavate(x, y);
+            return;
+        }
+
+        // Other phases don't use tile clicks
+        return;
+    }, [gameState, gamePhase, handleScan, handleMark, handleExcavate]);
+
+    // Legacy dig handler (for backwards compatibility)
     const handleDig = useCallback((x, y) => {
+        // Route to new phase system
+        if (['prospect', 'dig'].includes(gamePhase)) {
+            handleTileClick(x, y);
+            return;
+        }
+
+        // Legacy code below for non-phase gameplay
         if (gameState !== 'playing' || digsRemaining <= 0) return;
 
         const tile = grid[y]?.[x];
@@ -2427,6 +2852,268 @@ const TreasureDig = () => {
                     </div>
                 )}
 
+                {/* === PHASE SYSTEM UI === */}
+                {/* Phase Header */}
+                <div style={{
+                    textAlign: 'center',
+                    marginBottom: '12px',
+                    padding: '12px 20px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #2a2820 0%, #3a3830 100%)',
+                    border: `2px solid ${theme.accent}`,
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.4)'
+                }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: theme.accent, marginBottom: '4px' }}>
+                        {phaseMessage || 'Ready to hunt!'}
+                    </div>
+                    {gamePhase === 'prospect' && (
+                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
+                            🖱️ Left-click to SCAN • Right-click to MARK for digging
+                        </div>
+                    )}
+                    {gamePhase === 'dig' && (
+                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
+                            🖱️ Click tiles to DIG them up!
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '8px' }}>
+                        {gamePhase === 'prospect' && (
+                            <>
+                                <span style={{ color: theme.textSecondary }}>
+                                    📡 Scans: <strong style={{ color: scansRemaining > 3 ? theme.success : theme.error }}>{scansRemaining}</strong>
+                                </span>
+                                <span style={{ color: theme.textSecondary }}>
+                                    ⛏️ Marked: <strong style={{ color: theme.gold }}>{markedTiles.length}</strong>
+                                </span>
+                            </>
+                        )}
+                        {gamePhase === 'dig' && (
+                            <>
+                                <span style={{ color: theme.textSecondary }}>
+                                    ⛏️ Digs Left: <strong style={{ color: digsRemaining > 2 ? theme.success : theme.error }}>{digsRemaining}</strong>
+                                </span>
+                                <span style={{ color: theme.textSecondary }}>
+                                    📦 Found: <strong style={{ color: theme.gold }}>{excavatedItems.length}</strong>
+                                </span>
+                            </>
+                        )}
+                        {gamePhase === 'sort' && (
+                            <span style={{ color: theme.textSecondary }}>
+                                🧺 Basket: <strong style={{ color: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.success }}>
+                                    {selectedForBasket.length}/{BASKET_CAPACITY}
+                                </strong>
+                            </span>
+                        )}
+                    </div>
+                    {/* Phase transition buttons */}
+                    <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                        {gamePhase === 'prospect' && (
+                            <>
+                                <button
+                                    onClick={startDigPhase}
+                                    disabled={markedTiles.length === 0}
+                                    style={{
+                                        padding: '8px 20px',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        background: markedTiles.length > 0 ? theme.success : '#555',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: markedTiles.length > 0 ? 'pointer' : 'not-allowed',
+                                        boxShadow: markedTiles.length > 0 ? '0 2px 8px rgba(80,200,120,0.4)' : 'none'
+                                    }}
+                                >
+                                    ⛏️ Ready to Dig!
+                                </button>
+                                <button
+                                    onClick={skipToDigPhase}
+                                    style={{
+                                        padding: '8px 16px',
+                                        fontSize: '12px',
+                                        background: '#444',
+                                        color: theme.textSecondary,
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Skip Scanning
+                                </button>
+                            </>
+                        )}
+                        {gamePhase === 'dig' && excavatedItems.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    setGamePhase('sort');
+                                    setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
+                                }}
+                                style={{
+                                    padding: '8px 20px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    background: theme.accent,
+                                    color: '#1a1815',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(218,165,32,0.4)'
+                                }}
+                            >
+                                🧺 Done Digging
+                            </button>
+                        )}
+                        {gamePhase === 'sort' && (
+                            <button
+                                onClick={startRevealPhase}
+                                disabled={selectedForBasket.length === 0}
+                                style={{
+                                    padding: '10px 24px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    background: selectedForBasket.length > 0 ? theme.gold : '#555',
+                                    color: '#1a1815',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: selectedForBasket.length > 0 ? 'pointer' : 'not-allowed',
+                                    boxShadow: selectedForBasket.length > 0 ? '0 2px 12px rgba(244,197,66,0.5)' : 'none'
+                                }}
+                            >
+                                ✨ Reveal What's Inside!
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* SORT PHASE - Item selection UI */}
+                {gamePhase === 'sort' && excavatedItems.length > 0 && (
+                    <div style={{
+                        marginBottom: '15px',
+                        padding: '15px',
+                        background: '#2a2820',
+                        borderRadius: '12px',
+                        border: `2px solid ${theme.border}`
+                    }}>
+                        <div style={{ textAlign: 'center', marginBottom: '10px', color: theme.textSecondary }}>
+                            Click items to add/remove from basket:
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '10px',
+                            justifyContent: 'center'
+                        }}>
+                            {excavatedItems.map(item => {
+                                const isSelected = selectedForBasket.includes(item.id);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => toggleItemSelection(item.id)}
+                                        style={{
+                                            padding: '10px 15px',
+                                            background: isSelected ? `${theme.success}33` : '#1a1815',
+                                            border: `2px solid ${isSelected ? theme.success : theme.border}`,
+                                            borderRadius: '10px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            minWidth: '80px',
+                                            transition: 'all 0.15s',
+                                            transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                                            boxShadow: isSelected ? '0 4px 12px rgba(80,200,120,0.3)' : 'none'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '32px' }}>{item.displayEmoji}</span>
+                                        <span style={{
+                                            fontSize: '11px',
+                                            color: item.isDirt ? theme.textMuted : theme.textSecondary,
+                                            textAlign: 'center'
+                                        }}>
+                                            {item.displayName}
+                                        </span>
+                                        {isSelected && (
+                                            <span style={{ fontSize: '14px', color: theme.success }}>✓</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* REVEAL PHASE - Show revealed items */}
+                {(gamePhase === 'reveal' || gamePhase === 'score') && revealedItems.length > 0 && (
+                    <div style={{
+                        marginBottom: '15px',
+                        padding: '20px',
+                        background: 'linear-gradient(135deg, #2a2820 0%, #3a3525 100%)',
+                        borderRadius: '12px',
+                        border: `2px solid ${theme.gold}`
+                    }}>
+                        <div style={{ textAlign: 'center', marginBottom: '15px', fontSize: '18px', color: theme.gold }}>
+                            ✨ Your Finds ✨
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            justifyContent: 'center'
+                        }}>
+                            {(combinedItems.length > 0 ? combinedItems : revealedItems).map((item, idx) => (
+                                <div
+                                    key={item.id || idx}
+                                    style={{
+                                        padding: '12px 18px',
+                                        background: item.isCombo ? `${theme.gold}22` : item.type === 'treasure' ? `${theme.treasure}22` : '#1a1815',
+                                        border: `2px solid ${item.isCombo ? theme.gold : item.type === 'treasure' ? theme.treasure : theme.border}`,
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        animation: item.justRevealed ? 'popIn 0.4s ease-out' : (item.isCombo ? 'glow 1s ease-in-out infinite alternate' : 'none')
+                                    }}
+                                >
+                                    <span style={{ fontSize: '36px' }}>{item.emoji || item.displayEmoji}</span>
+                                    <span style={{
+                                        fontSize: '12px',
+                                        color: item.isCombo ? theme.gold : theme.text,
+                                        fontWeight: item.isCombo ? 'bold' : 'normal',
+                                        textAlign: 'center'
+                                    }}>
+                                        {item.name || item.displayName}
+                                    </span>
+                                    <span style={{
+                                        fontSize: '14px',
+                                        color: theme.success,
+                                        fontWeight: 'bold'
+                                    }}>
+                                        +{item.points || 0}
+                                    </span>
+                                    {item.isCombo && (
+                                        <span style={{ fontSize: '10px', color: theme.textMuted }}>
+                                            {item.from?.[0]?.emoji} + {item.from?.[1]?.emoji}
+                                        </span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {combinedItems.length > 0 && (
+                            <div style={{
+                                textAlign: 'center',
+                                marginTop: '15px',
+                                fontSize: '20px',
+                                color: theme.gold,
+                                fontWeight: 'bold'
+                            }}>
+                                Total: {combinedItems.reduce((sum, item) => sum + (item.points || 0), 0)} points!
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* BIG TREASURE BASKET - On the right side with physics! */}
                 <div style={{
                     position: 'fixed',
@@ -2527,7 +3214,8 @@ const TreasureDig = () => {
                     )}
                 </div>
 
-                {/* Game grid */}
+                {/* Game grid - hidden during sort/reveal phases */}
+                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
                 <div style={{
                     flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center',
                     position: 'relative'
@@ -2550,6 +3238,12 @@ const TreasureDig = () => {
                                 const isRevealed = tile.revealed || revealedTiles.some(r => r.x === x && r.y === y);
                                 const sonarTile = sonarTiles.find(s => s.x === x && s.y === y);
                                 const isHinted = showHint && hintTile?.x === x && hintTile?.y === y;
+
+                                // PHASE SYSTEM: Check scan status and marks
+                                const tileKey = `${x}_${y}`;
+                                const scanResult = signalStrengths[tileKey];
+                                const isMarked = markedTiles.some(m => m.x === x && m.y === y);
+                                const isScanned = scanResult !== undefined;
 
                                 // Fog visibility
                                 const fogVisible = !hasFog || isDug || isRevealed;
@@ -2668,13 +3362,77 @@ const TreasureDig = () => {
                                     bgColor = `${theme.gold}44`;
                                 }
 
+                                // === PHASE SYSTEM VISUALS ===
+                                let phaseOverlay = null;
+
+                                // PROSPECT PHASE: Show scan results
+                                if (gamePhase === 'prospect' && isScanned && !isDug) {
+                                    const strength = scanResult.strength;
+                                    const signalColor = strength >= 2.5 ? '#ff4444' : strength >= 1.5 ? '#ffaa00' : strength >= 0.5 ? '#44aa44' : '#666666';
+                                    bgColor = `${signalColor}44`;
+                                    borderColor = signalColor;
+                                    content = (
+                                        <span style={{
+                                            fontSize: tileSize * 0.4,
+                                            textShadow: `0 0 5px ${signalColor}`
+                                        }}>
+                                            {strength >= 2.5 ? '📡' : strength >= 1.5 ? '📶' : strength >= 0.5 ? '〰️' : '·'}
+                                        </span>
+                                    );
+                                }
+
+                                // Show marked tiles (for digging)
+                                if (isMarked && !isDug) {
+                                    borderColor = '#ffff00';
+                                    phaseOverlay = (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 0, left: 0, right: 0, bottom: 0,
+                                            border: '3px solid #ffff00',
+                                            borderRadius: '6px',
+                                            boxShadow: '0 0 10px #ffff00, inset 0 0 10px rgba(255,255,0,0.3)',
+                                            pointerEvents: 'none',
+                                            zIndex: 5
+                                        }}>
+                                            <span style={{
+                                                position: 'absolute',
+                                                top: -8, right: -8,
+                                                fontSize: '16px',
+                                                background: '#222',
+                                                borderRadius: '50%',
+                                                padding: '2px'
+                                            }}>⛏️</span>
+                                        </div>
+                                    );
+                                }
+
+                                // DIG PHASE: Show what was found at dug tiles
+                                if (gamePhase === 'dig' && isDug) {
+                                    const hiddenItem = hiddenContents[tileKey];
+                                    if (hiddenItem) {
+                                        bgColor = hiddenItem.isDirt ? '#8B4513' : '#3a5a3a';
+                                        content = (
+                                            <span style={{ fontSize: tileSize * 0.5 }}>
+                                                {hiddenItem.isDirt ? '🟤' : hiddenItem.emoji}
+                                            </span>
+                                        );
+                                    } else {
+                                        bgColor = dugTileColor;
+                                        content = <span style={{ fontSize: tileSize * 0.3, opacity: 0.5 }}>∅</span>;
+                                    }
+                                }
+
                                 return (
                                     <div
                                         key={`${x}-${y}`}
                                         onClick={() => handleDig(x, y)}
                                         onContextMenu={(e) => {
                                             e.preventDefault();
-                                            handleFlag(x, y);
+                                            if (gamePhase === 'prospect') {
+                                                handleMark(x, y);
+                                            } else {
+                                                handleFlag(x, y);
+                                            }
                                         }}
                                         style={{
                                             width: tileSize,
@@ -2714,6 +3472,9 @@ const TreasureDig = () => {
 
                                         {/* Special tile indicator */}
                                         {specialIndicator}
+
+                                        {/* Phase overlay (marked tiles, etc) */}
+                                        {phaseOverlay}
 
                                         {/* Sonar distance preview */}
                                         {sonarTile && !isDug && (
@@ -2771,8 +3532,10 @@ const TreasureDig = () => {
                         })}
                     </div>
                 </div>
+                )}
 
-                {/* Legend */}
+                {/* Legend - updated for phase system */}
+                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
                 <div style={{
                     marginTop: '12px', textAlign: 'center',
                     color: theme.textMuted, fontSize: '12px',
@@ -2781,13 +3544,22 @@ const TreasureDig = () => {
                     background: theme.bgPanel,
                     borderRadius: '8px'
                 }}>
-                    <span>🔥 = Close!</span>
-                    <span>☀️ = Warm</span>
-                    <span>❄️ = Cold</span>
-                    <span>🥶 = Far</span>
-                    <span>✨ = Treasure!</span>
-                    <span style={{ color: theme.textSecondary }}>Right-click to flag</span>
+                    {gamePhase === 'prospect' ? (
+                        <>
+                            <span>📡 = Strong Signal (treasure OR junk!)</span>
+                            <span>📶 = Medium Signal</span>
+                            <span>〰️ = Weak Signal (small items)</span>
+                            <span>⛏️ = Marked for digging</span>
+                        </>
+                    ) : (
+                        <>
+                            <span>🟤 = Dirt Clump (mystery!)</span>
+                            <span>Other = Visible item</span>
+                            <span>∅ = Nothing here</span>
+                        </>
+                    )}
                 </div>
+                )}
 
                 {/* Par info */}
                 {levelConfig && (
@@ -2813,6 +3585,20 @@ const TreasureDig = () => {
                         0% { transform: scale(0); }
                         50% { transform: scale(1.3); }
                         100% { transform: scale(1); }
+                    }
+                    @keyframes popIn {
+                        0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+                        60% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+                        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+                    }
+                    @keyframes glow {
+                        0% { box-shadow: 0 0 5px #f4c542, 0 0 10px #f4c542; }
+                        100% { box-shadow: 0 0 15px #f4c542, 0 0 25px #f4c542; }
+                    }
+                    @keyframes dirtCrumble {
+                        0% { transform: scale(1); filter: blur(0); }
+                        50% { transform: scale(1.1); filter: blur(2px); }
+                        100% { transform: scale(0); filter: blur(5px); opacity: 0; }
                     }
                     @keyframes lidClose {
                         0% { transform: translateY(-30px) rotate(-20deg); opacity: 0; }
