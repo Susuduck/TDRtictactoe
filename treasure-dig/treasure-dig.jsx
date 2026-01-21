@@ -2638,12 +2638,15 @@ const TreasureDig = () => {
             ));
         }
 
-        let centerStrength = Math.max(0, centerSignal.strength + centerVariance);
+        // CENTER TILE: 100% ACCURATE - This is what the radar definitely detects
+        // No variance for the clicked tile - you get the truth!
+        let centerStrength = centerSignal.strength;
 
-        // Build new signal strengths including center
-        const newSignals = { [centerKey]: { strength: centerStrength, signalType: centerSignal.signalType, scanMode } };
+        // Build new signal strengths - center is accurate
+        const newSignals = { [centerKey]: { strength: centerStrength, signalType: centerSignal.signalType, scanMode, isCenter: true } };
 
-        // Scan adjacent tiles at 50% strength (attenuated signal)
+        // ADJACENT TILES: SHONKY HINTS - unreliable but helpful
+        // These are rough estimates that can be wrong!
         const adjacent = [
             { dx: -1, dy: -1 }, { dx: 0, dy: -1 }, { dx: 1, dy: -1 },
             { dx: -1, dy: 0 },                      { dx: 1, dy: 0 },
@@ -2651,6 +2654,7 @@ const TreasureDig = () => {
         ];
 
         let strongAdjacentCount = 0;
+        let hintCount = 0;
         adjacent.forEach(({ dx, dy }) => {
             const ax = x + dx;
             const ay = y + dy;
@@ -2658,10 +2662,37 @@ const TreasureDig = () => {
                 const adjKey = `${ax}_${ay}`;
                 if (signalStrengths[adjKey] === undefined) {
                     const adjSignal = calculateSignalStrength(ax, ay);
-                    const adjVariance = Math.random() * 0.4 - 0.2;
-                    const adjStrength = Math.max(0, (adjSignal.strength * 0.5) + adjVariance);
-                    newSignals[adjKey] = { strength: adjStrength, signalType: adjSignal.signalType, isAdjacent: true };
+
+                    // SHONKY SYSTEM: 70% chance to show accurate direction, 30% to be misleading
+                    let adjStrength;
+                    const isAccurate = Math.random() < 0.7;
+
+                    if (isAccurate) {
+                        // Accurate hint - show attenuated signal
+                        adjStrength = adjSignal.strength * 0.6;
+                    } else {
+                        // Misleading hint - could show false positive or false negative
+                        if (adjSignal.strength > 0) {
+                            // Has something? Maybe show weaker or nothing
+                            adjStrength = Math.random() < 0.5 ? 0 : adjSignal.strength * 0.3;
+                        } else {
+                            // Empty? Maybe show a false signal
+                            adjStrength = Math.random() < 0.3 ? 1.5 : 0;
+                        }
+                    }
+
+                    // Add some noise to all adjacent readings
+                    adjStrength = Math.max(0, adjStrength + (Math.random() * 0.8 - 0.4));
+
+                    newSignals[adjKey] = {
+                        strength: adjStrength,
+                        signalType: adjSignal.signalType,
+                        isAdjacent: true,
+                        isShonky: true
+                    };
+
                     if (adjSignal.strength >= 2.5) strongAdjacentCount++;
+                    hintCount++;
                 }
             }
         });
@@ -2740,15 +2771,15 @@ const TreasureDig = () => {
             });
         }
 
-        // Get feedback for center tile
+        // Get feedback for center tile - THIS IS 100% ACCURATE
         const feedback = centerStrength >= 2.5 ? scanTheme.strong
             : centerStrength >= 1.5 ? scanTheme.medium
             : centerStrength >= 0.5 ? scanTheme.weak
             : scanTheme.none;
 
-        // Visual feedback with mechanic-specific label additions
+        // Visual feedback with shonky hint info
         let extraLabel = '';
-        if (strongAdjacentCount > 0) extraLabel += ` (+${strongAdjacentCount} nearby!)`;
+        if (hintCount > 0) extraLabel += ` (${hintCount} hints nearby - unreliable!)`;
         if (mechanic.primaryMechanic === 'dualFrequency') extraLabel += ` [Mode ${scanMode}]`;
         if (mechanic.primaryMechanic === 'chargeSystem') extraLabel += ` [⚡${chargeLevel}]`;
 
@@ -2760,7 +2791,7 @@ const TreasureDig = () => {
             tier: centerStrength >= 2.5 ? 1 : centerStrength >= 1.5 ? 3 : centerStrength >= 0.5 ? 5 : 7
         });
 
-        addEventLog(`Scanned (${x},${y}): ${feedback.label}`);
+        addEventLog(`📡 Scanned (${x},${y}): ${feedback.label} [CENTER ACCURATE]`);
 
         if (scansRemaining <= 1) {
             setTimeout(() => {
@@ -4555,38 +4586,37 @@ const TreasureDig = () => {
                             {gamePhase === 'prospect' && (
                                 <>
                                     <button
-                                        onClick={startDigPhase}
-                                        disabled={markedTiles.length === 0}
+                                        onClick={() => {
+                                            // If no scans done, ask for confirmation
+                                            const scansUsed = 2 - scansRemaining;
+                                            if (scansUsed === 0 && markedTiles.length === 0) {
+                                                if (window.confirm('Dig blind? No scans done and no tiles marked!')) {
+                                                    skipToDigPhase();
+                                                }
+                                            } else if (markedTiles.length === 0) {
+                                                if (window.confirm('No tiles marked - dig randomly?')) {
+                                                    skipToDigPhase();
+                                                }
+                                            } else {
+                                                startDigPhase();
+                                            }
+                                        }}
                                         style={{
                                             padding: '10px 24px',
                                             fontSize: '14px',
                                             fontWeight: 'bold',
                                             background: markedTiles.length > 0
                                                 ? `linear-gradient(135deg, ${theme.modeDig} 0%, ${theme.modeDig}cc 100%)`
-                                                : '#444',
+                                                : `linear-gradient(135deg, ${theme.modeMark} 0%, ${theme.modeMark}cc 100%)`,
                                             color: '#fff',
-                                            border: markedTiles.length > 0 ? `2px solid ${theme.modeDig}` : '2px solid #555',
+                                            border: markedTiles.length > 0 ? `2px solid ${theme.modeDig}` : `2px solid ${theme.modeMark}`,
                                             borderRadius: '8px',
-                                            cursor: markedTiles.length > 0 ? 'pointer' : 'not-allowed',
-                                            boxShadow: markedTiles.length > 0 ? `0 4px 12px ${theme.modeDigGlow}` : 'none',
+                                            cursor: 'pointer',
+                                            boxShadow: markedTiles.length > 0 ? `0 4px 12px ${theme.modeDigGlow}` : `0 4px 12px ${theme.modeMarkGlow}`,
                                             transition: 'all 0.2s'
                                         }}
                                     >
-                                        ⛏️ Ready to Dig ({markedTiles.length})
-                                    </button>
-                                    <button
-                                        onClick={skipToDigPhase}
-                                        style={{
-                                            padding: '8px 16px',
-                                            fontSize: '12px',
-                                            background: 'transparent',
-                                            color: theme.textMuted,
-                                            border: `1px solid ${theme.border}`,
-                                            borderRadius: '6px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Skip Scanning
+                                        ⛏️ {markedTiles.length > 0 ? `Ready to Dig (${markedTiles.length})` : 'Start Digging'}
                                     </button>
                                 </>
                             )}
@@ -5138,12 +5168,12 @@ const TreasureDig = () => {
                         </div>
                     ))}
 
-                    {/* The Basket */}
+                    {/* The Basket - Large with transparent view */}
                     <div style={{
                         position: 'absolute',
-                        bottom: truckDriving ? 80 : 20,
-                        width: '100px',
-                        height: '120px',
+                        bottom: truckDriving ? 80 : 10,
+                        width: '180px',
+                        height: '200px',
                         transition: truckDriving ? 'bottom 0.3s ease-out' : 'none',
                         display: 'flex',
                         flexDirection: 'column',
@@ -5152,36 +5182,98 @@ const TreasureDig = () => {
                         {/* Lid - appears when full */}
                         {basketFull && (
                             <div style={{
-                                fontSize: '60px',
-                                marginBottom: '-25px',
+                                fontSize: '100px',
+                                marginBottom: '-50px',
                                 animation: 'lidClose 0.4s ease-out forwards',
-                                zIndex: 62
+                                zIndex: 62,
+                                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))'
                             }}>
                                 🪵
                             </div>
                         )}
 
-                        {/* Basket body - z-index 56 so items (58-60) appear on top */}
+                        {/* Basket container with items visible inside */}
                         <div style={{
-                            fontSize: '80px',
                             position: 'relative',
-                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+                            width: '160px',
+                            height: '140px',
                             zIndex: 56
                         }}>
-                            🧺
+                            {/* Basket back (behind items) */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                fontSize: '140px',
+                                opacity: 0.3,
+                                filter: 'blur(1px)',
+                                zIndex: 54
+                            }}>
+                                🧺
+                            </div>
+
+                            {/* Items inside basket - visible through weave */}
+                            <div style={{
+                                position: 'absolute',
+                                top: '30px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                width: '100px',
+                                height: '80px',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                justifyContent: 'center',
+                                alignItems: 'flex-end',
+                                gap: '2px',
+                                zIndex: 57,
+                                overflow: 'hidden'
+                            }}>
+                                {fallingItems.filter(i => i.landed).slice(-6).map((item, idx) => (
+                                    <div
+                                        key={item.id}
+                                        style={{
+                                            fontSize: '24px',
+                                            animation: 'settleInBasket 0.3s ease-out',
+                                            filter: 'drop-shadow(1px 1px 2px rgba(0,0,0,0.5))',
+                                            transform: `rotate(${(idx * 15) - 20}deg)`
+                                        }}
+                                    >
+                                        {item.emoji}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Basket front (partial overlay for weave effect) */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                fontSize: '140px',
+                                filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.5))',
+                                zIndex: 58,
+                                opacity: 0.85,
+                                maskImage: 'linear-gradient(to bottom, transparent 10%, black 40%, black 70%, transparent 100%)',
+                                WebkitMaskImage: 'linear-gradient(to bottom, transparent 10%, black 40%, black 70%, transparent 100%)'
+                            }}>
+                                🧺
+                            </div>
                         </div>
 
                         {/* Item count - shows landed items */}
                         {fallingItems.filter(i => i.landed).length > 0 && !basketFull && (
                             <div style={{
-                                marginTop: '-10px',
-                                background: theme.gold,
+                                marginTop: '-5px',
+                                background: `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 100%)`,
                                 color: '#1a1815',
-                                padding: '2px 10px',
-                                borderRadius: '10px',
-                                fontSize: '12px',
+                                padding: '4px 16px',
+                                borderRadius: '12px',
+                                fontSize: '14px',
                                 fontWeight: 'bold',
-                                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                                boxShadow: '0 3px 8px rgba(0,0,0,0.4)',
+                                border: '2px solid rgba(255,255,255,0.3)',
+                                zIndex: 60
                             }}>
                                 {fallingItems.filter(i => i.landed).length}/{BASKET_CAPACITY}
                             </div>
