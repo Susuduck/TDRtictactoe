@@ -24,29 +24,196 @@ const TreasureDig = () => {
         treasure: '#ffd700', gem: '#44ffaa', decoy: '#ff4488'
     };
 
-    // Enhanced distance feedback with clear visual language
+    // World themes - visual and gameplay elements for each world
+    const worldThemes = {
+        0: { // Frog - Swamp
+            name: 'Murky Swamp',
+            tileBase: '#4a5a3a', tileDug: '#3a4a2a', tileAccent: '#2a5a6a',
+            tileSpecial: '#2a6a7a', specialBorder: '#4a8a9a',
+            bgGradient: ['#1a2a1a', '#2a3a2a', '#1a3a3a'],
+            bgPattern: 'swamp',
+            specialTile: 'water', specialEmoji: '💧', specialName: 'Water Lily',
+            specialDesc: 'Dig adjacent tiles first to drain',
+            ambientEmojis: ['🌿', '🪷', '🐸', '🦟'],
+            variation: { early: 'Shallow Pond', late: 'Deep Swamp', lateMultiplier: 1.5 }
+        },
+        1: { // Chicken - Farm
+            name: 'Sunny Farm',
+            tileBase: '#9b8365', tileDug: '#7b6345', tileAccent: '#c9b277',
+            tileSpecial: '#d4a030', specialBorder: '#e8b840',
+            bgGradient: ['#2a2515', '#3a3520', '#4a4025'],
+            bgPattern: 'farm',
+            specialTile: 'nest', specialEmoji: '🥚', specialName: 'Hidden Nest',
+            specialDesc: 'Eggs give +25 points or +1 dig',
+            ambientEmojis: ['🌾', '🌻', '🐔', '🌽'],
+            variation: { early: 'Daytime Fields', late: 'Sunset Barn', lateMultiplier: 1.3 }
+        },
+        2: { // Dinosaur - Prehistoric
+            name: 'Prehistoric Jungle',
+            tileBase: '#6a5a4a', tileDug: '#4a3a2a', tileAccent: '#7a6a5a',
+            tileSpecial: '#a08a6a', specialBorder: '#c0a080',
+            bgGradient: ['#1a2015', '#2a3020', '#3a2a1a'],
+            bgPattern: 'jungle',
+            specialTile: 'fossil', specialEmoji: '🦴', specialName: 'Ancient Fossil',
+            specialDesc: 'Shows distance to ALL treasures',
+            ambientEmojis: ['🌴', '🦕', '🌋', '🥚'],
+            variation: { early: 'Fern Valley', late: 'Volcanic Ridge', lateMultiplier: 1.4 }
+        },
+        3: { // Raccoon - Urban
+            name: 'Urban Night',
+            tileBase: '#4a4a55', tileDug: '#3a3a45', tileAccent: '#5a5a65',
+            tileSpecial: '#f0e068', specialBorder: '#ffee88',
+            bgGradient: ['#15151a', '#1a1a22', '#202028'],
+            bgPattern: 'urban',
+            specialTile: 'spotlight', specialEmoji: '💡', specialName: 'Street Light',
+            specialDesc: 'Reveals 3x3 area permanently',
+            ambientEmojis: ['🏙️', '🗑️', '🦝', '🚗'],
+            variation: { early: 'Back Alley', late: 'Underground', lateMultiplier: 1.5 }
+        },
+        4: { // Eel - Underwater
+            name: 'Ocean Depths',
+            tileBase: '#3a5a6a', tileDug: '#2a4a5a', tileAccent: '#4a6a7a',
+            tileSpecial: '#5090b0', specialBorder: '#60a0c0',
+            bgGradient: ['#0a1a2a', '#1a2a3a', '#0a2a4a'],
+            bgPattern: 'underwater',
+            specialTile: 'current', specialEmoji: '🌊', specialName: 'Ocean Current',
+            specialDesc: 'Shifts items in arrow direction',
+            ambientEmojis: ['🐠', '🪸', '🫧', '🦑'],
+            variation: { early: 'Coral Reef', late: 'Abyssal Depths', lateMultiplier: 1.6 }
+        },
+        5: { // Moth - Forest
+            name: 'Enchanted Forest',
+            tileBase: '#4a5040', tileDug: '#3a4030', tileAccent: '#5a6050',
+            tileSpecial: '#70b070', specialBorder: '#90d090',
+            bgGradient: ['#151a15', '#1a2018', '#18221a'],
+            bgPattern: 'forest',
+            specialTile: 'firefly', specialEmoji: '✨', specialName: 'Firefly Swarm',
+            specialDesc: 'Reveals random nearby tiles briefly',
+            ambientEmojis: ['🍄', '🦋', '🌙', '🦉'],
+            variation: { early: 'Twilight Grove', late: 'Midnight Hollow', lateMultiplier: 1.4 }
+        },
+        6: { // Penguin - Arctic
+            name: 'Frozen Tundra',
+            tileBase: '#8aa8c0', tileDug: '#6a88a0', tileAccent: '#9ab8d0',
+            tileSpecial: '#b0e0f0', specialBorder: '#c0f0ff',
+            bgGradient: ['#1a2530', '#202a38', '#283040'],
+            bgPattern: 'arctic',
+            specialTile: 'slide', specialEmoji: '⛷️', specialName: 'Ice Slide',
+            specialDesc: 'Dig slides to next tile automatically',
+            ambientEmojis: ['❄️', '🐧', '🏔️', '🌨️'],
+            variation: { early: 'Ice Shelf', late: 'Crystal Cavern', lateMultiplier: 1.3 }
+        },
+        7: { // Snake - Desert
+            name: 'Desert Temple',
+            tileBase: '#c8a870', tileDug: '#a8884a', tileAccent: '#d8b880',
+            tileSpecial: '#e0c060', specialBorder: '#f0d070',
+            bgGradient: ['#2a2015', '#3a3020', '#4a3a25'],
+            bgPattern: 'desert',
+            specialTile: 'quicksand', specialEmoji: '⏳', specialName: 'Quicksand',
+            specialDesc: 'Wastes dig - no information gained',
+            ambientEmojis: ['🏜️', '🐍', '🏛️', '🦂'],
+            variation: { early: 'Sandy Dunes', late: 'Ancient Temple', lateMultiplier: 1.5 }
+        },
+        8: { // Wolf - Cave
+            name: 'Crystal Cave',
+            tileBase: '#5a5a6a', tileDug: '#4a4a5a', tileAccent: '#6a6a7a',
+            tileSpecial: '#8080c0', specialBorder: '#a0a0e0',
+            bgGradient: ['#12121a', '#1a1a25', '#151520'],
+            bgPattern: 'cave',
+            specialTile: 'echo', specialEmoji: '🔊', specialName: 'Echo Crystal',
+            specialDesc: 'Reveals if treasure in row OR column',
+            ambientEmojis: ['💎', '🐺', '🦇', '🕯️'],
+            variation: { early: 'Cave Entrance', late: 'Deep Cavern', lateMultiplier: 1.4 }
+        },
+        9: { // Grizzly - Vault
+            name: 'Royal Vault',
+            tileBase: '#7a6a50', tileDug: '#5a4a30', tileAccent: '#8a7a60',
+            tileSpecial: '#d4af37', specialBorder: '#f4cf57',
+            bgGradient: ['#1a1510', '#2a2015', '#35281a'],
+            bgPattern: 'vault',
+            specialTile: 'mirror', specialEmoji: '🪞', specialName: 'Magic Mirror',
+            specialDesc: 'Dig reflects to opposite side too',
+            ambientEmojis: ['👑', '💰', '🏆', '💎'],
+            variation: { early: 'Outer Vault', late: 'Inner Sanctum', lateMultiplier: 1.2 }
+        }
+    };
+
+    // Enhanced distance feedback - emoji-based, no boring numbers!
     const getDistanceInfo = (distance, gridSize) => {
         const maxDist = Math.sqrt(2) * gridSize;
         const ratio = distance / maxDist;
 
-        if (distance === 0) return { color: theme.treasure, label: 'TREASURE!', emoji: '💎', tier: 0 };
-        if (distance <= 1.5) return { color: '#ff0000', label: 'BURNING!', emoji: '🔥', tier: 1 };
-        if (distance <= 2.5) return { color: '#ff4400', label: 'Very Hot', emoji: '🌡️', tier: 2 };
-        if (distance <= 3.5) return { color: '#ff8800', label: 'Hot', emoji: '☀️', tier: 3 };
-        if (distance <= 5) return { color: '#ddaa00', label: 'Warm', emoji: '🌤️', tier: 4 };
-        if (distance <= 7) return { color: '#88bb44', label: 'Lukewarm', emoji: '🌿', tier: 5 };
-        if (distance <= 9) return { color: '#44aadd', label: 'Cool', emoji: '❄️', tier: 6 };
-        if (distance <= 12) return { color: '#4466ff', label: 'Cold', emoji: '🧊', tier: 7 };
-        return { color: '#6644ff', label: 'Freezing', emoji: '🥶', tier: 8 };
+        if (distance === 0) return { color: theme.treasure, label: 'FOUND!', emoji: '⭐', tier: 0, showNumber: false };
+        if (distance <= 1.5) return { color: '#ff0000', label: 'BURNING!', emoji: '🔥', tier: 1, showNumber: false };
+        if (distance <= 2.5) return { color: '#ff4400', label: 'HOT!', emoji: '🔥', tier: 2, showNumber: false };
+        if (distance <= 3.5) return { color: '#ff8800', label: 'Warm', emoji: '☀️', tier: 3, showNumber: false };
+        if (distance <= 5) return { color: '#ddaa00', label: 'Mild', emoji: '🌤️', tier: 4, showNumber: false };
+        if (distance <= 7) return { color: '#88bb44', label: 'Cool', emoji: '🌿', tier: 5, showNumber: false };
+        if (distance <= 9) return { color: '#44aadd', label: 'Cold', emoji: '❄️', tier: 6, showNumber: false };
+        if (distance <= 12) return { color: '#4466ff', label: 'Freezing', emoji: '🧊', tier: 7, showNumber: false };
+        return { color: '#6644ff', label: 'ICY', emoji: '🥶', tier: 8, showNumber: false };
+    };
+
+    // COLLECTIBLES SYSTEM - Fun items to find beyond just treasure!
+    const collectibleTypes = {
+        // Common finds - themed to world
+        coin: { emoji: '🪙', name: 'Coin', points: 10, rarity: 'common' },
+        bottlecap: { emoji: '🧢', name: 'Bottle Cap', points: 5, rarity: 'common', trackTotal: true },
+        shell: { emoji: '🐚', name: 'Shell', points: 8, rarity: 'common' },
+        leaf: { emoji: '🍂', name: 'Leaf', points: 5, rarity: 'common' },
+
+        // Food items - fun and silly
+        hotdog: { emoji: '🌭', name: 'Hot Dog', points: 15, rarity: 'uncommon' },
+        pizza: { emoji: '🍕', name: 'Pizza Slice', points: 15, rarity: 'uncommon' },
+        donut: { emoji: '🍩', name: 'Donut', points: 12, rarity: 'uncommon' },
+        burger: { emoji: '🍔', name: 'Burger', points: 18, rarity: 'uncommon' },
+        icecream: { emoji: '🍦', name: 'Ice Cream', points: 12, rarity: 'uncommon' },
+
+        // Critters - little friends!
+        bug: { emoji: '🐛', name: 'Bug Buddy', points: 8, rarity: 'common', effect: 'friend' },
+        frog: { emoji: '🐸', name: 'Frog Friend', points: 12, rarity: 'uncommon', effect: 'friend' },
+        snail: { emoji: '🐌', name: 'Snail Pal', points: 10, rarity: 'common', effect: 'friend' },
+        butterfly: { emoji: '🦋', name: 'Butterfly', points: 15, rarity: 'uncommon', effect: 'friend' },
+        ladybug: { emoji: '🐞', name: 'Ladybug', points: 12, rarity: 'uncommon', effect: 'friend' },
+        worm: { emoji: '🪱', name: 'Worm Buddy', points: 6, rarity: 'common', effect: 'friend' },
+
+        // Shiny things
+        gem: { emoji: '💎', name: 'Gem', points: 25, rarity: 'rare' },
+        crystal: { emoji: '🔮', name: 'Crystal', points: 30, rarity: 'rare' },
+        star: { emoji: '⭐', name: 'Star', points: 20, rarity: 'rare' },
+        ring: { emoji: '💍', name: 'Ring', points: 35, rarity: 'rare' },
+
+        // Silly/random
+        sock: { emoji: '🧦', name: 'Lost Sock', points: 3, rarity: 'common' },
+        key: { emoji: '🔑', name: 'Mystery Key', points: 15, rarity: 'uncommon' },
+        bone: { emoji: '🦴', name: 'Bone', points: 8, rarity: 'common' },
+        mushroom: { emoji: '🍄', name: 'Mushroom', points: 10, rarity: 'common' },
+        acorn: { emoji: '🌰', name: 'Acorn', points: 6, rarity: 'common' },
+        feather: { emoji: '🪶', name: 'Feather', points: 7, rarity: 'common' },
+    };
+
+    // World-specific collectible pools
+    const worldCollectibles = {
+        0: ['coin', 'frog', 'snail', 'leaf', 'mushroom', 'worm'], // Swamp
+        1: ['coin', 'hotdog', 'donut', 'bug', 'acorn', 'feather'], // Farm
+        2: ['bone', 'crystal', 'shell', 'gem', 'frog', 'leaf'], // Prehistoric
+        3: ['bottlecap', 'pizza', 'burger', 'sock', 'key', 'coin'], // Urban
+        4: ['shell', 'gem', 'crystal', 'star', 'coin', 'ring'], // Underwater
+        5: ['butterfly', 'mushroom', 'gem', 'ladybug', 'leaf', 'crystal'], // Forest
+        6: ['icecream', 'gem', 'crystal', 'coin', 'star', 'shell'], // Arctic
+        7: ['bone', 'gem', 'ring', 'key', 'coin', 'crystal'], // Desert
+        8: ['crystal', 'gem', 'star', 'coin', 'ring', 'bone'], // Cave
+        9: ['gem', 'ring', 'crystal', 'star', 'coin', 'key'], // Vault
     };
 
     // Opponents with progressive mechanics - each teaches new patterns
+    // Each world has a unique environment with themed special tiles
     const opponents = [
         {
             id: 0, name: 'Funky Frog', emoji: '🐸', color: '#50c878',
             title: 'The Friendly Guide',
-            mechanic: 'Learn triangulation basics - distance numbers show exactly how far!',
-            description: 'Perfect for learning! Distance numbers let you pinpoint treasures with logic.',
+            mechanic: 'Learn triangulation basics in the murky swamp!',
+            description: '💧 Water Lilies block your path - dig nearby tiles first to drain them!',
             gridSize: 6, baseDigs: 12, treasures: 1, decoys: 0,
             tools: { radar: 1, flag: 5 },
             special: [], tutorial: true
@@ -54,8 +221,8 @@ const TreasureDig = () => {
         {
             id: 1, name: 'Cheeky Chicken', emoji: '🐔', color: '#e8a840',
             title: 'The Gem Collector',
-            mechanic: 'Bonus gems scattered around - collect them for extra points and tools!',
-            description: 'Gems give bonus points and sometimes extra digs. Worth seeking out!',
+            mechanic: 'Explore the sunny farm for hidden treasures!',
+            description: '🥚 Hidden Nests contain bonus eggs - extra points or digs await!',
             gridSize: 7, baseDigs: 14, treasures: 1, decoys: 0,
             tools: { radar: 1, flag: 5 },
             special: ['gems']
@@ -63,8 +230,8 @@ const TreasureDig = () => {
         {
             id: 2, name: 'Disco Dinosaur', emoji: '🦕', color: '#a080c0',
             title: 'The Dual Digger',
-            mechanic: 'Two treasures to find! Distance shows nearest treasure.',
-            description: 'Multiple treasures require strategic digging. Find them all!',
+            mechanic: 'Two treasures hidden in the prehistoric jungle!',
+            description: '🦴 Ancient Fossils reveal distance to ALL treasures at once!',
             gridSize: 8, baseDigs: 16, treasures: 2, decoys: 0,
             tools: { radar: 2, flag: 6, xray: 1 },
             special: ['multi']
@@ -72,8 +239,8 @@ const TreasureDig = () => {
         {
             id: 3, name: 'Radical Raccoon', emoji: '🦝', color: '#808090',
             title: 'The Trickster',
-            mechanic: 'Decoy chests look like treasure but waste your digs!',
-            description: 'Decoys show distance 0 but give no points. Use X-Ray to verify!',
+            mechanic: 'Navigate the urban night - watch for decoys!',
+            description: '💡 Street Lights illuminate 3x3 areas permanently when dug!',
             gridSize: 8, baseDigs: 15, treasures: 1, decoys: 2,
             tools: { radar: 1, flag: 6, xray: 2 },
             special: ['decoys']
@@ -81,8 +248,8 @@ const TreasureDig = () => {
         {
             id: 4, name: 'Electric Eel', emoji: '⚡', color: '#50a8e8',
             title: 'The Scanner',
-            mechanic: 'Sonar reveals distance hints for nearby tiles!',
-            description: 'Strategic sonar use can reveal treasure locations efficiently.',
+            mechanic: 'Dive into the ocean depths with sonar!',
+            description: '🌊 Ocean Currents shift treasures and decoys each turn!',
             gridSize: 9, baseDigs: 14, treasures: 1, decoys: 1,
             tools: { radar: 2, flag: 6, xray: 1, sonar: 2 },
             special: ['sonar', 'decoys']
@@ -90,8 +257,8 @@ const TreasureDig = () => {
         {
             id: 5, name: 'Mysterious Moth', emoji: '🦋', color: '#c090a0',
             title: 'The Shadow Seeker',
-            mechanic: 'Fog covers the grid - only recently dug tiles stay visible!',
-            description: 'Memory and marking are crucial. Flag tiles before fog hides them!',
+            mechanic: 'The enchanted forest hides in magical fog!',
+            description: '✨ Firefly Swarms briefly reveal distances of nearby tiles!',
             gridSize: 9, baseDigs: 16, treasures: 2, decoys: 1,
             tools: { radar: 2, flag: 10, xray: 2, lantern: 2 },
             special: ['fog', 'decoys']
@@ -99,8 +266,8 @@ const TreasureDig = () => {
         {
             id: 6, name: 'Professor Penguin', emoji: '🐧', color: '#4080a0',
             title: 'The Ice Scholar',
-            mechanic: 'Frozen tiles cost 2 digs to break through!',
-            description: 'Plan around frozen tiles. Sometimes going around is better than through.',
+            mechanic: 'Traverse the frozen tundra carefully!',
+            description: '⛷️ Ice Slides cause chain reactions - dig one, slide to another!',
             gridSize: 10, baseDigs: 18, treasures: 2, decoys: 2,
             tools: { radar: 2, flag: 8, xray: 2, pickaxe: 2 },
             special: ['frozen', 'decoys', 'gems']
@@ -108,8 +275,8 @@ const TreasureDig = () => {
         {
             id: 7, name: 'Sly Snake', emoji: '🐍', color: '#60a060',
             title: 'The Shifty One',
-            mechanic: 'Treasure moves every 4 digs! Track its movement pattern.',
-            description: 'Moving treasure follows patterns. Predict where it will be!',
+            mechanic: 'The desert temple holds shifting secrets!',
+            description: '⏳ Quicksand tiles waste your dig - no information revealed!',
             gridSize: 10, baseDigs: 18, treasures: 1, decoys: 2,
             tools: { radar: 3, flag: 8, xray: 2, tracker: 1 },
             special: ['moving', 'decoys']
@@ -117,8 +284,8 @@ const TreasureDig = () => {
         {
             id: 8, name: 'Wolf Warrior', emoji: '🐺', color: '#606080',
             title: 'The Deep Digger',
-            mechanic: 'Some treasures are buried deep - need 2 digs to uncover!',
-            description: 'Deep treasures require commitment. Choose dig locations wisely.',
+            mechanic: 'Explore the crystal cave depths!',
+            description: '🔊 Echo Crystals reveal if treasure is in the same row or column!',
             gridSize: 11, baseDigs: 20, treasures: 2, decoys: 2,
             tools: { radar: 2, flag: 8, xray: 2, drill: 2 },
             special: ['deep', 'decoys', 'gems']
@@ -126,34 +293,68 @@ const TreasureDig = () => {
         {
             id: 9, name: 'Grand Master Grizzly', emoji: '👑', color: '#d4a840',
             title: 'The Ultimate Challenge',
-            mechanic: 'All mechanics combined! Master everything you have learned.',
-            description: 'The final test. Every skill, every tool, every strategy matters.',
+            mechanic: 'The royal vault - master all mechanics!',
+            description: '🪞 Magic Mirrors reflect your dig to the opposite side of the grid!',
             gridSize: 12, baseDigs: 22, treasures: 3, decoys: 3,
             tools: { radar: 3, flag: 12, xray: 3, sonar: 2, drill: 2 },
             special: ['deep', 'decoys', 'gems', 'frozen', 'moving']
         }
     ];
 
-    // Level configurations - hand-crafted difficulty curve
+    // Level configurations - carefully tuned difficulty curve
+    // Key principle: World N Level 10 should be easier than World N+1 Level 1
+    // Each level within a world gets progressively harder
+    // Each world introduces new mechanics at baseline difficulty, then increases
     const getLevelConfig = (opponent, level) => {
+        // Smoother scaling: grid grows more slowly, digs decrease more gradually
+        const gridGrowth = Math.floor((level - 1) / 4); // +1 grid every 4 levels
+        const digReduction = Math.floor((level - 1) * 0.3); // Slower dig reduction
+
         const baseConfig = {
-            gridSize: opponent.gridSize + Math.floor((level - 1) / 3),
-            digs: opponent.baseDigs - Math.floor((level - 1) * 0.4),
-            treasures: opponent.treasures + (level >= 7 ? 1 : 0),
-            decoys: opponent.decoys + Math.floor((level - 1) / 4),
-            parDigs: Math.floor((opponent.baseDigs - Math.floor((level - 1) * 0.4)) * 0.7),
-            bonusObjective: null
+            gridSize: opponent.gridSize + gridGrowth,
+            digs: opponent.baseDigs - digReduction,
+            treasures: opponent.treasures + (level >= 8 ? 1 : 0), // Extra treasure only at level 8+
+            decoys: opponent.decoys + Math.floor((level - 1) / 5), // Slower decoy addition
+            parDigs: 0, // Calculated below
+            bonusObjective: null,
+            scoreThreshold: 0 // For star bonus
         };
 
         // Ensure minimum digs for solvability
-        const minDigs = baseConfig.treasures * 4 + 3;
+        const minDigs = baseConfig.treasures * 4 + 4;
         baseConfig.digs = Math.max(minDigs, baseConfig.digs);
 
-        // Level-specific bonus objectives
-        if (level === 3) baseConfig.bonusObjective = { type: 'efficiency', target: 5, desc: 'Find treasure with 5+ digs remaining' };
-        if (level === 5) baseConfig.bonusObjective = { type: 'noDecoy', desc: 'Avoid all decoys' };
-        if (level === 7) baseConfig.bonusObjective = { type: 'streak', target: 3, desc: 'Get 3 hot digs in a row' };
-        if (level === 10) baseConfig.bonusObjective = { type: 'perfect', desc: 'Complete under par with no decoys hit' };
+        // Par is 60% of available digs (generous but challenging)
+        baseConfig.parDigs = Math.floor(baseConfig.digs * 0.6);
+
+        // Calculate score threshold for bonus star (varies by level)
+        // Base threshold + level scaling, adjusted for opponent difficulty
+        const baseDifficulty = opponent.id * 10; // Higher opponents = harder base
+        baseConfig.scoreThreshold = 80 + (level * 15) + baseDifficulty;
+
+        // Every level has a bonus objective for the second half-star
+        // Alternating between different objective types for variety
+        const objectiveTypes = [
+            { type: 'score', desc: `Score ${baseConfig.scoreThreshold}+ points` },
+            { type: 'efficiency', target: Math.ceil(baseConfig.digs * 0.3), desc: `Finish with ${Math.ceil(baseConfig.digs * 0.3)}+ digs remaining` },
+            { type: 'noDecoy', desc: 'Complete without hitting any decoys' },
+            { type: 'underPar', desc: `Finish under par (${baseConfig.parDigs}+ digs left)` },
+            { type: 'combo', target: 2 + Math.floor(level / 3), desc: `Achieve ${2 + Math.floor(level / 3)}x combo` }
+        ];
+
+        // Assign objective based on level (cycles through types with some variation)
+        const objIndex = (level + opponent.id) % objectiveTypes.length;
+        baseConfig.bonusObjective = objectiveTypes[objIndex];
+
+        // Override for specific milestone levels
+        if (level === 5) {
+            baseConfig.bonusObjective = { type: 'efficiency', target: Math.ceil(baseConfig.digs * 0.35),
+                desc: `Master efficiency: ${Math.ceil(baseConfig.digs * 0.35)}+ digs remaining` };
+        }
+        if (level === 10) {
+            baseConfig.bonusObjective = { type: 'perfect',
+                desc: 'Perfect run: under par with no decoys' };
+        }
 
         return baseConfig;
     };
@@ -174,6 +375,26 @@ const TreasureDig = () => {
     const [frozenTiles, setFrozenTiles] = useState([]);
     const [deepTiles, setDeepTiles] = useState([]);
 
+    // Collectibles system - items scattered around to find
+    const [collectiblePositions, setCollectiblePositions] = useState([]); // {x, y, type, collected}
+    const [collectedItems, setCollectedItems] = useState([]); // Items found this level (treasure basket)
+    const [friendsFound, setFriendsFound] = useState(0); // Little critter friends
+
+    // Basket animation system
+    const [fallingItems, setFallingItems] = useState([]); // Items currently falling into basket
+    const [basketItems, setBasketItems] = useState([]); // Items that have landed in basket
+    const [basketFull, setBasketFull] = useState(false); // Triggers lid animation
+    const [truckDriving, setTruckDriving] = useState(false); // Truck animation state
+    const [truckPosition, setTruckPosition] = useState(-200); // Truck X position
+    const BASKET_CAPACITY = 8; // Items before basket is "full"
+
+    // World-themed special tiles
+    const [specialTiles, setSpecialTiles] = useState([]); // {x, y, type, activated, direction?}
+    const [illuminatedTiles, setIlluminatedTiles] = useState([]); // For spotlight reveals
+    const [ambientParticles, setAmbientParticles] = useState([]); // Floating ambient effects
+    const [currentTheme, setCurrentTheme] = useState(null); // Active world theme
+    const [isLateLevel, setIsLateLevel] = useState(false); // Levels 6-10 = "late" variant
+
     // Player state
     const [dugTiles, setDugTiles] = useState([]);
     const [flaggedTiles, setFlaggedTiles] = useState([]);
@@ -189,6 +410,7 @@ const TreasureDig = () => {
     const [tools, setTools] = useState({});
     const [activeTool, setActiveTool] = useState(null);
     const [sonarTiles, setSonarTiles] = useState([]);
+    const [sonarFading, setSonarFading] = useState(false); // For radar fade effect
 
     // Visual effects
     const [lastDigResult, setLastDigResult] = useState(null);
@@ -201,13 +423,16 @@ const TreasureDig = () => {
     // Level config
     const [levelConfig, setLevelConfig] = useState(null);
 
-    // Progression with enhanced tracking
+    // Progression with enhanced tracking - v3 with fractional stars per level
     const [progression, setProgression] = useState(() => {
-        const saved = localStorage.getItem('treasuredig_progression_v2');
+        const saved = localStorage.getItem('treasuredig_progression_v3');
         if (saved) return JSON.parse(saved);
+        // Initialize with per-level star tracking: each level can earn 0, 0.5, or 1 star
+        // 0.5 for completing the level, +0.5 for achieving the bonus objective
         return {
-            starPoints: Array(10).fill(0),
+            levelStars: Array(10).fill().map(() => Array(10).fill(0)), // 0, 0.5, or 1 per level
             levelsBeat: Array(10).fill().map(() => Array(10).fill(false)),
+            bonusAchieved: Array(10).fill().map(() => Array(10).fill(false)), // Bonus objective per level
             bestScores: Array(10).fill().map(() => Array(10).fill(0)),
             achievements: [],
             totalTreasures: 0,
@@ -217,12 +442,23 @@ const TreasureDig = () => {
     });
 
     useEffect(() => {
-        localStorage.setItem('treasuredig_progression_v2', JSON.stringify(progression));
+        localStorage.setItem('treasuredig_progression_v3', JSON.stringify(progression));
     }, [progression]);
 
-    const getStars = (idx) => Math.floor(progression.starPoints[idx] / 4);
-    const isOpponentUnlocked = (idx) => idx === 0 || progression.starPoints[idx - 1] >= 20;
-    const isOpponentMastered = (idx) => progression.starPoints[idx] >= 40;
+    // Calculate total stars for an opponent (sum of all level stars, max 10)
+    const getStars = (idx) => {
+        const levelStars = progression.levelStars[idx] || Array(10).fill(0);
+        return levelStars.reduce((sum, s) => sum + s, 0);
+    };
+
+    // Get star status for a specific level (0, 0.5, or 1)
+    const getLevelStar = (oppIdx, level) => {
+        return progression.levelStars[oppIdx]?.[level - 1] || 0;
+    };
+
+    // World unlocks when previous world has 10 stars (all levels completed with bonus)
+    const isOpponentUnlocked = (idx) => idx === 0 || getStars(idx - 1) >= 10;
+    const isOpponentMastered = (idx) => getStars(idx) >= 10;
     const isLevelUnlocked = (oppIdx, level) => {
         if (level === 1) return true;
         return progression.levelsBeat[oppIdx]?.[level - 2] || false;
@@ -301,12 +537,40 @@ const TreasureDig = () => {
             : [];
         setDecoyPositions(decoys);
 
-        // Place gems
+        // Place gems (old system - keeping for backwards compat but collectibles replace this)
         const gems = opp.special.includes('gems')
-            ? placeItemsSmart(size, 4 + Math.floor(level / 2), [...treasures, ...decoys], 1)
+            ? placeItemsSmart(size, 2, [...treasures, ...decoys], 1)
                 .map(g => ({ ...g, value: [15, 25, 50][Math.floor(Math.random() * 3)], type: Math.random() > 0.7 ? 'dig' : 'points' }))
             : [];
         setGemPositions(gems);
+
+        // PLACE COLLECTIBLES - fun items to find!
+        // More collectibles in early worlds to make them more fun
+        // Scale: early worlds have more items, later worlds have fewer but more valuable
+        const collectiblePool = worldCollectibles[opp.id] || worldCollectibles[0];
+        const baseCollectibles = opp.id <= 2 ? 8 : opp.id <= 5 ? 6 : 4; // More in early worlds
+        const numCollectibles = baseCollectibles + Math.floor(level / 3);
+        const collectibleExclusions = [...treasures, ...decoys, ...gems];
+        const collectibleSpots = placeItemsSmart(size, numCollectibles, collectibleExclusions, 1);
+
+        const collectibles = collectibleSpots.map(pos => {
+            // Pick a random collectible from the world's pool
+            const typeKey = collectiblePool[Math.floor(Math.random() * collectiblePool.length)];
+            return {
+                ...pos,
+                type: typeKey,
+                collected: false
+            };
+        });
+        setCollectiblePositions(collectibles);
+        setCollectedItems([]); // Reset collected items list
+        setFriendsFound(0);
+        // Reset basket animation state
+        setFallingItems([]);
+        setBasketItems([]);
+        setBasketFull(false);
+        setTruckDriving(false);
+        setTruckPosition(-200);
 
         // Place frozen tiles
         const frozen = opp.special.includes('frozen')
@@ -320,12 +584,51 @@ const TreasureDig = () => {
             : [];
         setDeepTiles(deep);
 
+        // Set world theme
+        const worldTheme = worldThemes[opp.id] || worldThemes[0];
+        setCurrentTheme(worldTheme);
+        const lateLevel = level >= 6;
+        setIsLateLevel(lateLevel);
+
+        // Place world-themed special tiles (more in late levels)
+        const specialCount = Math.floor(size * size * (lateLevel ? 0.08 : 0.05));
+        const excludeFromSpecial = [...treasures, ...decoys, ...gems];
+        const specialPositions = placeItemsSmart(size, specialCount, excludeFromSpecial, 1);
+
+        // Add direction for current tiles, type info for all
+        const specials = specialPositions.map((pos, idx) => ({
+            ...pos,
+            type: worldTheme.specialTile,
+            activated: false,
+            // Direction for current tiles (arrows)
+            direction: worldTheme.specialTile === 'current'
+                ? ['up', 'down', 'left', 'right'][idx % 4]
+                : null
+        }));
+        setSpecialTiles(specials);
+        setIlluminatedTiles([]);
+
+        // Initialize ambient particles for visual flair
+        const particles = [];
+        for (let i = 0; i < 8; i++) {
+            particles.push({
+                id: i,
+                x: Math.random() * 100,
+                y: Math.random() * 100,
+                emoji: worldTheme.ambientEmojis[i % worldTheme.ambientEmojis.length],
+                speed: 0.5 + Math.random() * 1,
+                drift: (Math.random() - 0.5) * 2
+            });
+        }
+        setAmbientParticles(particles);
+
         // Initialize grid data
         const newGrid = [];
         for (let y = 0; y < size; y++) {
             const row = [];
             for (let x = 0; x < size; x++) {
                 const isDeep = deep.some(d => d.x === x && d.y === y);
+                const special = specials.find(s => s.x === x && s.y === y);
                 row.push({
                     x, y,
                     dug: false,
@@ -334,7 +637,9 @@ const TreasureDig = () => {
                     distance: null,
                     distanceInfo: null,
                     flagged: false,
-                    revealed: false
+                    revealed: false,
+                    specialType: special?.type || null,
+                    specialDirection: special?.direction || null
                 });
             }
             newGrid.push(row);
@@ -375,7 +680,54 @@ const TreasureDig = () => {
     const startMatch = useCallback((opponent, level) => {
         setSelectedOpponent(opponent);
         setCurrentLevel(level);
-        initializeGrid(opponent, level);
+        const { size, treasures } = initializeGrid(opponent, level);
+        setBonusAchieved(false); // Reset bonus tracking for new match
+
+        // For early levels (1-3), give players a free starting hint
+        // This makes early gameplay more strategic instead of random clicking
+        if (level <= 3 && opponent.id <= 2) {
+            setTimeout(() => {
+                // Reveal a tile that's moderately close to treasure (gives direction)
+                const hintTiles = [];
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const dist = Math.min(...treasures.map(t =>
+                            Math.sqrt((t.x - x) ** 2 + (t.y - y) ** 2)
+                        ));
+                        // Pick tiles that are 2-4 distance away (not too close, not too far)
+                        if (dist >= 2 && dist <= 4) {
+                            hintTiles.push({ x, y, dist });
+                        }
+                    }
+                }
+
+                // Pick 1-2 good hint tiles and auto-reveal them
+                const numHints = level === 1 ? 2 : 1;
+                const sortedHints = hintTiles.sort((a, b) => a.dist - b.dist);
+                const selectedHints = sortedHints.slice(0, numHints);
+
+                selectedHints.forEach(hint => {
+                    // Auto-dig this tile to give player a starting point
+                    setGrid(g => {
+                        if (!g[hint.y]) return g;
+                        const newGrid = [...g];
+                        newGrid[hint.y] = [...newGrid[hint.y]];
+                        const dist = hint.dist;
+                        const distInfo = getDistanceInfo(dist, size);
+                        newGrid[hint.y][hint.x] = {
+                            ...newGrid[hint.y][hint.x],
+                            dug: true,
+                            dugDepth: 1,
+                            distance: Math.round(dist * 10) / 10,
+                            distanceInfo: distInfo
+                        };
+                        return newGrid;
+                    });
+                    setDugTiles(d => [...d, { x: hint.x, y: hint.y }]);
+                    addHitEffect(hint.x, hint.y, '🎁 Free hint!', 'info');
+                });
+            }, 500); // Slight delay for dramatic effect
+        }
 
         // Show tutorial for first opponent, first level
         if (opponent.tutorial && level === 1 && !progression.levelsBeat[0][0]) {
@@ -384,7 +736,7 @@ const TreasureDig = () => {
         }
 
         setGameState('playing');
-    }, [initializeGrid, progression.levelsBeat]);
+    }, [initializeGrid, progression.levelsBeat, getDistanceInfo, addHitEffect]);
 
     // Move treasure (for moving mechanic)
     const moveTreasure = useCallback(() => {
@@ -444,6 +796,109 @@ const TreasureDig = () => {
         setTimeout(() => setScreenShake(false), 150 * intensity);
     }, []);
 
+    // Add item to basket with falling physics animation
+    const addToBasket = useCallback((emoji, name, points) => {
+        const id = Date.now() + Math.random();
+        const startX = 30 + Math.random() * 40; // Random X position above basket
+
+        // Create falling item
+        const fallingItem = {
+            id,
+            emoji,
+            name,
+            points,
+            x: startX,
+            y: -50, // Start above screen
+            vy: 0, // Velocity Y
+            vx: (Math.random() - 0.5) * 2, // Slight horizontal drift
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 15,
+            landed: false,
+            bounces: 0
+        };
+
+        setFallingItems(items => [...items, fallingItem]);
+
+        // Physics simulation
+        let item = { ...fallingItem };
+        const gravity = 0.8;
+        const bounce = 0.5;
+        const basketTop = 280; // Y position where items land
+        const friction = 0.95;
+
+        const animate = () => {
+            if (item.landed) return;
+
+            item.vy += gravity;
+            item.y += item.vy;
+            item.x += item.vx;
+            item.rotation += item.rotationSpeed;
+            item.vx *= friction;
+
+            // Bounce when hitting basket
+            if (item.y >= basketTop) {
+                item.y = basketTop;
+                item.vy = -item.vy * bounce;
+                item.bounces++;
+                item.rotationSpeed *= 0.5;
+
+                // Stop after enough bounces
+                if (Math.abs(item.vy) < 2 || item.bounces >= 3) {
+                    item.landed = true;
+                    item.y = basketTop;
+
+                    // Move to basket items
+                    setFallingItems(f => f.filter(fi => fi.id !== id));
+                    setBasketItems(b => {
+                        const newItems = [...b, { id, emoji, name, points, x: item.x }];
+
+                        // Check if basket is full
+                        if (newItems.length >= BASKET_CAPACITY && !basketFull) {
+                            setTimeout(() => {
+                                setBasketFull(true);
+                                // Start truck animation after lid closes
+                                setTimeout(() => {
+                                    setTruckDriving(true);
+                                    // Animate truck driving in
+                                    let truckX = -200;
+                                    const driveIn = setInterval(() => {
+                                        truckX += 8;
+                                        setTruckPosition(truckX);
+                                        if (truckX >= 50) {
+                                            clearInterval(driveIn);
+                                            // Pause, then drive out
+                                            setTimeout(() => {
+                                                const driveOut = setInterval(() => {
+                                                    truckX += 12;
+                                                    setTruckPosition(truckX);
+                                                    if (truckX >= 400) {
+                                                        clearInterval(driveOut);
+                                                        // Reset basket
+                                                        setBasketItems([]);
+                                                        setBasketFull(false);
+                                                        setTruckDriving(false);
+                                                        setTruckPosition(-200);
+                                                    }
+                                                }, 30);
+                                            }, 800);
+                                        }
+                                    }, 30);
+                                }, 600);
+                            }, 100);
+                        }
+                        return newItems;
+                    });
+                    return;
+                }
+            }
+
+            setFallingItems(f => f.map(fi => fi.id === id ? { ...item } : fi));
+            requestAnimationFrame(animate);
+        };
+
+        requestAnimationFrame(animate);
+    }, [basketFull, BASKET_CAPACITY]);
+
     // Use a tool
     const useTool = useCallback((toolName) => {
         if (tools[toolName] > 0) {
@@ -455,18 +910,19 @@ const TreasureDig = () => {
         }
     }, [tools, activeTool]);
 
-    // Handle radar tool (row/column scan)
+    // Handle radar tool (row/column scan) - now with fade effect
     const handleRadar = useCallback((x, y) => {
         if (tools.radar <= 0) return;
 
         setTools(t => ({ ...t, radar: t.radar - 1 }));
         setActiveTool(null);
+        setSonarFading(false);
 
         // Check row and column for treasures
         const inRow = treasurePositions.some(t => t.y === y);
         const inCol = treasurePositions.some(t => t.x === x);
 
-        // Visual feedback
+        // Visual feedback - highlight tiles temporarily
         const rowTiles = [];
         const colTiles = [];
         for (let i = 0; i < gridSize; i++) {
@@ -481,7 +937,12 @@ const TreasureDig = () => {
                     '📡 No treasure in row or column';
         addHitEffect(x, y, msg, inRow || inCol ? 'treasure' : 'info');
 
-        setTimeout(() => setSonarTiles([]), 2000);
+        // Start fading after 1.5s, then clear after fade completes
+        setTimeout(() => setSonarFading(true), 1500);
+        setTimeout(() => {
+            setSonarTiles([]);
+            setSonarFading(false);
+        }, 3000);
     }, [tools, treasurePositions, gridSize, addHitEffect]);
 
     // Handle X-Ray tool (reveal without digging)
@@ -554,6 +1015,147 @@ const TreasureDig = () => {
         setTimeout(() => setSonarTiles([]), 3000);
     }, [tools, gridSize, treasurePositions, getMinTreasureDistance, addHitEffect, triggerShake]);
 
+    // Handle special tile effects (world-themed mechanics)
+    const handleSpecialTile = useCallback((x, y, tile) => {
+        if (!tile.specialType || !currentTheme) return { canDig: true, extraEffect: null };
+
+        const specialType = tile.specialType;
+
+        switch (specialType) {
+            case 'water': {
+                // Water tiles need adjacent tiles dug first to "drain"
+                const adjacentDug = [
+                    { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+                    { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
+                ].some(({ dx, dy }) => {
+                    const nx = x + dx, ny = y + dy;
+                    return nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize && grid[ny]?.[nx]?.dug;
+                });
+                if (!adjacentDug) {
+                    addHitEffect(x, y, '💧 Drain nearby first!', 'info');
+                    return { canDig: false, extraEffect: null };
+                }
+                return { canDig: true, extraEffect: 'drained' };
+            }
+
+            case 'quicksand': {
+                // Quicksand wastes the dig - no info revealed
+                addHitEffect(x, y, '⏳ Quicksand! Dig wasted!', 'error');
+                triggerShake(0.8);
+                return { canDig: true, extraEffect: 'quicksand' }; // Dig consumed but no info
+            }
+
+            case 'nest': {
+                // Nest gives bonus - points or extra dig
+                const bonus = Math.random() > 0.5 ? 'dig' : 'points';
+                if (bonus === 'dig') {
+                    setDigsRemaining(d => d + 1);
+                    addHitEffect(x, y, '🥚 +1 DIG!', 'gem');
+                } else {
+                    setScore(s => s + 25);
+                    addHitEffect(x, y, '🥚 +25 points!', 'gem');
+                }
+                return { canDig: true, extraEffect: 'nest' };
+            }
+
+            case 'fossil': {
+                // Fossil shows distance to ALL treasures
+                const allDistances = treasurePositions.map(t =>
+                    Math.round(getDistance(x, y, t.x, t.y) * 10) / 10
+                );
+                if (allDistances.length > 0) {
+                    addHitEffect(x, y, `🦴 All: ${allDistances.join(', ')}`, 'info');
+                }
+                return { canDig: true, extraEffect: 'fossil' };
+            }
+
+            case 'spotlight': {
+                // Spotlight illuminates 3x3 permanently
+                const illuminated = [];
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+                            illuminated.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+                setIlluminatedTiles(prev => [...prev, ...illuminated]);
+                addHitEffect(x, y, '💡 Area revealed!', 'info');
+                return { canDig: true, extraEffect: 'spotlight' };
+            }
+
+            case 'firefly': {
+                // Firefly briefly reveals random nearby tiles
+                const nearbyTiles = [];
+                for (let dy = -2; dy <= 2; dy++) {
+                    for (let dx = -2; dx <= 2; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize && !grid[ny]?.[nx]?.dug) {
+                            nearbyTiles.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+                // Reveal 3 random nearby tiles briefly via sonar display
+                const shuffled = nearbyTiles.sort(() => Math.random() - 0.5).slice(0, 3);
+                const reveals = shuffled.map(pos => {
+                    const dist = getMinTreasureDistance(pos.x, pos.y, treasurePositions);
+                    return { ...pos, distance: dist, info: getDistanceInfo(dist, gridSize) };
+                });
+                setSonarTiles(reveals);
+                setTimeout(() => setSonarTiles([]), 2500);
+                addHitEffect(x, y, '✨ Fireflies reveal!', 'info');
+                return { canDig: true, extraEffect: 'firefly' };
+            }
+
+            case 'slide': {
+                // Slide chains to next tile in a random direction
+                const directions = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+                const dir = directions[Math.floor(Math.random() * 4)];
+                const slideX = x + dir.dx, slideY = y + dir.dy;
+                if (slideX >= 0 && slideX < gridSize && slideY >= 0 && slideY < gridSize && !grid[slideY]?.[slideX]?.dug) {
+                    addHitEffect(x, y, '⛷️ Sliding!', 'info');
+                    // Queue the slide dig (handled after this dig completes)
+                    setTimeout(() => handleDig(slideX, slideY), 300);
+                }
+                return { canDig: true, extraEffect: 'slide' };
+            }
+
+            case 'echo': {
+                // Echo reveals if treasure is in this row OR column
+                const inRow = treasurePositions.some(t => t.y === y);
+                const inCol = treasurePositions.some(t => t.x === x);
+                const msg = inRow && inCol ? '🔊 Echo: ROW & COL!' :
+                           inRow ? '🔊 Echo: in ROW!' :
+                           inCol ? '🔊 Echo: in COLUMN!' :
+                           '🔊 Echo: neither...';
+                addHitEffect(x, y, msg, inRow || inCol ? 'treasure' : 'info');
+                return { canDig: true, extraEffect: 'echo' };
+            }
+
+            case 'mirror': {
+                // Mirror reflects dig to opposite side
+                const mirrorX = gridSize - 1 - x;
+                const mirrorY = gridSize - 1 - y;
+                if (!grid[mirrorY]?.[mirrorX]?.dug) {
+                    addHitEffect(x, y, '🪞 Mirrored!', 'info');
+                    setTimeout(() => handleDig(mirrorX, mirrorY), 300);
+                }
+                return { canDig: true, extraEffect: 'mirror' };
+            }
+
+            case 'current': {
+                // Current tiles are visual indicators - they shift items periodically
+                // The shifting is handled elsewhere, this just marks the tile
+                return { canDig: true, extraEffect: 'current' };
+            }
+
+            default:
+                return { canDig: true, extraEffect: null };
+        }
+    }, [currentTheme, grid, gridSize, treasurePositions, getMinTreasureDistance, addHitEffect, triggerShake]);
+
     // Handle flag toggle
     const handleFlag = useCallback((x, y) => {
         const tile = grid[y]?.[x];
@@ -610,6 +1212,12 @@ const TreasureDig = () => {
         // Check if already fully dug
         if (tile.dug && tile.dugDepth >= tile.requiredDepth) return;
 
+        // Handle special tile pre-check (water blocking, etc.)
+        const specialResult = handleSpecialTile(x, y, tile);
+        if (!specialResult.canDig) {
+            return; // Special tile blocked the dig (e.g., water not drained)
+        }
+
         // Check frozen tile cost
         const isFrozen = frozenTiles.some(f => f.x === x && f.y === y) && !tile.dug;
         const digCost = isFrozen ? 2 : 1;
@@ -621,6 +1229,19 @@ const TreasureDig = () => {
 
         // Deduct digs
         setDigsRemaining(d => d - digCost);
+
+        // Handle quicksand - dig is consumed but no info revealed
+        if (specialResult.extraEffect === 'quicksand') {
+            setDugTiles(d => [...d, { x, y }]);
+            setGrid(g => {
+                const newGrid = [...g];
+                newGrid[y] = [...newGrid[y]];
+                newGrid[y][x] = { ...tile, dug: true, dugDepth: 1, distance: '?', distanceInfo: { color: '#888', label: 'Lost!', emoji: '⏳', tier: 9 } };
+                return newGrid;
+            });
+            setMoveHistory(h => [...h, { x, y, time: Date.now() }]);
+            return; // No further processing
+        }
 
         // Track move
         setMoveHistory(h => [...h, { x, y, time: Date.now() }]);
@@ -713,7 +1334,7 @@ const TreasureDig = () => {
             return;
         }
 
-        // Check for gem
+        // Check for gem (legacy system)
         const foundGem = gemPositions.find(g => g.x === x && g.y === y);
         if (foundGem) {
             if (foundGem.type === 'dig') {
@@ -724,7 +1345,43 @@ const TreasureDig = () => {
                 addHitEffect(x, y, `💎 +${foundGem.value}`, 'gem');
             }
             setGemPositions(g => g.filter(pos => !(pos.x === x && pos.y === y)));
-            return;
+        }
+
+        // CHECK FOR COLLECTIBLES - fun items!
+        const foundCollectible = collectiblePositions.find(c => c.x === x && c.y === y && !c.collected);
+        if (foundCollectible) {
+            const itemInfo = collectibleTypes[foundCollectible.type];
+            if (itemInfo) {
+                // Add points
+                setScore(s => s + itemInfo.points);
+
+                // Add to collected items list (for stats)
+                setCollectedItems(items => [...items, {
+                    type: foundCollectible.type,
+                    emoji: itemInfo.emoji,
+                    name: itemInfo.name,
+                    points: itemInfo.points,
+                    time: Date.now()
+                }]);
+
+                // Trigger falling animation into basket!
+                addToBasket(itemInfo.emoji, itemInfo.name, itemInfo.points);
+
+                // Mark as collected
+                setCollectiblePositions(c => c.map(col =>
+                    col.x === x && col.y === y ? { ...col, collected: true } : col
+                ));
+
+                // Special effect for critter friends
+                if (itemInfo.effect === 'friend') {
+                    setFriendsFound(f => f + 1);
+                    addHitEffect(x, y, `${itemInfo.emoji} New friend!`, 'friend');
+                } else {
+                    addHitEffect(x, y, `${itemInfo.emoji}`, 'collectible');
+                }
+
+                triggerShake(0.4);
+            }
         }
 
         // Regular dig feedback
@@ -741,10 +1398,10 @@ const TreasureDig = () => {
             setTimeout(() => setGameState('result'), 800);
         }
     }, [gameState, digsRemaining, grid, activeTool, frozenTiles, treasurePositions,
-        decoyPositions, gemPositions, gridSize, combo, maxCombo, moveHistory,
+        decoyPositions, gemPositions, collectiblePositions, gridSize, combo, maxCombo, moveHistory,
         selectedOpponent, getMinTreasureDistance, getMinDecoyDistance,
-        handleRadar, handleXRay, handleSonar, handleFlag, moveTreasure,
-        addHitEffect, triggerShake]);
+        handleRadar, handleXRay, handleSonar, handleFlag, handleSpecialTile, moveTreasure,
+        addHitEffect, triggerShake, addToBasket]);
 
     // Hint system
     const getHint = useCallback(() => {
@@ -786,6 +1443,32 @@ const TreasureDig = () => {
         return () => clearInterval(interval);
     }, [selectedOpponent]);
 
+    // Track bonus objective achievement for result screen
+    const [bonusAchieved, setBonusAchieved] = useState(false);
+
+    // Check if bonus objective was achieved
+    const checkBonusObjective = useCallback((config, finalScore) => {
+        if (!config?.bonusObjective) return false;
+
+        const obj = config.bonusObjective;
+        switch (obj.type) {
+            case 'score':
+                return finalScore >= config.scoreThreshold;
+            case 'efficiency':
+                return digsRemaining >= obj.target;
+            case 'noDecoy':
+                return decoysHit === 0;
+            case 'underPar':
+                return digsRemaining >= config.parDigs;
+            case 'combo':
+                return maxCombo >= obj.target;
+            case 'perfect':
+                return digsRemaining >= config.parDigs && decoysHit === 0;
+            default:
+                return false;
+        }
+    }, [digsRemaining, decoysHit, maxCombo]);
+
     // Handle result
     useEffect(() => {
         if (gameState !== 'result') return;
@@ -798,23 +1481,35 @@ const TreasureDig = () => {
             const digBonus = digsRemaining * 10;
             const comboBonus = maxCombo * 15;
             const noDecoyBonus = decoysHit === 0 ? 50 : 0;
-            const underParBonus = digsRemaining >= (config.digs - config.parDigs) ? 75 : 0;
+            const underParBonus = digsRemaining >= config.parDigs ? 75 : 0;
 
             const totalBonus = digBonus + comboBonus + noDecoyBonus + underParBonus;
             setScore(s => s + totalBonus);
 
-            // Calculate stars earned
             const finalScore = score + totalBonus;
-            const targetScore = 100 + currentLevel * 25;
-            const performance = finalScore / targetScore;
-            const starsEarned = performance >= 1.5 ? 3 : performance >= 1 ? 2 : 1;
+
+            // Check if bonus objective achieved
+            const bonusCompleted = checkBonusObjective(config, finalScore);
+            setBonusAchieved(bonusCompleted);
+
+            // Calculate stars: 0.5 for completion, +0.5 for bonus objective
+            const completionStar = 0.5;
+            const bonusStar = bonusCompleted ? 0.5 : 0;
+            const totalStarEarned = completionStar + bonusStar;
 
             setProgression(prev => {
-                const newPoints = [...prev.starPoints];
-                newPoints[selectedOpponent.id] = Math.min(40, newPoints[selectedOpponent.id] + starsEarned);
+                const newLevelStars = prev.levelStars.map(arr => [...arr]);
+                // Only update if we earned more stars than before
+                const currentStar = newLevelStars[selectedOpponent.id][currentLevel - 1] || 0;
+                newLevelStars[selectedOpponent.id][currentLevel - 1] = Math.max(currentStar, totalStarEarned);
 
                 const newLevelsBeat = prev.levelsBeat.map(arr => [...arr]);
                 newLevelsBeat[selectedOpponent.id][currentLevel - 1] = true;
+
+                const newBonusAchieved = prev.bonusAchieved.map(arr => [...arr]);
+                if (bonusCompleted) {
+                    newBonusAchieved[selectedOpponent.id][currentLevel - 1] = true;
+                }
 
                 const newBestScores = prev.bestScores.map(arr => [...arr]);
                 newBestScores[selectedOpponent.id][currentLevel - 1] = Math.max(
@@ -824,8 +1519,9 @@ const TreasureDig = () => {
 
                 return {
                     ...prev,
-                    starPoints: newPoints,
+                    levelStars: newLevelStars,
                     levelsBeat: newLevelsBeat,
+                    bonusAchieved: newBonusAchieved,
                     bestScores: newBestScores,
                     totalTreasures: prev.totalTreasures + treasuresFound,
                     totalGames: prev.totalGames + 1
@@ -865,20 +1561,72 @@ const TreasureDig = () => {
         return () => window.removeEventListener('keydown', handleKey);
     }, [gameState, showTutorial, tutorialStep, tools, useTool, getHint]);
 
-    // Star bar component
-    const StarBar = ({ points, size = 'normal' }) => {
-        const starSize = size === 'small' ? '10px' : '14px';
+    // Star bar component - shows 10 stars with half-star support
+    const StarBar = ({ stars, size = 'normal' }) => {
+        const starSizeNum = size === 'small' ? 12 : 16;
+        const starSize = `${starSizeNum}px`;
+
+        // Stars can be fractional (0-10 in 0.5 increments)
+        const totalStars = Math.min(10, stars || 0);
+
         return (
             <div style={{ display: 'flex', gap: '2px' }}>
-                {Array(10).fill(0).map((_, i) => (
-                    <div key={i} style={{
-                        width: starSize, height: starSize,
-                        background: i < Math.floor(points / 4) ? theme.gold : theme.bgDark,
-                        borderRadius: '2px',
-                        border: `1px solid ${i < Math.floor(points / 4) ? theme.gold : theme.border}`,
-                        boxShadow: i < Math.floor(points / 4) ? `0 0 4px ${theme.goldGlow}` : 'none'
-                    }} />
-                ))}
+                {Array(10).fill(0).map((_, i) => {
+                    const starValue = i + 1;
+                    let fillPercent = 0;
+
+                    if (totalStars >= starValue) {
+                        fillPercent = 100; // Full star
+                    } else if (totalStars >= starValue - 0.5) {
+                        fillPercent = 50; // Half star
+                    }
+
+                    return (
+                        <div key={i} style={{
+                            width: starSize, height: starSize,
+                            position: 'relative',
+                            borderRadius: '2px',
+                            background: theme.bgDark,
+                            border: `1px solid ${fillPercent > 0 ? theme.gold : theme.border}`,
+                            overflow: 'hidden'
+                        }}>
+                            {/* Filled portion */}
+                            <div style={{
+                                position: 'absolute',
+                                left: 0, top: 0, bottom: 0,
+                                width: `${fillPercent}%`,
+                                background: theme.gold,
+                                boxShadow: fillPercent > 0 ? `0 0 4px ${theme.goldGlow}` : 'none'
+                            }} />
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    // Single star indicator for level buttons
+    const LevelStar = ({ stars, size = 14 }) => {
+        // 0 = empty, 0.5 = half, 1 = full
+        const fillPercent = stars === 1 ? 100 : stars === 0.5 ? 50 : 0;
+
+        if (stars === 0) return null;
+
+        return (
+            <div style={{
+                width: size, height: size,
+                position: 'relative',
+                borderRadius: '50%',
+                background: theme.bgDark,
+                border: `1px solid ${theme.gold}`,
+                overflow: 'hidden'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    left: 0, top: 0, bottom: 0,
+                    width: `${fillPercent}%`,
+                    background: theme.gold
+                }} />
             </div>
         );
     };
@@ -1066,7 +1814,7 @@ const TreasureDig = () => {
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ color: theme.success, fontSize: '24px', fontWeight: 'bold' }}>
-                                {progression.starPoints.reduce((a, b) => a + b, 0)}
+                                {opponents.reduce((total, _, idx) => total + getStars(idx), 0)}/100
                             </div>
                             <div style={{ color: theme.textMuted, fontSize: '12px' }}>Total Stars</div>
                         </div>
@@ -1149,9 +1897,20 @@ const TreasureDig = () => {
                             >
                                 {!unlocked && (
                                     <div style={{
-                                        position: 'absolute', top: '15px', right: '15px',
-                                        fontSize: '24px'
-                                    }}>🔒</div>
+                                        position: 'absolute', top: '10px', right: '10px',
+                                        background: theme.bgDark,
+                                        padding: '6px 12px',
+                                        borderRadius: '8px',
+                                        fontSize: '11px',
+                                        color: theme.textMuted,
+                                        border: `1px solid ${theme.border}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}>
+                                        <span>🔒</span>
+                                        <span>{10 - getStars(idx - 1)}★ needed</span>
+                                    </div>
                                 )}
                                 {mastered && (
                                     <div style={{
@@ -1197,7 +1956,7 @@ const TreasureDig = () => {
                                         </div>
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <StarBar points={progression.starPoints[idx]} size="small" />
+                                            <StarBar stars={starsEarned} size="small" />
                                             <span style={{ color: theme.textMuted, fontSize: '11px' }}>
                                                 {starsEarned}/10 ⭐
                                             </span>
@@ -1267,7 +2026,7 @@ const TreasureDig = () => {
                 </div>
 
                 <div style={{ marginTop: '20px' }}>
-                    <StarBar points={progression.starPoints[selectedOpponent.id]} />
+                    <StarBar stars={getStars(selectedOpponent.id)} />
                     <div style={{ textAlign: 'center', marginTop: '5px', color: theme.textMuted, fontSize: '12px' }}>
                         {getStars(selectedOpponent.id)}/10 stars earned
                     </div>
@@ -1285,7 +2044,13 @@ const TreasureDig = () => {
                         const levelNum = i + 1;
                         const unlocked = isLevelUnlocked(selectedOpponent.id, levelNum);
                         const beaten = progression.levelsBeat[selectedOpponent.id]?.[i];
-                        const bestScore = progression.bestScores[selectedOpponent.id]?.[i] || 0;
+                        const levelStar = getLevelStar(selectedOpponent.id, levelNum);
+                        const hasBonus = progression.bonusAchieved?.[selectedOpponent.id]?.[i] || false;
+
+                        // Star colors: gold for full, half gold for half star
+                        const starBg = levelStar === 1 ? theme.gold :
+                                       levelStar === 0.5 ? `linear-gradient(90deg, ${theme.gold} 50%, ${theme.bgDark} 50%)` :
+                                       theme.bgDark;
 
                         return (
                             <button
@@ -1295,35 +2060,124 @@ const TreasureDig = () => {
                                 style={{
                                     width: '75px', height: '75px',
                                     background: beaten
-                                        ? `linear-gradient(135deg, ${theme.success}88, ${theme.success}44)`
+                                        ? `linear-gradient(135deg, ${levelStar === 1 ? theme.gold : theme.success}44, ${theme.bgPanel})`
                                         : unlocked
-                                            ? `linear-gradient(135deg, ${selectedOpponent.color}, ${selectedOpponent.color}88)`
+                                            ? `linear-gradient(135deg, ${selectedOpponent.color}88, ${selectedOpponent.color}44)`
                                             : theme.bgDark,
-                                    border: `2px solid ${beaten ? theme.success : unlocked ? selectedOpponent.color : theme.border}`,
+                                    border: `2px solid ${levelStar === 1 ? theme.gold : beaten ? theme.success : unlocked ? selectedOpponent.color : theme.border}`,
                                     borderRadius: '12px',
                                     color: unlocked ? 'white' : theme.textMuted,
-                                    fontSize: '22px', fontWeight: 'bold',
+                                    fontSize: '20px', fontWeight: 'bold',
                                     cursor: unlocked ? 'pointer' : 'not-allowed',
                                     opacity: unlocked ? 1 : 0.5,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    transition: 'transform 0.2s'
+                                    transition: 'transform 0.2s',
+                                    position: 'relative'
                                 }}
-                                onMouseEnter={e => unlocked && (e.target.style.transform = 'scale(1.08)')}
-                                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                                onMouseEnter={e => unlocked && (e.currentTarget.style.transform = 'scale(1.08)')}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 {unlocked ? (
                                     <>
                                         {levelNum}
-                                        {beaten && <span style={{ fontSize: '10px', marginTop: '2px' }}>✓ {bestScore}</span>}
+                                        {/* Star indicator */}
+                                        {beaten && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                bottom: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '2px'
+                                            }}>
+                                                <div style={{
+                                                    width: '14px', height: '14px',
+                                                    borderRadius: '50%',
+                                                    border: `1px solid ${theme.gold}`,
+                                                    background: starBg,
+                                                    boxShadow: levelStar > 0 ? `0 0 4px ${theme.goldGlow}` : 'none'
+                                                }} />
+                                            </div>
+                                        )}
                                     </>
                                 ) : '🔒'}
                             </button>
                         );
                     })}
                 </div>
+
+                {/* Level info: show bonus objective for next unbeaten level or completion message */}
+                {(() => {
+                    // Find first unbeaten level
+                    const nextLevel = Array(10).fill(0).findIndex((_, i) =>
+                        isLevelUnlocked(selectedOpponent.id, i + 1) && !progression.levelsBeat[selectedOpponent.id]?.[i]
+                    );
+                    const worldStars = getStars(selectedOpponent.id);
+                    const isMastered = worldStars >= 10;
+
+                    // All levels beaten
+                    if (nextLevel === -1) {
+                        return (
+                            <div style={{
+                                marginTop: '20px',
+                                padding: '15px 25px',
+                                background: isMastered
+                                    ? `linear-gradient(135deg, ${theme.gold}33, ${theme.bgPanel})`
+                                    : theme.bgPanel,
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                maxWidth: '400px',
+                                border: isMastered ? `2px solid ${theme.gold}` : 'none'
+                            }}>
+                                {isMastered ? (
+                                    <>
+                                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>👑</div>
+                                        <div style={{ color: theme.gold, fontSize: '18px', fontWeight: 'bold' }}>
+                                            WORLD MASTERED!
+                                        </div>
+                                        <div style={{ color: theme.textSecondary, fontSize: '12px', marginTop: '5px' }}>
+                                            All 10 stars collected - You've unlocked the next world!
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🏆</div>
+                                        <div style={{ color: theme.success, fontSize: '16px', fontWeight: 'bold' }}>
+                                            All Levels Complete!
+                                        </div>
+                                        <div style={{ color: theme.textSecondary, fontSize: '12px', marginTop: '5px' }}>
+                                            You have {worldStars}/10★ - Replay levels to earn bonus stars and unlock the next world!
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    }
+
+                    const config = getLevelConfig(selectedOpponent, nextLevel + 1);
+                    return (
+                        <div style={{
+                            marginTop: '20px',
+                            padding: '12px 20px',
+                            background: theme.bgPanel,
+                            borderRadius: '10px',
+                            textAlign: 'center',
+                            maxWidth: '400px'
+                        }}>
+                            <div style={{ color: theme.textSecondary, fontSize: '12px', marginBottom: '5px' }}>
+                                Level {nextLevel + 1} Bonus Objective:
+                            </div>
+                            <div style={{ color: theme.gold, fontSize: '14px', fontWeight: 'bold' }}>
+                                ⭐ {config.bonusObjective?.desc}
+                            </div>
+                            <div style={{ color: theme.textMuted, fontSize: '11px', marginTop: '5px' }}>
+                                Complete level = ½ star | Bonus = full star
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {selectedOpponent.tutorial && (
                     <button
@@ -1355,15 +2209,58 @@ const TreasureDig = () => {
         const hasFog = opp?.special.includes('fog');
         const treasureCount = levelConfig?.treasures || opp?.treasures || 1;
 
+        // Get world theme for background
+        const wTheme = currentTheme || worldThemes[opp?.id || 0];
+        const bgColors = wTheme?.bgGradient || [theme.bg, theme.bgPanel, theme.bg];
+        const levelVariation = isLateLevel ? wTheme?.variation?.late : wTheme?.variation?.early;
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${theme.bg} 0%, ${opp?.color || theme.accent}12 100%)`,
+                background: `linear-gradient(135deg, ${bgColors[0]} 0%, ${bgColors[1]} 50%, ${bgColors[2]} 100%)`,
                 display: 'flex', flexDirection: 'column',
                 padding: '15px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(3px)' : 'none',
-                transition: 'transform 0.05s'
+                transition: 'transform 0.05s',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
+                {/* Ambient floating particles */}
+                {ambientParticles.map((p, idx) => (
+                    <div
+                        key={p.id}
+                        style={{
+                            position: 'absolute',
+                            left: `${p.x}%`,
+                            top: `${p.y}%`,
+                            fontSize: '20px',
+                            opacity: 0.15 + (idx % 3) * 0.1,
+                            pointerEvents: 'none',
+                            animation: `float-${idx % 3} ${8 + p.speed * 4}s infinite ease-in-out`,
+                            zIndex: 0
+                        }}
+                    >
+                        {p.emoji}
+                    </div>
+                ))}
+
+                {/* World/Level indicator */}
+                <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: `${wTheme.bgGradient[1]}cc`,
+                    padding: '4px 15px',
+                    borderRadius: '15px',
+                    fontSize: '11px',
+                    color: theme.textMuted,
+                    zIndex: 1,
+                    border: `1px solid ${wTheme.tileAccent}44`
+                }}>
+                    {wTheme.name} • {levelVariation}
+                </div>
+
                 {/* Tutorial overlay */}
                 {showTutorial && <TutorialOverlay />}
 
@@ -1403,6 +2300,17 @@ const TreasureDig = () => {
                                 animation: 'pulse 0.5s infinite'
                             }}>
                                 🔥 {combo}x COMBO
+                            </div>
+                        )}
+                        {friendsFound > 0 && (
+                            <div style={{
+                                background: `linear-gradient(135deg, #50c878, #3a9858)`,
+                                padding: '4px 12px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                color: 'white'
+                            }}>
+                                🐾 {friendsFound} friend{friendsFound > 1 ? 's' : ''}
                             </div>
                         )}
                     </div>
@@ -1463,29 +2371,44 @@ const TreasureDig = () => {
                     </button>
                 </div>
 
-                {/* Last dig feedback */}
+                {/* Bonus objective display */}
+                {levelConfig?.bonusObjective && (
+                    <div style={{
+                        marginBottom: '8px',
+                        padding: '6px 15px',
+                        background: theme.bgPanel,
+                        borderRadius: '8px',
+                        textAlign: 'center',
+                        fontSize: '12px',
+                        border: `1px solid ${theme.gold}33`
+                    }}>
+                        <span style={{ color: theme.gold }}>⭐ Bonus: </span>
+                        <span style={{ color: theme.textSecondary }}>{levelConfig.bonusObjective.desc}</span>
+                    </div>
+                )}
+
+                {/* Last dig feedback - emoji only, no boring numbers! */}
                 {lastDigResult && (
                     <div style={{
                         textAlign: 'center', marginBottom: '8px',
-                        padding: '10px 25px', borderRadius: '10px',
+                        padding: '12px 30px', borderRadius: '12px',
                         background: `${lastDigResult.color}25`,
                         border: `2px solid ${lastDigResult.color}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px',
+                        animation: lastDigResult.tier <= 2 ? 'pulse 0.5s' : 'none'
                     }}>
-                        <span style={{ fontSize: '28px' }}>{lastDigResult.emoji}</span>
-                        <span style={{ color: lastDigResult.color, fontSize: '20px', fontWeight: 'bold' }}>
-                            {lastDigResult.label}
-                        </span>
+                        <span style={{ fontSize: '36px' }}>{lastDigResult.emoji}</span>
                         <span style={{
-                            color: theme.text,
+                            color: lastDigResult.color,
                             fontSize: '24px',
                             fontWeight: 'bold',
-                            background: theme.bgDark,
-                            padding: '4px 12px',
-                            borderRadius: '8px'
+                            textShadow: lastDigResult.tier <= 2 ? `0 0 10px ${lastDigResult.color}` : 'none'
                         }}>
-                            {lastDigResult.distance.toFixed(1)} away
+                            {lastDigResult.label}
                         </span>
+                        {lastDigResult.tier <= 2 && (
+                            <span style={{ fontSize: '24px' }}>🎯</span>
+                        )}
                     </div>
                 )}
 
@@ -1501,6 +2424,126 @@ const TreasureDig = () => {
                         Click a tile to use {activeTool.toUpperCase()} (or press key again to cancel)
                     </div>
                 )}
+
+                {/* BIG TREASURE BASKET - On the right side with physics! */}
+                <div style={{
+                    position: 'fixed',
+                    right: '20px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '120px',
+                    height: '400px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    zIndex: 50,
+                    pointerEvents: 'none'
+                }}>
+                    {/* Falling items */}
+                    {fallingItems.map(item => (
+                        <div
+                            key={item.id}
+                            style={{
+                                position: 'absolute',
+                                left: `${item.x}%`,
+                                top: item.y,
+                                fontSize: '28px',
+                                transform: `rotate(${item.rotation}deg)`,
+                                zIndex: 60,
+                                filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.5))'
+                            }}
+                        >
+                            {item.emoji}
+                        </div>
+                    ))}
+
+                    {/* The Basket */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: truckDriving ? 80 : 20,
+                        width: '100px',
+                        height: '120px',
+                        transition: truckDriving ? 'bottom 0.3s ease-out' : 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center'
+                    }}>
+                        {/* Lid - appears when full */}
+                        {basketFull && (
+                            <div style={{
+                                fontSize: '60px',
+                                marginBottom: '-25px',
+                                animation: 'lidClose 0.4s ease-out forwards',
+                                zIndex: 62
+                            }}>
+                                🪵
+                            </div>
+                        )}
+
+                        {/* Basket body */}
+                        <div style={{
+                            fontSize: '80px',
+                            position: 'relative',
+                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
+                        }}>
+                            🧺
+                            {/* Items in basket */}
+                            <div style={{
+                                position: 'absolute',
+                                top: '25%',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                justifyContent: 'center',
+                                width: '50px',
+                                gap: '1px',
+                                opacity: basketFull ? 0 : 1,
+                                transition: 'opacity 0.3s'
+                            }}>
+                                {basketItems.slice(-6).map((item, idx) => (
+                                    <span key={item.id} style={{
+                                        fontSize: '14px',
+                                        animation: 'settleInBasket 0.3s ease-out'
+                                    }}>
+                                        {item.emoji}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Item count */}
+                        {basketItems.length > 0 && !basketFull && (
+                            <div style={{
+                                marginTop: '-10px',
+                                background: theme.gold,
+                                color: '#1a1815',
+                                padding: '2px 10px',
+                                borderRadius: '10px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                            }}>
+                                {basketItems.length}/{BASKET_CAPACITY}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Truck - drives in when basket is full */}
+                    {truckDriving && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '10px',
+                            left: truckPosition,
+                            fontSize: '50px',
+                            transition: 'none',
+                            zIndex: 55,
+                            filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.5))'
+                        }}>
+                            🚚
+                        </div>
+                    )}
+                </div>
 
                 {/* Game grid */}
                 <div style={{
@@ -1533,29 +2576,60 @@ const TreasureDig = () => {
                                 // Deep dig indicator
                                 const isDeepPartial = tile.dugDepth > 0 && tile.dugDepth < tile.requiredDepth;
 
-                                // Tile colors
-                                let bgColor = '#8B7355'; // Default dirt
-                                let borderColor = '#6B5344';
-                                let content = null;
+                                // Special tile indicator
+                                const isSpecialTile = tile.specialType && !isDug;
+                                const isIlluminated = illuminatedTiles.some(t => t.x === x && t.y === y);
 
-                                if (isDug) {
-                                    bgColor = tile.distanceInfo?.color || theme.bgPanel;
-                                    borderColor = tile.distanceInfo?.color || theme.border;
-                                    content = (
+                                // Get world-themed colors
+                                const wTheme = currentTheme || worldThemes[0];
+                                const baseTileColor = wTheme.tileBase;
+                                const dugTileColor = wTheme.tileDug;
+
+                                // Tile colors - use world theme
+                                let bgColor = isLateLevel ? `${baseTileColor}` : baseTileColor;
+                                let borderColor = wTheme.tileAccent;
+                                let content = null;
+                                let specialIndicator = null;
+
+                                // Add special tile indicator - make it very visible
+                                if (isSpecialTile) {
+                                    bgColor = wTheme.tileSpecial;
+                                    borderColor = wTheme.specialBorder;
+                                    // Large centered emoji for special tiles
+                                    specialIndicator = (
                                         <span style={{
-                                            fontSize: tileSize * 0.45,
-                                            fontWeight: 'bold',
-                                            color: '#fff',
-                                            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+                                            fontSize: tileSize * 0.5,
+                                            opacity: 1,
+                                            textShadow: `0 0 8px ${wTheme.specialBorder}, 0 0 4px white`,
+                                            animation: 'pulse 2s infinite'
                                         }}>
-                                            {tile.distance?.toFixed(1)}
+                                            {wTheme.specialEmoji}
                                         </span>
                                     );
+                                }
+
+                                // Check for collectible at this position (undug only)
+                                const collectibleHere = !isDug && collectiblePositions.find(c => c.x === x && c.y === y && !c.collected);
+                                const collectibleInfo = collectibleHere ? collectibleTypes[collectibleHere.type] : null;
+
+                                if (isDug) {
+                                    bgColor = tile.distanceInfo?.color || dugTileColor;
+                                    borderColor = tile.distanceInfo?.color || wTheme.tileAccent;
+                                    // Show EMOJI instead of boring numbers!
+                                    content = (
+                                        <span style={{
+                                            fontSize: tileSize * 0.55,
+                                            textShadow: '1px 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.5)'
+                                        }}>
+                                            {tile.distanceInfo?.emoji || '❓'}
+                                        </span>
+                                    );
+                                    specialIndicator = null; // Clear indicator when dug
                                 } else if (isDeepPartial) {
-                                    bgColor = '#5a4a3a';
+                                    bgColor = dugTileColor;
                                     content = <span style={{ fontSize: tileSize * 0.4 }}>🕳️</span>;
                                 } else if (isFlagged) {
-                                    bgColor = '#4a5a4a';
+                                    bgColor = wTheme.tileAccent;
                                     borderColor = theme.success;
                                     content = <span style={{ fontSize: tileSize * 0.5 }}>🚩</span>;
                                 } else if (isFrozen) {
@@ -1574,6 +2648,30 @@ const TreasureDig = () => {
                                             ~{tile.distance?.toFixed(1)}
                                         </span>
                                     );
+                                }
+
+                                // Collectible hint - subtle sparkle on tiles with goodies
+                                if (collectibleHere && !isFlagged && !isFrozen && !isSpecialTile) {
+                                    // Add a subtle sparkle indicator
+                                    if (!specialIndicator) {
+                                        specialIndicator = (
+                                            <span style={{
+                                                position: 'absolute',
+                                                top: 2, right: 2,
+                                                fontSize: tileSize * 0.25,
+                                                opacity: 0.6,
+                                                animation: 'pulse 1.5s infinite'
+                                            }}>
+                                                ✨
+                                            </span>
+                                        );
+                                    }
+                                }
+
+                                // Illuminated tiles (from spotlight) get a glow
+                                if (isIlluminated && !isDug) {
+                                    borderColor = '#ffee88';
+                                    bgColor = `${bgColor}`;
                                 }
 
                                 // Sonar overlay
@@ -1609,12 +2707,14 @@ const TreasureDig = () => {
                                             transition: 'all 0.15s',
                                             opacity: fogOpacity,
                                             boxShadow: sonarTile
-                                                ? `0 0 12px ${sonarTile.info?.color || theme.accent}`
+                                                ? `0 0 ${sonarFading ? '4px' : '12px'} ${sonarTile.info?.color || theme.accent}`
                                                 : isHinted
                                                     ? `0 0 15px ${theme.gold}`
                                                     : isDug
                                                         ? `inset 0 2px 4px rgba(0,0,0,0.3)`
                                                         : '0 2px 4px rgba(0,0,0,0.2)',
+                                            // Smooth transition for radar fade
+                                            ...(sonarTile && sonarFading ? { opacity: 0.3, transition: 'all 1.5s ease-out' } : {}),
                                             position: 'relative'
                                         }}
                                         onMouseEnter={(e) => {
@@ -1629,6 +2729,9 @@ const TreasureDig = () => {
                                         }}
                                     >
                                         {content}
+
+                                        {/* Special tile indicator */}
+                                        {specialIndicator}
 
                                         {/* Sonar distance preview */}
                                         {sonarTile && !isDug && (
@@ -1659,13 +2762,19 @@ const TreasureDig = () => {
                                         left: effectX + 12,
                                         top: effectY + 12,
                                         transform: 'translate(-50%, -50%)',
-                                        fontSize: e.type === 'treasure' ? '20px' : e.type === 'combo' ? '18px' : '14px',
+                                        fontSize: e.type === 'treasure' ? '20px'
+                                            : e.type === 'combo' ? '18px'
+                                            : e.type === 'friend' ? '18px'
+                                            : e.type === 'collectible' ? '16px'
+                                            : '14px',
                                         fontWeight: 'bold',
                                         color: e.type === 'treasure' ? theme.gold
                                             : e.type === 'decoy' ? theme.error
                                             : e.type === 'gem' ? theme.gem
                                             : e.type === 'combo' ? theme.hot
                                             : e.type === 'error' ? theme.error
+                                            : e.type === 'friend' ? '#50c878'
+                                            : e.type === 'collectible' ? '#f4c542'
                                             : theme.text,
                                         pointerEvents: 'none',
                                         animation: 'floatUp 1.2s ease-out forwards',
@@ -1690,11 +2799,12 @@ const TreasureDig = () => {
                     background: theme.bgPanel,
                     borderRadius: '8px'
                 }}>
-                    <span>🔥 Hot = Close (0-3)</span>
-                    <span>☀️ Warm (3-5)</span>
-                    <span>❄️ Cold (7-12)</span>
-                    <span>🥶 Freezing (12+)</span>
-                    <span style={{ color: theme.textSecondary }}>| Right-click to flag</span>
+                    <span>🔥 = Close!</span>
+                    <span>☀️ = Warm</span>
+                    <span>❄️ = Cold</span>
+                    <span>🥶 = Far</span>
+                    <span>✨ = Treasure!</span>
+                    <span style={{ color: theme.textSecondary }}>Right-click to flag</span>
                 </div>
 
                 {/* Par info */}
@@ -1714,8 +2824,38 @@ const TreasureDig = () => {
                         100% { transform: translate(-50%, -150%) scale(1); opacity: 0; }
                     }
                     @keyframes pulse {
-                        0%, 100% { transform: scale(1); }
-                        50% { transform: scale(1.05); }
+                        0%, 100% { transform: scale(1); opacity: 0.9; }
+                        50% { transform: scale(1.15); opacity: 1; }
+                    }
+                    @keyframes pop {
+                        0% { transform: scale(0); }
+                        50% { transform: scale(1.3); }
+                        100% { transform: scale(1); }
+                    }
+                    @keyframes lidClose {
+                        0% { transform: translateY(-30px) rotate(-20deg); opacity: 0; }
+                        60% { transform: translateY(5px) rotate(5deg); opacity: 1; }
+                        100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                    }
+                    @keyframes settleInBasket {
+                        0% { transform: translateY(-10px) scale(1.5); }
+                        50% { transform: translateY(3px) scale(0.9); }
+                        100% { transform: translateY(0) scale(1); }
+                    }
+                    @keyframes float-0 {
+                        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                        25% { transform: translate(10px, -20px) rotate(5deg); }
+                        50% { transform: translate(-5px, -35px) rotate(-3deg); }
+                        75% { transform: translate(8px, -15px) rotate(3deg); }
+                    }
+                    @keyframes float-1 {
+                        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                        33% { transform: translate(-15px, -25px) rotate(-5deg); }
+                        66% { transform: translate(10px, -40px) rotate(5deg); }
+                    }
+                    @keyframes float-2 {
+                        0%, 100% { transform: translate(0, 0); }
+                        50% { transform: translate(5px, -30px); }
                     }
                 `}</style>
             </div>
@@ -1730,11 +2870,14 @@ const TreasureDig = () => {
         const digBonus = won ? digsRemaining * 10 : 0;
         const comboBonus = maxCombo * 15;
         const noDecoyBonus = won && decoysHit === 0 ? 50 : 0;
-        const underParBonus = won && config && digsRemaining >= (config.digs - config.parDigs) ? 75 : 0;
+        const underParBonus = won && config && digsRemaining >= config.parDigs ? 75 : 0;
         const finalScore = score + digBonus + comboBonus + noDecoyBonus + underParBonus;
 
-        const performance = finalScore / (100 + currentLevel * 25);
-        const starsEarned = won ? (performance >= 1.5 ? 3 : performance >= 1 ? 2 : 1) : 0;
+        // New star system: 0.5 for completion + 0.5 for bonus objective
+        const completionStar = won ? 0.5 : 0;
+        const bonusStar = won && bonusAchieved ? 0.5 : 0;
+        const starsEarned = completionStar + bonusStar;
+        const isFullStar = starsEarned === 1;
 
         return (
             <div style={{
@@ -1747,29 +2890,41 @@ const TreasureDig = () => {
                     fontSize: '120px', marginBottom: '20px',
                     animation: won ? 'bounce 1s infinite' : 'shake 0.5s'
                 }}>
-                    {won ? (starsEarned >= 3 ? '👑' : starsEarned >= 2 ? '🏆' : '💎') : '💀'}
+                    {won ? (isFullStar ? '👑' : '💎') : '💀'}
                 </div>
 
                 <h1 style={{
                     fontSize: '42px',
-                    color: won ? (starsEarned >= 3 ? theme.gold : theme.success) : theme.error,
+                    color: won ? (isFullStar ? theme.gold : theme.success) : theme.error,
                     marginBottom: '10px',
                     textShadow: won ? `0 0 30px ${theme.goldGlow}` : 'none'
                 }}>
                     {won
-                        ? (starsEarned >= 3 ? 'PERFECT!' : starsEarned >= 2 ? 'EXCELLENT!' : 'TREASURE FOUND!')
+                        ? (isFullStar ? 'PERFECT LEVEL!' : 'TREASURE FOUND!')
                         : 'OUT OF DIGS!'}
                 </h1>
 
                 {won && (
-                    <div style={{ display: 'flex', gap: '5px', marginBottom: '20px' }}>
-                        {[1,2,3].map(i => (
-                            <span key={i} style={{
-                                fontSize: '32px',
-                                opacity: i <= starsEarned ? 1 : 0.3,
-                                filter: i <= starsEarned ? 'none' : 'grayscale(1)'
-                            }}>⭐</span>
-                        ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        {/* Star display with half-star support */}
+                        <div style={{
+                            width: '50px', height: '50px',
+                            borderRadius: '50%',
+                            border: `3px solid ${theme.gold}`,
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: starsEarned > 0 ? `0 0 15px ${theme.goldGlow}` : 'none'
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                left: 0, top: 0, bottom: 0,
+                                width: `${starsEarned * 100}%`,
+                                background: theme.gold
+                            }} />
+                        </div>
+                        <span style={{ fontSize: '28px', color: theme.gold, fontWeight: 'bold' }}>
+                            {starsEarned === 1 ? '★' : starsEarned === 0.5 ? '½★' : '☆'}
+                        </span>
                     </div>
                 )}
 
@@ -1801,6 +2956,24 @@ const TreasureDig = () => {
 
                         <span style={{ color: theme.textMuted }}>Max Combo:</span>
                         <span style={{ color: theme.warm, textAlign: 'right' }}>{maxCombo}x</span>
+
+                        {collectedItems.length > 0 && (
+                            <>
+                                <span style={{ color: theme.textMuted }}>Items Found:</span>
+                                <span style={{ color: '#f4c542', textAlign: 'right' }}>
+                                    {collectedItems.length} 🧺
+                                </span>
+                            </>
+                        )}
+
+                        {friendsFound > 0 && (
+                            <>
+                                <span style={{ color: theme.textMuted }}>Friends Made:</span>
+                                <span style={{ color: '#50c878', textAlign: 'right' }}>
+                                    {friendsFound} 🐾
+                                </span>
+                            </>
+                        )}
 
                         {won && (
                             <>
@@ -1844,17 +3017,53 @@ const TreasureDig = () => {
                 {won && (
                     <div style={{
                         background: theme.bgPanel,
-                        padding: '12px 25px',
+                        padding: '15px 25px',
                         borderRadius: '10px',
                         marginBottom: '25px',
-                        border: `2px solid ${theme.gold}`
+                        border: `2px solid ${isFullStar ? theme.gold : theme.success}`
                     }}>
-                        <span style={{ color: theme.gold, fontWeight: 'bold' }}>
-                            +{starsEarned} Star{starsEarned > 1 ? 's' : ''} Earned!
-                        </span>
-                        <span style={{ color: theme.textMuted, marginLeft: '15px' }}>
-                            ({getStars(selectedOpponent?.id || 0)}/10 total)
-                        </span>
+                        <div style={{ marginBottom: '10px' }}>
+                            <span style={{ color: theme.success, fontWeight: 'bold' }}>
+                                ✓ Level Complete: +½★
+                            </span>
+                        </div>
+                        {config?.bonusObjective && (
+                            <div style={{ marginBottom: '10px' }}>
+                                <span style={{
+                                    color: bonusAchieved ? theme.gold : theme.textMuted,
+                                    fontWeight: bonusAchieved ? 'bold' : 'normal'
+                                }}>
+                                    {bonusAchieved ? '✓' : '○'} Bonus: {config.bonusObjective.desc}
+                                    {bonusAchieved ? ' +½★' : ''}
+                                </span>
+                            </div>
+                        )}
+                        <div style={{
+                            borderTop: `1px solid ${theme.border}`,
+                            paddingTop: '10px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div>
+                                <div style={{ color: theme.gold, fontWeight: 'bold', fontSize: '18px' }}>
+                                    +{starsEarned}★ earned!
+                                </div>
+                                <div style={{ color: theme.textMuted, fontSize: '11px' }}>
+                                    (Level {currentLevel} of 10)
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ color: theme.textSecondary }}>
+                                    World Progress: {getStars(selectedOpponent?.id || 0)}/10★
+                                </div>
+                                {getStars(selectedOpponent?.id || 0) >= 10 && selectedOpponent?.id < 9 && (
+                                    <div style={{ color: theme.success, fontSize: '11px' }}>
+                                        ✓ Next world unlocked!
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
 
