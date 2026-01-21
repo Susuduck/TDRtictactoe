@@ -4967,7 +4967,20 @@ const BreakoutGame = () => {
   };
 
   // Render game
-  const renderGame = () => (
+  // Ability cooldown tracking for command ribbon
+  const getAbilityState = (abilityKey) => {
+    const isReady = teddyMeter >= TEDDY_METER_MAX;
+    const isActive = teddyAbilityActive === abilityKey;
+    if (isActive) return 'active';
+    if (isReady) return 'ready';
+    return 'charging';
+  };
+
+  const renderGame = () => {
+    const ballAttached = balls.some(b => b.attached);
+    const chargePercent = chargeLevel;
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -4976,111 +4989,272 @@ const BreakoutGame = () => {
       height: '100vh',
       transform: screenShake ? `translate(${Math.random() * 8 - 4}px, ${Math.random() * 8 - 4}px)` : 'none',
     }}>
-      {/* Compact HUD - single bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        width: CANVAS_WIDTH,
-        marginBottom: '6px',
-        padding: '8px 16px',
-        background: 'rgba(15,15,25,0.9)',
-        borderRadius: '8px',
-        color: '#fff',
-        gap: '16px',
-      }}>
-        {/* Score */}
-        <div style={{ minWidth: '80px' }}>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: '#ffd700' }}>
-            {Math.floor(score).toLocaleString()}
-          </div>
-        </div>
-
-        {/* Level + Lives */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', fontWeight: '700', color: '#888' }}>Lv.{currentLevel}</span>
-          <span style={{ fontSize: '16px', letterSpacing: '-1px' }}>
-            {Array.from({ length: Math.max(0, lives) }, () => '❤️').join('')}
-            {Array.from({ length: Math.max(0, 3 - lives) }, () => '🖤').join('')}
-          </span>
-          {combo > 2 && <span style={{ fontSize: '12px', fontWeight: '700', color: '#ffd700' }}>🔥{combo}x</span>}
-        </div>
-
-        {/* Teddy Meter - compact with ability names */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-          <span style={{
-            fontSize: '14px',
-            opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.4,
-          }}>🧸</span>
-          <div style={{
-            flex: 1,
-            maxWidth: '80px',
-            height: '4px',
-            background: 'rgba(255,255,255,0.1)',
-            borderRadius: '2px',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              width: `${(teddyMeter / TEDDY_METER_MAX) * 100}%`,
-              height: '100%',
-              background: teddyMeter >= TEDDY_METER_MAX ? '#ffd700' : '#8b5a2b',
-              transition: 'width 0.2s',
-            }} />
-          </div>
-          {/* Ability names - always visible, highlighted when ready */}
-          <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: '600' }}>
-            <span style={{ color: teddyMeter >= TEDDY_METER_MAX ? '#ff6b35' : '#555', opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5 }}>
-              Q:Supercharge
-            </span>
-            <span style={{ color: teddyMeter >= TEDDY_METER_MAX ? '#4080ff' : '#555', opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5 }}>
-              W:Barrier
-            </span>
-            <span style={{ color: teddyMeter >= TEDDY_METER_MAX ? '#ff80ff' : '#555', opacity: teddyMeter >= TEDDY_METER_MAX ? 1 : 0.5 }}>
-              E:Split
-            </span>
-          </div>
-        </div>
-
-        {/* Active effects inline */}
-        {activeEffects.length > 0 && (
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {activeEffects.includes('shield') && <span style={{ fontSize: '10px', color: '#4080ff', fontWeight: '600' }}>SHIELD</span>}
-            {activeEffects.includes('laser') && <span style={{ fontSize: '10px', color: '#ff00ff', fontWeight: '600' }}>LASER</span>}
-            {activeEffects.includes('fast') && <span style={{ fontSize: '10px', color: '#ffff00', fontWeight: '600' }}>FAST</span>}
-            {activeEffects.includes('slow') && <span style={{ fontSize: '10px', color: '#80c0ff', fontWeight: '600' }}>SLOW</span>}
-            {activeEffects.includes('frozen') && <span style={{ fontSize: '10px', color: '#80e0ff', fontWeight: '700' }}>FROZEN</span>}
-          </div>
-        )}
-
-        {/* Boss/Opponent indicator - prominent */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
-          background: 'rgba(139, 90, 43, 0.3)',
-          borderRadius: '6px',
-          border: '1px solid rgba(139, 90, 43, 0.5)',
-        }}>
-          <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.5))' }}>{selectedEnemy?.emoji}</span>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: '#d4a574', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {selectedEnemy?.name}
-          </span>
-        </div>
-      </div>
-
-      {/* Game canvas */}
+      {/* Game canvas with integrated HUD frame */}
       <div
         ref={canvasRef}
         style={{
           position: 'relative',
           width: CANVAS_WIDTH,
           height: CANVAS_HEIGHT,
-          background: 'linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%)',
-          borderRadius: '8px',
-          border: '3px solid #2a2a4e',
+          background: 'linear-gradient(180deg, #0a0a1a 0%, #0f0f2a 50%, #1a1a3e 100%)',
+          borderRadius: '12px',
+          border: '4px solid #2a2a4e',
+          boxShadow: '0 0 40px rgba(64, 128, 224, 0.15), inset 0 0 60px rgba(0,0,0,0.5)',
           overflow: 'hidden',
-          cursor: 'none', // Hide cursor during gameplay for cleaner look
+          cursor: 'none',
         }}>
+
+        {/* Subtle playfield background - drifting particles */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: `
+            radial-gradient(ellipse at 50% 0%, rgba(64, 128, 224, 0.08) 0%, transparent 50%),
+            radial-gradient(ellipse at 20% 80%, rgba(139, 90, 43, 0.05) 0%, transparent 40%),
+            radial-gradient(ellipse at 80% 80%, rgba(139, 90, 43, 0.05) 0%, transparent 40%)
+          `,
+          pointerEvents: 'none',
+        }} />
+
+        {/* Integrated HUD Bar - sits on top frame edge (JRPG battle UI style) */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '52px',
+          background: 'linear-gradient(180deg, rgba(15,15,30,0.95) 0%, rgba(15,15,30,0.85) 80%, transparent 100%)',
+          borderBottom: '2px solid rgba(64, 128, 224, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '6px 16px',
+          gap: '12px',
+          zIndex: 20,
+        }}>
+          {/* Score - gold accent */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: '90px',
+          }}>
+            <span style={{ fontSize: '10px', fontWeight: '600', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Score</span>
+            <span style={{ fontSize: '22px', fontWeight: '900', color: '#ffd700', textShadow: '0 0 10px rgba(255,215,0,0.3)' }}>
+              {Math.floor(score).toLocaleString()}
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)' }} />
+
+          {/* Level + Lives + Combo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              padding: '4px 10px',
+              background: 'rgba(64, 128, 224, 0.2)',
+              borderRadius: '4px',
+              border: '1px solid rgba(64, 128, 224, 0.3)',
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: '#6090d0' }}>Lv.{currentLevel}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '2px' }}>
+              {Array.from({ length: Math.max(0, lives) }, (_, i) => (
+                <span key={i} style={{ fontSize: '18px', filter: 'drop-shadow(0 0 4px rgba(255,100,100,0.5))' }}>❤️</span>
+              ))}
+              {Array.from({ length: Math.max(0, 3 - lives) }, (_, i) => (
+                <span key={i} style={{ fontSize: '18px', opacity: 0.3 }}>🖤</span>
+              ))}
+            </div>
+            {combo > 2 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '3px 8px',
+                background: 'linear-gradient(135deg, rgba(255,150,0,0.3), rgba(255,100,0,0.2))',
+                borderRadius: '4px',
+                animation: 'comboPulse 0.5s ease-in-out infinite',
+              }}>
+                <span style={{ fontSize: '14px' }}>🔥</span>
+                <span style={{ fontSize: '14px', fontWeight: '800', color: '#ffaa00' }}>{combo}x</span>
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)' }} />
+
+          {/* Teddy Meter + Command Ribbon */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+            {/* Teddy Meter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{
+                fontSize: '20px',
+                filter: teddyMeter >= TEDDY_METER_MAX ? 'drop-shadow(0 0 8px #ffd700)' : 'none',
+                animation: teddyMeter >= TEDDY_METER_MAX ? 'teddyReady 0.8s ease-in-out infinite' : 'none',
+              }}>🧸</span>
+              <div style={{
+                width: '60px',
+                height: '8px',
+                background: 'rgba(0,0,0,0.5)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                border: '1px solid rgba(139, 90, 43, 0.5)',
+              }}>
+                <div style={{
+                  width: `${(teddyMeter / TEDDY_METER_MAX) * 100}%`,
+                  height: '100%',
+                  background: teddyMeter >= TEDDY_METER_MAX
+                    ? 'linear-gradient(90deg, #ffd700, #ffaa00)'
+                    : 'linear-gradient(90deg, #8b5a2b, #a06030)',
+                  boxShadow: teddyMeter >= TEDDY_METER_MAX ? '0 0 10px #ffd700' : 'none',
+                  transition: 'width 0.2s',
+                }} />
+              </div>
+            </div>
+
+            {/* Command Ribbon - Q/W/E abilities */}
+            <div style={{ display: 'flex', gap: '6px', marginLeft: '4px' }}>
+              {[
+                { key: 'supercharge', label: 'Q', name: 'Charge', color: '#ff6b35', icon: '⚡' },
+                { key: 'barrier', label: 'W', name: 'Barrier', color: '#4080ff', icon: '🛡️' },
+                { key: 'split', label: 'E', name: 'Split', color: '#ff80ff', icon: '✨' },
+              ].map(ability => {
+                const state = getAbilityState(ability.key);
+                const isReady = state === 'ready';
+                const isActive = state === 'active';
+                const fillPercent = isActive ? 100 : isReady ? 100 : (teddyMeter / TEDDY_METER_MAX) * 100;
+
+                return (
+                  <div
+                    key={ability.key}
+                    style={{
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '4px 8px',
+                      minWidth: '52px',
+                      background: isActive
+                        ? `linear-gradient(180deg, ${ability.color}40, ${ability.color}20)`
+                        : 'rgba(0,0,0,0.4)',
+                      borderRadius: '6px',
+                      border: `2px solid ${isReady || isActive ? ability.color : 'rgba(255,255,255,0.1)'}`,
+                      opacity: isReady || isActive ? 1 : 0.6,
+                      transition: 'all 0.2s',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* Fill ring/bar indicator */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: `${fillPercent}%`,
+                      background: isReady
+                        ? `linear-gradient(180deg, ${ability.color}30, ${ability.color}10)`
+                        : `linear-gradient(180deg, rgba(255,255,255,0.05), transparent)`,
+                      transition: 'height 0.3s',
+                    }} />
+
+                    {/* Key label */}
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      color: isReady || isActive ? ability.color : '#555',
+                      position: 'relative',
+                    }}>{ability.label}</span>
+
+                    {/* Icon + Name */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                      position: 'relative',
+                    }}>
+                      <span style={{ fontSize: '10px' }}>{ability.icon}</span>
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: '600',
+                        color: isReady || isActive ? '#fff' : '#666',
+                      }}>{ability.name}</span>
+                    </div>
+
+                    {/* Ready pulse */}
+                    {isReady && (
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '4px',
+                        boxShadow: `inset 0 0 15px ${ability.color}40`,
+                        animation: 'abilityPulse 1s ease-in-out infinite',
+                      }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)' }} />
+
+          {/* Active Effects */}
+          {activeEffects.length > 0 && (
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {activeEffects.includes('shield') && (
+                <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(64,128,255,0.3)', borderRadius: '3px', color: '#4080ff', fontWeight: '700' }}>SHIELD</span>
+              )}
+              {activeEffects.includes('laser') && (
+                <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(255,0,255,0.3)', borderRadius: '3px', color: '#ff00ff', fontWeight: '700' }}>LASER</span>
+              )}
+              {activeEffects.includes('fast') && (
+                <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(255,255,0,0.3)', borderRadius: '3px', color: '#ffff00', fontWeight: '700' }}>FAST</span>
+              )}
+              {activeEffects.includes('slow') && (
+                <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(128,192,255,0.3)', borderRadius: '3px', color: '#80c0ff', fontWeight: '700' }}>SLOW</span>
+              )}
+              {activeEffects.includes('frozen') && (
+                <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(128,224,255,0.3)', borderRadius: '3px', color: '#80e0ff', fontWeight: '700' }}>FROZEN</span>
+              )}
+            </div>
+          )}
+
+          {/* Boss/Opponent indicator */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            background: `linear-gradient(135deg, ${selectedEnemy?.color}20, ${selectedEnemy?.color}10)`,
+            borderRadius: '8px',
+            border: `1px solid ${selectedEnemy?.color}40`,
+          }}>
+            <span style={{ fontSize: '24px', filter: `drop-shadow(0 0 6px ${selectedEnemy?.color}80)` }}>{selectedEnemy?.emoji}</span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: selectedEnemy?.color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {selectedEnemy?.name}
+              </span>
+              <span style={{ fontSize: '9px', color: '#666' }}>{selectedEnemy?.title}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Danger zone indicator - glows when ball is low */}
+        {balls.some(b => !b.attached && b.y > CANVAS_HEIGHT - 120) && (
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '60px',
+            background: 'linear-gradient(180deg, transparent, rgba(255,60,60,0.15))',
+            borderTop: '1px solid rgba(255,60,60,0.3)',
+            animation: 'dangerPulse 0.5s ease-in-out infinite',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }} />
+        )}
         {/* Flash overlay */}
         {flashColor && (
           <div style={{
@@ -5596,7 +5770,7 @@ const BreakoutGame = () => {
           </div>
         )}
 
-        {/* Balls */}
+        {/* Balls with trail effect */}
         {balls.map(ball => {
           // Skip rendering if ball object is malformed
           if (!ball || typeof ball.x !== 'number' || typeof ball.y !== 'number') {
@@ -5627,42 +5801,76 @@ const BreakoutGame = () => {
             }
           }
 
+          // Determine trail color based on ball state
+          const trailColor = ball.mega ? '#ffd700' : ball.burning ? '#ff6030' : ball.charged ? '#40ff40' : '#ffffff';
+          const trailIntensity = ball.mega ? 1 : ball.burning ? 0.8 : ball.charged ? 0.6 + (ball.chargedHits || 0) * 0.1 : 0.3;
+          const speed = Math.sqrt((ball.vx || 0) ** 2 + (ball.vy || 0) ** 2);
+          const showTrail = !isAttached && speed > 3;
+
           return (
-          <div
-            key={ball.id}
-            style={{
-              position: 'absolute',
-              left: ballLeft,
-              top: ballTop,
-              width: BALL_RADIUS * 2,
-              height: BALL_RADIUS * 2,
-              background: ball.mega
-                ? 'radial-gradient(circle, #ffd700 0%, #ff8800 50%, #ff4400 100%)'
-                : ball.burning
-                  ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
-                  : ball.charged && ball.chargedHits >= 3
-                    ? 'radial-gradient(circle, #40ff40 0%, #20cc20 100%)' // Green - full charge
-                    : ball.charged && ball.chargedHits === 2
-                      ? 'radial-gradient(circle, #80ff40 0%, #60cc20 100%)' // Lime green
-                      : ball.charged && ball.chargedHits === 1
-                        ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow
-                        : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal
-              borderRadius: '50%',
-              boxShadow: ball.mega
-                ? '0 0 20px #ffd700, 0 0 40px #ff8800, 0 0 60px #ff4400'
-                : ball.burning
-                  ? '0 0 15px #ff6030, 0 0 30px #ff3000'
-                  : ball.charged && ball.chargedHits >= 3
+          <React.Fragment key={ball.id}>
+            {/* Ball trail - velocity-based streaks */}
+            {showTrail && (
+              <>
+                {[0.7, 0.5, 0.3].map((opacity, i) => {
+                  const trailX = ballLeft - (ball.vx || 0) * 0.1 * (i + 1);
+                  const trailY = ballTop - (ball.vy || 0) * 0.1 * (i + 1);
+                  const trailSize = BALL_RADIUS * 2 * (0.8 - i * 0.15);
+                  return (
+                    <div
+                      key={`trail-${ball.id}-${i}`}
+                      style={{
+                        position: 'absolute',
+                        left: trailX + (BALL_RADIUS - trailSize / 2),
+                        top: trailY + (BALL_RADIUS - trailSize / 2),
+                        width: trailSize,
+                        height: trailSize,
+                        background: `radial-gradient(circle, ${trailColor}${Math.floor(opacity * trailIntensity * 255).toString(16).padStart(2, '0')} 0%, transparent 70%)`,
+                        borderRadius: '50%',
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  );
+                })}
+              </>
+            )}
+
+            {/* Main ball */}
+            <div
+              style={{
+                position: 'absolute',
+                left: ballLeft,
+                top: ballTop,
+                width: BALL_RADIUS * 2,
+                height: BALL_RADIUS * 2,
+                background: ball.mega
+                  ? 'radial-gradient(circle, #ffd700 0%, #ff8800 50%, #ff4400 100%)'
+                  : ball.burning
+                    ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
+                    : ball.charged && ball.chargedHits >= 3
+                      ? 'radial-gradient(circle, #40ff40 0%, #20cc20 100%)' // Green - full charge
+                      : ball.charged && ball.chargedHits === 2
+                        ? 'radial-gradient(circle, #80ff40 0%, #60cc20 100%)' // Lime green
+                        : ball.charged && ball.chargedHits === 1
+                          ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow
+                          : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal
+                borderRadius: '50%',
+                boxShadow: ball.mega
+                  ? '0 0 20px #ffd700, 0 0 40px #ff8800, 0 0 60px #ff4400'
+                  : ball.burning
+                    ? '0 0 15px #ff6030, 0 0 30px #ff3000'
+                    : ball.charged && ball.chargedHits >= 3
                     ? '0 0 20px #40ff40, 0 0 10px #20cc20'
                     : ball.charged && ball.chargedHits === 2
                       ? '0 0 15px #80ff40'
                       : ball.charged && ball.chargedHits === 1
                         ? '0 0 12px #ffff40'
                         : '0 0 10px rgba(255,255,255,0.5)',
-              transform: ball.mega ? 'scale(1.5)' : 'scale(1)',
-              transition: 'transform 0.2s',
-            }}
-          />
+                transform: ball.mega ? 'scale(1.5)' : 'scale(1)',
+                transition: 'transform 0.2s',
+              }}
+            />
+          </React.Fragment>
         );
         })}
 
@@ -5908,20 +6116,90 @@ const BreakoutGame = () => {
           </div>
         )}
 
-        {/* Ball launch hint */}
+        {/* Launch State Widget - clean prompt near paddle */}
         {balls.some(b => b.attached) && (
           <div style={{
             position: 'absolute',
-            bottom: 60,
-            left: '50%',
+            left: paddle.x + paddle.width / 2,
+            bottom: 90,
             transform: 'translateX(-50%)',
-            color: '#888',
-            fontSize: '14px',
-            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '6px',
+            animation: 'fadeInUp 0.3s ease-out',
+            pointerEvents: 'none',
           }}>
-            CLICK or SPACE to launch
-            <br />
-            <span style={{ fontSize: '12px', color: '#666' }}>Hold SPACE to charge!</span>
+            {/* Charge indicator ring */}
+            {isCharging && (
+              <div style={{
+                position: 'relative',
+                width: '50px',
+                height: '50px',
+                marginBottom: '4px',
+              }}>
+                <svg width="50" height="50" style={{ transform: 'rotate(-90deg)' }}>
+                  {/* Background ring */}
+                  <circle
+                    cx="25" cy="25" r="20"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeWidth="4"
+                  />
+                  {/* Charge fill ring */}
+                  <circle
+                    cx="25" cy="25" r="20"
+                    fill="none"
+                    stroke={chargeLevel > 50 ? '#ffd700' : '#4080e0'}
+                    strokeWidth="4"
+                    strokeDasharray={`${(chargeLevel / 100) * 125.6} 125.6`}
+                    style={{ transition: 'stroke-dasharray 0.1s, stroke 0.2s' }}
+                  />
+                </svg>
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  color: chargeLevel > 50 ? '#ffd700' : '#fff',
+                }}>
+                  {Math.floor(chargeLevel)}%
+                </div>
+              </div>
+            )}
+
+            {/* Launch prompt */}
+            <div style={{
+              padding: '8px 16px',
+              background: 'rgba(0,0,0,0.7)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(4px)',
+            }}>
+              <div style={{
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#fff',
+                textAlign: 'center',
+                letterSpacing: '0.5px',
+              }}>
+                {isCharging ? (
+                  <span style={{ color: chargeLevel > 50 ? '#ffd700' : '#4080e0' }}>
+                    Release to fire!
+                  </span>
+                ) : (
+                  <>Hold <span style={{ color: '#ffd700', fontWeight: '800' }}>SPACE</span> to charge</>
+                )}
+              </div>
+              {!isCharging && (
+                <div style={{ fontSize: '10px', color: '#666', marginTop: '2px', textAlign: 'center' }}>
+                  or CLICK to quick launch
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -5970,16 +6248,15 @@ const BreakoutGame = () => {
         )}
       </div>
 
-      {/* Controls hint */}
+      {/* Controls hint - minimal */}
       <div style={{
-        marginTop: '12px',
-        color: '#5a5a8a',
-        fontSize: '11px',
+        marginTop: '8px',
+        color: '#4a4a6a',
+        fontSize: '10px',
         textAlign: 'center',
+        opacity: 0.8,
       }}>
-        🖱️ MOUSE to move • CLICK to launch • A/D keys also work
-        <br />
-        Hold SPACE to charge shot • Q/W/E for Teddy abilities • ESC to pause
+        MOUSE/A·D to move • SPACE to charge • Q/W/E abilities • ESC pause
       </div>
 
       <style>{`
@@ -6011,11 +6288,42 @@ const BreakoutGame = () => {
           0%, 100% { opacity: 0.8; box-shadow: 0 0 15px #ffd700, 0 0 30px rgba(255, 215, 0, 0.5); }
           50% { opacity: 1; box-shadow: 0 0 25px #ffd700, 0 0 50px rgba(255, 215, 0, 0.7); }
         }
+        @keyframes comboPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        @keyframes teddyReady {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+        }
+        @keyframes abilityPulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.8; }
+        }
+        @keyframes dangerPulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+        @keyframes fadeInUp {
+          0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
       `}</style>
     </div>
   );
+  }
 
-  const renderMenu = () => (
+  const renderMenu = () => {
+    // Find the last played / highest unlocked world for Continue feature
+    const lastPlayedWorld = enemyDefs.find(e => stats.highestLevels[e.id] > 0) || enemyDefs[0];
+    const lastPlayedLevel = stats.highestLevels[lastPlayedWorld?.id] || 1;
+    const lastPlayedScore = stats.highScores[lastPlayedWorld?.id] || 0;
+
+    // Calculate next unlock milestone
+    const nextUnlockStars = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].find(s => s > stats.stars) || 100;
+    const progressToNext = nextUnlockStars > 0 ? (stats.stars / nextUnlockStars) * 100 : 100;
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -6024,94 +6332,247 @@ const BreakoutGame = () => {
       height: '100vh',
       color: '#fff',
       textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
+      {/* Animated background */}
       <div style={{
-        fontSize: '80px',
-        marginBottom: '20px',
-        animation: 'bounce 1s ease-in-out infinite',
+        position: 'absolute',
+        inset: 0,
+        background: `
+          radial-gradient(ellipse at 30% 20%, rgba(139, 90, 43, 0.15) 0%, transparent 50%),
+          radial-gradient(ellipse at 70% 80%, rgba(64, 128, 224, 0.1) 0%, transparent 50%),
+          radial-gradient(ellipse at 50% 50%, rgba(255, 215, 0, 0.05) 0%, transparent 60%)
+        `,
+        animation: 'backgroundShift 20s ease-in-out infinite',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Floating particles */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}>
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: `${10 + (i * 12)}%`,
+              top: `${20 + (i % 3) * 25}%`,
+              width: '4px',
+              height: '4px',
+              borderRadius: '50%',
+              background: i % 2 === 0 ? 'rgba(255, 215, 0, 0.3)' : 'rgba(64, 128, 224, 0.3)',
+              animation: `floatParticle ${3 + (i % 3)}s ease-in-out infinite`,
+              animationDelay: `${i * 0.5}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Logo section */}
+      <div style={{
+        fontSize: '90px',
+        marginBottom: '12px',
+        animation: 'teddyBounce 2s ease-in-out infinite',
+        filter: 'drop-shadow(0 0 30px rgba(139, 90, 43, 0.5))',
       }}>🧸</div>
       <h1 style={{
-        fontSize: '48px',
+        fontSize: '56px',
         fontWeight: '900',
-        marginBottom: '8px',
+        marginBottom: '6px',
         background: 'linear-gradient(135deg, #d2691e 0%, #ffd700 50%, #8b4513 100%)',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
+        textShadow: '0 0 40px rgba(255, 215, 0, 0.3)',
+        letterSpacing: '2px',
       }}>TEDDYBALL</h1>
-      <p style={{ color: '#8888aa', marginBottom: '30px' }}>Dash, Spin, Charge, and Smash!</p>
+      <p style={{ color: '#7a7a9a', marginBottom: '24px', fontSize: '14px', letterSpacing: '1px' }}>
+        Dash, Spin, Charge, and Smash!
+      </p>
 
-      {/* Stars display */}
+      {/* Continue Card - shows last progress */}
+      {stats.gamesPlayed > 0 && (
+        <div
+          onClick={() => {
+            setSelectedEnemy(lastPlayedWorld);
+            setGameState('levelSelect');
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '14px 24px',
+            background: 'linear-gradient(135deg, rgba(139, 90, 43, 0.2), rgba(139, 90, 43, 0.1))',
+            borderRadius: '14px',
+            border: '2px solid rgba(139, 90, 43, 0.4)',
+            marginBottom: '16px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            minWidth: '320px',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = 'rgba(255, 215, 0, 0.6)';
+            e.currentTarget.style.boxShadow = '0 8px 30px rgba(139, 90, 43, 0.3)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.borderColor = 'rgba(139, 90, 43, 0.4)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          <span style={{ fontSize: '36px' }}>{lastPlayedWorld?.emoji}</span>
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <div style={{ fontSize: '11px', color: '#8b5a2b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '2px' }}>
+              Continue
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>
+              {lastPlayedWorld?.name} • Lv.{lastPlayedLevel}
+            </div>
+            {lastPlayedScore > 0 && (
+              <div style={{ fontSize: '11px', color: '#888' }}>
+                Best: {lastPlayedScore.toLocaleString()}
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: '24px', color: '#ffd700' }}>▶</div>
+        </div>
+      )}
+
+      {/* Progression Strip */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        marginBottom: '30px',
-        padding: '10px 24px',
-        background: 'rgba(255, 215, 0, 0.1)',
-        borderRadius: '20px',
-        border: '1px solid rgba(255, 215, 0, 0.3)',
+        gap: '12px',
+        marginBottom: '24px',
+        padding: '12px 20px',
+        background: 'rgba(0, 0, 0, 0.3)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255, 215, 0, 0.2)',
       }}>
-        <span style={{ fontSize: '24px' }}>⭐</span>
-        <span style={{ fontSize: '24px', fontWeight: '800', color: '#ffd700' }}>{stats.stars}</span>
-        <span style={{ fontSize: '12px', color: '#888' }}>Stars</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '22px' }}>⭐</span>
+          <span style={{ fontSize: '24px', fontWeight: '900', color: '#ffd700' }}>{stats.stars}</span>
+        </div>
+
+        {/* Progress bar to next unlock */}
+        <div style={{
+          width: '120px',
+          height: '8px',
+          background: 'rgba(255,255,255,0.1)',
+          borderRadius: '4px',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: `${progressToNext}%`,
+            height: '100%',
+            background: 'linear-gradient(90deg, #ffd700, #ffaa00)',
+            borderRadius: '4px',
+            transition: 'width 0.5s ease',
+          }} />
+        </div>
+
+        <div style={{ fontSize: '11px', color: '#888' }}>
+          <span style={{ color: '#ffd700' }}>{nextUnlockStars - stats.stars}</span> to next unlock
+        </div>
       </div>
 
+      {/* Main buttons */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
         <button
           onClick={() => setGameState('select')}
           style={{
-            padding: '16px 40px',
+            padding: '18px 44px',
             fontSize: '18px',
-            fontWeight: '700',
+            fontWeight: '800',
             background: 'linear-gradient(135deg, #4080e0, #6040a0)',
             border: 'none',
-            borderRadius: '12px',
+            borderRadius: '14px',
             color: '#fff',
             cursor: 'pointer',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            boxShadow: '0 4px 20px rgba(64, 128, 224, 0.4)',
+            transition: 'all 0.2s',
+            boxShadow: '0 6px 25px rgba(64, 128, 224, 0.4)',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
           }}
-          onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
-          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-3px)';
+            e.currentTarget.style.boxShadow = '0 10px 35px rgba(64, 128, 224, 0.5)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 6px 25px rgba(64, 128, 224, 0.4)';
+          }}
         >
-          🎮 PLAY
+          🎮 Play
         </button>
 
         <button
           onClick={() => setGameState('shop')}
           style={{
-            padding: '16px 40px',
+            padding: '18px 44px',
             fontSize: '18px',
-            fontWeight: '700',
+            fontWeight: '800',
             background: 'linear-gradient(135deg, #ffd700, #ff8800)',
             border: 'none',
-            borderRadius: '12px',
+            borderRadius: '14px',
             color: '#1a1a2e',
             cursor: 'pointer',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            boxShadow: '0 4px 20px rgba(255, 215, 0, 0.4)',
+            transition: 'all 0.2s',
+            boxShadow: '0 6px 25px rgba(255, 215, 0, 0.4)',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
           }}
-          onMouseOver={(e) => { e.target.style.transform = 'scale(1.05)'; }}
-          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-3px)';
+            e.currentTarget.style.boxShadow = '0 10px 35px rgba(255, 215, 0, 0.5)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 6px 25px rgba(255, 215, 0, 0.4)';
+          }}
         >
-          🛒 SHOP
+          🛒 Shop
         </button>
       </div>
 
-      <div style={{ marginTop: '20px', color: '#6a6a8a', fontSize: '14px' }}>
-        <p>Games: {stats.gamesPlayed} | Levels: {stats.levelsCompleted}</p>
+      {/* Stats row */}
+      <div style={{
+        display: 'flex',
+        gap: '24px',
+        marginTop: '12px',
+        color: '#5a5a7a',
+        fontSize: '12px',
+      }}>
+        <span>🎮 {stats.gamesPlayed} Games</span>
+        <span>🏆 {stats.levelsCompleted} Levels</span>
       </div>
 
+      {/* Back button */}
       <button
         onClick={() => window.location.href = 'menu.html'}
         style={{
-          marginTop: '20px',
+          marginTop: '24px',
           padding: '10px 24px',
-          background: 'rgba(255,255,255,0.1)',
-          border: '1px solid rgba(255,255,255,0.2)',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.15)',
           borderRadius: '8px',
-          color: '#8888aa',
+          color: '#6a6a8a',
           cursor: 'pointer',
+          fontSize: '13px',
+          transition: 'all 0.2s',
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+          e.currentTarget.style.color = '#aaa';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+          e.currentTarget.style.color = '#6a6a8a';
         }}
       >
         ← Back to Menu
@@ -6125,12 +6586,12 @@ const BreakoutGame = () => {
           bottom: '20px',
           right: '20px',
           padding: '8px 16px',
-          background: debugMode ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 100, 100, 0.5)',
-          border: debugMode ? '2px solid #ff6666' : '1px solid rgba(255,255,255,0.2)',
+          background: debugMode ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 100, 100, 0.3)',
+          border: debugMode ? '2px solid #ff6666' : '1px solid rgba(255,255,255,0.15)',
           borderRadius: '6px',
-          color: debugMode ? '#fff' : '#888',
+          color: debugMode ? '#fff' : '#666',
           cursor: 'pointer',
-          fontSize: '12px',
+          fontSize: '11px',
           fontWeight: debugMode ? '700' : '400',
           transition: 'all 0.2s',
         }}
@@ -6139,9 +6600,19 @@ const BreakoutGame = () => {
       </button>
 
       <style>{`
-        @keyframes bounce {
+        @keyframes teddyBounce {
           0%, 100% { transform: translateY(0) rotate(-5deg); }
-          50% { transform: translateY(-15px) rotate(5deg); }
+          25% { transform: translateY(-10px) rotate(0deg); }
+          50% { transform: translateY(-18px) rotate(5deg); }
+          75% { transform: translateY(-10px) rotate(0deg); }
+        }
+        @keyframes backgroundShift {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes floatParticle {
+          0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+          50% { transform: translateY(-20px) scale(1.2); opacity: 0.6; }
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
@@ -6149,155 +6620,426 @@ const BreakoutGame = () => {
         }
       `}</style>
     </div>
-  );
+    );
+  };
 
-  const renderEnemySelect = () => (
+  // State for hovered world in select screen
+  const [hoveredWorld, setHoveredWorld] = React.useState(null);
+
+  const renderEnemySelect = () => {
+    // Get the previewed world (hovered or first unlocked)
+    const previewWorld = hoveredWorld || enemyDefs.find((_, idx) => isEnemyUnlocked(idx)) || enemyDefs[0];
+    const previewIdx = enemyDefs.findIndex(e => e.id === previewWorld.id);
+    const previewUnlocked = isEnemyUnlocked(previewIdx);
+    const previewHighestLevel = stats.highestLevels[previewWorld.id] || 0;
+    const previewTotalStars = getTotalStarsForEnemy(previewWorld.id);
+    const previewMaxStars = MAX_LEVELS * 3;
+    const previewBestScore = stats.highScores[previewWorld.id] || 0;
+    const previewDifficulty = previewIdx + 1; // 1-10 difficulty based on world order
+
+    return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '30px 20px',
+      padding: '20px',
       color: '#fff',
-      minHeight: '100vh',
-      overflowY: 'auto',
+      height: '100vh',
+      overflow: 'hidden',
     }}>
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '16px' }}>
         <h2 style={{
-          fontSize: '28px',
+          fontSize: '24px',
           fontWeight: '800',
-          marginBottom: '6px',
+          marginBottom: '4px',
           color: '#fff',
+          textShadow: '0 0 20px rgba(64, 128, 224, 0.3)',
         }}>Select World</h2>
-        <p style={{ color: '#666', fontSize: '13px' }}>Each world has unique brick mechanics</p>
+        <p style={{ color: '#666', fontSize: '12px' }}>Choose your challenge</p>
       </div>
 
-      {/* Enemy Grid */}
+      {/* Main content - Chapter Select Layout */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '12px',
-        maxWidth: '900px',
+        display: 'flex',
+        gap: '20px',
+        flex: 1,
         width: '100%',
+        maxWidth: '1100px',
+        overflow: 'hidden',
       }}>
-        {enemyDefs.map((enemy, idx) => {
-          const bestScore = stats.highScores[enemy.id] || 0;
-          const isUnlocked = isEnemyUnlocked(idx);
-          const highestLevel = stats.highestLevels[enemy.id] || 0;
-          const totalLevelStars = getTotalStarsForEnemy(enemy.id);
-          const maxPossibleStars = MAX_LEVELS * 3;
-          const isPerfected = totalLevelStars >= maxPossibleStars;
-          const isAllLevelsComplete = highestLevel >= MAX_LEVELS;
-          const progressPercent = (totalLevelStars / maxPossibleStars) * 100;
+        {/* Left: World Cards (60%) */}
+        <div style={{
+          flex: '0 0 55%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          overflowY: 'auto',
+          paddingRight: '8px',
+        }}>
+          {enemyDefs.map((enemy, idx) => {
+            const isUnlocked = isEnemyUnlocked(idx);
+            const highestLevel = stats.highestLevels[enemy.id] || 0;
+            const totalLevelStars = getTotalStarsForEnemy(enemy.id);
+            const maxPossibleStars = MAX_LEVELS * 3;
+            const isPerfected = totalLevelStars >= maxPossibleStars;
+            const isAllLevelsComplete = highestLevel >= MAX_LEVELS;
+            const isHovered = hoveredWorld?.id === enemy.id;
+            const prevEnemy = enemyDefs[idx - 1];
+            const prevStars = prevEnemy ? getTotalStarsForEnemy(prevEnemy.id) : 0;
+            const starsNeeded = 10; // Need 10 stars from previous world
 
-          return (
-            <div
-              key={enemy.id}
-              onClick={() => isUnlocked && selectEnemy(enemy)}
-              style={{
-                background: 'rgba(25,28,40,0.9)',
-                borderRadius: '10px',
-                padding: '16px',
-                cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                transition: 'all 0.15s ease',
-                opacity: isUnlocked ? 1 : 0.5,
-                position: 'relative',
-                borderLeft: `3px solid ${isUnlocked ? enemy.color : '#333'}`,
-              }}
-              onMouseEnter={(e) => {
-                if (isUnlocked) {
-                  e.currentTarget.style.background = 'rgba(35,38,55,0.95)';
-                  e.currentTarget.style.transform = 'translateX(4px)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(25,28,40,0.9)';
-                e.currentTarget.style.transform = 'translateX(0)';
-              }}
-            >
-              {/* Lock overlay */}
-              {!isUnlocked && (
+            return (
+              <div
+                key={enemy.id}
+                onClick={() => isUnlocked && selectEnemy(enemy)}
+                onMouseEnter={() => setHoveredWorld(enemy)}
+                onMouseLeave={() => setHoveredWorld(null)}
+                style={{
+                  position: 'relative',
+                  background: isHovered
+                    ? `linear-gradient(135deg, ${enemy.color}15, rgba(25,28,40,0.95))`
+                    : 'rgba(25,28,40,0.85)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  cursor: isUnlocked ? 'pointer' : 'default',
+                  transition: 'all 0.2s ease',
+                  border: isHovered
+                    ? `2px solid ${enemy.color}60`
+                    : '2px solid transparent',
+                  transform: isHovered ? 'translateX(4px)' : 'none',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* World color accent strip */}
                 <div style={{
                   position: 'absolute',
-                  top: 0,
                   left: 0,
-                  right: 0,
+                  top: 0,
                   bottom: 0,
-                  background: 'rgba(0,0,0,0.5)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '10px',
-                  zIndex: 10,
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '24px' }}>🔒</span>
-                    <div style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>
-                      Complete {enemyDefs[idx - 1]?.name}
-                    </div>
-                  </div>
-                </div>
-              )}
+                  width: '4px',
+                  background: isUnlocked
+                    ? `linear-gradient(180deg, ${enemy.color}, ${enemy.color}80)`
+                    : 'rgba(100,100,100,0.3)',
+                }} />
 
-              {/* Content */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                {/* Enemy Avatar */}
-                <span style={{ fontSize: '36px' }}>{enemy.emoji}</span>
-
-                {/* Enemy Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                    <span style={{ fontWeight: '700', fontSize: '16px', color: '#fff' }}>{enemy.name}</span>
-                    {isPerfected && <span style={{ fontSize: '12px' }}>⭐</span>}
-                    {isAllLevelsComplete && !isPerfected && <span style={{ fontSize: '11px', color: '#4a4' }}>✓</span>}
-                  </div>
-                  <div style={{ fontSize: '12px', color: enemy.color, fontWeight: '600', marginBottom: '4px' }}>
-                    {enemy.title}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.3' }}>
-                    {enemy.gimmickDesc}
-                  </div>
-                </div>
-
-                {/* Progress */}
-                {isUnlocked && (
-                  <div style={{ textAlign: 'right', minWidth: '60px' }}>
-                    <div style={{ fontSize: '18px', fontWeight: '800', color: enemy.color }}>
-                      {highestLevel}<span style={{ fontSize: '11px', color: '#444' }}>/{MAX_LEVELS}</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#ffd700' }}>
-                      {totalLevelStars}/{maxPossibleStars} ★
-                    </div>
+                {/* Lock strip for locked worlds - keep theme visible */}
+                {!isUnlocked && (
+                  <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '100px',
+                    background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.8))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    zIndex: 5,
+                  }}>
+                    <span style={{ fontSize: '14px' }}>🔒</span>
+                    <span style={{ fontSize: '10px', color: '#888', fontWeight: '600' }}>
+                      {prevStars}/{starsNeeded}★
+                    </span>
                   </div>
                 )}
+
+                {/* Content */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  paddingLeft: '8px',
+                  opacity: isUnlocked ? 1 : 0.7,
+                }}>
+                  {/* Enemy Avatar */}
+                  <div style={{
+                    fontSize: '32px',
+                    filter: isUnlocked ? `drop-shadow(0 0 8px ${enemy.color}60)` : 'grayscale(0.3)',
+                    transition: 'filter 0.2s',
+                  }}>{enemy.emoji}</div>
+
+                  {/* Enemy Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                      <span style={{
+                        fontWeight: '700',
+                        fontSize: '15px',
+                        color: isUnlocked ? '#fff' : '#999',
+                      }}>{enemy.name}</span>
+                      {isPerfected && <span style={{ fontSize: '12px' }}>👑</span>}
+                      {isAllLevelsComplete && !isPerfected && <span style={{ fontSize: '11px', color: '#4a4' }}>✓</span>}
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: isUnlocked ? enemy.color : '#666',
+                      fontWeight: '600',
+                    }}>
+                      {enemy.title}
+                    </div>
+                  </div>
+
+                  {/* Progress - always visible */}
+                  <div style={{
+                    textAlign: 'right',
+                    minWidth: '50px',
+                    opacity: isUnlocked ? 1 : 0.5,
+                  }}>
+                    {isUnlocked ? (
+                      <>
+                        <div style={{ fontSize: '16px', fontWeight: '800', color: enemy.color }}>
+                          {highestLevel}<span style={{ fontSize: '10px', color: '#444' }}>/{MAX_LEVELS}</span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#ffd700' }}>
+                          {totalLevelStars}★
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '10px', color: '#555' }}>
+                        Locked
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right: Selected World Panel (45%) */}
+        <div style={{
+          flex: '0 0 45%',
+          background: 'rgba(20,22,35,0.95)',
+          borderRadius: '16px',
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          border: `2px solid ${previewWorld.color}30`,
+          boxShadow: `0 0 40px ${previewWorld.color}10, inset 0 0 60px rgba(0,0,0,0.3)`,
+          transition: 'border-color 0.3s, box-shadow 0.3s',
+        }}>
+          {/* Big Emblem */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginBottom: '20px',
+          }}>
+            <div style={{
+              fontSize: '72px',
+              filter: previewUnlocked
+                ? `drop-shadow(0 0 20px ${previewWorld.color})`
+                : 'grayscale(0.5)',
+              marginBottom: '8px',
+              animation: previewUnlocked ? 'worldEmblemFloat 3s ease-in-out infinite' : 'none',
+            }}>
+              {previewWorld.emoji}
+            </div>
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: '900',
+              color: previewUnlocked ? previewWorld.color : '#666',
+              marginBottom: '4px',
+              textAlign: 'center',
+            }}>{previewWorld.name}</h3>
+            <span style={{
+              fontSize: '13px',
+              color: previewUnlocked ? '#aaa' : '#555',
+              fontStyle: 'italic',
+            }}>{previewWorld.title}</span>
+          </div>
+
+          {/* Signature Mechanic */}
+          <div style={{
+            background: `linear-gradient(135deg, ${previewWorld.color}15, rgba(0,0,0,0.3))`,
+            borderRadius: '10px',
+            padding: '14px',
+            marginBottom: '16px',
+            border: `1px solid ${previewWorld.color}30`,
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '6px' }}>
+              Signature Mechanic
+            </div>
+            <div style={{ fontSize: '14px', color: '#fff', lineHeight: '1.4' }}>
+              {previewWorld.gimmickDesc}
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '10px',
+            marginBottom: '16px',
+          }}>
+            {/* Difficulty */}
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Difficulty
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '2px',
+                      background: i < Math.ceil(previewDifficulty / 2)
+                        ? previewDifficulty <= 4 ? '#4a4' : previewDifficulty <= 7 ? '#da4' : '#d44'
+                        : 'rgba(255,255,255,0.1)',
+                    }}
+                  />
+                ))}
               </div>
             </div>
-          );
-        })}
+
+            {/* Progress */}
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Progress
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: previewWorld.color }}>
+                {previewUnlocked ? `${previewHighestLevel}/${MAX_LEVELS}` : '—'}
+              </div>
+            </div>
+
+            {/* Stars */}
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Stars
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: '#ffd700' }}>
+                {previewUnlocked ? `${previewTotalStars}/${previewMaxStars} ⭐` : '—'}
+              </div>
+            </div>
+
+            {/* Best Score */}
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Best Score
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: '#fff' }}>
+                {previewUnlocked && previewBestScore > 0 ? previewBestScore.toLocaleString() : '—'}
+              </div>
+            </div>
+          </div>
+
+          {/* Rewards/Unlocks hint */}
+          {previewUnlocked && previewTotalStars < previewMaxStars && (
+            <div style={{
+              background: 'rgba(255,215,0,0.1)',
+              borderRadius: '8px',
+              padding: '10px',
+              marginBottom: '16px',
+              border: '1px solid rgba(255,215,0,0.2)',
+              fontSize: '11px',
+              color: '#ffd700',
+              textAlign: 'center',
+            }}>
+              🌟 Earn {previewMaxStars - previewTotalStars} more stars to master this world!
+            </div>
+          )}
+
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* CTA Button */}
+          {previewUnlocked ? (
+            <button
+              onClick={() => selectEnemy(previewWorld)}
+              style={{
+                padding: '16px 32px',
+                fontSize: '18px',
+                fontWeight: '800',
+                background: `linear-gradient(135deg, ${previewWorld.color}, ${previewWorld.color}cc)`,
+                border: 'none',
+                borderRadius: '12px',
+                color: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: `0 4px 20px ${previewWorld.color}40`,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'scale(1.02)';
+                e.currentTarget.style.boxShadow = `0 6px 30px ${previewWorld.color}60`;
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = `0 4px 20px ${previewWorld.color}40`;
+              }}
+            >
+              ▶ Start
+            </button>
+          ) : (
+            <div style={{
+              padding: '16px 32px',
+              fontSize: '14px',
+              fontWeight: '600',
+              background: 'rgba(100,100,100,0.3)',
+              borderRadius: '12px',
+              color: '#666',
+              textAlign: 'center',
+            }}>
+              🔒 Complete {enemyDefs[previewIdx - 1]?.name} to unlock
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Back Button */}
       <button
         onClick={() => setGameState('menu')}
         style={{
-          marginTop: '24px',
-          padding: '10px 20px',
-          background: 'transparent',
+          marginTop: '16px',
+          padding: '10px 24px',
+          background: 'rgba(255,255,255,0.05)',
           border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: '6px',
+          borderRadius: '8px',
           color: '#666',
           cursor: 'pointer',
           fontSize: '13px',
           fontWeight: '600',
-          transition: 'all 0.15s',
+          transition: 'all 0.2s',
         }}
         onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.color = '#aaa'; }}
         onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#666'; }}
       >
-        ← Back
+        ← Back to Menu
       </button>
+
+      <style>{`
+        @keyframes worldEmblemFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+      `}</style>
     </div>
-  );
+    );
+  };
 
   // Generate mini preview grid for a level
   const renderLevelPreview = (level, color, isLocked, enemyId) => {
