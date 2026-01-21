@@ -775,7 +775,7 @@ const TreasureDig = () => {
         });
 
         // Add some special combinable items scattered around
-        const specialCount = Math.floor(size * 0.8); // A few special items per level
+        const specialItemCount = Math.floor(size * 0.8); // A few special items per level
         const emptyTiles = [];
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
@@ -784,7 +784,7 @@ const TreasureDig = () => {
         }
         // Shuffle and place special items
         const shuffledEmpty = emptyTiles.sort(() => Math.random() - 0.5);
-        for (let i = 0; i < Math.min(specialCount, shuffledEmpty.length); i++) {
+        for (let i = 0; i < Math.min(specialItemCount, shuffledEmpty.length); i++) {
             const pos = shuffledEmpty[i];
             const itemKey = specialItemKeys[Math.floor(Math.random() * specialItemKeys.length)];
             const item = specialItems[itemKey];
@@ -793,7 +793,7 @@ const TreasureDig = () => {
 
         // Add extra junk to make decisions harder
         const extraJunkCount = Math.floor(size * 0.5);
-        for (let i = specialCount; i < specialCount + extraJunkCount && i < shuffledEmpty.length; i++) {
+        for (let i = specialItemCount; i < specialItemCount + extraJunkCount && i < shuffledEmpty.length; i++) {
             const pos = shuffledEmpty[i];
             const junkKey = junkKeys[Math.floor(Math.random() * junkKeys.length)];
             contents[`${pos.x}_${pos.y}`] = { type: 'junk', itemKey: junkKey, isDirt: true, ...junkTypes[junkKey] };
