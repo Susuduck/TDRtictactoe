@@ -3055,8 +3055,7 @@ const BreakoutGame = () => {
       // Apply gimmicks
       applyGimmick(deltaTime);
 
-      // Update particles
-      const now = Date.now();
+      // Update particles (uses 'now' from top of game loop for age check)
       setParticles(prev => prev
         .map(p => ({
           ...p,
