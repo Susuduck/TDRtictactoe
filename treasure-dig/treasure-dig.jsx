@@ -345,6 +345,7 @@ const TreasureDig = () => {
     const [tools, setTools] = useState({});
     const [activeTool, setActiveTool] = useState(null);
     const [sonarTiles, setSonarTiles] = useState([]);
+    const [sonarFading, setSonarFading] = useState(false); // For radar fade effect
 
     // Visual effects
     const [lastDigResult, setLastDigResult] = useState(null);
@@ -586,8 +587,54 @@ const TreasureDig = () => {
     const startMatch = useCallback((opponent, level) => {
         setSelectedOpponent(opponent);
         setCurrentLevel(level);
-        initializeGrid(opponent, level);
+        const { size, treasures } = initializeGrid(opponent, level);
         setBonusAchieved(false); // Reset bonus tracking for new match
+
+        // For early levels (1-3), give players a free starting hint
+        // This makes early gameplay more strategic instead of random clicking
+        if (level <= 3 && opponent.id <= 2) {
+            setTimeout(() => {
+                // Reveal a tile that's moderately close to treasure (gives direction)
+                const hintTiles = [];
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const dist = Math.min(...treasures.map(t =>
+                            Math.sqrt((t.x - x) ** 2 + (t.y - y) ** 2)
+                        ));
+                        // Pick tiles that are 2-4 distance away (not too close, not too far)
+                        if (dist >= 2 && dist <= 4) {
+                            hintTiles.push({ x, y, dist });
+                        }
+                    }
+                }
+
+                // Pick 1-2 good hint tiles and auto-reveal them
+                const numHints = level === 1 ? 2 : 1;
+                const sortedHints = hintTiles.sort((a, b) => a.dist - b.dist);
+                const selectedHints = sortedHints.slice(0, numHints);
+
+                selectedHints.forEach(hint => {
+                    // Auto-dig this tile to give player a starting point
+                    setGrid(g => {
+                        if (!g[hint.y]) return g;
+                        const newGrid = [...g];
+                        newGrid[hint.y] = [...newGrid[hint.y]];
+                        const dist = hint.dist;
+                        const distInfo = getDistanceInfo(dist, size);
+                        newGrid[hint.y][hint.x] = {
+                            ...newGrid[hint.y][hint.x],
+                            dug: true,
+                            dugDepth: 1,
+                            distance: Math.round(dist * 10) / 10,
+                            distanceInfo: distInfo
+                        };
+                        return newGrid;
+                    });
+                    setDugTiles(d => [...d, { x: hint.x, y: hint.y }]);
+                    addHitEffect(hint.x, hint.y, '🎁 Free hint!', 'info');
+                });
+            }, 500); // Slight delay for dramatic effect
+        }
 
         // Show tutorial for first opponent, first level
         if (opponent.tutorial && level === 1 && !progression.levelsBeat[0][0]) {
@@ -596,7 +643,7 @@ const TreasureDig = () => {
         }
 
         setGameState('playing');
-    }, [initializeGrid, progression.levelsBeat]);
+    }, [initializeGrid, progression.levelsBeat, getDistanceInfo, addHitEffect]);
 
     // Move treasure (for moving mechanic)
     const moveTreasure = useCallback(() => {
@@ -667,18 +714,19 @@ const TreasureDig = () => {
         }
     }, [tools, activeTool]);
 
-    // Handle radar tool (row/column scan)
+    // Handle radar tool (row/column scan) - now with fade effect
     const handleRadar = useCallback((x, y) => {
         if (tools.radar <= 0) return;
 
         setTools(t => ({ ...t, radar: t.radar - 1 }));
         setActiveTool(null);
+        setSonarFading(false);
 
         // Check row and column for treasures
         const inRow = treasurePositions.some(t => t.y === y);
         const inCol = treasurePositions.some(t => t.x === x);
 
-        // Visual feedback
+        // Visual feedback - highlight tiles temporarily
         const rowTiles = [];
         const colTiles = [];
         for (let i = 0; i < gridSize; i++) {
@@ -693,7 +741,12 @@ const TreasureDig = () => {
                     '📡 No treasure in row or column';
         addHitEffect(x, y, msg, inRow || inCol ? 'treasure' : 'info');
 
-        setTimeout(() => setSonarTiles([]), 2000);
+        // Start fading after 1.5s, then clear after fade completes
+        setTimeout(() => setSonarFading(true), 1500);
+        setTimeout(() => {
+            setSonarTiles([]);
+            setSonarFading(false);
+        }, 3000);
     }, [tools, treasurePositions, gridSize, addHitEffect]);
 
     // Handle X-Ray tool (reveal without digging)
@@ -1823,13 +1876,54 @@ const TreasureDig = () => {
                     })}
                 </div>
 
-                {/* Level info: show bonus objective for next unbeaten level */}
+                {/* Level info: show bonus objective for next unbeaten level or completion message */}
                 {(() => {
                     // Find first unbeaten level
                     const nextLevel = Array(10).fill(0).findIndex((_, i) =>
                         isLevelUnlocked(selectedOpponent.id, i + 1) && !progression.levelsBeat[selectedOpponent.id]?.[i]
                     );
-                    if (nextLevel === -1) return null;
+                    const worldStars = getStars(selectedOpponent.id);
+                    const isMastered = worldStars >= 10;
+
+                    // All levels beaten
+                    if (nextLevel === -1) {
+                        return (
+                            <div style={{
+                                marginTop: '20px',
+                                padding: '15px 25px',
+                                background: isMastered
+                                    ? `linear-gradient(135deg, ${theme.gold}33, ${theme.bgPanel})`
+                                    : theme.bgPanel,
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                maxWidth: '400px',
+                                border: isMastered ? `2px solid ${theme.gold}` : 'none'
+                            }}>
+                                {isMastered ? (
+                                    <>
+                                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>👑</div>
+                                        <div style={{ color: theme.gold, fontSize: '18px', fontWeight: 'bold' }}>
+                                            WORLD MASTERED!
+                                        </div>
+                                        <div style={{ color: theme.textSecondary, fontSize: '12px', marginTop: '5px' }}>
+                                            All 10 stars collected - You've unlocked the next world!
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🏆</div>
+                                        <div style={{ color: theme.success, fontSize: '16px', fontWeight: 'bold' }}>
+                                            All Levels Complete!
+                                        </div>
+                                        <div style={{ color: theme.textSecondary, fontSize: '12px', marginTop: '5px' }}>
+                                            You have {worldStars}/10★ - Replay levels to earn bonus stars and unlock the next world!
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    }
+
                     const config = getLevelConfig(selectedOpponent, nextLevel + 1);
                     return (
                         <div style={{
@@ -2135,16 +2229,17 @@ const TreasureDig = () => {
                                 let content = null;
                                 let specialIndicator = null;
 
-                                // Add special tile indicator
+                                // Add special tile indicator - make it very visible
                                 if (isSpecialTile) {
                                     bgColor = wTheme.tileSpecial;
                                     borderColor = wTheme.specialBorder;
+                                    // Large centered emoji for special tiles
                                     specialIndicator = (
                                         <span style={{
-                                            position: 'absolute',
-                                            top: 2, right: 2,
-                                            fontSize: tileSize * 0.3,
-                                            opacity: 0.9
+                                            fontSize: tileSize * 0.5,
+                                            opacity: 1,
+                                            textShadow: `0 0 8px ${wTheme.specialBorder}, 0 0 4px white`,
+                                            animation: 'pulse 2s infinite'
                                         }}>
                                             {wTheme.specialEmoji}
                                         </span>
@@ -2229,12 +2324,14 @@ const TreasureDig = () => {
                                             transition: 'all 0.15s',
                                             opacity: fogOpacity,
                                             boxShadow: sonarTile
-                                                ? `0 0 12px ${sonarTile.info?.color || theme.accent}`
+                                                ? `0 0 ${sonarFading ? '4px' : '12px'} ${sonarTile.info?.color || theme.accent}`
                                                 : isHinted
                                                     ? `0 0 15px ${theme.gold}`
                                                     : isDug
                                                         ? `inset 0 2px 4px rgba(0,0,0,0.3)`
                                                         : '0 2px 4px rgba(0,0,0,0.2)',
+                                            // Smooth transition for radar fade
+                                            ...(sonarTile && sonarFading ? { opacity: 0.3, transition: 'all 1.5s ease-out' } : {}),
                                             position: 'relative'
                                         }}
                                         onMouseEnter={(e) => {
@@ -2337,8 +2434,8 @@ const TreasureDig = () => {
                         100% { transform: translate(-50%, -150%) scale(1); opacity: 0; }
                     }
                     @keyframes pulse {
-                        0%, 100% { transform: scale(1); }
-                        50% { transform: scale(1.05); }
+                        0%, 100% { transform: scale(1); opacity: 0.9; }
+                        50% { transform: scale(1.15); opacity: 1; }
                     }
                     @keyframes float-0 {
                         0%, 100% { transform: translate(0, 0) rotate(0deg); }
@@ -2522,14 +2619,27 @@ const TreasureDig = () => {
                             borderTop: `1px solid ${theme.border}`,
                             paddingTop: '10px',
                             display: 'flex',
-                            justifyContent: 'space-between'
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                         }}>
-                            <span style={{ color: theme.gold, fontWeight: 'bold' }}>
-                                +{starsEarned}★ This Level
-                            </span>
-                            <span style={{ color: theme.textMuted }}>
-                                World Total: {getStars(selectedOpponent?.id || 0)}/10★
-                            </span>
+                            <div>
+                                <div style={{ color: theme.gold, fontWeight: 'bold', fontSize: '18px' }}>
+                                    +{starsEarned}★ earned!
+                                </div>
+                                <div style={{ color: theme.textMuted, fontSize: '11px' }}>
+                                    (Level {currentLevel} of 10)
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ color: theme.textSecondary }}>
+                                    World Progress: {getStars(selectedOpponent?.id || 0)}/10★
+                                </div>
+                                {getStars(selectedOpponent?.id || 0) >= 10 && selectedOpponent?.id < 9 && (
+                                    <div style={{ color: theme.success, fontSize: '11px' }}>
+                                        ✓ Next world unlocked!
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
