@@ -12,17 +12,554 @@ const { useState, useEffect, useCallback, useRef, useMemo } = React;
  */
 
 const TreasureDig = () => {
+    // ============================================
+    // JRPG-STYLE THEME - Bioluminescent Swamp Explorer
+    // Materials: brass, dark leather, mossy enamel, glass
+    // ============================================
     const theme = {
-        bg: '#1a1815', bgPanel: '#2a2820', bgDark: '#151210',
-        border: '#4a4438', borderLight: '#5a5448',
-        text: '#ffffff', textSecondary: '#c8c0a8', textMuted: '#908870',
+        // Core backgrounds - deep, moody swamp
+        bg: '#0f0d0a', bgPanel: '#1a1714', bgDark: '#0a0908',
+        bgFrame: '#161412', bgFrameInner: '#1e1b18',
+
+        // Ornate frame colors - brass & moss
+        frameBrass: '#8b7355', frameBrassLight: '#a89070',
+        frameBrassDark: '#5a4a38', frameMoss: '#3a4a32',
+        frameGlow: 'rgba(139, 115, 85, 0.3)',
+
+        // Borders - leather & enamel
+        border: '#3a3228', borderLight: '#4a4238',
+        borderGold: '#8b7355', borderAccent: '#5a6a4a',
+
+        // Text hierarchy
+        text: '#f0e8d8', textSecondary: '#b8a888', textMuted: '#706858',
+        textBright: '#fff8e8',
+
+        // Mode-specific accent colors
+        modeScan: '#2dd4bf', modeScanGlow: 'rgba(45, 212, 191, 0.4)',
+        modeMark: '#f59e0b', modeMarkGlow: 'rgba(245, 158, 11, 0.4)',
+        modeDig: '#ef4444', modeDigGlow: 'rgba(239, 68, 68, 0.4)',
+        modeHint: '#a78bfa', modeHintGlow: 'rgba(167, 139, 250, 0.4)',
+
+        // Legacy accent (gold theme)
         accent: '#daa520', accentBright: '#f4c542',
         gold: '#f4c542', goldGlow: 'rgba(218, 165, 32, 0.4)',
-        error: '#e85a50', success: '#50c878',
+
+        // Feedback colors
+        error: '#ef4444', success: '#22c55e',
         hot: '#ff2222', warm: '#ff8844', lukewarm: '#ddaa44',
         cool: '#44aadd', cold: '#4466ff', frozen: '#8888ff',
-        treasure: '#ffd700', gem: '#44ffaa', decoy: '#ff4488'
+        treasure: '#ffd700', gem: '#44ffaa', decoy: '#ff4488',
+
+        // Signal strength colors
+        signalStrong: '#ef4444', signalMedium: '#f59e0b',
+        signalWeak: '#22c55e', signalNone: '#4a4a4a'
     };
+
+    // Mode configuration for JRPG command menu styling
+    const modeConfig = {
+        scan: {
+            name: 'SCAN', icon: '📡', color: theme.modeScan, glow: theme.modeScanGlow,
+            cursor: 'crosshair', description: 'Detect signal strength'
+        },
+        mark: {
+            name: 'MARK', icon: '🎯', color: theme.modeMark, glow: theme.modeMarkGlow,
+            cursor: 'cell', description: 'Mark tiles for digging'
+        },
+        dig: {
+            name: 'DIG', icon: '⛏️', color: theme.modeDig, glow: theme.modeDigGlow,
+            cursor: 'pointer', description: 'Excavate marked tiles'
+        },
+        hint: {
+            name: 'HINT', icon: '💡', color: theme.modeHint, glow: theme.modeHintGlow,
+            cursor: 'help', description: 'Reveal a clue'
+        }
+    };
+
+    // Get current mode color based on game phase
+    const getCurrentModeColor = (phase) => {
+        switch(phase) {
+            case 'prospect': return theme.modeScan;
+            case 'dig': return theme.modeDig;
+            default: return theme.accent;
+        }
+    };
+
+    // ============================================
+    // JRPG UI COMPONENTS
+    // ============================================
+
+    // Ornate Frame - wraps the board with JRPG-style decorative border
+    const OrnateFrame = ({ children, modeColor, title, subtitle }) => (
+        <div style={{
+            position: 'relative',
+            padding: '8px',
+            background: `linear-gradient(135deg, ${theme.frameBrassDark} 0%, ${theme.frameBrass} 50%, ${theme.frameBrassDark} 100%)`,
+            borderRadius: '12px',
+            boxShadow: `
+                0 0 0 2px ${theme.frameBrassLight},
+                0 0 0 4px ${theme.bgDark},
+                0 0 20px ${theme.frameGlow},
+                inset 0 1px 0 ${theme.frameBrassLight}
+            `
+        }}>
+            {/* Corner decorations */}
+            {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(corner => (
+                <div key={corner} style={{
+                    position: 'absolute',
+                    width: '20px', height: '20px',
+                    [corner.includes('top') ? 'top' : 'bottom']: '-2px',
+                    [corner.includes('left') ? 'left' : 'right']: '-2px',
+                    background: theme.frameBrassLight,
+                    borderRadius: corner.includes('top-left') || corner.includes('bottom-right') ? '8px 0' : '0 8px',
+                    boxShadow: `0 0 8px ${theme.frameGlow}`
+                }} />
+            ))}
+            {/* Title bar with mode info */}
+            {title && (
+                <div style={{
+                    position: 'absolute',
+                    top: '-14px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: theme.bgDark,
+                    padding: '4px 20px',
+                    borderRadius: '10px',
+                    border: `2px solid ${modeColor || theme.frameBrass}`,
+                    fontSize: '11px',
+                    color: modeColor || theme.text,
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    whiteSpace: 'nowrap',
+                    boxShadow: modeColor ? `0 0 10px ${modeColor}40` : 'none'
+                }}>
+                    {title}
+                    {subtitle && <span style={{ color: theme.textMuted, marginLeft: '8px', fontWeight: 'normal' }}>{subtitle}</span>}
+                </div>
+            )}
+            {/* Inner frame */}
+            <div style={{
+                background: theme.bgFrameInner,
+                borderRadius: '8px',
+                border: `2px solid ${theme.frameBrassDark}`,
+                boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.5)'
+            }}>
+                {children}
+            </div>
+        </div>
+    );
+
+    // Status Column - left side resource display
+    const StatusColumn = ({ digs, score, treasuresFound, treasureCount, combo, friends, objective, modeColor }) => (
+        <div style={{
+            width: '160px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+        }}>
+            {/* JRPG-style stat windows */}
+            <div style={{
+                background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                border: `2px solid ${theme.frameBrass}`,
+                borderRadius: '8px',
+                padding: '12px',
+                boxShadow: `0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 ${theme.borderLight}`
+            }}>
+                {/* Digs */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '24px' }}>⛏️</span>
+                    <div>
+                        <div style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            color: digs <= 3 ? theme.error : theme.text,
+                            lineHeight: 1,
+                            textShadow: digs <= 3 ? `0 0 10px ${theme.error}` : 'none'
+                        }}>{digs}</div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>Digs</div>
+                    </div>
+                </div>
+                {/* Coins */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '24px' }}>💰</span>
+                    <div>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: theme.gold, lineHeight: 1 }}>{score}</div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>Coins</div>
+                    </div>
+                </div>
+                {/* Gems/Treasures */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '24px' }}>💎</span>
+                    <div>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: theme.success, lineHeight: 1 }}>
+                            {treasuresFound}<span style={{ fontSize: '14px', color: theme.textMuted }}>/{treasureCount}</span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>Treasure</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Combo display */}
+            {combo >= 2 && (
+                <div style={{
+                    background: `linear-gradient(135deg, ${theme.hot} 0%, ${theme.warm} 100%)`,
+                    border: '2px solid #ffaa44',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    textAlign: 'center',
+                    animation: 'pulse 0.5s infinite'
+                }}>
+                    <div style={{ fontSize: '10px', color: '#fff', textTransform: 'uppercase' }}>Combo</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>🔥 {combo}x</div>
+                </div>
+            )}
+
+            {/* Friends found */}
+            {friends > 0 && (
+                <div style={{
+                    background: `linear-gradient(135deg, ${theme.success}40 0%, ${theme.bgPanel} 100%)`,
+                    border: `2px solid ${theme.success}`,
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ fontSize: '10px', color: theme.success, textTransform: 'uppercase' }}>Friends</div>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: theme.success }}>🐾 {friends}</div>
+                </div>
+            )}
+
+            {/* Objective window */}
+            {objective && (
+                <div style={{
+                    background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                    border: `2px solid ${theme.gold}40`,
+                    borderRadius: '8px',
+                    padding: '10px',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)'
+                }}>
+                    <div style={{ fontSize: '10px', color: theme.gold, textTransform: 'uppercase', marginBottom: '4px' }}>
+                        ⭐ Bonus
+                    </div>
+                    <div style={{ fontSize: '11px', color: theme.textSecondary, lineHeight: 1.3 }}>
+                        {objective}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    // Command Menu - JRPG-style mode buttons
+    const CommandMenu = ({ activeMode, onModeClick, scansLeft, markedCount, digsLeft, phase }) => {
+        const modes = [
+            { key: 'scan', ...modeConfig.scan, count: scansLeft, show: phase === 'prospect' },
+            { key: 'mark', ...modeConfig.mark, count: markedCount, show: phase === 'prospect' },
+            { key: 'dig', ...modeConfig.dig, count: digsLeft, show: phase === 'dig' },
+            { key: 'hint', ...modeConfig.hint, count: null, show: true }
+        ].filter(m => m.show);
+
+        return (
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                border: `2px solid ${theme.frameBrass}`,
+                borderRadius: '8px',
+                padding: '10px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+            }}>
+                <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase', marginBottom: '4px', textAlign: 'center' }}>
+                    Commands
+                </div>
+                {modes.map(mode => (
+                    <button
+                        key={mode.key}
+                        onClick={() => onModeClick(mode.key)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 14px',
+                            background: activeMode === mode.key
+                                ? `linear-gradient(90deg, ${mode.color}30 0%, ${mode.color}10 100%)`
+                                : 'transparent',
+                            border: `2px solid ${activeMode === mode.key ? mode.color : theme.border}`,
+                            borderRadius: '6px',
+                            color: activeMode === mode.key ? mode.color : theme.text,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            boxShadow: activeMode === mode.key ? `0 0 12px ${mode.glow}` : 'none'
+                        }}
+                    >
+                        <span style={{ fontSize: '18px' }}>{mode.icon}</span>
+                        <span style={{ fontWeight: 'bold', fontSize: '13px', flex: 1, textAlign: 'left' }}>{mode.name}</span>
+                        {mode.count !== null && (
+                            <span style={{
+                                background: theme.bgDark,
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                color: mode.count <= 2 ? theme.error : theme.textSecondary
+                            }}>
+                                {mode.count}
+                            </span>
+                        )}
+                    </button>
+                ))}
+            </div>
+        );
+    };
+
+    // Bag Panel - inventory display
+    const BagPanel = ({ items, capacity, onItemClick }) => (
+        <div style={{
+            background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+            border: `2px solid ${theme.frameBrass}`,
+            borderRadius: '8px',
+            padding: '10px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+        }}>
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px'
+            }}>
+                <span style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>Bag</span>
+                <span style={{
+                    fontSize: '11px',
+                    color: items.length >= capacity ? theme.error : theme.textSecondary,
+                    fontWeight: 'bold'
+                }}>
+                    {items.length}/{capacity}
+                </span>
+            </div>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '4px',
+                minHeight: '80px'
+            }}>
+                {Array.from({ length: capacity }).map((_, i) => {
+                    const item = items[i];
+                    return (
+                        <div
+                            key={i}
+                            onClick={() => item && onItemClick?.(item)}
+                            style={{
+                                aspectRatio: '1',
+                                background: item ? (item.isDirt ? '#5a4030' : theme.bgFrameInner) : theme.bgDark,
+                                border: `1px solid ${item ? theme.borderLight : theme.border}`,
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '18px',
+                                cursor: item ? 'pointer' : 'default',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            {item?.displayEmoji || item?.emoji || ''}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+
+    // Event Log - recent events display
+    const EventLog = ({ events }) => (
+        <div style={{
+            background: `linear-gradient(180deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+            border: `2px solid ${theme.frameBrass}`,
+            borderRadius: '8px',
+            padding: '10px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            maxHeight: '120px',
+            overflow: 'hidden'
+        }}>
+            <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase', marginBottom: '6px' }}>
+                Log
+            </div>
+            <div style={{ fontSize: '11px' }}>
+                {events.slice(-5).reverse().map((event, i) => (
+                    <div
+                        key={i}
+                        style={{
+                            color: i === 0 ? theme.text : theme.textMuted,
+                            opacity: 1 - (i * 0.15),
+                            marginBottom: '3px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}
+                    >
+                        {event}
+                    </div>
+                ))}
+                {events.length === 0 && (
+                    <div style={{ color: theme.textMuted, fontStyle: 'italic' }}>No events yet...</div>
+                )}
+            </div>
+        </div>
+    );
+
+    // Context Legend - collapsible bottom help
+    const ContextLegend = ({ phase, expanded, onToggle, scanTheme }) => {
+        const legends = {
+            prospect: [
+                { icon: scanTheme?.strong?.emoji || '📡', label: 'Strong signal (treasure OR junk!)', color: theme.signalStrong },
+                { icon: scanTheme?.medium?.emoji || '📶', label: 'Medium signal', color: theme.signalMedium },
+                { icon: scanTheme?.weak?.emoji || '〰️', label: 'Weak signal', color: theme.signalWeak },
+                { icon: '⛏️', label: 'Marked for digging', color: theme.modeMark }
+            ],
+            dig: [
+                { icon: '🟤', label: 'Dirt clump (mystery!)', color: '#8B4513' },
+                { icon: '✨', label: 'Visible item', color: theme.gold },
+                { icon: '∅', label: 'Nothing here', color: theme.textMuted }
+            ]
+        };
+
+        const currentLegend = legends[phase] || legends.prospect;
+
+        return (
+            <div style={{
+                background: theme.bgPanel,
+                border: `1px solid ${theme.border}`,
+                borderRadius: '8px',
+                overflow: 'hidden',
+                transition: 'all 0.2s'
+            }}>
+                <button
+                    onClick={onToggle}
+                    style={{
+                        width: '100%',
+                        padding: '8px 16px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: theme.textMuted,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '11px'
+                    }}
+                >
+                    {expanded ? '▼' : '▶'} {expanded ? 'Hide' : 'Show'} Legend
+                </button>
+                {expanded && (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '20px',
+                        padding: '8px 16px',
+                        flexWrap: 'wrap',
+                        borderTop: `1px solid ${theme.border}`
+                    }}>
+                        {currentLegend.map((item, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                                <span style={{ fontSize: '11px', color: theme.textSecondary }}>{item.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // Frog Mascot - reacts to game events
+    const FrogMascot = ({ mood, lastEvent }) => {
+        const moods = {
+            idle: { emoji: '🐸', animation: 'none' },
+            happy: { emoji: '😊', animation: 'bounce 0.5s' },
+            excited: { emoji: '🤩', animation: 'bounce 0.3s infinite' },
+            treasure: { emoji: '🤑', animation: 'bounce 0.4s 3' },
+            junk: { emoji: '😒', animation: 'shake 0.3s' },
+            thinking: { emoji: '🤔', animation: 'none' },
+            blink: { emoji: '😌', animation: 'none' }
+        };
+
+        const current = moods[mood] || moods.idle;
+
+        return (
+            <div style={{
+                position: 'relative',
+                width: '50px',
+                height: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <span style={{
+                    fontSize: '36px',
+                    animation: current.animation,
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                }}>
+                    🐸
+                </span>
+                {/* Speech bubble for events */}
+                {lastEvent && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '-20px',
+                        left: '40px',
+                        background: theme.bgPanel,
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: '8px',
+                        padding: '4px 8px',
+                        fontSize: '10px',
+                        color: theme.text,
+                        whiteSpace: 'nowrap',
+                        animation: 'fadeIn 0.2s'
+                    }}>
+                        {lastEvent}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // Phase Banner - compact phase indicator
+    const PhaseBanner = ({ phase, modeColor, message, stats }) => (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '6px 16px',
+            background: `linear-gradient(90deg, ${modeColor}20 0%, transparent 50%, ${modeColor}20 100%)`,
+            border: `1px solid ${modeColor}40`,
+            borderRadius: '20px',
+            marginBottom: '8px'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: modeColor,
+                    textTransform: 'uppercase'
+                }}>
+                    {phase}
+                </span>
+                {message && (
+                    <span style={{ fontSize: '11px', color: theme.textSecondary }}>
+                        {message}
+                    </span>
+                )}
+            </div>
+            {stats && (
+                <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
+                    {stats.map((stat, i) => (
+                        <span key={i} style={{ color: theme.textSecondary }}>
+                            {stat.icon} <strong style={{ color: stat.color || theme.text }}>{stat.value}</strong>
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
     // World themes - visual and gameplay elements for each world
     const worldThemes = {
@@ -571,6 +1108,27 @@ const TreasureDig = () => {
     const [revealedTiles, setRevealedTiles] = useState([]);
     const [showHint, setShowHint] = useState(false);
     const [hintTile, setHintTile] = useState(null);
+
+    // New JRPG UI state
+    const [eventLog, setEventLog] = useState([]); // Recent game events for log panel
+    const [legendExpanded, setLegendExpanded] = useState(false); // Legend collapse state
+    const [mascotMood, setMascotMood] = useState('idle'); // Frog mascot mood
+    const [activeMode, setActiveMode] = useState('scan'); // Current command mode
+    const [scanRipples, setScanRipples] = useState([]); // Radial scan animations
+    const [markStamps, setMarkStamps] = useState([]); // Stamp animations for marks
+    const [digEffects, setDigEffects] = useState([]); // Dig/excavate effects
+    const [revealCards, setRevealCards] = useState([]); // Item reveal popup cards
+
+    // Add event to log
+    const addEventLog = useCallback((message) => {
+        setEventLog(prev => [...prev.slice(-20), message]);
+    }, []);
+
+    // Set mascot mood with auto-reset
+    const setMascotMoodTemp = useCallback((mood, duration = 2000) => {
+        setMascotMood(mood);
+        setTimeout(() => setMascotMood('idle'), duration);
+    }, []);
 
     // Level config
     const [levelConfig, setLevelConfig] = useState(null);
@@ -2714,10 +3272,12 @@ const TreasureDig = () => {
         );
     }
 
-    // PLAYING SCREEN
+    // PLAYING SCREEN - JRPG THREE-COLUMN LAYOUT
     if (gameState === 'playing' && grid.length > 0) {
         const opp = selectedOpponent;
-        const tileSize = Math.min(45, Math.max(32, Math.floor(550 / gridSize)));
+        // Board takes up 50-65% of screen height - calculate tile size accordingly
+        const boardHeightTarget = Math.min(window.innerHeight * 0.6, 550);
+        const tileSize = Math.min(48, Math.max(36, Math.floor((boardHeightTarget - 40) / gridSize)));
         const hasFog = opp?.special.includes('fog');
         const treasureCount = levelConfig?.treasures || opp?.treasures || 1;
 
@@ -2726,18 +3286,22 @@ const TreasureDig = () => {
         const bgColors = wTheme?.bgGradient || [theme.bg, theme.bgPanel, theme.bg];
         const levelVariation = isLateLevel ? wTheme?.variation?.late : wTheme?.variation?.early;
 
+        // Current mode color for UI accents
+        const currentModeColor = getCurrentModeColor(gamePhase);
+        const worldScanTheme = worldScanThemes[opp?.id || 0] || worldScanThemes[0];
+
         return (
             <div style={{
                 minHeight: '100vh',
-                background: `linear-gradient(135deg, ${bgColors[0]} 0%, ${bgColors[1]} 50%, ${bgColors[2]} 100%)`,
+                background: `linear-gradient(180deg, ${theme.bgDark} 0%, ${theme.bg} 50%, ${theme.bgDark} 100%)`,
                 display: 'flex', flexDirection: 'column',
-                padding: '15px', color: theme.text, userSelect: 'none',
+                padding: '12px 20px', color: theme.text, userSelect: 'none',
                 transform: screenShake ? 'translateX(3px)' : 'none',
                 transition: 'transform 0.05s',
                 position: 'relative',
                 overflow: 'hidden'
             }}>
-                {/* Ambient floating particles */}
+                {/* Ambient floating particles - more subtle */}
                 {ambientParticles.map((p, idx) => (
                     <div
                         key={p.id}
@@ -2745,10 +3309,10 @@ const TreasureDig = () => {
                             position: 'absolute',
                             left: `${p.x}%`,
                             top: `${p.y}%`,
-                            fontSize: '20px',
-                            opacity: 0.15 + (idx % 3) * 0.1,
+                            fontSize: '16px',
+                            opacity: 0.08 + (idx % 3) * 0.05,
                             pointerEvents: 'none',
-                            animation: `float-${idx % 3} ${8 + p.speed * 4}s infinite ease-in-out`,
+                            animation: `float-${idx % 3} ${10 + p.speed * 4}s infinite ease-in-out`,
                             zIndex: 0
                         }}
                     >
@@ -2756,329 +3320,435 @@ const TreasureDig = () => {
                     </div>
                 ))}
 
-                {/* World/Level indicator */}
+                {/* === SLIM HEADER === */}
                 <div style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: `${wTheme.bgGradient[1]}cc`,
-                    padding: '4px 15px',
-                    borderRadius: '15px',
-                    fontSize: '11px',
-                    color: theme.textMuted,
-                    zIndex: 1,
-                    border: `1px solid ${wTheme.tileAccent}44`
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    marginBottom: '12px', padding: '8px 16px',
+                    background: theme.bgPanel, borderRadius: '8px',
+                    border: `1px solid ${theme.border}`
                 }}>
-                    {wTheme.name} • {levelVariation}
+                    {/* Left: World/Level info with frog mascot */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <FrogMascot mood={mascotMood} />
+                        <div>
+                            <div style={{ color: opp?.color || theme.accent, fontWeight: 'bold', fontSize: '14px' }}>
+                                {opp?.emoji} {opp?.name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: theme.textMuted }}>
+                                {wTheme.name} • {levelVariation} • Lv.{currentLevel}
+                            </div>
+                        </div>
+                    </div>
+                    {/* Right: ESC button */}
+                    <button
+                        onClick={() => setGameState('level_select')}
+                        style={{
+                            background: 'transparent', border: `1px solid ${theme.border}`,
+                            color: theme.textMuted, padding: '6px 14px', borderRadius: '6px',
+                            cursor: 'pointer', fontSize: '11px', fontWeight: 'bold'
+                        }}
+                    >ESC</button>
                 </div>
 
                 {/* Tutorial overlay */}
                 {showTutorial && <TutorialOverlay />}
 
-                {/* Header */}
+                {/* === MAIN THREE-COLUMN LAYOUT === */}
                 <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: '10px', padding: '12px 20px',
-                    background: theme.bgPanel, borderRadius: '12px',
-                    flexWrap: 'wrap', gap: '10px'
+                    display: 'flex',
+                    gap: '20px',
+                    flex: 1,
+                    alignItems: 'flex-start',
+                    justifyContent: 'center'
                 }}>
-                    <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>⛏️</span>
-                            <span style={{
-                                color: digsRemaining <= 3 ? theme.error : theme.accent,
-                                fontWeight: 'bold',
-                                fontSize: '20px'
-                            }}>{digsRemaining}</span>
-                            <span style={{ color: theme.textMuted, fontSize: '12px' }}>digs</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>💰</span>
-                            <span style={{ color: theme.gold, fontWeight: 'bold', fontSize: '20px' }}>{score}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>💎</span>
-                            <span style={{ color: theme.success, fontWeight: 'bold' }}>
-                                {treasuresFound}/{treasureCount}
-                            </span>
-                        </div>
-                        {combo >= 2 && (
-                            <div style={{
-                                background: `linear-gradient(135deg, ${theme.hot}, ${theme.warm})`,
-                                padding: '4px 12px',
-                                borderRadius: '12px',
-                                fontWeight: 'bold',
-                                animation: 'pulse 0.5s infinite'
-                            }}>
-                                🔥 {combo}x COMBO
-                            </div>
-                        )}
-                        {friendsFound > 0 && (
-                            <div style={{
-                                background: `linear-gradient(135deg, #50c878, #3a9858)`,
-                                padding: '4px 12px',
-                                borderRadius: '12px',
-                                fontWeight: 'bold',
-                                color: 'white'
-                            }}>
-                                🐾 {friendsFound} friend{friendsFound > 1 ? 's' : ''}
-                            </div>
-                        )}
-                    </div>
-                    <div style={{ color: opp?.color || theme.accent, fontWeight: 'bold' }}>
-                        {opp?.emoji} {opp?.name} - Level {currentLevel}
-                    </div>
-                    <button
-                        onClick={() => setGameState('level_select')}
-                        style={{
-                            background: 'transparent', border: `1px solid ${theme.border}`,
-                            color: theme.textMuted, padding: '6px 12px', borderRadius: '6px',
-                            cursor: 'pointer', fontSize: '12px'
-                        }}
-                    >ESC</button>
-                </div>
-
-                {/* OLD Tools bar - HIDDEN during phase gameplay */}
-                {false && (
-                <div style={{
-                    display: 'flex', gap: '10px', marginBottom: '10px',
-                    padding: '10px 15px', background: theme.bgPanel, borderRadius: '10px',
-                    flexWrap: 'wrap', justifyContent: 'center'
-                }}>
-                    {tools.radar > 0 && (
-                        <ToolButton
-                            name="Radar" icon="📡" count={tools.radar} hotkey="R"
-                            active={activeTool === 'radar'} onClick={() => useTool('radar')}
-                        />
-                    )}
-                    {tools.xray > 0 && (
-                        <ToolButton
-                            name="X-Ray" icon="🔍" count={tools.xray} hotkey="X"
-                            active={activeTool === 'xray'} onClick={() => useTool('xray')}
-                        />
-                    )}
-                    {tools.sonar > 0 && (
-                        <ToolButton
-                            name="Sonar" icon="📍" count={tools.sonar} hotkey="S"
-                            active={activeTool === 'sonar'} onClick={() => useTool('sonar')}
-                        />
-                    )}
-                    <ToolButton
-                        name="Flag" icon="🚩" count={flaggedTiles.length + '/' + (tools.flag || 5)} hotkey="F"
-                        active={activeTool === 'flag'} onClick={() => useTool('flag')}
+                    {/* === LEFT COLUMN: Status === */}
+                    <StatusColumn
+                        digs={gamePhase === 'prospect' ? scansRemaining : digsRemaining}
+                        score={score}
+                        treasuresFound={treasuresFound}
+                        treasureCount={treasureCount}
+                        combo={combo}
+                        friends={friendsFound}
+                        objective={levelConfig?.bonusObjective?.desc}
+                        modeColor={currentModeColor}
                     />
-                    <button
-                        onClick={getHint}
-                        style={{
-                            padding: '8px 12px',
-                            background: theme.bgDark,
-                            border: `1px solid ${theme.border}`,
-                            borderRadius: '8px',
-                            color: theme.textMuted,
-                            cursor: 'pointer',
-                            fontSize: '14px'
-                        }}
-                    >
-                        💡 Hint [H]
-                    </button>
-                </div>
-                )}
 
-                {/* Bonus objective display */}
-                {levelConfig?.bonusObjective && (
-                    <div style={{
-                        marginBottom: '8px',
-                        padding: '6px 15px',
-                        background: theme.bgPanel,
-                        borderRadius: '8px',
-                        textAlign: 'center',
-                        fontSize: '12px',
-                        border: `1px solid ${theme.gold}33`
-                    }}>
-                        <span style={{ color: theme.gold }}>⭐ Bonus: </span>
-                        <span style={{ color: theme.textSecondary }}>{levelConfig.bonusObjective.desc}</span>
-                    </div>
-                )}
+                    {/* === CENTER COLUMN: Board with ornate frame === */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        {/* Phase Banner - compact indicator */}
+                        <PhaseBanner
+                            phase={gamePhase === 'prospect' ? 'PROSPECT' : gamePhase === 'dig' ? 'DIG' : gamePhase.toUpperCase()}
+                            modeColor={currentModeColor}
+                            message={gamePhase === 'prospect' ? 'Scan to detect • Right-click to mark' : gamePhase === 'dig' ? 'Click marked tiles to excavate' : ''}
+                            stats={gamePhase === 'prospect' ? [
+                                { icon: worldScanTheme.toolEmoji, value: scansRemaining, color: scansRemaining > 3 ? theme.success : theme.error },
+                                { icon: '⛏️', value: markedTiles.length, color: theme.modeMark }
+                            ] : gamePhase === 'dig' ? [
+                                { icon: '⛏️', value: digsRemaining, color: digsRemaining > 2 ? theme.success : theme.error },
+                                { icon: '📦', value: excavatedItems.length, color: theme.gold }
+                            ] : null}
+                        />
 
-                {/* Last dig feedback - emoji only, no boring numbers! */}
-                {lastDigResult && (
-                    <div style={{
-                        textAlign: 'center', marginBottom: '8px',
-                        padding: '12px 30px', borderRadius: '12px',
-                        background: `${lastDigResult.color}25`,
-                        border: `2px solid ${lastDigResult.color}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px',
-                        animation: lastDigResult.tier <= 2 ? 'pulse 0.5s' : 'none'
-                    }}>
-                        <span style={{ fontSize: '36px' }}>{lastDigResult.emoji}</span>
-                        <span style={{
-                            color: lastDigResult.color,
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            textShadow: lastDigResult.tier <= 2 ? `0 0 10px ${lastDigResult.color}` : 'none'
-                        }}>
-                            {lastDigResult.label}
-                        </span>
-                        {lastDigResult.tier <= 2 && (
-                            <span style={{ fontSize: '24px' }}>🎯</span>
-                        )}
-                    </div>
-                )}
-
-                {/* Active tool indicator */}
-                {activeTool && (
-                    <div style={{
-                        textAlign: 'center', marginBottom: '8px',
-                        padding: '8px 20px', borderRadius: '8px',
-                        background: theme.accent,
-                        color: '#1a1815',
-                        fontWeight: 'bold'
-                    }}>
-                        Click a tile to use {activeTool.toUpperCase()} (or press key again to cancel)
-                    </div>
-                )}
-
-                {/* === PHASE SYSTEM UI === */}
-                {/* Phase Header */}
-                <div style={{
-                    textAlign: 'center',
-                    marginBottom: '12px',
-                    padding: '12px 20px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #2a2820 0%, #3a3830 100%)',
-                    border: `2px solid ${theme.accent}`,
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.4)'
-                }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: theme.accent, marginBottom: '4px' }}>
-                        {phaseMessage || 'Ready to hunt!'}
-                    </div>
-                    {gamePhase === 'prospect' && (() => {
-                        const worldId = selectedOpponent?.id || 0;
-                        const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
-                        return (
-                            <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
-                                {scanTheme.toolEmoji} Using <strong style={{ color: theme.accent }}>{scanTheme.tool}</strong> • Right-click to MARK
-                            </div>
-                        );
-                    })()}
-                    {gamePhase === 'dig' && (
-                        <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '4px' }}>
-                            ⛏️ Click tiles to DIG them up!
-                        </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '8px' }}>
-                        {gamePhase === 'prospect' && (() => {
-                            const worldId = selectedOpponent?.id || 0;
-                            const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
-                            return (
-                            <>
-                                <span style={{ color: theme.textSecondary }}>
-                                    {scanTheme.toolEmoji} Scans: <strong style={{ color: scansRemaining > 3 ? theme.success : theme.error }}>{scansRemaining}</strong>
-                                </span>
-                                <span style={{ color: theme.textSecondary }}>
-                                    ⛏️ Marked: <strong style={{ color: theme.gold }}>{markedTiles.length}</strong>
-                                </span>
-                            </>
-                            );
-                        })()}
-                        {gamePhase === 'dig' && (
-                            <>
-                                <span style={{ color: theme.textSecondary }}>
-                                    ⛏️ Digs Left: <strong style={{ color: digsRemaining > 2 ? theme.success : theme.error }}>{digsRemaining}</strong>
-                                </span>
-                                <span style={{ color: theme.textSecondary }}>
-                                    📦 Found: <strong style={{ color: theme.gold }}>{excavatedItems.length}</strong>
-                                </span>
-                            </>
-                        )}
-                        {gamePhase === 'sort' && (
-                            <span style={{ color: theme.textSecondary }}>
-                                🧺 Basket: <strong style={{ color: selectedForBasket.length >= BASKET_CAPACITY ? theme.error : theme.success }}>
-                                    {selectedForBasket.length}/{BASKET_CAPACITY}
-                                </strong>
-                            </span>
-                        )}
-                    </div>
-                    {/* Phase transition buttons */}
-                    <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-                        {gamePhase === 'prospect' && (
-                            <>
-                                <button
-                                    onClick={startDigPhase}
-                                    disabled={markedTiles.length === 0}
-                                    style={{
-                                        padding: '8px 20px',
-                                        fontSize: '14px',
-                                        fontWeight: 'bold',
-                                        background: markedTiles.length > 0 ? theme.success : '#555',
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        cursor: markedTiles.length > 0 ? 'pointer' : 'not-allowed',
-                                        boxShadow: markedTiles.length > 0 ? '0 2px 8px rgba(80,200,120,0.4)' : 'none'
-                                    }}
-                                >
-                                    ⛏️ Ready to Dig!
-                                </button>
-                                <button
-                                    onClick={skipToDigPhase}
-                                    style={{
-                                        padding: '8px 16px',
-                                        fontSize: '12px',
-                                        background: '#444',
-                                        color: theme.textSecondary,
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Skip Scanning
-                                </button>
-                            </>
-                        )}
-                        {gamePhase === 'dig' && excavatedItems.length > 0 && (
-                            <button
-                                onClick={() => {
-                                    setGamePhase('sort');
-                                    setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
-                                }}
-                                style={{
-                                    padding: '8px 20px',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold',
-                                    background: theme.accent,
-                                    color: '#1a1815',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(218,165,32,0.4)'
-                                }}
-                            >
-                                🧺 Done Digging
-                            </button>
-                        )}
-                        {gamePhase === 'sort' && (
-                            <button
-                                onClick={startRevealPhase}
-                                disabled={selectedForBasket.length === 0}
-                                style={{
-                                    padding: '10px 24px',
+                        {/* Last scan/dig feedback - floating above board */}
+                        {lastDigResult && (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+                                padding: '8px 24px', borderRadius: '20px',
+                                background: `${lastDigResult.color}18`,
+                                border: `2px solid ${lastDigResult.color}`,
+                                animation: lastDigResult.tier <= 2 ? 'pulse 0.5s' : 'fadeIn 0.3s'
+                            }}>
+                                <span style={{ fontSize: '28px' }}>{lastDigResult.emoji}</span>
+                                <span style={{
+                                    color: lastDigResult.color,
                                     fontSize: '16px',
                                     fontWeight: 'bold',
-                                    background: selectedForBasket.length > 0 ? theme.gold : '#555',
-                                    color: '#1a1815',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: selectedForBasket.length > 0 ? 'pointer' : 'not-allowed',
-                                    boxShadow: selectedForBasket.length > 0 ? '0 2px 12px rgba(244,197,66,0.5)' : 'none'
-                                }}
-                            >
-                                ✨ Reveal What's Inside!
-                            </button>
+                                    textShadow: lastDigResult.tier <= 2 ? `0 0 8px ${lastDigResult.color}` : 'none'
+                                }}>
+                                    {lastDigResult.label}
+                                </span>
+                            </div>
                         )}
+
+                        {/* The Board with ornate JRPG frame */}
+                        {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                            <OrnateFrame
+                                modeColor={currentModeColor}
+                                title={worldScanTheme.tool}
+                                subtitle={`${gridSize}×${gridSize}`}
+                            >
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: `repeat(${gridSize}, ${tileSize}px)`,
+                                    gap: '2px',
+                                    padding: '10px',
+                                    background: 'transparent',
+                                    position: 'relative'
+                                }}>
+                                    {grid.map((row, y) =>
+                                        row.map((tile, x) => {
+                                            const isDug = tile.dug;
+                                            const isFrozen = frozenTiles.some(f => f.x === x && f.y === y) && !isDug;
+                                            const isFlagged = tile.flagged;
+                                            const isRevealed = tile.revealed || revealedTiles.some(r => r.x === x && r.y === y);
+                                            const sonarTile = sonarTiles.find(s => s.x === x && s.y === y);
+                                            const isHinted = showHint && hintTile?.x === x && hintTile?.y === y;
+
+                                            // PHASE SYSTEM: Check scan status and marks
+                                            const tileKey = `${x}_${y}`;
+                                            const scanResult = signalStrengths[tileKey];
+                                            const isMarked = markedTiles.some(m => m.x === x && m.y === y);
+                                            const isScanned = scanResult !== undefined;
+
+                                            // Fog visibility
+                                            const fogOpacity = hasFog && !isDug && !isRevealed ? 0.15 : 1;
+
+                                            // Deep dig indicator
+                                            const isDeepPartial = tile.dugDepth > 0 && tile.dugDepth < tile.requiredDepth;
+
+                                            // Special tile indicator
+                                            const isSpecialTile = tile.specialType && !isDug;
+                                            const isIlluminated = illuminatedTiles.some(t => t.x === x && t.y === y);
+
+                                            // Get world-themed colors
+                                            const tileWorldTheme = currentTheme || worldThemes[0];
+                                            const baseTileColor = tileWorldTheme.tileBase;
+                                            const dugTileColor = tileWorldTheme.tileDug;
+
+                                            // Tile colors - use world theme
+                                            let bgColor = baseTileColor;
+                                            let borderColor = tileWorldTheme.tileAccent;
+                                            let content = null;
+                                            let specialIndicator = null;
+
+                                            // Add special tile indicator
+                                            if (isSpecialTile) {
+                                                bgColor = tileWorldTheme.tileSpecial;
+                                                borderColor = tileWorldTheme.specialBorder;
+                                                specialIndicator = (
+                                                    <span style={{
+                                                        fontSize: tileSize * 0.45,
+                                                        textShadow: `0 0 6px ${tileWorldTheme.specialBorder}`,
+                                                        animation: 'pulse 2s infinite'
+                                                    }}>
+                                                        {tileWorldTheme.specialEmoji}
+                                                    </span>
+                                                );
+                                            }
+
+                                            if (isDug) {
+                                                bgColor = tile.distanceInfo?.color || dugTileColor;
+                                                borderColor = tile.distanceInfo?.color || tileWorldTheme.tileAccent;
+                                                content = (
+                                                    <span style={{
+                                                        fontSize: tileSize * 0.5,
+                                                        textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
+                                                    }}>
+                                                        {tile.distanceInfo?.emoji || '❓'}
+                                                    </span>
+                                                );
+                                                specialIndicator = null;
+                                            } else if (isDeepPartial) {
+                                                bgColor = dugTileColor;
+                                                content = <span style={{ fontSize: tileSize * 0.4 }}>🕳️</span>;
+                                            } else if (isFlagged) {
+                                                bgColor = tileWorldTheme.tileAccent;
+                                                borderColor = theme.success;
+                                                content = <span style={{ fontSize: tileSize * 0.45 }}>🚩</span>;
+                                            } else if (isFrozen) {
+                                                bgColor = '#aaddff';
+                                                borderColor = '#88bbdd';
+                                                content = <span style={{ fontSize: tileSize * 0.4 }}>❄️</span>;
+                                            }
+
+                                            // Illuminated tiles
+                                            if (isIlluminated && !isDug) {
+                                                borderColor = '#ffee88';
+                                            }
+
+                                            // Sonar overlay
+                                            if (sonarTile) {
+                                                const sonarInfo = sonarTile.info || getDistanceInfo(sonarTile.distance, gridSize);
+                                                borderColor = sonarInfo.color;
+                                            }
+
+                                            // Hint highlight
+                                            if (isHinted) {
+                                                borderColor = theme.gold;
+                                                bgColor = `${theme.gold}44`;
+                                            }
+
+                                            // Phase-specific visuals
+                                            let phaseOverlay = null;
+
+                                            // PROSPECT PHASE: Show scan results with mode-colored glow
+                                            if (gamePhase === 'prospect' && isScanned && !isDug) {
+                                                const strength = scanResult.strength;
+                                                const signalColor = strength >= 2.5 ? theme.signalStrong
+                                                    : strength >= 1.5 ? theme.signalMedium
+                                                    : strength >= 0.5 ? theme.signalWeak
+                                                    : theme.signalNone;
+                                                bgColor = `${signalColor}33`;
+                                                borderColor = signalColor;
+                                                content = (
+                                                    <span style={{
+                                                        fontSize: tileSize * 0.4,
+                                                        textShadow: `0 0 4px ${signalColor}`,
+                                                        animation: strength >= 2.5 ? 'pulse 1s infinite' : 'none'
+                                                    }}>
+                                                        {strength >= 2.5 ? '📡' : strength >= 1.5 ? '📶' : strength >= 0.5 ? '〰️' : '·'}
+                                                    </span>
+                                                );
+                                            }
+
+                                            // Marked tiles with mode-colored styling
+                                            if (isMarked && !isDug) {
+                                                borderColor = theme.modeMark;
+                                                phaseOverlay = (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        border: `2px solid ${theme.modeMark}`,
+                                                        borderRadius: '4px',
+                                                        boxShadow: `0 0 8px ${theme.modeMarkGlow}, inset 0 0 8px ${theme.modeMarkGlow}`,
+                                                        pointerEvents: 'none'
+                                                    }}>
+                                                        <span style={{
+                                                            position: 'absolute',
+                                                            top: -6, right: -6,
+                                                            fontSize: '12px',
+                                                            background: theme.bgDark,
+                                                            borderRadius: '50%',
+                                                            padding: '1px'
+                                                        }}>⛏️</span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // DIG PHASE: Show excavated items
+                                            if (gamePhase === 'dig' && isDug) {
+                                                const hiddenItem = hiddenContents[tileKey];
+                                                if (hiddenItem) {
+                                                    bgColor = hiddenItem.isDirt ? '#6a4a2a' : '#3a5a3a';
+                                                    content = (
+                                                        <span style={{ fontSize: tileSize * 0.45 }}>
+                                                            {hiddenItem.isDirt ? '🟤' : hiddenItem.emoji}
+                                                        </span>
+                                                    );
+                                                } else {
+                                                    bgColor = dugTileColor;
+                                                    content = <span style={{ fontSize: tileSize * 0.3, opacity: 0.5 }}>∅</span>;
+                                                }
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={`${x}-${y}`}
+                                                    onClick={() => handleDig(x, y)}
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
+                                                        if (gamePhase === 'prospect') {
+                                                            handleMark(x, y);
+                                                        } else {
+                                                            handleFlag(x, y);
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        width: tileSize,
+                                                        height: tileSize,
+                                                        background: bgColor,
+                                                        border: `2px solid ${borderColor}`,
+                                                        borderRadius: '4px',
+                                                        cursor: isDug && !isDeepPartial ? 'default' : (gamePhase === 'prospect' ? 'crosshair' : 'pointer'),
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        transition: 'all 0.12s',
+                                                        opacity: fogOpacity,
+                                                        boxShadow: sonarTile
+                                                            ? `0 0 ${sonarFading ? '4px' : '10px'} ${sonarTile.info?.color || theme.accent}`
+                                                            : isHinted
+                                                                ? `0 0 12px ${theme.gold}`
+                                                                : isDug
+                                                                    ? 'inset 0 2px 4px rgba(0,0,0,0.3)'
+                                                                    : '0 2px 4px rgba(0,0,0,0.2)',
+                                                        position: 'relative'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isDug || isDeepPartial) {
+                                                            e.currentTarget.style.transform = 'scale(1.06)';
+                                                            e.currentTarget.style.zIndex = '10';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.transform = 'scale(1)';
+                                                        e.currentTarget.style.zIndex = '1';
+                                                    }}
+                                                >
+                                                    {content}
+                                                    {specialIndicator}
+                                                    {phaseOverlay}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                    {/* Hit effects overlay */}
+                                    {hitEffects.map(e => (
+                                        <div
+                                            key={e.id}
+                                            style={{
+                                                position: 'absolute',
+                                                left: e.x * (tileSize + 2) + tileSize / 2 + 10,
+                                                top: e.y * (tileSize + 2) + tileSize / 2 + 10,
+                                                transform: 'translate(-50%, -50%)',
+                                                fontSize: e.type === 'treasure' ? '18px' : '14px',
+                                                fontWeight: 'bold',
+                                                color: e.type === 'treasure' ? theme.gold
+                                                    : e.type === 'decoy' ? theme.error
+                                                    : e.type === 'friend' ? theme.success
+                                                    : theme.text,
+                                                pointerEvents: 'none',
+                                                animation: 'floatUp 1.2s ease-out forwards',
+                                                zIndex: 100,
+                                                textShadow: '0 0 6px black',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {e.text}
+                                        </div>
+                                    ))}
+                                </div>
+                            </OrnateFrame>
+                        )}
+
+                        {/* Phase Action Buttons - below the frame */}
+                        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                            {gamePhase === 'prospect' && (
+                                <>
+                                    <button
+                                        onClick={startDigPhase}
+                                        disabled={markedTiles.length === 0}
+                                        style={{
+                                            padding: '10px 24px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            background: markedTiles.length > 0
+                                                ? `linear-gradient(135deg, ${theme.modeDig} 0%, ${theme.modeDig}cc 100%)`
+                                                : '#444',
+                                            color: '#fff',
+                                            border: markedTiles.length > 0 ? `2px solid ${theme.modeDig}` : '2px solid #555',
+                                            borderRadius: '8px',
+                                            cursor: markedTiles.length > 0 ? 'pointer' : 'not-allowed',
+                                            boxShadow: markedTiles.length > 0 ? `0 4px 12px ${theme.modeDigGlow}` : 'none',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        ⛏️ Ready to Dig ({markedTiles.length})
+                                    </button>
+                                    <button
+                                        onClick={skipToDigPhase}
+                                        style={{
+                                            padding: '8px 16px',
+                                            fontSize: '12px',
+                                            background: 'transparent',
+                                            color: theme.textMuted,
+                                            border: `1px solid ${theme.border}`,
+                                            borderRadius: '6px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Skip Scanning
+                                    </button>
+                                </>
+                            )}
+                            {gamePhase === 'dig' && excavatedItems.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        setGamePhase('sort');
+                                        setPhaseMessage('🧺 SORT PHASE - Choose what to keep!');
+                                        addEventLog('Moving to sort phase...');
+                                    }}
+                                    style={{
+                                        padding: '10px 24px',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        background: `linear-gradient(135deg, ${theme.gold} 0%, ${theme.accent} 100%)`,
+                                        color: theme.bgDark,
+                                        border: `2px solid ${theme.gold}`,
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        boxShadow: `0 4px 12px ${theme.goldGlow}`
+                                    }}
+                                >
+                                    🧺 Done Digging ({excavatedItems.length} items)
+                                </button>
+                            )}
+                        </div>
+                    </div> {/* End center column */}
+
+                    {/* === RIGHT COLUMN: Commands, Bag, Log === */}
+                    <div style={{ width: '170px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {/* Command Menu */}
+                        <CommandMenu
+                            activeMode={activeMode}
+                            onModeClick={(mode) => setActiveMode(mode)}
+                            scansLeft={scansRemaining}
+                            markedCount={markedTiles.length}
+                            digsLeft={digsRemaining}
+                            phase={gamePhase}
+                        />
+
+                        {/* Bag Panel */}
+                        <BagPanel
+                            items={excavatedItems}
+                            capacity={BASKET_CAPACITY}
+                            onItemClick={(item) => addEventLog(`Inspecting ${item.displayName || item.name}...`)}
+                        />
+
+                        {/* Event Log */}
+                        <EventLog events={eventLog} />
                     </div>
-                </div>
+                </div> {/* End three-column layout */}
 
                 {/* SORT PHASE - Visual two-panel basket experience */}
                 {gamePhase === 'sort' && excavatedItems.length > 0 && (
@@ -3418,8 +4088,8 @@ const TreasureDig = () => {
                     )}
                 </div>
 
-                {/* Game grid - hidden during sort/reveal phases */}
-                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                {/* OLD GAME GRID - REMOVED (now in OrnateFrame above) */}
+                {false && (gamePhase === 'prospect' || gamePhase === 'dig') && (
                 <div style={{
                     flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center',
                     position: 'relative'
@@ -3722,48 +4392,48 @@ const TreasureDig = () => {
                 </div>
                 )}
 
-                {/* Legend - updated for phase system with world themes */}
-                {(gamePhase === 'prospect' || gamePhase === 'dig') && (() => {
-                    const worldId = selectedOpponent?.id || 0;
-                    const scanTheme = worldScanThemes[worldId] || worldScanThemes[0];
-                    return (
-                <div style={{
-                    marginTop: '12px', textAlign: 'center',
-                    color: theme.textMuted, fontSize: '12px',
-                    display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap',
-                    padding: '10px',
-                    background: theme.bgPanel,
-                    borderRadius: '8px'
-                }}>
-                    {gamePhase === 'prospect' ? (
-                        <>
-                            <span>{scanTheme.strong.emoji} = {scanTheme.strong.label.replace('!', '')} (treasure OR junk!)</span>
-                            <span>{scanTheme.medium.emoji} = {scanTheme.medium.label.replace('...', '')}</span>
-                            <span>{scanTheme.weak.emoji} = {scanTheme.weak.label}</span>
-                            <span>⛏️ = Marked for digging</span>
-                        </>
-                    ) : (
-                        <>
-                            <span>🟤 = Dirt Clump (mystery!)</span>
-                            <span>Other = Visible item</span>
-                            <span>∅ = Nothing here</span>
-                        </>
-                    )}
-                </div>
-                    );
-                })()}
-
-                {/* Par info */}
-                {levelConfig && (
-                    <div style={{
-                        marginTop: '8px', textAlign: 'center',
-                        color: theme.textMuted, fontSize: '11px'
-                    }}>
-                        Par: Find all treasures with {levelConfig.parDigs}+ digs remaining for bonus points
+                {/* Collapsible Legend - JRPG style */}
+                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                    <div style={{ marginTop: '12px' }}>
+                        <ContextLegend
+                            phase={gamePhase}
+                            expanded={legendExpanded}
+                            onToggle={() => setLegendExpanded(!legendExpanded)}
+                            scanTheme={worldScanThemes[selectedOpponent?.id || 0]}
+                        />
                     </div>
                 )}
 
+                {/* CSS Animations - JRPG Enhanced */}
                 <style>{`
+                    /* Fade in for new elements */
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(-5px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    /* Scan ripple effect */
+                    @keyframes scanRipple {
+                        0% { transform: scale(0); opacity: 0.8; }
+                        100% { transform: scale(2); opacity: 0; }
+                    }
+                    /* Stamp effect for marking */
+                    @keyframes stampLand {
+                        0% { transform: scale(1.5) rotate(-10deg); opacity: 0; }
+                        50% { transform: scale(0.9) rotate(2deg); opacity: 1; }
+                        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+                    }
+                    /* Dig effect */
+                    @keyframes digImpact {
+                        0% { transform: scale(1); }
+                        25% { transform: scale(0.95) translateY(2px); }
+                        50% { transform: scale(1.02) translateY(-1px); }
+                        100% { transform: scale(1) translateY(0); }
+                    }
+                    /* Shimmer for rare items */
+                    @keyframes shimmer {
+                        0% { background-position: -100% 0; }
+                        100% { background-position: 200% 0; }
+                    }
                     @keyframes floatUp {
                         0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
                         15% { transform: translate(-50%, -60%) scale(1.2); opacity: 1; }
