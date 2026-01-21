@@ -138,20 +138,17 @@ const TreasureDig = () => {
         }
     };
 
-    // Enhanced distance feedback - emoji-based, no boring numbers!
+    // FUN distance feedback - "Treasure Sense" reactions!
     const getDistanceInfo = (distance, gridSize) => {
-        const maxDist = Math.sqrt(2) * gridSize;
-        const ratio = distance / maxDist;
-
-        if (distance === 0) return { color: theme.treasure, label: 'FOUND!', emoji: '⭐', tier: 0, showNumber: false };
-        if (distance <= 1.5) return { color: '#ff0000', label: 'BURNING!', emoji: '🔥', tier: 1, showNumber: false };
-        if (distance <= 2.5) return { color: '#ff4400', label: 'HOT!', emoji: '🔥', tier: 2, showNumber: false };
-        if (distance <= 3.5) return { color: '#ff8800', label: 'Warm', emoji: '☀️', tier: 3, showNumber: false };
-        if (distance <= 5) return { color: '#ddaa00', label: 'Mild', emoji: '🌤️', tier: 4, showNumber: false };
-        if (distance <= 7) return { color: '#88bb44', label: 'Cool', emoji: '🌿', tier: 5, showNumber: false };
-        if (distance <= 9) return { color: '#44aadd', label: 'Cold', emoji: '❄️', tier: 6, showNumber: false };
-        if (distance <= 12) return { color: '#4466ff', label: 'Freezing', emoji: '🧊', tier: 7, showNumber: false };
-        return { color: '#6644ff', label: 'ICY', emoji: '🥶', tier: 8, showNumber: false };
+        if (distance === 0) return { color: '#ffd700', label: 'JACKPOT!', emoji: '🎯', tier: 0 };
+        if (distance <= 1.5) return { color: '#ff2222', label: 'RIGHT HERE!', emoji: '⚡', tier: 1 };
+        if (distance <= 2.5) return { color: '#ff5500', label: 'SO CLOSE!', emoji: '💥', tier: 2 };
+        if (distance <= 3.5) return { color: '#ff8800', label: 'Almost!', emoji: '✨', tier: 3 };
+        if (distance <= 5) return { color: '#ddaa00', label: 'Getting there', emoji: '👀', tier: 4 };
+        if (distance <= 7) return { color: '#88aa44', label: 'Hmm...', emoji: '🤔', tier: 5 };
+        if (distance <= 9) return { color: '#5588bb', label: 'Nope', emoji: '😐', tier: 6 };
+        if (distance <= 12) return { color: '#4466aa', label: 'Nothing', emoji: '🚶', tier: 7 };
+        return { color: '#555577', label: 'Way off', emoji: '💤', tier: 8 };
     };
 
     // COLLECTIBLES SYSTEM - Fun items to find beyond just treasure!
@@ -799,105 +796,110 @@ const TreasureDig = () => {
     // Add item to basket with falling physics animation
     const addToBasket = useCallback((emoji, name, points) => {
         const id = Date.now() + Math.random();
-        const startX = 30 + Math.random() * 40; // Random X position above basket
 
-        // Create falling item
-        const fallingItem = {
+        // Create falling item - stays in fallingItems even after landing for visibility
+        const newItem = {
             id,
             emoji,
             name,
             points,
-            x: startX,
-            y: -50, // Start above screen
-            vy: 0, // Velocity Y
-            vx: (Math.random() - 0.5) * 2, // Slight horizontal drift
+            x: 20 + Math.random() * 60, // Random X within basket width
+            y: -80, // Start above basket
+            vy: 0,
+            vx: (Math.random() - 0.5) * 3,
             rotation: Math.random() * 360,
-            rotationSpeed: (Math.random() - 0.5) * 15,
+            vr: (Math.random() - 0.5) * 12, // Rotation velocity
             landed: false,
-            bounces: 0
+            bounces: 0,
+            groundY: 280 + Math.random() * 40 // Settle inside the basket area (basket starts at ~260)
         };
 
-        setFallingItems(items => [...items, fallingItem]);
+        setFallingItems(items => [...items, newItem]);
+    }, []);
 
-        // Physics simulation
-        let item = { ...fallingItem };
-        const gravity = 0.8;
-        const bounce = 0.5;
-        const basketTop = 280; // Y position where items land
-        const friction = 0.95;
+    // Physics update loop - runs continuously for all basket items
+    useEffect(() => {
+        if (fallingItems.length === 0 || basketFull) return;
 
-        const animate = () => {
-            if (item.landed) return;
+        const gravity = 0.6;
+        const bounce = 0.45;
+        const friction = 0.97;
 
-            item.vy += gravity;
-            item.y += item.vy;
-            item.x += item.vx;
-            item.rotation += item.rotationSpeed;
-            item.vx *= friction;
+        const interval = setInterval(() => {
+            setFallingItems(items => {
+                const updated = items.map(item => {
+                    if (item.landed) return item; // Don't update landed items
 
-            // Bounce when hitting basket
-            if (item.y >= basketTop) {
-                item.y = basketTop;
-                item.vy = -item.vy * bounce;
-                item.bounces++;
-                item.rotationSpeed *= 0.5;
+                    let { x, y, vx, vy, rotation, vr, groundY, bounces } = item;
 
-                // Stop after enough bounces
-                if (Math.abs(item.vy) < 2 || item.bounces >= 3) {
-                    item.landed = true;
-                    item.y = basketTop;
+                    // Apply gravity
+                    vy += gravity;
+                    y += vy;
+                    x += vx;
+                    rotation += vr;
+                    vx *= friction;
+                    vr *= friction;
 
-                    // Move to basket items
-                    setFallingItems(f => f.filter(fi => fi.id !== id));
-                    setBasketItems(b => {
-                        const newItems = [...b, { id, emoji, name, points, x: item.x }];
+                    // Bounce off sides of basket
+                    if (x < 10) { x = 10; vx = Math.abs(vx) * bounce; }
+                    if (x > 90) { x = 90; vx = -Math.abs(vx) * bounce; }
 
-                        // Check if basket is full
-                        if (newItems.length >= BASKET_CAPACITY && !basketFull) {
-                            setTimeout(() => {
-                                setBasketFull(true);
-                                // Start truck animation after lid closes
-                                setTimeout(() => {
-                                    setTruckDriving(true);
-                                    // Animate truck driving in
-                                    let truckX = -200;
-                                    const driveIn = setInterval(() => {
-                                        truckX += 8;
-                                        setTruckPosition(truckX);
-                                        if (truckX >= 50) {
-                                            clearInterval(driveIn);
-                                            // Pause, then drive out
-                                            setTimeout(() => {
-                                                const driveOut = setInterval(() => {
-                                                    truckX += 12;
-                                                    setTruckPosition(truckX);
-                                                    if (truckX >= 400) {
-                                                        clearInterval(driveOut);
-                                                        // Reset basket
-                                                        setBasketItems([]);
-                                                        setBasketFull(false);
-                                                        setTruckDriving(false);
-                                                        setTruckPosition(-200);
-                                                    }
-                                                }, 30);
-                                            }, 800);
-                                        }
-                                    }, 30);
-                                }, 600);
-                            }, 100);
+                    // Hit bottom
+                    if (y >= groundY) {
+                        y = groundY;
+                        if (Math.abs(vy) > 2) {
+                            vy = -vy * bounce;
+                            vr = (Math.random() - 0.5) * 8;
+                            bounces++;
+                        } else {
+                            // Settled - mark as landed
+                            return { ...item, x, y: groundY, vx: 0, vy: 0, rotation, vr: 0, landed: true, bounces };
                         }
-                        return newItems;
-                    });
-                    return;
+                    }
+
+                    return { ...item, x, y, vx, vy, rotation, vr, bounces };
+                });
+
+                // Check if basket is full (all landed)
+                const landedCount = updated.filter(i => i.landed).length;
+                if (landedCount >= BASKET_CAPACITY) {
+                    // Trigger basket full sequence
+                    setTimeout(() => {
+                        setBasketFull(true);
+                        setTimeout(() => {
+                            setTruckDriving(true);
+                            let tx = -200;
+                            const driveIn = setInterval(() => {
+                                tx += 8;
+                                setTruckPosition(tx);
+                                if (tx >= 50) {
+                                    clearInterval(driveIn);
+                                    setTimeout(() => {
+                                        const driveOut = setInterval(() => {
+                                            tx += 12;
+                                            setTruckPosition(tx);
+                                            if (tx >= 400) {
+                                                clearInterval(driveOut);
+                                                setFallingItems([]);
+                                                setBasketItems([]);
+                                                setBasketFull(false);
+                                                setTruckDriving(false);
+                                                setTruckPosition(-200);
+                                            }
+                                        }, 25);
+                                    }, 1000);
+                                }
+                            }, 25);
+                        }, 600);
+                    }, 200);
                 }
-            }
 
-            setFallingItems(f => f.map(fi => fi.id === id ? { ...item } : fi));
-            requestAnimationFrame(animate);
-        };
+                return updated;
+            });
+        }, 25);
 
-        requestAnimationFrame(animate);
-    }, [basketFull, BASKET_CAPACITY]);
+        return () => clearInterval(interval);
+    }, [fallingItems.length, basketFull, BASKET_CAPACITY]);
 
     // Use a tool
     const useTool = useCallback((toolName) => {
@@ -2439,7 +2441,7 @@ const TreasureDig = () => {
                     zIndex: 50,
                     pointerEvents: 'none'
                 }}>
-                    {/* Falling items */}
+                    {/* Falling and landed items - all visible with physics! */}
                     {fallingItems.map(item => (
                         <div
                             key={item.id}
@@ -2447,10 +2449,11 @@ const TreasureDig = () => {
                                 position: 'absolute',
                                 left: `${item.x}%`,
                                 top: item.y,
-                                fontSize: '28px',
+                                fontSize: item.landed ? '22px' : '28px',
                                 transform: `rotate(${item.rotation}deg)`,
-                                zIndex: 60,
-                                filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.5))'
+                                zIndex: item.landed ? 58 : 60, // Landed items behind falling ones
+                                filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.5))',
+                                transition: item.landed ? 'font-size 0.2s' : 'none'
                             }}
                         >
                             {item.emoji}
@@ -2480,40 +2483,18 @@ const TreasureDig = () => {
                             </div>
                         )}
 
-                        {/* Basket body */}
+                        {/* Basket body - z-index 56 so items (58-60) appear on top */}
                         <div style={{
                             fontSize: '80px',
                             position: 'relative',
-                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
+                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+                            zIndex: 56
                         }}>
                             🧺
-                            {/* Items in basket */}
-                            <div style={{
-                                position: 'absolute',
-                                top: '25%',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                justifyContent: 'center',
-                                width: '50px',
-                                gap: '1px',
-                                opacity: basketFull ? 0 : 1,
-                                transition: 'opacity 0.3s'
-                            }}>
-                                {basketItems.slice(-6).map((item, idx) => (
-                                    <span key={item.id} style={{
-                                        fontSize: '14px',
-                                        animation: 'settleInBasket 0.3s ease-out'
-                                    }}>
-                                        {item.emoji}
-                                    </span>
-                                ))}
-                            </div>
                         </div>
 
-                        {/* Item count */}
-                        {basketItems.length > 0 && !basketFull && (
+                        {/* Item count - shows landed items */}
+                        {fallingItems.filter(i => i.landed).length > 0 && !basketFull && (
                             <div style={{
                                 marginTop: '-10px',
                                 background: theme.gold,
@@ -2524,7 +2505,7 @@ const TreasureDig = () => {
                                 fontWeight: 'bold',
                                 boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
                             }}>
-                                {basketItems.length}/{BASKET_CAPACITY}
+                                {fallingItems.filter(i => i.landed).length}/{BASKET_CAPACITY}
                             </div>
                         )}
                     </div>
@@ -2536,6 +2517,7 @@ const TreasureDig = () => {
                             bottom: '10px',
                             left: truckPosition,
                             fontSize: '50px',
+                            transform: 'scaleX(-1)', // Flip truck to face left!
                             transition: 'none',
                             zIndex: 55,
                             filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.5))'
