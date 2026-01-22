@@ -810,6 +810,301 @@ const TreasureDig = () => {
         );
     };
 
+    // ============================================
+    // DISCOVERY EFFECT - THE JUICE!
+    // ============================================
+    const DiscoveryEffect = ({ effect, onComplete }) => {
+        if (!effect) return null;
+
+        const { type, x, y, item, bet, combo, multiplier } = effect;
+
+        // Different effects for different outcomes
+        const effectStyles = {
+            treasure: {
+                bg: 'radial-gradient(circle, rgba(255,215,0,0.9) 0%, rgba(255,165,0,0.8) 50%, transparent 70%)',
+                emoji: item?.emoji || '💎',
+                text: combo > 1 ? `${combo}x COMBO!` : 'TREASURE!',
+                textColor: '#ffd700',
+                particles: ['✨', '💫', '⭐', '🌟'],
+                sound: 'treasure',
+                shake: true
+            },
+            decoy: {
+                bg: 'radial-gradient(circle, rgba(139,69,19,0.8) 0%, rgba(80,40,10,0.7) 50%, transparent 70%)',
+                emoji: '😝',
+                text: bet > 0 ? `DECOY! -${bet}` : 'DECOY!',
+                textColor: '#cd853f',
+                particles: ['💨', '🍂', '💩'],
+                sound: 'womp',
+                shake: false
+            },
+            empty: {
+                bg: 'radial-gradient(circle, rgba(100,100,100,0.5) 0%, transparent 50%)',
+                emoji: '💨',
+                text: 'Nothing...',
+                textColor: '#888',
+                particles: ['💨'],
+                sound: 'thud',
+                shake: false
+            },
+            lucky: {
+                bg: 'radial-gradient(circle, rgba(0,255,100,0.9) 0%, rgba(0,200,80,0.7) 50%, transparent 70%)',
+                emoji: '🍀',
+                text: 'LUCKY FIND!',
+                textColor: '#00ff88',
+                particles: ['🍀', '✨', '💚', '🌟'],
+                sound: 'lucky',
+                shake: true
+            }
+        };
+
+        const style = effectStyles[type] || effectStyles.empty;
+
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0,0,0,0.3)',
+                zIndex: 2000,
+                animation: 'fadeIn 0.1s ease-out'
+            }}>
+                {/* Central burst effect */}
+                <div style={{
+                    position: 'relative',
+                    width: '300px',
+                    height: '300px',
+                    background: style.bg,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: style.shake ? 'discoveryBurst 0.5s ease-out' : 'discoveryFade 0.4s ease-out'
+                }}>
+                    {/* Main emoji */}
+                    <div style={{
+                        fontSize: '80px',
+                        animation: 'discoverySpin 0.5s ease-out',
+                        filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.5))'
+                    }}>
+                        {style.emoji}
+                    </div>
+
+                    {/* Text label */}
+                    <div style={{
+                        fontSize: '28px',
+                        fontWeight: 'bold',
+                        color: style.textColor,
+                        textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+                        marginTop: '10px',
+                        animation: 'discoveryText 0.4s ease-out'
+                    }}>
+                        {style.text}
+                    </div>
+
+                    {/* Multiplier badge */}
+                    {multiplier > 1 && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '20px',
+                            right: '20px',
+                            background: 'linear-gradient(135deg, #ff6b6b 0%, #ffd93d 100%)',
+                            color: '#000',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            fontSize: '18px',
+                            animation: 'discoveryPop 0.3s ease-out 0.2s both'
+                        }}>
+                            {multiplier}x
+                        </div>
+                    )}
+
+                    {/* Bet result */}
+                    {bet > 0 && type === 'treasure' && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '30px',
+                            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                            color: '#fff',
+                            padding: '6px 14px',
+                            borderRadius: '15px',
+                            fontWeight: 'bold',
+                            fontSize: '16px',
+                            animation: 'discoveryPop 0.3s ease-out 0.3s both'
+                        }}>
+                            +{bet * 2} WIN!
+                        </div>
+                    )}
+
+                    {/* Floating particles */}
+                    {style.particles.map((p, i) => (
+                        <div
+                            key={i}
+                            style={{
+                                position: 'absolute',
+                                fontSize: '24px',
+                                animation: `particleFloat${i % 4} 0.8s ease-out forwards`,
+                                opacity: 0
+                            }}
+                        >
+                            {p}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    // Bet UI - appears before risky digs
+    const BetUI = ({ position, onBet, onCancel, playerCoins }) => {
+        if (!position) return null;
+
+        const betOptions = [
+            { amount: 0, label: 'Just Dig', desc: 'No risk, base reward' },
+            { amount: 20, label: 'Pretty Sure', desc: '+50 if treasure, -20 if wrong', disabled: playerCoins < 20 },
+            { amount: 100, label: 'Confident!', desc: '+200 if treasure, -100 if wrong', disabled: playerCoins < 100 },
+            { amount: 500, label: 'CERTAIN!', desc: '+1000 if treasure, -500 if wrong', disabled: playerCoins < 500 }
+        ];
+
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(0,0,0,0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1500,
+                animation: 'fadeIn 0.15s ease-out'
+            }}>
+                <div style={{
+                    background: `linear-gradient(135deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
+                    border: `3px solid ${theme.gold}`,
+                    borderRadius: '16px',
+                    padding: '24px',
+                    minWidth: '320px',
+                    boxShadow: `0 0 40px ${theme.goldGlow}`
+                }}>
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: '20px'
+                    }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⛏️ DIG THIS TILE?</div>
+                        <div style={{ color: theme.textSecondary, fontSize: '14px' }}>
+                            How confident are you?
+                        </div>
+                        <div style={{ color: theme.gold, fontSize: '12px', marginTop: '4px' }}>
+                            💰 You have {playerCoins} coins
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {betOptions.map(opt => (
+                            <button
+                                key={opt.amount}
+                                onClick={() => onBet(opt.amount)}
+                                disabled={opt.disabled}
+                                style={{
+                                    padding: '12px 16px',
+                                    background: opt.disabled ? '#333' :
+                                        opt.amount === 0 ? theme.bgPanel :
+                                        opt.amount === 500 ? `linear-gradient(135deg, ${theme.gold} 0%, #ff6b00 100%)` :
+                                        `linear-gradient(135deg, ${theme.modeMark} 0%, ${theme.modeDig} 100%)`,
+                                    border: opt.amount === 0 ? `2px solid ${theme.border}` : 'none',
+                                    borderRadius: '8px',
+                                    color: opt.disabled ? '#666' : opt.amount === 0 ? theme.text : '#fff',
+                                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    transition: 'transform 0.1s',
+                                    fontWeight: opt.amount >= 100 ? 'bold' : 'normal'
+                                }}
+                                onMouseEnter={e => !opt.disabled && (e.target.style.transform = 'scale(1.02)')}
+                                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                            >
+                                <span>{opt.label}</span>
+                                <span style={{ fontSize: '12px', opacity: 0.8 }}>{opt.desc}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={onCancel}
+                        style={{
+                            width: '100%',
+                            marginTop: '16px',
+                            padding: '10px',
+                            background: 'transparent',
+                            border: `1px solid ${theme.textMuted}`,
+                            borderRadius: '6px',
+                            color: theme.textMuted,
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    // Scan Ripple Effect - sonar ping visual
+    const ScanRipple = ({ x, y, tileSize, onComplete }) => {
+        useEffect(() => {
+            const timer = setTimeout(onComplete, 800);
+            return () => clearTimeout(timer);
+        }, [onComplete]);
+
+        return (
+            <div style={{
+                position: 'absolute',
+                left: x * (tileSize + 2) + tileSize / 2,
+                top: y * (tileSize + 2) + tileSize / 2,
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                border: `3px solid ${theme.modeScan}`,
+                animation: 'sonarRipple 0.8s ease-out forwards',
+                pointerEvents: 'none',
+                zIndex: 100
+            }} />
+        );
+    };
+
+    // Combo Display - shows current streak
+    const ComboDisplay = ({ count, multiplier }) => {
+        if (count < 2) return null;
+
+        return (
+            <div style={{
+                position: 'fixed',
+                top: '15%',
+                right: '20px',
+                background: `linear-gradient(135deg, ${theme.gold} 0%, #ff6b00 100%)`,
+                padding: '12px 20px',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(255,165,0,0.5)',
+                animation: 'comboPulse 0.5s ease-out',
+                zIndex: 500
+            }}>
+                <div style={{ color: '#000', fontWeight: 'bold', fontSize: '24px', textAlign: 'center' }}>
+                    {count}x
+                </div>
+                <div style={{ color: '#000', fontSize: '12px', textAlign: 'center' }}>
+                    COMBO
+                </div>
+                <div style={{ color: '#000', fontSize: '14px', textAlign: 'center', marginTop: '4px' }}>
+                    {multiplier}x multiplier
+                </div>
+            </div>
+        );
+    };
+
     // World themes - visual and gameplay elements for each world
     const worldThemes = {
         0: { // Frog - Swamp
@@ -995,6 +1290,70 @@ const TreasureDig = () => {
             medium: { emoji: '💰', label: 'Shimmering...', color: '#ddaa00' },
             weak: { emoji: '✨', label: 'Faint sparkle', color: '#aa8800' },
             none: { emoji: '🪙', label: 'Nothing', color: '#665500' }
+        }
+    };
+
+    // ============================================
+    // TOOL VARIETY SYSTEM - Tools as "Lenses"
+    // Each tool reveals DIFFERENT information, not just MORE
+    // Progression unlocks new ways to see, not just bigger numbers
+    // ============================================
+    const toolDescriptions = {
+        radar: {
+            name: 'Radar Scan',
+            emoji: '📡',
+            description: 'Reveals signal strength in a cross pattern',
+            reveals: 'Distance from treasures and decoys',
+            strategic: 'Good for initial exploration',
+            unlock: 'Available from start'
+        },
+        xray: {
+            name: 'X-Ray Vision',
+            emoji: '🔍',
+            description: 'Looks through dirt at a single tile',
+            reveals: 'Shows if tile contains something hidden',
+            strategic: 'Perfect for confirming suspicions',
+            unlock: 'Unlocked in later levels'
+        },
+        sonar: {
+            name: 'Sonar Pulse',
+            emoji: '🔊',
+            description: 'Sends a pulse in all directions',
+            reveals: 'Area-wide signal mapping',
+            strategic: 'Great for finding clusters',
+            unlock: 'Unlocked in underwater world'
+        },
+        lantern: {
+            name: 'Magic Lantern',
+            emoji: '🏮',
+            description: 'Illuminates hidden paths',
+            reveals: 'Shows safe vs dangerous tiles',
+            strategic: 'Helps avoid decoy traps',
+            unlock: 'Unlocked in dark forest world'
+        },
+        tracker: {
+            name: 'Creature Tracker',
+            emoji: '🐾',
+            description: 'Follows creature trails',
+            reveals: 'Shows where friends have been',
+            strategic: 'Friends often near treasure',
+            unlock: 'Unlocked in urban world'
+        },
+        drill: {
+            name: 'Power Drill',
+            emoji: '🔧',
+            description: 'Penetrates multiple layers at once',
+            reveals: 'Digs through deep tiles instantly',
+            strategic: 'Essential for cave exploration',
+            unlock: 'Unlocked in cave world'
+        },
+        pickaxe: {
+            name: 'Ice Pickaxe',
+            emoji: '⛏️',
+            description: 'Breaks through frozen tiles',
+            reveals: 'Chips away ice and rubble',
+            strategic: 'Needed for arctic exploration',
+            unlock: 'Unlocked in arctic world'
         }
     };
 
@@ -1604,6 +1963,29 @@ const TreasureDig = () => {
     // Universal mechanic display
     const [mechanicAlert, setMechanicAlert] = useState(null); // {message, type, duration}
 
+    // ============================================
+    // DISCOVERY & JUICE SYSTEM
+    // ============================================
+    // Combo system - sequential treasure finds
+    const [comboCount, setComboCount] = useState(0);
+    const [lastDigPosition, setLastDigPosition] = useState(null); // {x, y} for adjacency check
+    const [comboMultiplier, setComboMultiplier] = useState(1);
+
+    // Bet system - risk/reward before each dig
+    const [currentBet, setCurrentBet] = useState(0); // 0, 20, 100, 500
+    const [showBetUI, setShowBetUI] = useState(false);
+    const [pendingDigPosition, setPendingDigPosition] = useState(null); // {x, y} waiting for bet
+
+    // Discovery effects - dramatic reveals
+    const [discoveryEffect, setDiscoveryEffect] = useState(null); // {type, x, y, item, bet}
+    const [screenFreeze, setScreenFreeze] = useState(false); // Hit pause frames
+
+    // Lucky find system
+    const [luckyFindChance] = useState(0.05); // 5% chance for bonus in empty tiles
+
+    // Decoy tells - learnable patterns
+    const [decoyPatterns, setDecoyPatterns] = useState([]); // Stores pattern info for skilled reading
+
     // Add event to log
     const addEventLog = useCallback((message) => {
         setEventLog(prev => [...prev.slice(-20), message]);
@@ -1724,6 +2106,136 @@ const TreasureDig = () => {
         return items;
     };
 
+    // ============================================
+    // LEARNABLE DECOY TELLS - Patterns skilled players can read
+    // ============================================
+
+    // Place treasures in BLOB patterns (clustered, organic shapes)
+    // Skilled players learn: treasures stick together!
+    const placeTreasuresAsBlob = (size, count, excludePositions = []) => {
+        const items = [];
+        if (count <= 0) return items;
+
+        // Pick a random center point (not edges/corners)
+        const centerX = 2 + Math.floor(Math.random() * (size - 4));
+        const centerY = 2 + Math.floor(Math.random() * (size - 4));
+        items.push({ x: centerX, y: centerY, signalType: 'pulse' });
+
+        // Add remaining treasures adjacent to existing ones (blob pattern)
+        let attempts = 0;
+        while (items.length < count && attempts < 500) {
+            // Pick a random existing treasure
+            const anchor = items[Math.floor(Math.random() * items.length)];
+
+            // Try adjacent positions (including diagonals for organic blobs)
+            const offsets = [
+                { dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+                { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 }
+            ];
+            const offset = offsets[Math.floor(Math.random() * offsets.length)];
+            const x = anchor.x + offset.dx;
+            const y = anchor.y + offset.dy;
+
+            // Check valid position
+            const inBounds = x >= 1 && x < size - 1 && y >= 1 && y < size - 1;
+            const notExcluded = !excludePositions.some(p => p.x === x && p.y === y);
+            const notUsed = !items.some(p => p.x === x && p.y === y);
+
+            if (inBounds && notExcluded && notUsed) {
+                items.push({ x, y, signalType: 'pulse' });
+            }
+            attempts++;
+        }
+
+        // Fallback to random if blob fails
+        while (items.length < count) {
+            const x = 1 + Math.floor(Math.random() * (size - 2));
+            const y = 1 + Math.floor(Math.random() * (size - 2));
+            if (!excludePositions.some(p => p.x === x && p.y === y) &&
+                !items.some(p => p.x === x && p.y === y)) {
+                items.push({ x, y, signalType: 'pulse' });
+            }
+        }
+
+        return items;
+    };
+
+    // Place decoys in LINE patterns (rows, columns, or diagonals)
+    // Skilled players learn: decoys form lines, never in corners!
+    const placeDecoysInLine = (size, count, excludePositions = []) => {
+        const items = [];
+        if (count <= 0) return items;
+
+        // Choose a line direction
+        const directions = [
+            { dx: 1, dy: 0 },  // horizontal
+            { dx: 0, dy: 1 },  // vertical
+            { dx: 1, dy: 1 },  // diagonal
+            { dx: 1, dy: -1 }  // anti-diagonal
+        ];
+
+        // Corner positions to avoid
+        const corners = [
+            { x: 0, y: 0 }, { x: size - 1, y: 0 },
+            { x: 0, y: size - 1 }, { x: size - 1, y: size - 1 }
+        ];
+        const isCorner = (x, y) => corners.some(c => c.x === x && c.y === y);
+
+        // Create multiple short lines
+        let linesCreated = 0;
+        let attempts = 0;
+        while (items.length < count && attempts < 300) {
+            // Pick random start (avoiding corners)
+            let startX, startY;
+            do {
+                startX = Math.floor(Math.random() * size);
+                startY = Math.floor(Math.random() * size);
+            } while (isCorner(startX, startY));
+
+            // Pick a direction
+            const dir = directions[Math.floor(Math.random() * directions.length)];
+
+            // Create a short line (2-3 decoys)
+            const lineLength = Math.min(2 + Math.floor(Math.random() * 2), count - items.length);
+            const lineItems = [];
+
+            for (let i = 0; i < lineLength; i++) {
+                const x = startX + dir.dx * i;
+                const y = startY + dir.dy * i;
+
+                const inBounds = x >= 0 && x < size && y >= 0 && y < size;
+                const notCorner = !isCorner(x, y);
+                const notExcluded = !excludePositions.some(p => p.x === x && p.y === y);
+                const notUsed = !items.some(p => p.x === x && p.y === y);
+                const notInLine = !lineItems.some(p => p.x === x && p.y === y);
+
+                if (inBounds && notCorner && notExcluded && notUsed && notInLine) {
+                    lineItems.push({ x, y, signalType: 'static' });
+                }
+            }
+
+            // Only add if we got at least 2 in a line (learnable pattern)
+            if (lineItems.length >= 2 || (items.length === 0 && lineItems.length >= 1)) {
+                items.push(...lineItems);
+                linesCreated++;
+            }
+            attempts++;
+        }
+
+        // Fallback: fill remaining randomly (but not corners)
+        while (items.length < count) {
+            const x = Math.floor(Math.random() * size);
+            const y = Math.floor(Math.random() * size);
+            if (!isCorner(x, y) &&
+                !excludePositions.some(p => p.x === x && p.y === y) &&
+                !items.some(p => p.x === x && p.y === y)) {
+                items.push({ x, y, signalType: 'static' });
+            }
+        }
+
+        return items;
+    };
+
     // Initialize game grid with smart placement
     const initializeGrid = useCallback((opp, level) => {
         const config = getLevelConfig(opp, level);
@@ -1732,15 +2244,18 @@ const TreasureDig = () => {
         const size = Math.min(14, config.gridSize);
         setGridSize(size);
 
-        // Place treasures with smart spacing
-        const treasures = placeItemsSmart(size, config.treasures, [], 3);
+        // Place treasures in BLOB pattern (learnable - treasures cluster!)
+        const treasures = placeTreasuresAsBlob(size, config.treasures, []);
         setTreasurePositions(treasures);
 
-        // Place decoys away from treasures
+        // Place decoys in LINE pattern (learnable - decoys form lines, never corners!)
         const decoys = opp.special.includes('decoys')
-            ? placeItemsSmart(size, config.decoys, treasures, 2)
+            ? placeDecoysInLine(size, config.decoys, treasures)
             : [];
         setDecoyPositions(decoys);
+
+        // Store decoy patterns for skill-based reading
+        setDecoyPatterns(decoys.length > 0 ? ['line', 'static', 'no-corners'] : []);
 
         // Place gems (old system - keeping for backwards compat but collectibles replace this)
         const gems = opp.special.includes('gems')
@@ -2526,28 +3041,34 @@ const TreasureDig = () => {
     // === PHASE SYSTEM HANDLERS ===
 
     // Helper: Calculate signal strength for a tile
+    // LEARNABLE TELL: Treasures have PULSING signals, Decoys have STATIC signals
     const calculateSignalStrength = useCallback((tx, ty) => {
         const key = `${tx}_${ty}`;
         const content = hiddenContents[key];
         let strength = 0;
         let signalType = 'empty';
+        let displayType = 'none'; // 'pulse' = treasure, 'static' = decoy
 
         if (content) {
             if (content.type === 'treasure') {
                 strength = 3; // Strong signal
                 signalType = 'strong';
+                displayType = 'pulse'; // LEARNABLE: Treasures pulse!
             } else if (content.type === 'junk' && content.isDirt) {
                 strength = 3; // Junk also gives strong signal (the trap!)
                 signalType = 'strong';
+                displayType = 'static'; // LEARNABLE: Decoys are static!
             } else if (content.type === 'special' && content.isDirt) {
                 strength = 2; // Medium signal for dirt-covered specials
                 signalType = 'medium';
+                displayType = 'pulse'; // Specials also pulse (they're good!)
             } else if (content.type === 'collectible' || (content.type === 'special' && !content.isDirt)) {
                 strength = 1; // Weak signal for visible items
                 signalType = 'weak';
+                displayType = 'pulse';
             }
         }
-        return { strength, signalType };
+        return { strength, signalType, displayType };
     }, [hiddenContents]);
 
     // PROSPECT PHASE: Scan a tile - RADAR STYLE with WORLD MECHANICS
@@ -2700,6 +3221,14 @@ const TreasureDig = () => {
         // Update all signals at once
         setSignalStrengths(prev => ({ ...prev, ...newSignals }));
 
+        // Trigger sonar ripple effect for visual feedback
+        const rippleId = `ripple_${x}_${y}_${Date.now()}`;
+        setScanRipples(prev => [...prev, { id: rippleId, x, y }]);
+        // Auto-remove ripple after animation
+        setTimeout(() => {
+            setScanRipples(prev => prev.filter(r => r.id !== rippleId));
+        }, 1000);
+
         // Decrement scans (with safety check)
         setScansRemaining(prev => Math.max(0, prev - 1));
 
@@ -2830,8 +3359,11 @@ const TreasureDig = () => {
     }, [markedTiles, gridSize]);
 
     // DIG PHASE: Excavate a tile with WORLD MECHANICS
-    const handleExcavate = useCallback((x, y) => {
+    const handleExcavate = useCallback((x, y, betAmount = 0) => {
         if (gamePhase !== 'dig' || digsRemaining <= 0) return;
+
+        // Use passed bet amount (from BetUI) instead of state
+        const activeBet = betAmount;
 
         const worldId = selectedOpponent?.id || 0;
         const mechanic = worldMechanics[worldId] || worldMechanics[0];
@@ -2931,8 +3463,8 @@ const TreasureDig = () => {
                 const slideTile = grid[slideY]?.[slideX];
                 if (slideTile && !slideTile.dug && digsRemaining > 1) {
                     setMechanicAlert({ message: '⛷️ SLIDE! Bonus dig!', type: 'info', duration: 1000 });
-                    // Queue the slide dig
-                    setTimeout(() => handleExcavate(slideX, slideY), 400);
+                    // Queue the slide dig (no bet for auto-digs)
+                    setTimeout(() => handleExcavate(slideX, slideY, 0), 400);
                 }
             }
         }
@@ -2957,27 +3489,125 @@ const TreasureDig = () => {
             }
         }
 
+        // ============================================
+        // DISCOVERY EFFECT SYSTEM - Juicy reveals
+        // ============================================
+
+        // Check adjacency for combo system
+        const isAdjacent = lastDigPosition &&
+            Math.abs(x - lastDigPosition.x) <= 1 &&
+            Math.abs(y - lastDigPosition.y) <= 1;
+
+        // Determine what we found and trigger appropriate effect
+        let effectType = 'empty';
+        let discoveredItem = null;
+        let betReward = 0;
+
         if (content) {
+            if (content.type === 'treasure' || content.type === 'collectible') {
+                // TREASURE FOUND!
+                effectType = 'treasure';
+                discoveredItem = content;
+
+                // Update combo if adjacent to last treasure
+                if (isAdjacent && lastDigPosition) {
+                    const newCombo = comboCount + 1;
+                    const newMultiplier = Math.min(3, 1 + (newCombo * 0.5)); // 1x -> 1.5x -> 2x -> 2.5x -> 3x
+                    setComboCount(newCombo);
+                    setComboMultiplier(newMultiplier);
+                    bonusMultiplier *= newMultiplier;
+                } else {
+                    // Reset combo on non-adjacent find
+                    setComboCount(1);
+                    setComboMultiplier(1);
+                }
+                setLastDigPosition({ x, y });
+
+                // Apply bet reward if bet was placed
+                if (activeBet > 0) {
+                    betReward = activeBet * 2; // Win double the bet!
+                    setScore(prev => prev + betReward);
+                }
+            } else if (content.type === 'junk' || content.type === 'decoy') {
+                // DECOY HIT
+                effectType = 'decoy';
+                discoveredItem = content;
+
+                // Reset combo
+                setComboCount(0);
+                setComboMultiplier(1);
+                setLastDigPosition(null);
+
+                // Apply bet penalty
+                if (activeBet > 0) {
+                    setScore(prev => Math.max(0, prev - activeBet));
+                }
+            } else {
+                // Some other content
+                discoveredItem = content;
+            }
+
             const excavatedItem = {
                 id: `${key}_${Date.now()}`,
                 ...content,
                 x, y,
-                points: (content.points || 0) * bonusMultiplier,
+                points: Math.round((content.points || 0) * bonusMultiplier),
                 displayEmoji: content.isDirt ? '🟤' : content.emoji,
                 displayName: content.isDirt ? 'Dirt Clump' : content.name,
             };
             setExcavatedItems(prev => [...prev, excavatedItem]);
+        } else {
+            // EMPTY TILE - check for lucky find!
+            if (Math.random() < luckyFindChance) {
+                // LUCKY FIND! Bonus coins in empty tile
+                effectType = 'lucky';
+                const luckyBonus = 25 + Math.floor(Math.random() * 50); // 25-75 bonus
+                setScore(prev => prev + luckyBonus);
+                discoveredItem = { emoji: '🍀', name: 'Lucky Coin', points: luckyBonus };
+                addEventLog(`Lucky find at (${x},${y})! +${luckyBonus} coins`);
+            } else {
+                effectType = 'empty';
+            }
+
+            // Reset combo on empty/unlucky
+            setComboCount(0);
+            setComboMultiplier(1);
+            setLastDigPosition(null);
+
+            // Apply bet penalty on empty
+            if (activeBet > 0) {
+                setScore(prev => Math.max(0, prev - activeBet));
+            }
         }
 
-        // Check if we should transition to SORT
+        // Trigger the discovery effect with hit pause
+        setScreenFreeze(true);
+        setDiscoveryEffect({
+            type: effectType,
+            x, y,
+            item: discoveredItem,
+            bet: activeBet,
+            combo: comboCount + (effectType === 'treasure' ? 1 : 0),
+            multiplier: effectType === 'treasure' ? Math.min(3, 1 + ((comboCount + 1) * 0.5)) : 1
+        });
+
+        // Clear effect after animation (longer for treasure)
+        const effectDuration = effectType === 'treasure' || effectType === 'lucky' ? 1200 : 600;
+        setTimeout(() => {
+            setScreenFreeze(false);
+            setDiscoveryEffect(null);
+        }, effectDuration);
+
+        // Check if we should transition to SORT (delay for effect)
         if (digsRemaining <= 1) {
             setTimeout(() => {
                 setGamePhase('sort');
                 setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
-            }, 500);
+            }, effectDuration + 300);
         }
     }, [gamePhase, digsRemaining, grid, hiddenContents, BASKET_CAPACITY, selectedOpponent, tileDepths,
-        signalStrengths, maxCharge, gloveProtected, gridSize, addEventLog]);
+        signalStrengths, maxCharge, gloveProtected, gridSize, addEventLog, lastDigPosition, comboCount,
+        luckyFindChance]);
 
     // SORT PHASE: Toggle item selection
     const toggleItemSelection = useCallback((itemId) => {
@@ -3129,13 +3759,19 @@ const TreasureDig = () => {
         }
 
         if (gamePhase === 'dig') {
-            handleExcavate(x, y);
+            // Check if tile is valid for digging
+            const tile = grid[y]?.[x];
+            if (!tile || tile.dug) return;
+
+            // Show bet UI before digging - risk/reward system
+            setPendingDigPosition({ x, y });
+            setShowBetUI(true);
             return;
         }
 
         // Other phases don't use tile clicks
         return;
-    }, [gameState, gamePhase, handleScan, handleMark, handleExcavate]);
+    }, [gameState, gamePhase, handleScan, handleMark, grid]);
 
     // Legacy dig handler (for backwards compatibility)
     const handleDig = useCallback((x, y) => {
@@ -3512,6 +4148,18 @@ const TreasureDig = () => {
                 if (e.code === 'KeyF') useTool('flag');
                 if (e.code === 'KeyH') getHint();
             }
+            // FAST RESTART - R, Space, or Enter during game over
+            if (gameState === 'gameover' && selectedOpponent) {
+                if (e.code === 'KeyR' || e.code === 'Space' || e.code === 'Enter') {
+                    e.preventDefault();
+                    startMatch(selectedOpponent, currentLevel);
+                }
+                // N for next level (if won)
+                if (e.code === 'KeyN' && currentLevel < 10) {
+                    e.preventDefault();
+                    startMatch(selectedOpponent, currentLevel + 1);
+                }
+            }
             if (showTutorial && (e.code === 'Space' || e.code === 'Enter')) {
                 if (tutorialStep < 4) {
                     setTutorialStep(s => s + 1);
@@ -3522,7 +4170,7 @@ const TreasureDig = () => {
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [gameState, showTutorial, tutorialStep, tools, useTool, getHint]);
+    }, [gameState, showTutorial, tutorialStep, tools, useTool, getHint, selectedOpponent, currentLevel, startMatch]);
 
     // Star bar component - shows 10 stars with half-star support
     const StarBar = ({ stars, size = 'normal' }) => {
@@ -4197,6 +4845,35 @@ const TreasureDig = () => {
                 {/* Mechanic Alert Popup - shows world-specific alerts */}
                 <MechanicAlertPopup alert={mechanicAlert} />
 
+                {/* Discovery Effect Overlay - dramatic dig reveals */}
+                {discoveryEffect && (
+                    <DiscoveryEffect
+                        effect={discoveryEffect}
+                        onComplete={() => setDiscoveryEffect(null)}
+                    />
+                )}
+
+                {/* Bet UI Overlay - risk/reward before dig */}
+                {showBetUI && pendingDigPosition && (
+                    <BetUI
+                        position={pendingDigPosition}
+                        playerCoins={score}
+                        onBet={(amount) => {
+                            setShowBetUI(false);
+                            // Execute the actual dig with bet amount
+                            handleExcavate(pendingDigPosition.x, pendingDigPosition.y, amount);
+                            setPendingDigPosition(null);
+                        }}
+                        onCancel={() => {
+                            setShowBetUI(false);
+                            setPendingDigPosition(null);
+                        }}
+                    />
+                )}
+
+                {/* Combo Display - shows current streak in corner */}
+                <ComboDisplay count={comboCount} multiplier={comboMultiplier} />
+
                 {/* Ambient floating particles - more subtle */}
                 {ambientParticles.map((p, idx) => (
                     <div
@@ -4442,19 +5119,31 @@ const TreasureDig = () => {
                                             let phaseOverlay = null;
 
                                             // PROSPECT PHASE: Show scan results with mode-colored glow
+                                            // LEARNABLE TELL: Pulsing = treasure, Static = decoy!
                                             if (gamePhase === 'prospect' && isScanned && !isDug) {
                                                 const strength = scanResult.strength;
+                                                const displayType = scanResult.displayType || 'none';
                                                 const signalColor = strength >= 2.5 ? theme.signalStrong
                                                     : strength >= 1.5 ? theme.signalMedium
                                                     : strength >= 0.5 ? theme.signalWeak
                                                     : theme.signalNone;
                                                 bgColor = `${signalColor}33`;
                                                 borderColor = signalColor;
+
+                                                // Determine animation based on displayType (learnable tell)
+                                                // Pulse = treasure (rhythmic, alive)
+                                                // Static = decoy (flat, dead)
+                                                const isPulsing = displayType === 'pulse';
+                                                const animationStyle = isPulsing
+                                                    ? 'signalPulse 1s ease-in-out infinite'
+                                                    : (strength >= 2.5 ? 'signalStatic 0.15s linear infinite' : 'none');
+
                                                 content = (
                                                     <span style={{
                                                         fontSize: tileSize * 0.4,
                                                         textShadow: `0 0 4px ${signalColor}`,
-                                                        animation: strength >= 2.5 ? 'pulse 1s infinite' : 'none'
+                                                        animation: animationStyle,
+                                                        opacity: isPulsing ? 1 : 0.85
                                                     }}>
                                                         {strength >= 2.5 ? '📡' : strength >= 1.5 ? '📶' : strength >= 0.5 ? '〰️' : '·'}
                                                     </span>
@@ -4576,6 +5265,17 @@ const TreasureDig = () => {
                                         >
                                             {e.text}
                                         </div>
+                                    ))}
+
+                                    {/* Scan ripple effects - sonar pings */}
+                                    {scanRipples.map(ripple => (
+                                        <ScanRipple
+                                            key={ripple.id}
+                                            x={ripple.x}
+                                            y={ripple.y}
+                                            tileSize={tileSize}
+                                            onComplete={() => setScanRipples(prev => prev.filter(r => r.id !== ripple.id))}
+                                        />
                                     ))}
                                 </div>
                             </OrnateFrame>
@@ -5652,6 +6352,17 @@ const TreasureDig = () => {
                         0%, 100% { transform: scale(1); opacity: 0.9; }
                         50% { transform: scale(1.15); opacity: 1; }
                     }
+                    /* LEARNABLE TELLS - Signal animation differences */
+                    @keyframes signalPulse {
+                        0%, 100% { transform: scale(1); opacity: 0.8; filter: brightness(1); }
+                        50% { transform: scale(1.2); opacity: 1; filter: brightness(1.3); }
+                    }
+                    @keyframes signalStatic {
+                        0%, 100% { transform: translate(0, 0); }
+                        25% { transform: translate(1px, -1px); }
+                        50% { transform: translate(-1px, 1px); }
+                        75% { transform: translate(1px, 1px); }
+                    }
                     @keyframes pop {
                         0% { transform: scale(0); }
                         50% { transform: scale(1.3); }
@@ -5695,6 +6406,68 @@ const TreasureDig = () => {
                     @keyframes float-2 {
                         0%, 100% { transform: translate(0, 0); }
                         50% { transform: translate(5px, -30px); }
+                    }
+
+                    /* Discovery Effect Animations */
+                    @keyframes discoveryBurst {
+                        0% { transform: scale(0); opacity: 0; }
+                        40% { transform: scale(1.3); opacity: 1; }
+                        70% { transform: scale(0.95); }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes discoveryFade {
+                        0% { transform: scale(0.5); opacity: 0; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes discoverySpin {
+                        0% { transform: scale(0) rotate(-180deg); }
+                        60% { transform: scale(1.4) rotate(20deg); }
+                        100% { transform: scale(1) rotate(0deg); }
+                    }
+                    @keyframes discoveryText {
+                        0% { transform: translateY(20px); opacity: 0; }
+                        100% { transform: translateY(0); opacity: 1; }
+                    }
+                    @keyframes discoveryPop {
+                        0% { transform: scale(0); }
+                        70% { transform: scale(1.2); }
+                        100% { transform: scale(1); }
+                    }
+                    @keyframes particleFloat0 {
+                        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+                        100% { transform: translate(-80px, -120px) scale(0.5); opacity: 0; }
+                    }
+                    @keyframes particleFloat1 {
+                        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+                        100% { transform: translate(90px, -100px) scale(0.5); opacity: 0; }
+                    }
+                    @keyframes particleFloat2 {
+                        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+                        100% { transform: translate(-60px, -140px) scale(0.5); opacity: 0; }
+                    }
+                    @keyframes particleFloat3 {
+                        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+                        100% { transform: translate(70px, -130px) scale(0.5); opacity: 0; }
+                    }
+                    @keyframes sonarRipple {
+                        0% { width: 10px; height: 10px; opacity: 1; transform: translate(-50%, -50%); }
+                        100% { width: 200px; height: 200px; opacity: 0; transform: translate(-50%, -50%); }
+                    }
+                    @keyframes comboPulse {
+                        0% { transform: scale(0.5); opacity: 0; }
+                        50% { transform: scale(1.1); }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes screenShakeHard {
+                        0%, 100% { transform: translateX(0); }
+                        10% { transform: translateX(-8px) rotate(-1deg); }
+                        20% { transform: translateX(8px) rotate(1deg); }
+                        30% { transform: translateX(-6px) rotate(-0.5deg); }
+                        40% { transform: translateX(6px) rotate(0.5deg); }
+                        50% { transform: translateX(-4px); }
+                        60% { transform: translateX(4px); }
+                        70% { transform: translateX(-2px); }
+                        80% { transform: translateX(2px); }
                     }
                 `}</style>
             </div>
@@ -5906,6 +6679,22 @@ const TreasureDig = () => {
                     </div>
                 )}
 
+                {/* Fast restart hint */}
+                <div style={{
+                    marginBottom: '15px',
+                    fontSize: '12px',
+                    color: theme.textMuted,
+                    display: 'flex',
+                    gap: '15px',
+                    justifyContent: 'center',
+                    flexWrap: 'wrap'
+                }}>
+                    <span>Press <kbd style={{ background: theme.bgPanel, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>R</kbd> or <kbd style={{ background: theme.bgPanel, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>Space</kbd> to retry</span>
+                    {won && currentLevel < 10 && (
+                        <span>• <kbd style={{ background: theme.bgPanel, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>N</kbd> for next level</span>
+                    )}
+                </div>
+
                 <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button
                         onClick={() => startMatch(selectedOpponent, currentLevel)}
@@ -5914,10 +6703,11 @@ const TreasureDig = () => {
                             background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentBright})`,
                             border: 'none', borderRadius: '12px', color: '#1a1815',
                             cursor: 'pointer', fontWeight: 'bold',
-                            boxShadow: `0 4px 15px ${theme.goldGlow}`
+                            boxShadow: `0 4px 15px ${theme.goldGlow}`,
+                            animation: 'pulse 2s infinite'
                         }}
                     >
-                        {won ? 'Play Again' : 'Try Again'}
+                        {won ? '⟳ Play Again' : '⟳ Try Again'}
                     </button>
 
                     {won && currentLevel < 10 && (
