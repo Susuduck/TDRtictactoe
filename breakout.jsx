@@ -2875,123 +2875,241 @@ const BreakoutGame = () => {
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create cracking armor particles - the actual crack segments become flying armor pieces
+  // Create cracking armor particles - the actual polygon pieces formed by cracks fly off
   const createCrackingParticles = useCallback((x, y, width, height, color, crackPattern = []) => {
     const now = Date.now();
     const newParticles = [];
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
-    // If we have a crack pattern, create shards based on the actual crack segments
     if (crackPattern.length > 0) {
-      // Collect all edge points from the cracks (where cracks meet brick edges)
-      const edgePoints = [];
+      // Analyze crack pattern to determine polygon regions
+      const crackLines = [];
+      let nexusPoint = null;
 
+      // Collect crack data and find nexus if exists
       crackPattern.forEach(crack => {
         if (crack.points && crack.points.length >= 2) {
-          // Get first and last points of each crack (these are at edges)
-          const firstPt = crack.points[0];
-          const lastPt = crack.points[crack.points.length - 1];
-
-          // Convert from percentage (0-100) to actual pixel coordinates
-          edgePoints.push({
-            x: x + (firstPt.x / 100) * width,
-            y: y + (firstPt.y / 100) * height,
+          crackLines.push(crack.points);
+          // Check for nexus point (interior point where cracks meet)
+          crack.points.forEach(p => {
+            if (p.x > 10 && p.x < 90 && p.y > 10 && p.y < 90) {
+              nexusPoint = p;
+            }
           });
-          edgePoints.push({
-            x: x + (lastPt.x / 100) * width,
-            y: y + (lastPt.y / 100) * height,
-          });
-
-          // Also add midpoints of crack segments for more shards
-          for (let i = 1; i < crack.points.length - 1; i++) {
-            const pt = crack.points[i];
-            edgePoints.push({
-              x: x + (pt.x / 100) * width,
-              y: y + (pt.y / 100) * height,
-            });
-          }
         }
       });
 
-      // Create armor shard at each edge point - flies away from center
-      edgePoints.forEach((pt, i) => {
-        // Direction from center to this point
-        const dx = pt.x - centerX;
-        const dy = pt.y - centerY;
+      // Calculate polygon regions based on crack configuration
+      const regions = [];
+
+      if (nexusPoint) {
+        // Nexus pattern: cracks radiate from a central point
+        // Collect all edge endpoints and corners, sort by angle from nexus
+        const boundaryPoints = [
+          { x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }
+        ];
+
+        // Add crack edge endpoints
+        crackLines.forEach(line => {
+          const first = line[0];
+          const last = line[line.length - 1];
+          if (first.x <= 2 || first.x >= 98 || first.y <= 2 || first.y >= 98) {
+            boundaryPoints.push(first);
+          }
+          if (last.x <= 2 || last.x >= 98 || last.y <= 2 || last.y >= 98) {
+            boundaryPoints.push(last);
+          }
+        });
+
+        // Sort by angle from nexus
+        boundaryPoints.sort((a, b) => {
+          return Math.atan2(a.y - nexusPoint.y, a.x - nexusPoint.x) -
+                 Math.atan2(b.y - nexusPoint.y, b.x - nexusPoint.x);
+        });
+
+        // Create triangular regions from nexus to each pair of boundary points
+        for (let i = 0; i < boundaryPoints.length; i++) {
+          const p1 = boundaryPoints[i];
+          const p2 = boundaryPoints[(i + 1) % boundaryPoints.length];
+          const centroid = {
+            x: (nexusPoint.x + p1.x + p2.x) / 3,
+            y: (nexusPoint.y + p1.y + p2.y) / 3
+          };
+          // Calculate approximate polygon shape for this region
+          const polyPoints = [
+            { x: nexusPoint.x, y: nexusPoint.y },
+            { x: p1.x, y: p1.y },
+            { x: p2.x, y: p2.y }
+          ];
+          regions.push({ centroid, polyPoints });
+        }
+      } else {
+        // Through-crack pattern: determine how cracks divide the brick
+        // Categorize crack endpoints by which edge they're on
+        const edgePoints = { top: [], right: [], bottom: [], left: [] };
+
+        crackLines.forEach(line => {
+          [line[0], line[line.length - 1]].forEach(p => {
+            if (p.y <= 5) edgePoints.top.push({ ...p, line });
+            else if (p.x >= 95) edgePoints.right.push({ ...p, line });
+            else if (p.y >= 95) edgePoints.bottom.push({ ...p, line });
+            else if (p.x <= 5) edgePoints.left.push({ ...p, line });
+          });
+        });
+
+        // Determine crack type based on endpoints
+        const hasTopBottom = edgePoints.top.length > 0 && edgePoints.bottom.length > 0;
+        const hasLeftRight = edgePoints.left.length > 0 && edgePoints.right.length > 0;
+        const hasTopLeft = edgePoints.top.length > 0 && edgePoints.left.length > 0;
+        const hasTopRight = edgePoints.top.length > 0 && edgePoints.right.length > 0;
+        const hasBottomLeft = edgePoints.bottom.length > 0 && edgePoints.left.length > 0;
+        const hasBottomRight = edgePoints.bottom.length > 0 && edgePoints.right.length > 0;
+
+        if (hasTopBottom && hasLeftRight) {
+          // Cross pattern - 4 quadrant pieces
+          regions.push({ centroid: { x: 25, y: 25 }, polyPoints: [{x:0,y:0},{x:50,y:0},{x:50,y:50},{x:0,y:50}] });
+          regions.push({ centroid: { x: 75, y: 25 }, polyPoints: [{x:50,y:0},{x:100,y:0},{x:100,y:50},{x:50,y:50}] });
+          regions.push({ centroid: { x: 25, y: 75 }, polyPoints: [{x:0,y:50},{x:50,y:50},{x:50,y:100},{x:0,y:100}] });
+          regions.push({ centroid: { x: 75, y: 75 }, polyPoints: [{x:50,y:50},{x:100,y:50},{x:100,y:100},{x:50,y:100}] });
+        } else if (hasTopBottom) {
+          // Vertical split - left and right pieces
+          const splitX = edgePoints.top[0]?.x || 50;
+          regions.push({ centroid: { x: splitX/2, y: 50 }, polyPoints: [{x:0,y:0},{x:splitX,y:0},{x:splitX,y:100},{x:0,y:100}] });
+          regions.push({ centroid: { x: (splitX+100)/2, y: 50 }, polyPoints: [{x:splitX,y:0},{x:100,y:0},{x:100,y:100},{x:splitX,y:100}] });
+        } else if (hasLeftRight) {
+          // Horizontal split - top and bottom pieces
+          const splitY = edgePoints.left[0]?.y || 50;
+          regions.push({ centroid: { x: 50, y: splitY/2 }, polyPoints: [{x:0,y:0},{x:100,y:0},{x:100,y:splitY},{x:0,y:splitY}] });
+          regions.push({ centroid: { x: 50, y: (splitY+100)/2 }, polyPoints: [{x:0,y:splitY},{x:100,y:splitY},{x:100,y:100},{x:0,y:100}] });
+        } else if (hasTopLeft || hasTopRight || hasBottomLeft || hasBottomRight) {
+          // Diagonal crack - two triangular-ish pieces
+          if (hasTopRight || hasBottomLeft) {
+            regions.push({ centroid: { x: 33, y: 33 }, polyPoints: [{x:0,y:0},{x:100,y:0},{x:0,y:100}] });
+            regions.push({ centroid: { x: 67, y: 67 }, polyPoints: [{x:100,y:0},{x:100,y:100},{x:0,y:100}] });
+          } else {
+            regions.push({ centroid: { x: 67, y: 33 }, polyPoints: [{x:0,y:0},{x:100,y:0},{x:100,y:100}] });
+            regions.push({ centroid: { x: 33, y: 67 }, polyPoints: [{x:0,y:0},{x:100,y:100},{x:0,y:100}] });
+          }
+        } else {
+          // Fallback - simple split
+          regions.push({ centroid: { x: 25, y: 50 } });
+          regions.push({ centroid: { x: 75, y: 50 } });
+        }
+      }
+
+      // Create armor chunk particles for each region
+      regions.forEach((region, i) => {
+        const centroidPx = {
+          x: x + (region.centroid.x / 100) * width,
+          y: y + (region.centroid.y / 100) * height
+        };
+
+        // Direction from brick center to region centroid - pieces fly apart
+        const dx = centroidPx.x - centerX;
+        const dy = centroidPx.y - centerY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const dirX = dx / dist;
         const dirY = dy / dist;
 
-        const speed = 2.5 + Math.random() * 3;
+        const speed = 2.5 + Math.random() * 2;
 
+        // Convert polygon points to clip-path string if available
+        let clipPath = null;
+        if (region.polyPoints) {
+          const pathStr = region.polyPoints.map(p => `${p.x}% ${p.y}%`).join(', ');
+          clipPath = `polygon(${pathStr})`;
+        }
+
+        // Main chunk particle - the actual armor piece
         newParticles.push({
           id: now + Math.random() + i,
-          x: pt.x,
-          y: pt.y,
+          x: centroidPx.x,
+          y: centroidPx.y,
           vx: dirX * speed + (Math.random() - 0.5) * 1.5,
-          vy: dirY * speed - 1.5 + (Math.random() - 0.5), // Slight upward bias
+          vy: dirY * speed - 2, // Upward burst then fall
           color,
-          size: 8 + Math.random() * 6, // Chunky armor pieces
-          life: 1.6,
+          size: Math.max(width, height) * 0.6, // Size relative to brick
+          life: 2.0,
           createdAt: now,
           isArmorShard: true,
-          rotation: Math.atan2(dy, dx) * (180 / Math.PI) + (Math.random() - 0.5) * 30,
+          isChunk: true,
+          clipPath,
+          rotation: (Math.random() - 0.5) * 30,
           rotationSpeed: (Math.random() - 0.5) * 20,
-          gravity: 0.18,
+          gravity: 0.22,
         });
+
+        // Small debris spawning from this chunk
+        for (let j = 0; j < 2; j++) {
+          newParticles.push({
+            id: now + Math.random() + i * 100 + j,
+            x: centroidPx.x + (Math.random() - 0.5) * 8,
+            y: centroidPx.y + (Math.random() - 0.5) * 5,
+            vx: dirX * (speed * 0.6) + (Math.random() - 0.5) * 3,
+            vy: dirY * (speed * 0.6) - 1 + Math.random(),
+            color,
+            size: 3 + Math.random() * 3,
+            life: 1.0,
+            createdAt: now,
+            isArmorShard: true,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 25,
+            gravity: 0.15,
+          });
+        }
       });
 
-      // Add small crack debris along crack lines
-      crackPattern.forEach(crack => {
-        if (crack.points) {
-          for (let i = 0; i < crack.points.length - 1; i++) {
-            const p1 = crack.points[i];
-            const p2 = crack.points[i + 1];
-            const midX = x + ((p1.x + p2.x) / 2 / 100) * width;
-            const midY = y + ((p1.y + p2.y) / 2 / 100) * height;
-
-            // Small debris particle
+      // Add fine debris along crack lines
+      crackLines.forEach(line => {
+        line.forEach((p, i) => {
+          if (Math.random() < 0.5) {
             newParticles.push({
-              id: now + Math.random() + 1000 + i,
-              x: midX,
-              y: midY,
+              id: now + Math.random() + 2000 + i,
+              x: x + (p.x / 100) * width,
+              y: y + (p.y / 100) * height,
               vx: (Math.random() - 0.5) * 4,
-              vy: (Math.random() - 0.5) * 4 - 1,
-              color: '#888888',
-              size: 1.5 + Math.random() * 2,
+              vy: -1 + Math.random() * 2,
+              color: '#777777',
+              size: 1 + Math.random() * 1.5,
               life: 0.6,
               createdAt: now,
             });
           }
-        }
+        });
       });
+
     } else {
-      // Fallback: generic armor shards if no crack pattern
-      const shardCount = 6;
-      for (let i = 0; i < shardCount; i++) {
-        const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
-        const speed = 2 + Math.random() * 3;
-        const edgeAngle = Math.random() * Math.PI * 2;
-        const spawnX = centerX + Math.cos(edgeAngle) * width * 0.4;
-        const spawnY = centerY + Math.sin(edgeAngle) * height * 0.4;
+      // Fallback: 4 quadrant pieces if no crack pattern
+      const quadrants = [
+        { cx: 25, cy: 25 }, { cx: 75, cy: 25 },
+        { cx: 25, cy: 75 }, { cx: 75, cy: 75 }
+      ];
+      quadrants.forEach((q, i) => {
+        const px = x + (q.cx / 100) * width;
+        const py = y + (q.cy / 100) * height;
+        const dx = px - centerX;
+        const dy = py - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const speed = 2 + Math.random() * 2;
 
         newParticles.push({
-          id: now + Math.random(),
-          x: spawnX,
-          y: spawnY,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 1.5,
+          id: now + Math.random() + i,
+          x: px,
+          y: py,
+          vx: (dx / dist) * speed,
+          vy: (dy / dist) * speed - 1.5,
           color,
-          size: 7 + Math.random() * 5,
-          life: 1.6,
+          size: Math.max(width, height) * 0.5,
+          life: 1.8,
           createdAt: now,
           isArmorShard: true,
-          rotation: angle * (180 / Math.PI),
-          rotationSpeed: (Math.random() - 0.5) * 15,
-          gravity: 0.18,
+          isChunk: true,
+          rotation: Math.random() * 360,
+          rotationSpeed: (Math.random() - 0.5) * 18,
+          gravity: 0.2,
         });
-      }
+      });
     }
 
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
@@ -6141,7 +6259,8 @@ const BreakoutGame = () => {
               left: p.x - p.size / 2,
               top: p.y - p.size / 2,
               width: p.size,
-              height: p.isArmorShard ? p.size * 0.5  // Flat armor pieces
+              height: p.isChunk ? p.size * 0.4  // Chunky armor pieces (brick aspect ratio)
+                : p.isArmorShard ? p.size * 0.5
                 : p.isShard ? p.size * 0.6
                 : p.isBrickShard ? p.size * 0.7
                 : p.size,
@@ -6149,31 +6268,41 @@ const BreakoutGame = () => {
                 ? `radial-gradient(circle, ${p.color} 0%, ${p.color}88 50%, transparent 100%)`
                 : p.isSparkle
                   ? `radial-gradient(circle, ${p.color} 0%, transparent 70%)`
+                  : p.isChunk
+                    ? `linear-gradient(180deg, ${p.color}ee 0%, ${p.color} 50%, ${p.color}aa 100%)`
                   : p.isArmorShard
                     ? `linear-gradient(135deg, ${p.color} 0%, ${p.color}cc 50%, ${p.color}88 100%)`
                     : p.color,
-              borderRadius: p.isArmorShard ? '2px'  // Sharp edges
+              borderRadius: p.isChunk ? '3px'  // Brick-like edges
+                : p.isArmorShard ? '2px'
                 : p.isShard ? '2px'
                 : p.isBrickShard ? '3px'
                 : p.isDissolve ? '50%'
                 : '50%',
+              clipPath: p.clipPath || 'none',  // Use polygon shape if provided
               opacity: p.isDissolve
-                ? Math.min(p.life * 1.5, 1)  // Fade out smoothly
-                : p.isArmorShard
-                  ? Math.min(p.life * 0.8, 1)  // Slightly transparent
-                  : Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
+                ? Math.min(p.life * 1.5, 1)
+                : p.isChunk
+                  ? Math.min(p.life * 0.7, 1)  // Chunks fade as they fall
+                  : p.isArmorShard
+                    ? Math.min(p.life * 0.8, 1)
+                    : Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
               pointerEvents: 'none',
-              transform: (p.isShard || p.isBrickShard || p.isArmorShard)
+              transform: (p.isShard || p.isBrickShard || p.isArmorShard || p.isChunk)
                 ? `rotate(${p.rotation || 0}deg)`
                 : 'none',
               boxShadow: p.isSparkle
                 ? `0 0 ${p.size}px ${p.color}`
-                : p.isArmorShard
-                  ? `0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)`
-                  : p.isShard || p.isBrickShard
-                    ? '0 2px 4px rgba(0,0,0,0.3)'
-                    : 'none',
-              border: p.isArmorShard ? `1px solid ${p.color}` : 'none',
+                : p.isChunk
+                  ? `0 3px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2)`
+                  : p.isArmorShard
+                    ? `0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)`
+                    : p.isShard || p.isBrickShard
+                      ? '0 2px 4px rgba(0,0,0,0.3)'
+                      : 'none',
+              border: p.isChunk ? `2px solid ${p.color}`
+                : p.isArmorShard ? `1px solid ${p.color}`
+                : 'none',
             }}
           />
         ))}
