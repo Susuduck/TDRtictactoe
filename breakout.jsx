@@ -2875,52 +2875,125 @@ const BreakoutGame = () => {
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create cracking armor particles - armor pieces fly out and drop with gravity
-  const createCrackingParticles = useCallback((x, y, width, height, color) => {
+  // Create cracking armor particles - the actual crack segments become flying armor pieces
+  const createCrackingParticles = useCallback((x, y, width, height, color, crackPattern = []) => {
     const now = Date.now();
     const newParticles = [];
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
 
-    // Create armor shard pieces that fly outward and fall
-    const shardCount = 6 + Math.floor(Math.random() * 4);
-    for (let i = 0; i < shardCount; i++) {
-      const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
-      const speed = 2 + Math.random() * 4;
-      // Spawn from edges of the brick
-      const edgeAngle = Math.random() * Math.PI * 2;
-      const spawnX = x + width/2 + Math.cos(edgeAngle) * width * 0.4;
-      const spawnY = y + height/2 + Math.sin(edgeAngle) * height * 0.4;
+    // If we have a crack pattern, create shards based on the actual crack segments
+    if (crackPattern.length > 0) {
+      // Collect all edge points from the cracks (where cracks meet brick edges)
+      const edgePoints = [];
 
-      newParticles.push({
-        id: now + Math.random(),
-        x: spawnX,
-        y: spawnY,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 2, // Initial upward burst
-        color,
-        size: 6 + Math.random() * 6, // Larger armor pieces
-        life: 1.8, // Longer life to show falling
-        createdAt: now,
-        isArmorShard: true,
-        rotation: angle * (180 / Math.PI),
-        rotationSpeed: (Math.random() - 0.5) * 15,
-        gravity: 0.15, // Will fall
+      crackPattern.forEach(crack => {
+        if (crack.points && crack.points.length >= 2) {
+          // Get first and last points of each crack (these are at edges)
+          const firstPt = crack.points[0];
+          const lastPt = crack.points[crack.points.length - 1];
+
+          // Convert from percentage (0-100) to actual pixel coordinates
+          edgePoints.push({
+            x: x + (firstPt.x / 100) * width,
+            y: y + (firstPt.y / 100) * height,
+          });
+          edgePoints.push({
+            x: x + (lastPt.x / 100) * width,
+            y: y + (lastPt.y / 100) * height,
+          });
+
+          // Also add midpoints of crack segments for more shards
+          for (let i = 1; i < crack.points.length - 1; i++) {
+            const pt = crack.points[i];
+            edgePoints.push({
+              x: x + (pt.x / 100) * width,
+              y: y + (pt.y / 100) * height,
+            });
+          }
+        }
       });
+
+      // Create armor shard at each edge point - flies away from center
+      edgePoints.forEach((pt, i) => {
+        // Direction from center to this point
+        const dx = pt.x - centerX;
+        const dy = pt.y - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+
+        const speed = 2.5 + Math.random() * 3;
+
+        newParticles.push({
+          id: now + Math.random() + i,
+          x: pt.x,
+          y: pt.y,
+          vx: dirX * speed + (Math.random() - 0.5) * 1.5,
+          vy: dirY * speed - 1.5 + (Math.random() - 0.5), // Slight upward bias
+          color,
+          size: 8 + Math.random() * 6, // Chunky armor pieces
+          life: 1.6,
+          createdAt: now,
+          isArmorShard: true,
+          rotation: Math.atan2(dy, dx) * (180 / Math.PI) + (Math.random() - 0.5) * 30,
+          rotationSpeed: (Math.random() - 0.5) * 20,
+          gravity: 0.18,
+        });
+      });
+
+      // Add small crack debris along crack lines
+      crackPattern.forEach(crack => {
+        if (crack.points) {
+          for (let i = 0; i < crack.points.length - 1; i++) {
+            const p1 = crack.points[i];
+            const p2 = crack.points[i + 1];
+            const midX = x + ((p1.x + p2.x) / 2 / 100) * width;
+            const midY = y + ((p1.y + p2.y) / 2 / 100) * height;
+
+            // Small debris particle
+            newParticles.push({
+              id: now + Math.random() + 1000 + i,
+              x: midX,
+              y: midY,
+              vx: (Math.random() - 0.5) * 4,
+              vy: (Math.random() - 0.5) * 4 - 1,
+              color: '#888888',
+              size: 1.5 + Math.random() * 2,
+              life: 0.6,
+              createdAt: now,
+            });
+          }
+        }
+      });
+    } else {
+      // Fallback: generic armor shards if no crack pattern
+      const shardCount = 6;
+      for (let i = 0; i < shardCount; i++) {
+        const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
+        const speed = 2 + Math.random() * 3;
+        const edgeAngle = Math.random() * Math.PI * 2;
+        const spawnX = centerX + Math.cos(edgeAngle) * width * 0.4;
+        const spawnY = centerY + Math.sin(edgeAngle) * height * 0.4;
+
+        newParticles.push({
+          id: now + Math.random(),
+          x: spawnX,
+          y: spawnY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 1.5,
+          color,
+          size: 7 + Math.random() * 5,
+          life: 1.6,
+          createdAt: now,
+          isArmorShard: true,
+          rotation: angle * (180 / Math.PI),
+          rotationSpeed: (Math.random() - 0.5) * 15,
+          gravity: 0.18,
+        });
+      }
     }
 
-    // Add small debris particles
-    for (let i = 0; i < 8; i++) {
-      newParticles.push({
-        id: now + Math.random() + 100,
-        x: x + Math.random() * width,
-        y: y + Math.random() * height,
-        vx: (Math.random() - 0.5) * 6,
-        vy: (Math.random() - 0.5) * 6 - 1,
-        color: '#aaaaaa', // Gray debris
-        size: 1 + Math.random() * 2,
-        life: 0.5,
-        createdAt: now,
-      });
-    }
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
@@ -3715,8 +3788,8 @@ const BreakoutGame = () => {
           if (b.armorCracking && b.armorCrackTimer > 0) {
             const newTimer = b.armorCrackTimer - 0.04 * deltaTime;
             if (newTimer <= 0) {
-              // Armor crack animation complete - break off the armor
-              createCrackingParticles(b.x, b.y, b.width, b.height, b.color);
+              // Armor crack animation complete - break off the armor pieces along crack lines
+              createCrackingParticles(b.x, b.y, b.width, b.height, b.color, b.crackPattern);
               updated = {
                 ...updated,
                 armorCracking: false,
