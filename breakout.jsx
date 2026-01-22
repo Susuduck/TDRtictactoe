@@ -2826,65 +2826,97 @@ const BreakoutGame = () => {
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create brick shatter particles - brick fragments that tumble and fade
+  // Create brick shatter particles - subtle dissolve with tiny particles that drift outward
   const createBrickShatterParticles = useCallback((x, y, width, height, color) => {
     const now = Date.now();
     const newParticles = [];
-    // Create brick fragment particles (reduced count for cleaner look)
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
-      const speed = 1.5 + Math.random() * 3;
+
+    // Create subtle dissolve particles - small, gentle, numerous
+    const dissolveCount = 12 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < dissolveCount; i++) {
+      // Spawn from within the brick area
+      const spawnX = x + (Math.random() - 0.5) * width * 0.8;
+      const spawnY = y + (Math.random() - 0.5) * height * 0.8;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.5 + Math.random() * 2; // Gentle drift
       newParticles.push({
         id: now + Math.random(),
-        x: x + (Math.random() - 0.5) * width * 0.5,
-        y: y + (Math.random() - 0.5) * height * 0.5,
+        x: spawnX,
+        y: spawnY,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1,
+        vy: Math.sin(angle) * speed - 0.5, // Slight upward bias
         color,
-        size: 3 + Math.random() * 4,
-        life: 1.0,
+        size: 2 + Math.random() * 3, // Small particles
+        life: 0.6 + Math.random() * 0.4,
+        createdAt: now,
+        isDissolve: true,
+      });
+    }
+
+    // Add a few slightly larger fragment particles
+    for (let i = 0; i < 4; i++) {
+      const angle = (Math.PI * 2 * i) / 4 + Math.random() * 0.5;
+      const speed = 1 + Math.random() * 2;
+      newParticles.push({
+        id: now + Math.random() + 100,
+        x: x + (Math.random() - 0.5) * width * 0.3,
+        y: y + (Math.random() - 0.5) * height * 0.3,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color,
+        size: 3 + Math.random() * 3,
+        life: 0.8,
         createdAt: now,
         isBrickShard: true,
         rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 10,
+        rotationSpeed: (Math.random() - 0.5) * 8,
       });
     }
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create cracking armor particles - dramatic crack and explosion effect
+  // Create cracking armor particles - armor pieces fly out and drop with gravity
   const createCrackingParticles = useCallback((x, y, width, height, color) => {
     const now = Date.now();
     const newParticles = [];
-    // Create crack line particles that shoot outward then fall
-    const crackCount = 10 + Math.floor(Math.random() * 5);
-    for (let i = 0; i < crackCount; i++) {
-      const angle = (Math.PI * 2 * i) / crackCount + Math.random() * 0.3;
-      const speed = 3 + Math.random() * 5;
+
+    // Create armor shard pieces that fly outward and fall
+    const shardCount = 6 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < shardCount; i++) {
+      const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
+      const speed = 2 + Math.random() * 4;
+      // Spawn from edges of the brick
+      const edgeAngle = Math.random() * Math.PI * 2;
+      const spawnX = x + width/2 + Math.cos(edgeAngle) * width * 0.4;
+      const spawnY = y + height/2 + Math.sin(edgeAngle) * height * 0.4;
+
       newParticles.push({
         id: now + Math.random(),
-        x: x + Math.random() * width,
-        y: y + Math.random() * height,
+        x: spawnX,
+        y: spawnY,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
+        vy: Math.sin(angle) * speed - 2, // Initial upward burst
         color,
-        size: 5 + Math.random() * 7,
-        life: 1.5,
+        size: 6 + Math.random() * 6, // Larger armor pieces
+        life: 1.8, // Longer life to show falling
         createdAt: now,
-        isShard: true,
+        isArmorShard: true,
         rotation: angle * (180 / Math.PI),
+        rotationSpeed: (Math.random() - 0.5) * 15,
+        gravity: 0.15, // Will fall
       });
     }
-    // Add small explosion particles
-    for (let i = 0; i < 6; i++) {
+
+    // Add small debris particles
+    for (let i = 0; i < 8; i++) {
       newParticles.push({
         id: now + Math.random() + 100,
-        x: x + width / 2,
-        y: y + height / 2,
-        vx: (Math.random() - 0.5) * 12,
-        vy: (Math.random() - 0.5) * 12,
-        color: '#ffffff',
-        size: 2 + Math.random() * 2,
+        x: x + Math.random() * width,
+        y: y + Math.random() * height,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6 - 1,
+        color: '#aaaaaa', // Gray debris
+        size: 1 + Math.random() * 2,
         life: 0.5,
         createdAt: now,
       });
@@ -3621,14 +3653,28 @@ const BreakoutGame = () => {
 
       // Update particles (uses 'now' from top of game loop for age check)
       setParticles(prev => prev
-        .map(p => ({
-          ...p,
-          x: p.x + p.vx * deltaTime,
-          y: p.y + p.vy * deltaTime,
-          vy: p.vy + (p.isSparkle ? 0.1 : 0.3) * deltaTime, // Sparkles float more, others fall faster
-          life: p.life - 0.025 * deltaTime,
-          rotation: p.rotationSpeed ? (p.rotation || 0) + p.rotationSpeed * deltaTime : p.rotation,
-        }))
+        .map(p => {
+          // Different gravity for different particle types
+          const gravity = p.isArmorShard ? (p.gravity || 0.15)
+            : p.isDissolve ? 0.02  // Very gentle
+            : p.isSparkle ? 0.1
+            : 0.3;
+
+          // Different life decay rates
+          const lifeDecay = p.isArmorShard ? 0.018
+            : p.isDissolve ? 0.04
+            : 0.025;
+
+          return {
+            ...p,
+            x: p.x + p.vx * deltaTime,
+            y: p.y + p.vy * deltaTime,
+            vx: p.isArmorShard ? p.vx * 0.99 : p.vx, // Air resistance for armor
+            vy: p.vy + gravity * deltaTime,
+            life: p.life - lifeDecay * deltaTime,
+            rotation: p.rotationSpeed ? (p.rotation || 0) + p.rotationSpeed * deltaTime : p.rotation,
+          };
+        })
         .filter(p => p.life > 0 && (now - (p.createdAt || 0)) < MAX_PARTICLE_AGE)
       );
 
@@ -6022,19 +6068,39 @@ const BreakoutGame = () => {
               left: p.x - p.size / 2,
               top: p.y - p.size / 2,
               width: p.size,
-              height: p.isShard ? p.size * 0.6 : p.isBrickShard ? p.size * 0.7 : p.size,
-              background: p.isSparkle
-                ? `radial-gradient(circle, ${p.color} 0%, transparent 70%)`
-                : p.color,
-              borderRadius: p.isShard ? '2px' : p.isBrickShard ? '3px' : '50%',
-              opacity: Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
+              height: p.isArmorShard ? p.size * 0.5  // Flat armor pieces
+                : p.isShard ? p.size * 0.6
+                : p.isBrickShard ? p.size * 0.7
+                : p.size,
+              background: p.isDissolve
+                ? `radial-gradient(circle, ${p.color} 0%, ${p.color}88 50%, transparent 100%)`
+                : p.isSparkle
+                  ? `radial-gradient(circle, ${p.color} 0%, transparent 70%)`
+                  : p.isArmorShard
+                    ? `linear-gradient(135deg, ${p.color} 0%, ${p.color}cc 50%, ${p.color}88 100%)`
+                    : p.color,
+              borderRadius: p.isArmorShard ? '2px'  // Sharp edges
+                : p.isShard ? '2px'
+                : p.isBrickShard ? '3px'
+                : p.isDissolve ? '50%'
+                : '50%',
+              opacity: p.isDissolve
+                ? Math.min(p.life * 1.5, 1)  // Fade out smoothly
+                : p.isArmorShard
+                  ? Math.min(p.life * 0.8, 1)  // Slightly transparent
+                  : Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
               pointerEvents: 'none',
-              transform: (p.isShard || p.isBrickShard) ? `rotate(${p.rotation || 0}deg)` : 'none',
+              transform: (p.isShard || p.isBrickShard || p.isArmorShard)
+                ? `rotate(${p.rotation || 0}deg)`
+                : 'none',
               boxShadow: p.isSparkle
                 ? `0 0 ${p.size}px ${p.color}`
-                : p.isShard || p.isBrickShard
-                  ? '0 2px 4px rgba(0,0,0,0.3)'
-                  : 'none',
+                : p.isArmorShard
+                  ? `0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)`
+                  : p.isShard || p.isBrickShard
+                    ? '0 2px 4px rgba(0,0,0,0.3)'
+                    : 'none',
+              border: p.isArmorShard ? `1px solid ${p.color}` : 'none',
             }}
           />
         ))}
