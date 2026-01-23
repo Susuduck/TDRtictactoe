@@ -150,7 +150,7 @@ const TreasureDig = () => {
     );
 
     // Status Column - left side resource display
-    const StatusColumn = ({ digs, score, treasuresFound, treasureCount, combo, friends, objective, modeColor, phase }) => (
+    const StatusColumn = ({ stamina, score, treasuresFound, treasureCount, combo, friends, objective, modeColor }) => (
         <div style={{
             width: '160px',
             display: 'flex',
@@ -165,19 +165,19 @@ const TreasureDig = () => {
                 padding: '12px',
                 boxShadow: `0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 ${theme.borderLight}`
             }}>
-                {/* Scans/Digs */}
+                {/* Stamina - unified energy for scan AND dig */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>{phase === 'prospect' ? '📡' : '⛏️'}</span>
+                    <span style={{ fontSize: '24px' }}>⚡</span>
                     <div>
                         <div style={{
                             fontSize: '28px',
                             fontWeight: 'bold',
-                            color: digs <= 1 ? theme.error : (phase === 'prospect' ? theme.modeScan : theme.text),
+                            color: stamina <= 2 ? theme.error : stamina <= 4 ? theme.warm : theme.modeScan,
                             lineHeight: 1,
-                            textShadow: digs <= 1 ? `0 0 10px ${theme.error}` : 'none'
-                        }}>{digs}</div>
+                            textShadow: stamina <= 2 ? `0 0 10px ${theme.error}` : 'none'
+                        }}>{stamina}</div>
                         <div style={{ fontSize: '10px', color: theme.textMuted, textTransform: 'uppercase' }}>
-                            {phase === 'prospect' ? 'Scans' : 'Digs'}
+                            Stamina ({stamina} digs)
                         </div>
                     </div>
                 </div>
@@ -251,11 +251,9 @@ const TreasureDig = () => {
     );
 
     // Command Menu - JRPG-style mode buttons
-    const CommandMenu = ({ activeMode, onModeClick, scansLeft, markedCount, digsLeft, phase }) => {
+    const CommandMenu = ({ activeMode, onModeClick, stamina, phase }) => {
         const modes = [
-            { key: 'scan', ...modeConfig.scan, count: scansLeft, show: phase === 'prospect' },
-            { key: 'mark', ...modeConfig.mark, count: markedCount, show: phase === 'prospect' },
-            { key: 'dig', ...modeConfig.dig, count: digsLeft, show: phase === 'dig' },
+            { key: 'explore', icon: '⚡', name: 'Explore', color: theme.modeScan, glow: theme.modeScanGlow, count: stamina, show: phase === 'playing' },
             { key: 'hint', ...modeConfig.hint, count: null, show: true }
         ].filter(m => m.show);
 
@@ -954,100 +952,6 @@ const TreasureDig = () => {
                             {p}
                         </div>
                     ))}
-                </div>
-            </div>
-        );
-    };
-
-    // Bet UI - appears before risky digs
-    const BetUI = ({ position, onBet, onCancel, playerCoins }) => {
-        if (!position) return null;
-
-        const betOptions = [
-            { amount: 0, label: 'Just Dig', desc: 'No risk, base reward' },
-            { amount: 20, label: 'Pretty Sure', desc: '+50 if treasure, -20 if wrong', disabled: playerCoins < 20 },
-            { amount: 100, label: 'Confident!', desc: '+200 if treasure, -100 if wrong', disabled: playerCoins < 100 },
-            { amount: 500, label: 'CERTAIN!', desc: '+1000 if treasure, -500 if wrong', disabled: playerCoins < 500 }
-        ];
-
-        return (
-            <div style={{
-                position: 'fixed',
-                top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(0,0,0,0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1500,
-                animation: 'fadeIn 0.15s ease-out'
-            }}>
-                <div style={{
-                    background: `linear-gradient(135deg, ${theme.bgPanel} 0%, ${theme.bgDark} 100%)`,
-                    border: `3px solid ${theme.gold}`,
-                    borderRadius: '16px',
-                    padding: '24px',
-                    minWidth: '320px',
-                    boxShadow: `0 0 40px ${theme.goldGlow}`
-                }}>
-                    <div style={{
-                        textAlign: 'center',
-                        marginBottom: '20px'
-                    }}>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⛏️ DIG THIS TILE?</div>
-                        <div style={{ color: theme.textSecondary, fontSize: '14px' }}>
-                            How confident are you?
-                        </div>
-                        <div style={{ color: theme.gold, fontSize: '12px', marginTop: '4px' }}>
-                            💰 You have {playerCoins} coins
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {betOptions.map(opt => (
-                            <button
-                                key={opt.amount}
-                                onClick={() => onBet(opt.amount)}
-                                disabled={opt.disabled}
-                                style={{
-                                    padding: '12px 16px',
-                                    background: opt.disabled ? '#333' :
-                                        opt.amount === 0 ? theme.bgPanel :
-                                        opt.amount === 500 ? `linear-gradient(135deg, ${theme.gold} 0%, #ff6b00 100%)` :
-                                        `linear-gradient(135deg, ${theme.modeMark} 0%, ${theme.modeDig} 100%)`,
-                                    border: opt.amount === 0 ? `2px solid ${theme.border}` : 'none',
-                                    borderRadius: '8px',
-                                    color: opt.disabled ? '#666' : opt.amount === 0 ? theme.text : '#fff',
-                                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    transition: 'transform 0.1s',
-                                    fontWeight: opt.amount >= 100 ? 'bold' : 'normal'
-                                }}
-                                onMouseEnter={e => !opt.disabled && (e.target.style.transform = 'scale(1.02)')}
-                                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-                            >
-                                <span>{opt.label}</span>
-                                <span style={{ fontSize: '12px', opacity: 0.8 }}>{opt.desc}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={onCancel}
-                        style={{
-                            width: '100%',
-                            marginTop: '16px',
-                            padding: '10px',
-                            background: 'transparent',
-                            border: `1px solid ${theme.textMuted}`,
-                            borderRadius: '6px',
-                            color: theme.textMuted,
-                            cursor: 'pointer'
-                        }}
-                    >
-                        Cancel
-                    </button>
                 </div>
             </div>
         );
@@ -1861,11 +1765,12 @@ const TreasureDig = () => {
     const [truckPosition, setTruckPosition] = useState(-200); // Truck X position
     const BASKET_CAPACITY = 8; // Items before basket is "full"
 
-    // PHASE SYSTEM - The new gameplay loop!
-    // Phases: 'prospect' -> 'dig' -> 'sort' -> 'reveal' -> 'score'
-    const [gamePhase, setGamePhase] = useState('prospect');
-    const [scansRemaining, setScansRemaining] = useState(0); // Scans for prospect phase
-    const [markedTiles, setMarkedTiles] = useState([]); // Tiles marked during prospect
+    // UNIFIED ENERGY SYSTEM - Stamina powers everything!
+    // Click undug tile = Scan (costs stamina), Click scanned tile = Dig (costs 1 stamina)
+    const [gamePhase, setGamePhase] = useState('playing'); // Simplified: 'playing' -> 'sort' -> 'reveal' -> 'score'
+    const [stamina, setStamina] = useState(8); // Energy for scans AND digs
+    const SCAN_COST = 1; // Scans cost 1 stamina
+    const DIG_COST = 1; // Digs cost 1 stamina
     const [excavatedItems, setExcavatedItems] = useState([]); // Items dug up (visible + dirt clumps)
     const [selectedForBasket, setSelectedForBasket] = useState([]); // Items chosen in sort phase
     const [revealedItems, setRevealedItems] = useState([]); // Items after dirt crumbles
@@ -1886,7 +1791,6 @@ const TreasureDig = () => {
     // Player state
     const [dugTiles, setDugTiles] = useState([]);
     const [flaggedTiles, setFlaggedTiles] = useState([]);
-    const [digsRemaining, setDigsRemaining] = useState(0);
     const [score, setScore] = useState(0);
     const [treasuresFound, setTreasuresFound] = useState(0);
     const [decoysHit, setDecoysHit] = useState(0);
@@ -1970,11 +1874,6 @@ const TreasureDig = () => {
     const [comboCount, setComboCount] = useState(0);
     const [lastDigPosition, setLastDigPosition] = useState(null); // {x, y} for adjacency check
     const [comboMultiplier, setComboMultiplier] = useState(1);
-
-    // Bet system - risk/reward before each dig
-    const [currentBet, setCurrentBet] = useState(0); // 0, 20, 100, 500
-    const [showBetUI, setShowBetUI] = useState(false);
-    const [pendingDigPosition, setPendingDigPosition] = useState(null); // {x, y} waiting for bet
 
     // Discovery effects - dramatic reveals
     const [discoveryEffect, setDiscoveryEffect] = useState(null); // {type, x, y, item, bet}
@@ -2367,7 +2266,7 @@ const TreasureDig = () => {
         setGrid(newGrid);
 
         // Set digs
-        setDigsRemaining(config.digs);
+        setStamina(config.digs);
 
         // Set tools
         const toolCounts = { ...opp.tools };
@@ -2443,16 +2342,15 @@ const TreasureDig = () => {
 
         setHiddenContents(contents);
 
-        // Set up phase state
-        setGamePhase('prospect');
-        setScansRemaining(2); // Only 2 radar scans - each scan affects adjacent tiles too!
-        setMarkedTiles([]);
+        // Set up unified stamina system
+        setGamePhase('playing');
+        setStamina(config.digs + 2); // Total stamina for scans AND digs
         setExcavatedItems([]);
         setSelectedForBasket([]);
         setRevealedItems([]);
         setCombinedItems([]);
         setSignalStrengths({});
-        setPhaseMessage('🔍 PROSPECT PHASE - Scan tiles to detect signals!');
+        setPhaseMessage(`⚡ ${config.digs + 2} Stamina - Click to SCAN, click scanned tiles to DIG!`);
 
         // ============================================
         // INITIALIZE WORLD-SPECIFIC MECHANICS
@@ -2903,7 +2801,7 @@ const TreasureDig = () => {
                 // Nest gives bonus - points or extra dig
                 const bonus = Math.random() > 0.5 ? 'dig' : 'points';
                 if (bonus === 'dig') {
-                    setDigsRemaining(d => d + 1);
+                    setStamina(d => d + 1);
                     addHitEffect(x, y, '🥚 +1 DIG!', 'gem');
                 } else {
                     setScore(s => s + 25);
@@ -3071,14 +2969,16 @@ const TreasureDig = () => {
         return { strength, signalType, displayType };
     }, [hiddenContents]);
 
-    // PROSPECT PHASE: Scan a tile - RADAR STYLE with WORLD MECHANICS
+    // SCAN: Reveal signal strength at a tile (costs stamina)
     const handleScan = useCallback((x, y) => {
-        // Strict bounds checking
-        if (gamePhase !== 'prospect') return;
-        if (scansRemaining <= 0) {
-            setPhaseMessage('❌ No scans left! Mark tiles and dig, or skip scanning.');
+        if (gamePhase !== 'playing') return;
+        if (stamina < SCAN_COST) {
+            setPhaseMessage('❌ No stamina left!');
             return;
         }
+
+        // Deduct stamina for scan
+        setStamina(prev => Math.max(0, prev - SCAN_COST));
 
         const worldId = selectedOpponent?.id || 0;
         const mechanic = worldMechanics[worldId] || worldMechanics[0];
@@ -3229,9 +3129,6 @@ const TreasureDig = () => {
             setScanRipples(prev => prev.filter(r => r.id !== rippleId));
         }, 1000);
 
-        // Decrement scans (with safety check)
-        setScansRemaining(prev => Math.max(0, prev - 1));
-
         // ============================================
         // WORLD-SPECIFIC POST-SCAN EFFECTS
         // ============================================
@@ -3320,50 +3217,33 @@ const TreasureDig = () => {
             tier: centerStrength >= 2.5 ? 1 : centerStrength >= 1.5 ? 3 : centerStrength >= 0.5 ? 5 : 7
         });
 
-        addEventLog(`📡 Scanned (${x},${y}): ${feedback.label} [CENTER ACCURATE]`);
+        addEventLog(`📡 Scanned (${x},${y}): ${feedback.label}`);
 
-        if (scansRemaining <= 1) {
+        // Check if out of stamina
+        if (stamina <= SCAN_COST) {
             setTimeout(() => {
-                setPhaseMessage('📍 Right-click tiles to MARK them, then click READY TO DIG!');
+                setGamePhase('sort');
+                setPhaseMessage('🧺 SORT PHASE - Choose what to keep!');
             }, 500);
         }
-    }, [gamePhase, scansRemaining, signalStrengths, calculateSignalStrength, gridSize, selectedOpponent, addEventLog,
+    }, [gamePhase, stamina, SCAN_COST, signalStrengths, calculateSignalStrength, gridSize, selectedOpponent, addEventLog,
         chargeLevel, scanMode, triangulationScans, peckThreshold, setMascotMoodTemp]);
 
-    // PROSPECT PHASE: Mark/unmark a tile for digging
-    const handleMark = useCallback((x, y) => {
-        if (gamePhase !== 'prospect') return;
+    // handleMark removed - marking system no longer used
+    const handleMark = useCallback(() => {
+        // No-op - marking removed from game
+    }, []);
 
-        setMarkedTiles(prev => {
-            const isAlreadyMarked = prev.some(t => t.x === x && t.y === y);
-            if (isAlreadyMarked) {
-                addEventLog(`Unmarked tile (${x},${y})`);
-                return prev.filter(t => !(t.x === x && t.y === y));
-            } else {
-                addEventLog(`Marked tile (${x},${y}) for digging`);
-                setMascotMoodTemp('happy', 500);
-                return [...prev, { x, y }];
-            }
-        });
-    }, [gamePhase, addEventLog, setMascotMoodTemp]);
-
-    // Transition to DIG phase
-    const startDigPhase = useCallback(() => {
-        if (markedTiles.length === 0) {
-            setPhaseMessage('⚠️ Mark at least one tile to dig!');
+    // DIG: Excavate a tile (costs stamina)
+    const handleExcavate = useCallback((x, y) => {
+        if (gamePhase !== 'playing') return;
+        if (stamina < DIG_COST) {
+            setPhaseMessage('❌ No stamina left!');
             return;
         }
-        setGamePhase('dig');
-        setDigsRemaining(Math.min(markedTiles.length + 2, Math.floor(gridSize * 0.8))); // Limited digs!
-        setPhaseMessage('⛏️ DIG PHASE - Excavate your marked tiles!');
-    }, [markedTiles, gridSize]);
 
-    // DIG PHASE: Excavate a tile with WORLD MECHANICS
-    const handleExcavate = useCallback((x, y, betAmount = 0) => {
-        if (gamePhase !== 'dig' || digsRemaining <= 0) return;
-
-        // Use passed bet amount (from BetUI) instead of state
-        const activeBet = betAmount;
+        // Deduct stamina for dig
+        setStamina(prev => Math.max(0, prev - DIG_COST));
 
         const worldId = selectedOpponent?.id || 0;
         const mechanic = worldMechanics[worldId] || worldMechanics[0];
@@ -3379,9 +3259,8 @@ const TreasureDig = () => {
         if (mechanic.primaryMechanic === 'depthLayers') {
             const currentDepth = tileDepths[key] || 1;
             if (currentDepth > 1) {
-                // First dig only clears rubble
+                // First dig only clears rubble (stamina already deducted)
                 setTileDepths(prev => ({ ...prev, [key]: currentDepth - 1 }));
-                setDigsRemaining(prev => Math.max(0, prev - 1));
                 setMechanicAlert({ message: '⛏️ Rubble cleared! Dig again to extract.', type: 'info', duration: 1200 });
                 addEventLog(`Cleared rubble at (${x},${y}) - ${currentDepth - 1} layers left`);
 
@@ -3393,7 +3272,7 @@ const TreasureDig = () => {
                     return newGrid;
                 });
 
-                if (digsRemaining <= 1) {
+                if (stamina <= DIG_COST) {
                     setTimeout(() => {
                         setGamePhase('sort');
                         setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
@@ -3407,16 +3286,15 @@ const TreasureDig = () => {
         if (mechanic.primaryMechanic === 'shifting' && mechanic.mechanicRules?.trapDoorChance) {
             if (Math.random() < mechanic.mechanicRules.trapDoorChance) {
                 setMechanicAlert({ message: '🕳️ TRAP DOOR! Dig wasted!', type: 'error', duration: 1500 });
-                setDigsRemaining(prev => Math.max(0, prev - 1));
                 addEventLog(`Trap door sprung at (${x},${y})!`);
 
-                if (digsRemaining <= 1) {
+                if (stamina <= DIG_COST) {
                     setTimeout(() => {
                         setGamePhase('sort');
                         setPhaseMessage('🧺 SORT PHASE - Choose what to keep!');
                     }, 500);
                 }
-                return; // Dig consumed but nothing revealed
+                return; // Dig consumed but nothing revealed (stamina already deducted)
             }
         }
 
@@ -3428,7 +3306,7 @@ const TreasureDig = () => {
             return newGrid;
         });
         setDugTiles(prev => [...prev, { x, y }]);
-        setDigsRemaining(prev => Math.max(0, prev - 1));
+        setStamina(prev => Math.max(0, prev - 1));
 
         // Get what was at this tile
         const content = hiddenContents[key];
@@ -3461,7 +3339,7 @@ const TreasureDig = () => {
 
             if (slideX >= 0 && slideX < gridSize && slideY >= 0 && slideY < gridSize) {
                 const slideTile = grid[slideY]?.[slideX];
-                if (slideTile && !slideTile.dug && digsRemaining > 1) {
+                if (slideTile && !slideTile.dug && stamina > 1) {
                     setMechanicAlert({ message: '⛷️ SLIDE! Bonus dig!', type: 'info', duration: 1000 });
                     // Queue the slide dig (no bet for auto-digs)
                     setTimeout(() => handleExcavate(slideX, slideY, 0), 400);
@@ -3501,7 +3379,6 @@ const TreasureDig = () => {
         // Determine what we found and trigger appropriate effect
         let effectType = 'empty';
         let discoveredItem = null;
-        let betReward = 0;
 
         if (content) {
             if (content.type === 'treasure' || content.type === 'collectible') {
@@ -3522,12 +3399,6 @@ const TreasureDig = () => {
                     setComboMultiplier(1);
                 }
                 setLastDigPosition({ x, y });
-
-                // Apply bet reward if bet was placed
-                if (activeBet > 0) {
-                    betReward = activeBet * 2; // Win double the bet!
-                    setScore(prev => prev + betReward);
-                }
             } else if (content.type === 'junk' || content.type === 'decoy') {
                 // DECOY HIT
                 effectType = 'decoy';
@@ -3537,11 +3408,6 @@ const TreasureDig = () => {
                 setComboCount(0);
                 setComboMultiplier(1);
                 setLastDigPosition(null);
-
-                // Apply bet penalty
-                if (activeBet > 0) {
-                    setScore(prev => Math.max(0, prev - activeBet));
-                }
             } else {
                 // Some other content
                 discoveredItem = content;
@@ -3573,11 +3439,6 @@ const TreasureDig = () => {
             setComboCount(0);
             setComboMultiplier(1);
             setLastDigPosition(null);
-
-            // Apply bet penalty on empty
-            if (activeBet > 0) {
-                setScore(prev => Math.max(0, prev - activeBet));
-            }
         }
 
         // Trigger the discovery effect with hit pause
@@ -3586,7 +3447,6 @@ const TreasureDig = () => {
             type: effectType,
             x, y,
             item: discoveredItem,
-            bet: activeBet,
             combo: comboCount + (effectType === 'treasure' ? 1 : 0),
             multiplier: effectType === 'treasure' ? Math.min(3, 1 + ((comboCount + 1) * 0.5)) : 1
         });
@@ -3598,14 +3458,14 @@ const TreasureDig = () => {
             setDiscoveryEffect(null);
         }, effectDuration);
 
-        // Check if we should transition to SORT (delay for effect)
-        if (digsRemaining <= 1) {
+        // Check if we should transition to SORT (stamina depleted after this dig)
+        if (stamina <= DIG_COST) {
             setTimeout(() => {
                 setGamePhase('sort');
                 setPhaseMessage('🧺 SORT PHASE - Choose what to keep! (Basket holds ' + BASKET_CAPACITY + ' items)');
             }, effectDuration + 300);
         }
-    }, [gamePhase, digsRemaining, grid, hiddenContents, BASKET_CAPACITY, selectedOpponent, tileDepths,
+    }, [gamePhase, stamina, DIG_COST, grid, hiddenContents, BASKET_CAPACITY, selectedOpponent, tileDepths,
         signalStrengths, maxCharge, gloveProtected, gridSize, addEventLog, lastDigPosition, comboCount,
         luckyFindChance]);
 
@@ -3737,55 +3597,42 @@ const TreasureDig = () => {
         }, combos.length > 0 ? 2000 : 1000);
     }, [combinations]);
 
-    // Skip to dig phase (use remaining scans on random tiles)
-    const skipToDigPhase = useCallback(() => {
-        setGamePhase('dig');
-        setDigsRemaining(Math.max(5, Math.floor(gridSize * 0.7)));
-        setPhaseMessage('⛏️ DIG PHASE - Excavate tiles to find items!');
-    }, [gridSize]);
-
-    // Main tile click handler - routes to appropriate phase handler
+    // Main tile click handler - UNIFIED STAMINA SYSTEM
+    // Click unscanned tile = Scan, Click scanned tile = Dig
     const handleTileClick = useCallback((x, y, isRightClick = false) => {
-        if (gameState !== 'playing') return;
+        if (gameState !== 'playing' || gamePhase !== 'playing') return;
+        if (stamina <= 0) return;
 
-        // Handle based on current phase
-        if (gamePhase === 'prospect') {
-            if (isRightClick) {
-                handleMark(x, y); // Right-click to mark
-            } else {
-                handleScan(x, y); // Left-click to scan
-            }
-            return;
+        const tile = grid[y]?.[x];
+        if (!tile) return;
+
+        const tileKey = `${x}_${y}`;
+        const isScanned = signalStrengths[tileKey] !== undefined;
+        const isDug = tile.dug;
+
+        if (isDug) return; // Already excavated
+
+        if (!isScanned) {
+            // SCAN - reveal signal strength
+            handleScan(x, y);
+        } else {
+            // DIG - excavate the tile
+            handleExcavate(x, y);
         }
-
-        if (gamePhase === 'dig') {
-            // Check if tile is valid for digging
-            const tile = grid[y]?.[x];
-            if (!tile || tile.dug) return;
-
-            // Show bet UI before digging - risk/reward system
-            setPendingDigPosition({ x, y });
-            setShowBetUI(true);
-            return;
-        }
-
-        // Other phases don't use tile clicks
-        return;
-    }, [gameState, gamePhase, handleScan, handleMark, grid]);
+    }, [gameState, gamePhase, stamina, grid, signalStrengths, handleScan, handleExcavate]);
 
     // Legacy dig handler (for backwards compatibility)
     const handleDig = useCallback((x, y) => {
-        // Route to new phase system - ALL phase states go through new system
-        if (['prospect', 'dig', 'sort', 'reveal', 'score'].includes(gamePhase)) {
-            if (gamePhase === 'prospect' || gamePhase === 'dig') {
+        // Route to new system
+        if (['playing', 'sort', 'reveal', 'score'].includes(gamePhase)) {
+            if (gamePhase === 'playing') {
                 handleTileClick(x, y);
             }
-            // Other phases ignore tile clicks
             return;
         }
 
         // Legacy code below - should NOT run during normal gameplay now
-        if (gameState !== 'playing' || digsRemaining <= 0) return;
+        if (gameState !== 'playing' || stamina <= 0) return;
 
         const tile = grid[y]?.[x];
         if (!tile) return;
@@ -3821,13 +3668,13 @@ const TreasureDig = () => {
         const isFrozen = frozenTiles.some(f => f.x === x && f.y === y) && !tile.dug;
         const digCost = isFrozen ? 2 : 1;
 
-        if (digsRemaining < digCost) {
+        if (stamina < digCost) {
             addHitEffect(x, y, 'Not enough digs!', 'error');
             return;
         }
 
         // Deduct digs
-        setDigsRemaining(d => d - digCost);
+        setStamina(d => d - digCost);
 
         // Handle quicksand - dig is consumed but no info revealed
         if (specialResult.extraEffect === 'quicksand') {
@@ -3937,7 +3784,7 @@ const TreasureDig = () => {
         const foundGem = gemPositions.find(g => g.x === x && g.y === y);
         if (foundGem) {
             if (foundGem.type === 'dig') {
-                setDigsRemaining(d => d + 1);
+                setStamina(d => d + 1);
                 addHitEffect(x, y, '💚 +1 DIG!', 'gem');
             } else {
                 setScore(s => s + foundGem.value);
@@ -3993,10 +3840,10 @@ const TreasureDig = () => {
         }
 
         // Check lose condition
-        if (digsRemaining - digCost <= 0 && treasurePositions.length > 0) {
+        if (stamina - digCost <= 0 && treasurePositions.length > 0) {
             setTimeout(() => setGameState('result'), 800);
         }
-    }, [gameState, gamePhase, digsRemaining, grid, activeTool, frozenTiles, treasurePositions,
+    }, [gameState, gamePhase, stamina, grid, activeTool, frozenTiles, treasurePositions,
         decoyPositions, gemPositions, collectiblePositions, gridSize, combo, maxCombo, moveHistory,
         selectedOpponent, getMinTreasureDistance, getMinDecoyDistance,
         handleRadar, handleXRay, handleSonar, handleFlag, handleSpecialTile, moveTreasure,
@@ -4054,19 +3901,19 @@ const TreasureDig = () => {
             case 'score':
                 return finalScore >= config.scoreThreshold;
             case 'efficiency':
-                return digsRemaining >= obj.target;
+                return stamina >= obj.target;
             case 'noDecoy':
                 return decoysHit === 0;
             case 'underPar':
-                return digsRemaining >= config.parDigs;
+                return stamina >= config.parDigs;
             case 'combo':
                 return maxCombo >= obj.target;
             case 'perfect':
-                return digsRemaining >= config.parDigs && decoysHit === 0;
+                return stamina >= config.parDigs && decoysHit === 0;
             default:
                 return false;
         }
-    }, [digsRemaining, decoysHit, maxCombo]);
+    }, [stamina, decoysHit, maxCombo]);
 
     // Handle result
     useEffect(() => {
@@ -4077,10 +3924,10 @@ const TreasureDig = () => {
 
         if (won && config) {
             // Calculate bonuses
-            const digBonus = digsRemaining * 10;
+            const digBonus = stamina * 10;
             const comboBonus = maxCombo * 15;
             const noDecoyBonus = decoysHit === 0 ? 50 : 0;
-            const underParBonus = digsRemaining >= config.parDigs ? 75 : 0;
+            const underParBonus = stamina >= config.parDigs ? 75 : 0;
 
             const totalBonus = digBonus + comboBonus + noDecoyBonus + underParBonus;
             setScore(s => s + totalBonus);
@@ -4853,24 +4700,6 @@ const TreasureDig = () => {
                     />
                 )}
 
-                {/* Bet UI Overlay - risk/reward before dig */}
-                {showBetUI && pendingDigPosition && (
-                    <BetUI
-                        position={pendingDigPosition}
-                        playerCoins={score}
-                        onBet={(amount) => {
-                            setShowBetUI(false);
-                            // Execute the actual dig with bet amount
-                            handleExcavate(pendingDigPosition.x, pendingDigPosition.y, amount);
-                            setPendingDigPosition(null);
-                        }}
-                        onCancel={() => {
-                            setShowBetUI(false);
-                            setPendingDigPosition(null);
-                        }}
-                    />
-                )}
-
                 {/* Combo Display - shows current streak in corner */}
                 <ComboDisplay count={comboCount} multiplier={comboMultiplier} />
 
@@ -4927,7 +4756,7 @@ const TreasureDig = () => {
                 {showTutorial && <TutorialOverlay />}
 
                 {/* === MAIN THREE-COLUMN LAYOUT - only during prospect/dig phases === */}
-                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                {(gamePhase === 'playing') && (
                 <div style={{
                     display: 'flex',
                     gap: '20px',
@@ -4937,7 +4766,7 @@ const TreasureDig = () => {
                 }}>
                     {/* === LEFT COLUMN: Status === */}
                     <StatusColumn
-                        digs={gamePhase === 'prospect' ? scansRemaining : digsRemaining}
+                        stamina={stamina}
                         score={score}
                         treasuresFound={treasuresFound}
                         treasureCount={treasureCount}
@@ -4945,21 +4774,17 @@ const TreasureDig = () => {
                         friends={friendsFound}
                         objective={levelConfig?.bonusObjective?.desc}
                         modeColor={currentModeColor}
-                        phase={gamePhase}
                     />
 
                     {/* === CENTER COLUMN: Board with ornate frame === */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         {/* Phase Banner - compact indicator */}
                         <PhaseBanner
-                            phase={gamePhase === 'prospect' ? 'PROSPECT' : gamePhase === 'dig' ? 'DIG' : gamePhase.toUpperCase()}
+                            phase={gamePhase === 'playing' ? 'EXPLORE' : gamePhase.toUpperCase()}
                             modeColor={currentModeColor}
-                            message={gamePhase === 'prospect' ? 'Scan to detect • Right-click to mark' : gamePhase === 'dig' ? 'Click marked tiles to excavate' : ''}
-                            stats={gamePhase === 'prospect' ? [
-                                { icon: worldScanTheme.toolEmoji, value: scansRemaining, color: scansRemaining > 3 ? theme.success : theme.error },
-                                { icon: '⛏️', value: markedTiles.length, color: theme.modeMark }
-                            ] : gamePhase === 'dig' ? [
-                                { icon: '⛏️', value: digsRemaining, color: digsRemaining > 2 ? theme.success : theme.error },
+                            message={gamePhase === 'playing' ? 'Click to SCAN • Click scanned to DIG' : ''}
+                            stats={gamePhase === 'playing' ? [
+                                { icon: '⚡', value: stamina, color: stamina > 3 ? theme.success : stamina > 1 ? theme.warm : theme.error },
                                 { icon: '📦', value: excavatedItems.length, color: theme.gold }
                             ] : null}
                         />
@@ -4987,7 +4812,7 @@ const TreasureDig = () => {
                         />
 
                         {/* Last scan/dig feedback - only during prospect/dig phases */}
-                        {lastDigResult && (gamePhase === 'prospect' || gamePhase === 'dig') && (
+                        {lastDigResult && (gamePhase === 'playing') && (
                             <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
                                 padding: '8px 24px', borderRadius: '20px',
@@ -5008,7 +4833,7 @@ const TreasureDig = () => {
                         )}
 
                         {/* The Board with ornate JRPG frame */}
-                        {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                        {(gamePhase === 'playing') && (
                             <OrnateFrame
                                 modeColor={currentModeColor}
                                 title={worldScanTheme.tool}
@@ -5034,7 +4859,6 @@ const TreasureDig = () => {
                                             // PHASE SYSTEM: Check scan status and marks
                                             const tileKey = `${x}_${y}`;
                                             const scanResult = signalStrengths[tileKey];
-                                            const isMarked = markedTiles.some(m => m.x === x && m.y === y);
                                             const isScanned = scanResult !== undefined;
 
                                             // Fog visibility
@@ -5120,7 +4944,7 @@ const TreasureDig = () => {
 
                                             // PROSPECT PHASE: Show scan results with mode-colored glow
                                             // LEARNABLE TELL: Pulsing = treasure, Static = decoy!
-                                            if (gamePhase === 'prospect' && isScanned && !isDug) {
+                                            if (gamePhase === 'playing' && isScanned && !isDug) {
                                                 const strength = scanResult.strength;
                                                 const displayType = scanResult.displayType || 'none';
                                                 const signalColor = strength >= 2.5 ? theme.signalStrong
@@ -5150,32 +4974,8 @@ const TreasureDig = () => {
                                                 );
                                             }
 
-                                            // Marked tiles with mode-colored styling
-                                            if (isMarked && !isDug) {
-                                                borderColor = theme.modeMark;
-                                                phaseOverlay = (
-                                                    <div style={{
-                                                        position: 'absolute',
-                                                        inset: 0,
-                                                        border: `2px solid ${theme.modeMark}`,
-                                                        borderRadius: '4px',
-                                                        boxShadow: `0 0 8px ${theme.modeMarkGlow}, inset 0 0 8px ${theme.modeMarkGlow}`,
-                                                        pointerEvents: 'none'
-                                                    }}>
-                                                        <span style={{
-                                                            position: 'absolute',
-                                                            top: -6, right: -6,
-                                                            fontSize: '12px',
-                                                            background: theme.bgDark,
-                                                            borderRadius: '50%',
-                                                            padding: '1px'
-                                                        }}>⛏️</span>
-                                                    </div>
-                                                );
-                                            }
-
-                                            // DIG PHASE: Show excavated items
-                                            if (gamePhase === 'dig' && isDug) {
+                                            // Show excavated items when dug
+                                            if (isDug) {
                                                 const hiddenItem = hiddenContents[tileKey];
                                                 if (hiddenItem) {
                                                     bgColor = hiddenItem.isDirt ? '#6a4a2a' : '#3a5a3a';
@@ -5196,7 +4996,7 @@ const TreasureDig = () => {
                                                     onClick={() => handleDig(x, y)}
                                                     onContextMenu={(e) => {
                                                         e.preventDefault();
-                                                        if (gamePhase === 'prospect') {
+                                                        if (gamePhase === 'playing') {
                                                             handleMark(x, y);
                                                         } else {
                                                             handleFlag(x, y);
@@ -5208,7 +5008,7 @@ const TreasureDig = () => {
                                                         background: bgColor,
                                                         border: `2px solid ${borderColor}`,
                                                         borderRadius: '4px',
-                                                        cursor: isDug && !isDeepPartial ? 'default' : (gamePhase === 'prospect' ? 'crosshair' : 'pointer'),
+                                                        cursor: isDug && !isDeepPartial ? 'default' : (gamePhase === 'playing' ? 'crosshair' : 'pointer'),
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
@@ -5283,44 +5083,8 @@ const TreasureDig = () => {
 
                         {/* Phase Action Buttons - below the frame */}
                         <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-                            {gamePhase === 'prospect' && (
-                                <>
-                                    <button
-                                        onClick={() => {
-                                            // If no scans done, ask for confirmation
-                                            const scansUsed = 2 - scansRemaining;
-                                            if (scansUsed === 0 && markedTiles.length === 0) {
-                                                if (window.confirm('Dig blind? No scans done and no tiles marked!')) {
-                                                    skipToDigPhase();
-                                                }
-                                            } else if (markedTiles.length === 0) {
-                                                if (window.confirm('No tiles marked - dig randomly?')) {
-                                                    skipToDigPhase();
-                                                }
-                                            } else {
-                                                startDigPhase();
-                                            }
-                                        }}
-                                        style={{
-                                            padding: '10px 24px',
-                                            fontSize: '14px',
-                                            fontWeight: 'bold',
-                                            background: markedTiles.length > 0
-                                                ? `linear-gradient(135deg, ${theme.modeDig} 0%, ${theme.modeDig}cc 100%)`
-                                                : `linear-gradient(135deg, ${theme.modeMark} 0%, ${theme.modeMark}cc 100%)`,
-                                            color: '#fff',
-                                            border: markedTiles.length > 0 ? `2px solid ${theme.modeDig}` : `2px solid ${theme.modeMark}`,
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            boxShadow: markedTiles.length > 0 ? `0 4px 12px ${theme.modeDigGlow}` : `0 4px 12px ${theme.modeMarkGlow}`,
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        ⛏️ {markedTiles.length > 0 ? `Ready to Dig (${markedTiles.length})` : 'Start Digging'}
-                                    </button>
-                                </>
-                            )}
-                            {gamePhase === 'dig' && excavatedItems.length > 0 && (
+                            {/* Done exploring button - moves to sort phase */}
+                            {gamePhase === 'playing' && excavatedItems.length > 0 && (
                                 <button
                                     onClick={() => {
                                         setGamePhase('sort');
@@ -5352,9 +5116,7 @@ const TreasureDig = () => {
                         <CommandMenu
                             activeMode={activeMode}
                             onModeClick={(mode) => setActiveMode(mode)}
-                            scansLeft={scansRemaining}
-                            markedCount={markedTiles.length}
-                            digsLeft={digsRemaining}
+                            stamina={stamina}
                             phase={gamePhase}
                         />
 
@@ -5998,7 +5760,7 @@ const TreasureDig = () => {
                 </div>
 
                 {/* OLD GAME GRID - REMOVED (now in OrnateFrame above) */}
-                {false && (gamePhase === 'prospect' || gamePhase === 'dig') && (
+                {false && (gamePhase === 'playing') && (
                 <div style={{
                     flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center',
                     position: 'relative'
@@ -6022,10 +5784,9 @@ const TreasureDig = () => {
                                 const sonarTile = sonarTiles.find(s => s.x === x && s.y === y);
                                 const isHinted = showHint && hintTile?.x === x && hintTile?.y === y;
 
-                                // PHASE SYSTEM: Check scan status and marks
+                                // Check scan status
                                 const tileKey = `${x}_${y}`;
                                 const scanResult = signalStrengths[tileKey];
-                                const isMarked = markedTiles.some(m => m.x === x && m.y === y);
                                 const isScanned = scanResult !== undefined;
 
                                 // Fog visibility
@@ -6133,7 +5894,7 @@ const TreasureDig = () => {
                                 let phaseOverlay = null;
 
                                 // PROSPECT PHASE: Show scan results
-                                if (gamePhase === 'prospect' && isScanned && !isDug) {
+                                if (gamePhase === 'playing' && isScanned && !isDug) {
                                     const strength = scanResult.strength;
                                     const signalColor = strength >= 2.5 ? '#ff4444' : strength >= 1.5 ? '#ffaa00' : strength >= 0.5 ? '#44aa44' : '#666666';
                                     bgColor = `${signalColor}44`;
@@ -6148,33 +5909,8 @@ const TreasureDig = () => {
                                     );
                                 }
 
-                                // Show marked tiles (for digging)
-                                if (isMarked && !isDug) {
-                                    borderColor = '#ffff00';
-                                    phaseOverlay = (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 0, left: 0, right: 0, bottom: 0,
-                                            border: '3px solid #ffff00',
-                                            borderRadius: '6px',
-                                            boxShadow: '0 0 10px #ffff00, inset 0 0 10px rgba(255,255,0,0.3)',
-                                            pointerEvents: 'none',
-                                            zIndex: 5
-                                        }}>
-                                            <span style={{
-                                                position: 'absolute',
-                                                top: -8, right: -8,
-                                                fontSize: '16px',
-                                                background: '#222',
-                                                borderRadius: '50%',
-                                                padding: '2px'
-                                            }}>⛏️</span>
-                                        </div>
-                                    );
-                                }
-
-                                // DIG PHASE: Show what was found at dug tiles
-                                if (gamePhase === 'dig' && isDug) {
+                                // Show what was found at dug tiles
+                                if (isDug) {
                                     const hiddenItem = hiddenContents[tileKey];
                                     if (hiddenItem) {
                                         bgColor = hiddenItem.isDirt ? '#8B4513' : '#3a5a3a';
@@ -6195,7 +5931,7 @@ const TreasureDig = () => {
                                         onClick={() => handleDig(x, y)}
                                         onContextMenu={(e) => {
                                             e.preventDefault();
-                                            if (gamePhase === 'prospect') {
+                                            if (gamePhase === 'playing') {
                                                 handleMark(x, y);
                                             } else {
                                                 handleFlag(x, y);
@@ -6302,7 +6038,7 @@ const TreasureDig = () => {
                 )}
 
                 {/* Collapsible Legend - JRPG style */}
-                {(gamePhase === 'prospect' || gamePhase === 'dig') && (
+                {(gamePhase === 'playing') && (
                     <div style={{ marginTop: '12px' }}>
                         <ContextLegend
                             phase={gamePhase}
@@ -6479,10 +6215,10 @@ const TreasureDig = () => {
         const won = treasurePositions.length === 0;
         const config = levelConfig;
 
-        const digBonus = won ? digsRemaining * 10 : 0;
+        const digBonus = won ? stamina * 10 : 0;
         const comboBonus = maxCombo * 15;
         const noDecoyBonus = won && decoysHit === 0 ? 50 : 0;
-        const underParBonus = won && config && digsRemaining >= config.parDigs ? 75 : 0;
+        const underParBonus = won && config && stamina >= config.parDigs ? 75 : 0;
         const finalScore = score + digBonus + comboBonus + noDecoyBonus + underParBonus;
 
         // New star system: 0.5 for completion + 0.5 for bonus objective
@@ -6591,7 +6327,7 @@ const TreasureDig = () => {
                             <>
                                 <span style={{ color: theme.textMuted }}>Digs Remaining:</span>
                                 <span style={{ color: theme.accent, textAlign: 'right' }}>
-                                    {digsRemaining} (+{digBonus})
+                                    {stamina} (+{digBonus})
                                 </span>
 
                                 {comboBonus > 0 && (
