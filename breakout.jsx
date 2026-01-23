@@ -2138,6 +2138,73 @@ const BreakoutGame = () => {
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [debugMode, setDebugMode] = useState(false); // Debug mode - unlocks all levels
+  const [levelEditorEnabled, setLevelEditorEnabled] = useState(true); // Toggle level editor access (debug feature)
+
+  // === LEVEL EDITOR STATE ===
+  const [editorLevel, setEditorLevel] = useState(Array(6).fill('.'.repeat(12))); // Current level being edited
+  const [editorSelectedTool, setEditorSelectedTool] = useState('1'); // Current brick/tool selected
+  const [editorSelectedEnemy, setEditorSelectedEnemy] = useState('brick_goblin'); // Enemy to edit levels for
+  const [editorLevelNumber, setEditorLevelNumber] = useState(1); // Which level slot (1-12)
+  const [editorTestMode, setEditorTestMode] = useState(false); // Playing the level being edited
+  const [customLevels, setCustomLevels] = useState(() => {
+    const saved = localStorage.getItem('teddyball_custom_levels');
+    return saved ? JSON.parse(saved) : {};
+  }); // { enemyId: { levelNum: [...rows] } }
+
+  // === WEAPONS SYSTEM ===
+  // Unconventional weapons that use ammo - ball goes into containment field while using
+  const WEAPONS = {
+    bubble_wand: {
+      id: 'bubble_wand',
+      name: 'Bubble Wand',
+      emoji: '🫧',
+      color: '#88ddff',
+      desc: 'Blow magical bubbles that float up and pop on bricks',
+      maxAmmo: 8,
+      brickChar: 'B', // Specific powerup brick character
+    },
+    gravity_anchor: {
+      id: 'gravity_anchor',
+      name: 'Gravity Anchor',
+      emoji: '⚓',
+      color: '#4a6fa5',
+      desc: 'Drop anchors that create gravity wells, pulling bricks down',
+      maxAmmo: 3,
+      brickChar: 'A',
+    },
+    prism_beam: {
+      id: 'prism_beam',
+      name: 'Prism Beam',
+      emoji: '💎',
+      color: '#ff88ff',
+      desc: 'Fire a light beam that splits and refracts off obstacles',
+      maxAmmo: 5,
+      brickChar: 'R',
+    },
+    vine_launcher: {
+      id: 'vine_launcher',
+      name: 'Vine Launcher',
+      emoji: '🌿',
+      color: '#44aa44',
+      desc: 'Shoot organic vines that spread across connected bricks',
+      maxAmmo: 4,
+      brickChar: 'V',
+    },
+    echo_pulse: {
+      id: 'echo_pulse',
+      name: 'Echo Pulse',
+      emoji: '🔊',
+      color: '#ffaa00',
+      desc: 'Send sound waves that crack all bricks in their path',
+      maxAmmo: 6,
+      brickChar: 'W', // W for Wave
+    },
+  };
+
+  const [activeWeapon, setActiveWeapon] = useState(null); // Current weapon being used
+  const [weaponAmmo, setWeaponAmmo] = useState({}); // { weaponId: ammoCount }
+  const [containmentField, setContainmentField] = useState(false); // Ball sucked into paddle
+  const [weaponProjectiles, setWeaponProjectiles] = useState([]); // Active weapon effects (bubbles, vines, etc)
 
   // Power-ups
   const [powerUps, setPowerUps] = useState([]);
@@ -2291,6 +2358,7 @@ const BreakoutGame = () => {
   const bricksRef = useRef([]);
   const paddleRef = useRef(paddle);
   const launchDelayRef = useRef(0); // Prevents immediate ball launch when starting game
+  const weaponAmmoRef = useRef({}); // Track weapon ammo for keyboard handler
 
   // Enemy definitions with unique gimmicks
   const enemyDefs = [
@@ -2428,18 +2496,31 @@ const BreakoutGame = () => {
 
   // Power-up types (only unlocked ones can spawn)
   const powerUpTypes = {
-    expand: { emoji: '📏', color: '#50c878', effect: 'Wider Paddle', weight: 3 },
-    shrink: { emoji: '📐', color: '#ff6b6b', effect: 'Shrink! (penalty)', weight: 1 },
-    multi: { emoji: '✨', color: '#ffd700', effect: 'Multi-Ball', weight: 3 },
-    fast: { emoji: '⚡', color: '#ffff00', effect: 'Speed Up', weight: 1 },
-    slow: { emoji: '🐌', color: '#80c0ff', effect: 'Slow Down', weight: 2 },
-    life: { emoji: '❤️', color: '#ff4444', effect: '+1 Life', weight: 2 },
-    laser: { emoji: '🔫', color: '#ff00ff', effect: 'Laser Paddle', weight: 2 },
-    shield: { emoji: '🛡️', color: '#4080ff', effect: 'Shield', weight: 2 },
-    magnet: { emoji: '🧲', color: '#4080e0', effect: 'Magnet Catch', weight: 2 },
-    mega: { emoji: '💫', color: '#ffd700', effect: 'Mega Ball!', weight: 1 },
-    warp: { emoji: '🌀', color: '#a060e0', effect: 'WARP GATE!', weight: 0.5 },
+    // Regular powerups with brick characters for specific drops
+    expand: { emoji: '📏', color: '#50c878', effect: 'Wider Paddle', weight: 3, brickChar: 'e' },
+    shrink: { emoji: '📐', color: '#ff6b6b', effect: 'Shrink! (penalty)', weight: 1, brickChar: 'k' },
+    multi: { emoji: '✨', color: '#ffd700', effect: 'Multi-Ball', weight: 3, brickChar: 'm' },
+    fast: { emoji: '⚡', color: '#ffff00', effect: 'Speed Up', weight: 1, brickChar: 'f' },
+    slow: { emoji: '🐌', color: '#80c0ff', effect: 'Slow Down', weight: 2, brickChar: 's' },
+    life: { emoji: '❤️', color: '#ff4444', effect: '+1 Life', weight: 2, brickChar: 'l' },
+    laser: { emoji: '🔫', color: '#ff00ff', effect: 'Laser Paddle', weight: 2, brickChar: 'z' },
+    shield: { emoji: '🛡️', color: '#4080ff', effect: 'Shield', weight: 2, brickChar: 'h' },
+    magnet: { emoji: '🧲', color: '#4080e0', effect: 'Magnet Catch', weight: 2, brickChar: 'g' },
+    mega: { emoji: '💫', color: '#ffd700', effect: 'Mega Ball!', weight: 1, brickChar: 'M' },
+    warp: { emoji: '🌀', color: '#a060e0', effect: 'WARP GATE!', weight: 0.5, brickChar: 'w' },
+    // Weapon powerups (special - gives weapon + ammo)
+    weapon_bubble: { emoji: '🫧', color: '#88ddff', effect: 'Bubble Wand', weight: 0, brickChar: 'B', isWeapon: true, weaponId: 'bubble_wand' },
+    weapon_anchor: { emoji: '⚓', color: '#4a6fa5', effect: 'Gravity Anchor', weight: 0, brickChar: 'A', isWeapon: true, weaponId: 'gravity_anchor' },
+    weapon_prism: { emoji: '💎', color: '#ff88ff', effect: 'Prism Beam', weight: 0, brickChar: 'R', isWeapon: true, weaponId: 'prism_beam' },
+    weapon_vine: { emoji: '🌿', color: '#44aa44', effect: 'Vine Launcher', weight: 0, brickChar: 'V', isWeapon: true, weaponId: 'vine_launcher' },
+    weapon_echo: { emoji: '🔊', color: '#ffaa00', effect: 'Echo Pulse', weight: 0, brickChar: 'W', isWeapon: true, weaponId: 'echo_pulse' },
   };
+
+  // Map brick characters to powerup/weapon types for specific drops
+  const brickCharToPowerUp = Object.entries(powerUpTypes).reduce((acc, [key, val]) => {
+    if (val.brickChar) acc[val.brickChar] = key;
+    return acc;
+  }, {});
 
   // Save stats
   useEffect(() => {
@@ -2491,6 +2572,143 @@ const BreakoutGame = () => {
   useEffect(() => { ballsRef.current = balls; }, [balls]);
   useEffect(() => { bricksRef.current = bricks; }, [bricks]);
   useEffect(() => { paddleRef.current = paddle; }, [paddle]);
+  useEffect(() => { weaponAmmoRef.current = weaponAmmo; }, [weaponAmmo]);
+
+  // Fire weapon function - creates weapon-specific projectiles
+  const fireWeapon = useCallback(() => {
+    if (!activeWeapon || !weaponAmmo[activeWeapon] || weaponAmmo[activeWeapon] <= 0) return;
+
+    const weapon = WEAPONS[activeWeapon];
+    if (!weapon) return;
+
+    const currentPaddle = paddleRef.current;
+    if (!currentPaddle) return;
+
+    // Consume ammo
+    setWeaponAmmo(prev => ({
+      ...prev,
+      [activeWeapon]: prev[activeWeapon] - 1
+    }));
+
+    // Enable containment field - suck ball into paddle
+    setContainmentField(true);
+    setBalls(prev => prev.map(ball => ({
+      ...ball,
+      attached: true,
+      containedForWeapon: true,
+      vx: 0,
+      vy: 0,
+    })));
+
+    // Create weapon-specific projectile
+    const paddleCenterX = currentPaddle.x + currentPaddle.width / 2;
+    const paddleTop = CANVAS_HEIGHT - PADDLE_OFFSET_BOTTOM - PADDLE_HEIGHT;
+
+    const projectile = {
+      id: Date.now() + Math.random(),
+      type: activeWeapon,
+      x: paddleCenterX,
+      y: paddleTop - 10,
+      vx: 0,
+      vy: -6,
+      life: 1,
+      color: weapon.color,
+      emoji: weapon.emoji,
+    };
+
+    // Weapon-specific projectile behavior
+    switch (activeWeapon) {
+      case 'bubble_wand':
+        // Create 3 bubbles that float up with wavy motion
+        const bubbles = [];
+        for (let i = 0; i < 3; i++) {
+          bubbles.push({
+            ...projectile,
+            id: Date.now() + Math.random() + i,
+            x: paddleCenterX + (i - 1) * 30,
+            vx: (i - 1) * 0.5,
+            vy: -3 - Math.random(),
+            size: 15 + Math.random() * 10,
+            wobblePhase: Math.random() * Math.PI * 2,
+            damage: 2,
+          });
+        }
+        setWeaponProjectiles(prev => [...prev, ...bubbles]);
+        break;
+
+      case 'gravity_anchor':
+        // Drop an anchor that creates a gravity well
+        setWeaponProjectiles(prev => [...prev, {
+          ...projectile,
+          vy: 0,
+          size: 30,
+          gravityRadius: 120,
+          pullStrength: 0.5,
+          duration: 180, // 3 seconds at 60fps
+          damage: 1,
+        }]);
+        break;
+
+      case 'prism_beam':
+        // Fire a beam that splits on obstacles
+        setWeaponProjectiles(prev => [...prev, {
+          ...projectile,
+          vy: -12,
+          isBeam: true,
+          beamLength: 40,
+          splits: 2, // Can split twice
+          damage: 3,
+        }]);
+        break;
+
+      case 'vine_launcher':
+        // Shoot a vine that spreads on hit
+        setWeaponProjectiles(prev => [...prev, {
+          ...projectile,
+          vy: -8,
+          isVine: true,
+          spreadCount: 4, // Spreads to 4 adjacent bricks
+          damage: 1,
+        }]);
+        break;
+
+      case 'echo_pulse':
+        // Send a horizontal wave across the screen
+        setWeaponProjectiles(prev => [...prev, {
+          ...projectile,
+          y: paddleTop - 50,
+          vy: -2,
+          isWave: true,
+          waveWidth: CANVAS_WIDTH,
+          waveHeight: 30,
+          damage: 1,
+        }]);
+        break;
+    }
+
+    // Release containment field after a short delay
+    setTimeout(() => {
+      setContainmentField(false);
+      setBalls(prev => prev.map(ball => {
+        if (ball.containedForWeapon) {
+          return {
+            ...ball,
+            attached: false,
+            containedForWeapon: false,
+            vy: -ball.baseSpeed,
+            vx: (Math.random() - 0.5) * 2,
+          };
+        }
+        return ball;
+      }));
+    }, 500);
+
+    // Flash effect
+    setFlashColor(weapon.color);
+    setTimeout(() => setFlashColor(null), 100);
+    addFloatingText(paddleCenterX, paddleTop - 30, weapon.emoji, weapon.color);
+
+  }, [activeWeapon, weaponAmmo, addFloatingText]);
 
   // Keyboard controls with Teddy abilities - stable event handlers
   useEffect(() => {
@@ -2553,6 +2771,22 @@ const BreakoutGame = () => {
           return gs;
         });
       }
+
+      // Weapon selection: 1-5 keys to select weapon
+      if (['1', '2', '3', '4', '5'].includes(e.key)) {
+        const weaponKeys = ['bubble_wand', 'gravity_anchor', 'prism_beam', 'vine_launcher', 'echo_pulse'];
+        const weaponId = weaponKeys[parseInt(e.key) - 1];
+        if (weaponAmmoRef.current[weaponId] > 0) {
+          setActiveWeapon(prev => prev === weaponId ? null : weaponId);
+        }
+        e.preventDefault();
+      }
+
+      // Fire weapon: F key
+      if (e.key === 'f' || e.key === 'F') {
+        fireWeapon();
+        e.preventDefault();
+      }
     };
 
     const handleKeyUp = (e) => {
@@ -2602,7 +2836,7 @@ const BreakoutGame = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [activateTeddyAbility]); // Minimal dependencies - refs handle the rest
+  }, [activateTeddyAbility, fireWeapon]); // Minimal dependencies - refs handle the rest
 
   // Mouse/pointer control for paddle - smooth and responsive
   useEffect(() => {
@@ -2873,7 +3107,7 @@ const BreakoutGame = () => {
         }
 
         // === BRICKS ===
-        let health, type, color;
+        let health, type, color, specificPowerUp = null;
 
         switch (char) {
           case '1': // 1-hit brick
@@ -2892,7 +3126,7 @@ const BreakoutGame = () => {
             health = 9999;
             type = 'obstacle';
             break;
-          case '*': // Power-up brick
+          case '*': // Random power-up brick
             health = 1 + healthBonus;
             type = 'powerup';
             break;
@@ -2912,6 +3146,88 @@ const BreakoutGame = () => {
             health = 3 + Math.floor(healthBonus / 2); // Contains this many enemies
             type = 'spawner';
             break;
+          // === SPECIFIC POWERUP BRICKS ===
+          case 'e': // Expand powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'expand';
+            break;
+          case 'k': // shrinK powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'shrink';
+            break;
+          case 'm': // Multi-ball powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'multi';
+            break;
+          case 'f': // Fast powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'fast';
+            break;
+          case 's': // Slow powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'slow';
+            break;
+          case 'l': // Life powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'life';
+            break;
+          case 'z': // laZer powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'laser';
+            break;
+          case 'h': // sHield powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'shield';
+            break;
+          case 'g': // maGnet powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'magnet';
+            break;
+          case 'M': // Mega ball powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'mega';
+            break;
+          case 'w': // Warp powerup brick
+            health = 1 + healthBonus;
+            type = 'powerup_specific';
+            specificPowerUp = 'warp';
+            break;
+          // === WEAPON BRICKS ===
+          case 'B': // Bubble Wand weapon brick
+            health = 2 + healthBonus;
+            type = 'weapon';
+            specificPowerUp = 'weapon_bubble';
+            break;
+          case 'A': // gravity Anchor weapon brick
+            health = 2 + healthBonus;
+            type = 'weapon';
+            specificPowerUp = 'weapon_anchor';
+            break;
+          case 'R': // pRism beam weapon brick
+            health = 2 + healthBonus;
+            type = 'weapon';
+            specificPowerUp = 'weapon_prism';
+            break;
+          case 'V': // Vine launcher weapon brick
+            health = 2 + healthBonus;
+            type = 'weapon';
+            specificPowerUp = 'weapon_vine';
+            break;
+          case 'W': // echo Wave weapon brick
+            health = 2 + healthBonus;
+            type = 'weapon';
+            specificPowerUp = 'weapon_echo';
+            break;
           default:
             continue; // Unknown character, skip
         }
@@ -2919,13 +3235,17 @@ const BreakoutGame = () => {
         // Cap health
         health = Math.min(health, 12);
 
-        // Determine color
+        // Determine color based on type and specific powerup
         if (type === 'obstacle') {
           color = '#2a2a4e';
         } else if (type === 'explosive') {
           color = '#ff4400';
         } else if (type === 'powerup') {
           color = '#ffd700';
+        } else if (type === 'powerup_specific' && specificPowerUp && powerUpTypes[specificPowerUp]) {
+          color = powerUpTypes[specificPowerUp].color;
+        } else if (type === 'weapon' && specificPowerUp && powerUpTypes[specificPowerUp]) {
+          color = powerUpTypes[specificPowerUp].color;
         } else if (type === 'frozen') {
           color = '#88ddff'; // Icy blue
         } else if (type === 'split') {
@@ -2954,6 +3274,8 @@ const BreakoutGame = () => {
           // New brick type properties
           cracked: false, // For frozen bricks - becomes true after first hit
           enemiesRemaining: type === 'spawner' ? health : 0, // For spawner bricks
+          // Specific powerup for powerup_specific and weapon types
+          specificPowerUp: specificPowerUp,
         });
       }
     }
@@ -3236,6 +3558,20 @@ const BreakoutGame = () => {
       ...puType,
     }]);
   }, [selectedEnemy, stats.unlockedPowerUps, stats.upgrades.luckyDrops]);
+
+  // Spawn a specific powerup (from specific powerup bricks or weapon bricks)
+  const spawnSpecificPowerUp = useCallback((x, y, powerUpId) => {
+    const puType = powerUpTypes[powerUpId];
+    if (!puType) return;
+
+    setPowerUps(prev => [...prev, {
+      id: Date.now() + Math.random(),
+      x, y,
+      type: powerUpId,
+      vy: 2,
+      ...puType,
+    }]);
+  }, []);
 
   // Apply gimmicks
   const applyGimmick = useCallback((deltaTime) => {
@@ -3941,6 +4277,14 @@ const BreakoutGame = () => {
                   if (brick.type === 'powerup' || Math.random() < 0.05) {
                     spawnPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
                   }
+                  // Spawn specific powerup from powerup_specific bricks
+                  if (brick.type === 'powerup_specific' && brick.specificPowerUp) {
+                    spawnSpecificPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.specificPowerUp);
+                  }
+                  // Spawn weapon from weapon bricks
+                  if (brick.type === 'weapon' && brick.specificPowerUp) {
+                    spawnSpecificPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.specificPowerUp);
+                  }
                 }
 
                 // Update brick state
@@ -4041,6 +4385,149 @@ const BreakoutGame = () => {
         .map(t => ({ ...t, y: t.y - 1 * deltaTime, life: t.life - 0.02 * deltaTime }))
         .filter(t => t.life > 0)
       );
+
+      // === UPDATE WEAPON PROJECTILES ===
+      setWeaponProjectiles(prev => {
+        const updatedProjectiles = [];
+        const currentBricks = bricksRef.current;
+
+        prev.forEach(proj => {
+          let p = { ...proj };
+
+          // Movement based on type
+          if (p.type === 'bubble_wand') {
+            // Bubbles float up with wavy motion
+            p.y += p.vy * deltaTime;
+            p.x += Math.sin((p.wobblePhase || 0) + p.y * 0.05) * 0.5;
+            p.life -= 0.005 * deltaTime;
+
+            // Check collision with bricks
+            currentBricks.forEach(brick => {
+              if (brick.health > 0 && brick.type !== 'obstacle') {
+                const brickCenterX = brick.x + brick.width / 2;
+                const brickCenterY = brick.y + brick.height / 2;
+                const dist = Math.sqrt((p.x - brickCenterX) ** 2 + (p.y - brickCenterY) ** 2);
+                if (dist < (p.size || 15) + 20) {
+                  // Pop! Damage brick
+                  setBricks(allBricks => allBricks.map(b =>
+                    b.id === brick.id ? { ...b, health: b.health - (p.damage || 1), hitFlash: 1 } : b
+                  ));
+                  createParticles(p.x, p.y, p.color, 6);
+                  p.life = 0;
+                }
+              }
+            });
+          } else if (p.type === 'gravity_anchor') {
+            // Gravity anchor stays in place and pulls bricks
+            p.duration = (p.duration || 180) - deltaTime;
+            p.life = p.duration > 0 ? 1 : 0;
+
+            // Pull nearby bricks down (damage them)
+            if (p.duration > 0 && p.duration % 30 < deltaTime) {
+              currentBricks.forEach(brick => {
+                if (brick.health > 0 && brick.type !== 'obstacle') {
+                  const dist = Math.sqrt((p.x - (brick.x + brick.width/2)) ** 2 + (p.y - (brick.y + brick.height/2)) ** 2);
+                  if (dist < (p.gravityRadius || 120)) {
+                    setBricks(allBricks => allBricks.map(b =>
+                      b.id === brick.id ? { ...b, health: b.health - (p.damage || 1), hitFlash: 1 } : b
+                    ));
+                    createParticles(brick.x + brick.width/2, brick.y + brick.height/2, '#4a6fa5', 3);
+                  }
+                }
+              });
+            }
+          } else if (p.type === 'prism_beam') {
+            // Beam travels fast, splits on obstacles
+            p.y += p.vy * deltaTime;
+            p.life -= 0.008 * deltaTime;
+
+            // Check collision with bricks
+            currentBricks.forEach(brick => {
+              if (brick.health > 0) {
+                if (p.x > brick.x && p.x < brick.x + brick.width &&
+                    p.y > brick.y && p.y < brick.y + brick.height) {
+                  if (brick.type === 'obstacle' && p.splits > 0) {
+                    // Split into two beams going diagonally
+                    updatedProjectiles.push({
+                      ...p,
+                      id: Date.now() + Math.random(),
+                      vx: -4,
+                      vy: p.vy,
+                      splits: p.splits - 1,
+                    });
+                    updatedProjectiles.push({
+                      ...p,
+                      id: Date.now() + Math.random() + 1,
+                      vx: 4,
+                      vy: p.vy,
+                      splits: p.splits - 1,
+                    });
+                    p.life = 0;
+                  } else {
+                    setBricks(allBricks => allBricks.map(b =>
+                      b.id === brick.id ? { ...b, health: b.health - (p.damage || 1), hitFlash: 1 } : b
+                    ));
+                    createParticles(p.x, p.y, '#ff88ff', 5);
+                  }
+                }
+              }
+            });
+
+            p.x += (p.vx || 0) * deltaTime;
+          } else if (p.type === 'vine_launcher') {
+            // Vine travels up, spreads on hit
+            p.y += p.vy * deltaTime;
+            p.life -= 0.006 * deltaTime;
+
+            currentBricks.forEach(brick => {
+              if (brick.health > 0 && brick.type !== 'obstacle') {
+                if (p.x > brick.x && p.x < brick.x + brick.width &&
+                    p.y > brick.y && p.y < brick.y + brick.height) {
+                  // Hit! Damage and spread
+                  setBricks(allBricks => {
+                    const newBricks = allBricks.map(b => {
+                      if (b.id === brick.id) {
+                        return { ...b, health: b.health - (p.damage || 1), hitFlash: 1, vineMarked: true };
+                      }
+                      // Spread to adjacent bricks
+                      const dx = Math.abs((b.x + b.width/2) - (brick.x + brick.width/2));
+                      const dy = Math.abs((b.y + b.height/2) - (brick.y + brick.height/2));
+                      if (dx < 80 && dy < 40 && b.health > 0 && b.type !== 'obstacle' && !b.vineMarked) {
+                        return { ...b, health: b.health - 1, hitFlash: 1, vineMarked: true };
+                      }
+                      return b;
+                    });
+                    return newBricks;
+                  });
+                  createParticles(p.x, p.y, '#44aa44', 8);
+                  p.life = 0;
+                }
+              }
+            });
+          } else if (p.type === 'echo_pulse') {
+            // Wave moves up, damages all bricks it touches
+            p.y += p.vy * deltaTime;
+            p.life -= 0.008 * deltaTime;
+
+            currentBricks.forEach(brick => {
+              if (brick.health > 0 && brick.type !== 'obstacle') {
+                if (brick.y + brick.height > p.y - 15 && brick.y < p.y + 15) {
+                  setBricks(allBricks => allBricks.map(b =>
+                    b.id === brick.id && !b.echoHit ? { ...b, health: b.health - (p.damage || 1), hitFlash: 1, echoHit: true } : b
+                  ));
+                }
+              }
+            });
+          }
+
+          // Keep projectile if still alive and on screen
+          if (p.life > 0 && p.y > -50 && p.y < CANVAS_HEIGHT + 50) {
+            updatedProjectiles.push(p);
+          }
+        });
+
+        return updatedProjectiles;
+      });
 
       // Update falling hearts animation
       setFallingHearts(prev => prev
@@ -4533,6 +5020,24 @@ const BreakoutGame = () => {
     // Handle character-specific rare power-ups
     if (type.startsWith('rare_')) {
       applyRarePowerUp(type.replace('rare_', ''));
+      return;
+    }
+
+    // Handle weapon powerups
+    if (type.startsWith('weapon_')) {
+      const weaponType = powerUpTypes[type];
+      if (weaponType && weaponType.weaponId) {
+        const weapon = WEAPONS[weaponType.weaponId];
+        if (weapon) {
+          // Add ammo to weapon (or give full ammo if first pickup)
+          setWeaponAmmo(prev => ({
+            ...prev,
+            [weapon.id]: Math.min((prev[weapon.id] || 0) + weapon.maxAmmo, weapon.maxAmmo * 2)
+          }));
+          showPowerUpAnnouncement(weapon.emoji, weapon.name + '!', weapon.color, true);
+          addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, `+${weapon.maxAmmo} ammo`, weapon.color);
+        }
+      }
       return;
     }
 
@@ -5966,7 +6471,37 @@ const BreakoutGame = () => {
                 </span>
               </div>
             )}
-            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && brick.type !== 'frozen' && brick.type !== 'spawner' && (
+            {/* Specific powerup brick - shows powerup emoji */}
+            {brick.type === 'powerup_specific' && !brick.invisible && brick.specificPowerUp && powerUpTypes[brick.specificPowerUp] && (
+              <span style={{
+                fontSize: '14px',
+                filter: `drop-shadow(0 0 4px ${powerUpTypes[brick.specificPowerUp].color})`,
+                animation: 'powerUpFloat 1.5s ease-in-out infinite',
+              }}>
+                {powerUpTypes[brick.specificPowerUp].emoji}
+              </span>
+            )}
+            {/* Random powerup brick - shows star */}
+            {brick.type === 'powerup' && !brick.invisible && (
+              <span style={{
+                fontSize: '12px',
+                filter: 'drop-shadow(0 0 4px #ffd700)',
+                animation: 'powerUpFloat 1.5s ease-in-out infinite',
+              }}>
+                ⭐
+              </span>
+            )}
+            {/* Weapon brick - shows weapon emoji with glow */}
+            {brick.type === 'weapon' && !brick.invisible && brick.specificPowerUp && powerUpTypes[brick.specificPowerUp] && (
+              <span style={{
+                fontSize: '16px',
+                filter: `drop-shadow(0 0 6px ${powerUpTypes[brick.specificPowerUp].color}) drop-shadow(0 0 12px ${powerUpTypes[brick.specificPowerUp].color})`,
+                animation: 'comboPulse 1s ease-in-out infinite',
+              }}>
+                {powerUpTypes[brick.specificPowerUp].emoji}
+              </span>
+            )}
+            {brick.health > 1 && !brick.invisible && brick.type !== 'explosive' && brick.type !== 'obstacle' && brick.type !== 'boss' && brick.type !== 'frozen' && brick.type !== 'spawner' && brick.type !== 'powerup_specific' && brick.type !== 'weapon' && brick.type !== 'powerup' && (
               <span style={{
                 fontSize: brick.health >= 10 ? '9px' : '11px',
                 fontWeight: '900',
@@ -6558,6 +7093,23 @@ const BreakoutGame = () => {
           );
         })())}
 
+        {/* Containment Field effect when weapon is charging */}
+        {containmentField && (
+          <div style={{
+            position: 'absolute',
+            left: paddle.x - 10,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30,
+            width: paddle.width + 20,
+            height: 50,
+            background: `radial-gradient(ellipse at center bottom, ${activeWeapon && WEAPONS[activeWeapon] ? WEAPONS[activeWeapon].color : '#ffd700'}44 0%, transparent 70%)`,
+            border: `2px solid ${activeWeapon && WEAPONS[activeWeapon] ? WEAPONS[activeWeapon].color : '#ffd700'}88`,
+            borderRadius: '50% 50% 10% 10%',
+            boxShadow: `0 0 20px ${activeWeapon && WEAPONS[activeWeapon] ? WEAPONS[activeWeapon].color : '#ffd700'}66, inset 0 0 15px ${activeWeapon && WEAPONS[activeWeapon] ? WEAPONS[activeWeapon].color : '#ffd700'}44`,
+            animation: 'teddyReady 0.5s ease-in-out infinite',
+            pointerEvents: 'none',
+          }} />
+        )}
+
         {/* Ship projectiles */}
         {invasionMode && shipProjectiles.map(proj => (
           <div key={proj.id} style={{
@@ -6701,6 +7253,98 @@ const BreakoutGame = () => {
             }}
           />
         );})}
+
+        {/* Weapon Projectiles */}
+        {weaponProjectiles.map(proj => {
+          if (proj.type === 'bubble_wand') {
+            return (
+              <div
+                key={proj.id}
+                style={{
+                  position: 'absolute',
+                  left: proj.x - (proj.size || 15) / 2,
+                  top: proj.y - (proj.size || 15) / 2,
+                  width: proj.size || 15,
+                  height: proj.size || 15,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), ${proj.color}66, ${proj.color}33)`,
+                  border: `2px solid ${proj.color}88`,
+                  boxShadow: `0 0 10px ${proj.color}44, inset 0 0 5px rgba(255,255,255,0.5)`,
+                  opacity: proj.life,
+                  pointerEvents: 'none',
+                }}
+              />
+            );
+          } else if (proj.type === 'gravity_anchor') {
+            return (
+              <div key={proj.id} style={{ position: 'absolute', left: proj.x - 15, top: proj.y - 20, pointerEvents: 'none' }}>
+                <div style={{ fontSize: '30px', filter: `drop-shadow(0 0 10px ${proj.color})` }}>⚓</div>
+                <div style={{
+                  position: 'absolute',
+                  left: -45,
+                  top: -35,
+                  width: proj.gravityRadius * 2,
+                  height: proj.gravityRadius * 2,
+                  borderRadius: '50%',
+                  border: `2px dashed ${proj.color}66`,
+                  animation: 'portalSpin 3s linear infinite',
+                  opacity: (proj.duration || 0) / 180,
+                }} />
+              </div>
+            );
+          } else if (proj.type === 'prism_beam') {
+            return (
+              <div
+                key={proj.id}
+                style={{
+                  position: 'absolute',
+                  left: proj.x - 3,
+                  top: proj.y - 20,
+                  width: 6,
+                  height: proj.beamLength || 40,
+                  background: `linear-gradient(180deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff)`,
+                  boxShadow: `0 0 15px ${proj.color}, 0 0 30px ${proj.color}88`,
+                  opacity: proj.life,
+                  pointerEvents: 'none',
+                  borderRadius: '3px',
+                }}
+              />
+            );
+          } else if (proj.type === 'vine_launcher') {
+            return (
+              <div
+                key={proj.id}
+                style={{
+                  position: 'absolute',
+                  left: proj.x - 8,
+                  top: proj.y - 15,
+                  fontSize: '24px',
+                  filter: `drop-shadow(0 0 8px ${proj.color})`,
+                  opacity: proj.life,
+                  pointerEvents: 'none',
+                }}
+              >🌿</div>
+            );
+          } else if (proj.type === 'echo_pulse') {
+            return (
+              <div
+                key={proj.id}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: proj.y - 15,
+                  width: CANVAS_WIDTH,
+                  height: 30,
+                  background: `linear-gradient(180deg, transparent, ${proj.color}66, ${proj.color}, ${proj.color}66, transparent)`,
+                  boxShadow: `0 0 20px ${proj.color}88`,
+                  opacity: proj.life,
+                  pointerEvents: 'none',
+                }}
+              />
+            );
+          }
+          return null;
+        })}
 
         {/* Floating texts */}
         {floatingTexts.map(t => (
@@ -6933,6 +7577,47 @@ const BreakoutGame = () => {
         )}
       </div>
 
+      {/* Weapon HUD - shows available weapons */}
+      {Object.keys(weaponAmmo).some(k => weaponAmmo[k] > 0) && (
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          justifyContent: 'center',
+          marginTop: '8px',
+        }}>
+          {Object.entries(WEAPONS).map(([id, weapon], index) => {
+            const ammo = weaponAmmo[id] || 0;
+            if (ammo <= 0) return null;
+            const isActive = activeWeapon === id;
+            return (
+              <div
+                key={id}
+                onClick={() => setActiveWeapon(isActive ? null : id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  background: isActive ? `${weapon.color}44` : 'rgba(0,0,0,0.3)',
+                  border: isActive ? `2px solid ${weapon.color}` : '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <span style={{ fontSize: '12px', color: '#666' }}>{index + 1}</span>
+                <span style={{ fontSize: '16px', filter: isActive ? `drop-shadow(0 0 4px ${weapon.color})` : 'none' }}>
+                  {weapon.emoji}
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: isActive ? weapon.color : '#888' }}>
+                  ×{ammo}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Controls hint - minimal */}
       <div style={{
         marginTop: '8px',
@@ -6941,7 +7626,7 @@ const BreakoutGame = () => {
         textAlign: 'center',
         opacity: 0.8,
       }}>
-        MOUSE/A·D to move • SPACE to charge • Q/W/E abilities • ESC pause
+        MOUSE/A·D to move • SPACE to charge • Q/W/E abilities • 1-5 weapons • F fire • ESC pause
       </div>
 
       <style>{`
@@ -7232,6 +7917,36 @@ const BreakoutGame = () => {
           🛒 Shop
         </button>
       </div>
+
+      {/* Level Editor button - only visible when debugMode is on */}
+      {debugMode && levelEditorEnabled && (
+        <button
+          onClick={() => setGameState('levelEditor')}
+          style={{
+            marginTop: '16px',
+            padding: '14px 32px',
+            fontSize: '16px',
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #8b5a2b, #d2691e)',
+            border: '2px solid #ffd700',
+            borderRadius: '10px',
+            color: '#fff',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: '0 4px 15px rgba(139, 90, 43, 0.5)',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(139, 90, 43, 0.7)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 15px rgba(139, 90, 43, 0.5)';
+          }}
+        >
+          🔧 Level Editor
+        </button>
+      )}
 
       {/* Stats row */}
       <div style={{
@@ -7826,6 +8541,342 @@ const BreakoutGame = () => {
         borderRadius: '6px',
       }}>
         {cells}
+      </div>
+    );
+  };
+
+  // === LEVEL EDITOR ===
+  const renderLevelEditor = () => {
+    // Brick type palette with colors and descriptions
+    const brickPalette = [
+      { char: '.', name: 'Empty', color: 'transparent', emoji: '⬜' },
+      { char: '1', name: '1-Hit', color: '#44ff44', emoji: '🟩' },
+      { char: '2', name: '2-Hit', color: '#88ff44', emoji: '🟨' },
+      { char: '3', name: '3-Hit', color: '#ffaa00', emoji: '🟧' },
+      { char: '#', name: 'Obstacle', color: '#3a3a5e', emoji: '🧱' },
+      { char: '*', name: 'Random Powerup', color: '#ffd700', emoji: '⭐' },
+      { char: 'X', name: 'Explosive', color: '#ff4400', emoji: '💥' },
+      { char: 'F', name: 'Frozen', color: '#88ddff', emoji: '❄️' },
+      { char: 'P', name: 'Split', color: '#aa66cc', emoji: '💜' },
+      { char: 'E', name: 'Spawner', color: '#44aa44', emoji: '👾' },
+      { char: 'O', name: 'Bumper', color: '#ff6600', emoji: '🔴' },
+      { char: '@', name: 'Portal', color: '#8800ff', emoji: '🌀' },
+      // Specific powerup bricks
+      { char: 'e', name: 'Expand', color: '#50c878', emoji: '📏' },
+      { char: 'm', name: 'Multi-Ball', color: '#ffd700', emoji: '✨' },
+      { char: 'l', name: 'Life', color: '#ff4444', emoji: '❤️' },
+      { char: 'z', name: 'Laser', color: '#ff00ff', emoji: '🔫' },
+      { char: 'h', name: 'Shield', color: '#4080ff', emoji: '🛡️' },
+      { char: 'g', name: 'Magnet', color: '#4080e0', emoji: '🧲' },
+      { char: 'M', name: 'Mega Ball', color: '#ffd700', emoji: '💫' },
+      { char: 's', name: 'Slow', color: '#80c0ff', emoji: '🐌' },
+      // Weapon bricks
+      { char: 'B', name: 'Bubble Wand', color: '#88ddff', emoji: '🫧' },
+      { char: 'A', name: 'Gravity Anchor', color: '#4a6fa5', emoji: '⚓' },
+      { char: 'R', name: 'Prism Beam', color: '#ff88ff', emoji: '💎' },
+      { char: 'V', name: 'Vine Launcher', color: '#44aa44', emoji: '🌿' },
+      { char: 'W', name: 'Echo Pulse', color: '#ffaa00', emoji: '🔊' },
+    ];
+
+    const handleCellClick = (row, col) => {
+      setEditorLevel(prev => {
+        const newLevel = [...prev];
+        const rowStr = newLevel[row] || '.'.repeat(12);
+        const chars = rowStr.split('');
+        chars[col] = editorSelectedTool;
+        newLevel[row] = chars.join('');
+        return newLevel;
+      });
+    };
+
+    const handleSaveLevel = () => {
+      const key = `${editorSelectedEnemy}_${editorLevelNumber}`;
+      const newCustomLevels = {
+        ...customLevels,
+        [editorSelectedEnemy]: {
+          ...customLevels[editorSelectedEnemy],
+          [editorLevelNumber]: editorLevel,
+        }
+      };
+      setCustomLevels(newCustomLevels);
+      localStorage.setItem('teddyball_custom_levels', JSON.stringify(newCustomLevels));
+      addFloatingText(CANVAS_WIDTH / 2, 100, '✓ Level Saved!', '#44ff44');
+    };
+
+    const handleLoadLevel = () => {
+      const customLevel = customLevels[editorSelectedEnemy]?.[editorLevelNumber];
+      if (customLevel) {
+        setEditorLevel(customLevel);
+        addFloatingText(CANVAS_WIDTH / 2, 100, '✓ Custom Level Loaded', '#4080e0');
+      } else {
+        // Load default level
+        const defaultLevels = LEVEL_DEFINITIONS[editorSelectedEnemy] || LEVEL_DEFINITIONS.brick_goblin;
+        const defaultLevel = defaultLevels[editorLevelNumber - 1] || Array(6).fill('.'.repeat(12));
+        setEditorLevel(defaultLevel);
+        addFloatingText(CANVAS_WIDTH / 2, 100, '✓ Default Level Loaded', '#ffaa00');
+      }
+    };
+
+    const handleClearLevel = () => {
+      setEditorLevel(Array(6).fill('.'.repeat(12)));
+    };
+
+    const handleExportLevel = () => {
+      const levelCode = editorLevel.map(row => `'${row}'`).join(',\n      ');
+      const output = `// Level ${editorLevelNumber} for ${editorSelectedEnemy}\n[\n      ${levelCode},\n],`;
+      navigator.clipboard.writeText(output);
+      addFloatingText(CANVAS_WIDTH / 2, 100, '📋 Copied to clipboard!', '#ffd700');
+    };
+
+    const handleTestLevel = () => {
+      // Start playing with the current editor level
+      setSelectedEnemy(enemyDefs.find(e => e.id === editorSelectedEnemy) || enemyDefs[0]);
+      setCurrentLevel(editorLevelNumber);
+      // Temporarily use custom level
+      const testBricks = [];
+      editorLevel.forEach((rowStr, row) => {
+        for (let col = 0; col < rowStr.length && col < 12; col++) {
+          const char = rowStr[col];
+          if (char === '.') continue;
+          const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
+          const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
+          const palette = brickPalette.find(p => p.char === char);
+          testBricks.push({
+            id: `${row}-${col}`,
+            x, y,
+            width: BRICK_WIDTH,
+            height: BRICK_HEIGHT,
+            health: char === '3' ? 3 : char === '2' ? 2 : char === '#' ? 9999 : 1,
+            maxHealth: char === '3' ? 3 : char === '2' ? 2 : char === '#' ? 9999 : 1,
+            type: char === '#' ? 'obstacle' : char === 'X' ? 'explosive' : 'normal',
+            color: palette?.color || '#888',
+          });
+        }
+      });
+      setBricks(testBricks);
+      setBalls([{
+        x: CANVAS_WIDTH / 2,
+        y: CANVAS_HEIGHT - PADDLE_OFFSET_BOTTOM - PADDLE_HEIGHT - 20,
+        vx: 0,
+        vy: 0,
+        attached: true,
+        baseSpeed: 8,
+      }]);
+      setScore(0);
+      setGameState('playing');
+      setEditorTestMode(true);
+    };
+
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '20px',
+        color: '#fff',
+        minHeight: '100vh',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
+          <button
+            onClick={() => setGameState('menu')}
+            style={{
+              padding: '8px 16px',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid #666',
+              borderRadius: '6px',
+              color: '#aaa',
+              cursor: 'pointer',
+            }}
+          >
+            ← Back
+          </button>
+          <h1 style={{
+            fontSize: '32px',
+            fontWeight: '800',
+            background: 'linear-gradient(135deg, #8b5a2b, #ffd700)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            🔧 Level Editor
+          </h1>
+        </div>
+
+        {/* Enemy & Level Selection */}
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+          <div>
+            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '4px' }}>Enemy:</label>
+            <select
+              value={editorSelectedEnemy}
+              onChange={(e) => setEditorSelectedEnemy(e.target.value)}
+              style={{
+                padding: '8px 16px',
+                background: '#2a2a4e',
+                border: '1px solid #4a4a6e',
+                borderRadius: '6px',
+                color: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              {enemyDefs.map(enemy => (
+                <option key={enemy.id} value={enemy.id}>{enemy.emoji} {enemy.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '4px' }}>Level:</label>
+            <select
+              value={editorLevelNumber}
+              onChange={(e) => setEditorLevelNumber(parseInt(e.target.value))}
+              style={{
+                padding: '8px 16px',
+                background: '#2a2a4e',
+                border: '1px solid #4a4a6e',
+                borderRadius: '6px',
+                color: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                <option key={n} value={n}>Level {n}</option>
+              ))}
+            </select>
+          </div>
+          <button onClick={handleLoadLevel} style={{ padding: '8px 16px', background: '#4080e0', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', alignSelf: 'flex-end' }}>
+            📂 Load
+          </button>
+        </div>
+
+        {/* Main Editor Area */}
+        <div style={{ display: 'flex', gap: '20px' }}>
+          {/* Brick Palette */}
+          <div style={{
+            background: 'rgba(0,0,0,0.3)',
+            padding: '15px',
+            borderRadius: '10px',
+            border: '1px solid #4a4a6e',
+          }}>
+            <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#aaa' }}>Brick Palette</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', maxHeight: '400px', overflowY: 'auto' }}>
+              {brickPalette.map(brick => (
+                <button
+                  key={brick.char}
+                  onClick={() => setEditorSelectedTool(brick.char)}
+                  style={{
+                    padding: '6px 8px',
+                    background: editorSelectedTool === brick.char ? '#4080e0' : 'rgba(255,255,255,0.1)',
+                    border: editorSelectedTool === brick.char ? '2px solid #ffd700' : '1px solid #4a4a6e',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '11px',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ fontSize: '14px' }}>{brick.emoji}</span>
+                  <span>{brick.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid Editor */}
+          <div style={{
+            background: 'rgba(0,0,0,0.3)',
+            padding: '20px',
+            borderRadius: '10px',
+            border: '1px solid #4a4a6e',
+          }}>
+            <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#aaa' }}>Level Grid (12×6)</h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(12, 50px)',
+              gap: '2px',
+              background: '#1a1a2e',
+              padding: '10px',
+              borderRadius: '6px',
+            }}>
+              {editorLevel.map((rowStr, row) => (
+                Array.from({ length: 12 }).map((_, col) => {
+                  const char = rowStr[col] || '.';
+                  const brick = brickPalette.find(b => b.char === char) || brickPalette[0];
+                  return (
+                    <button
+                      key={`${row}-${col}`}
+                      onClick={() => handleCellClick(row, col)}
+                      style={{
+                        width: '50px',
+                        height: '20px',
+                        background: char === '.' ? 'rgba(255,255,255,0.05)' : brick.color,
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                      }}
+                    >
+                      {char !== '.' && brick.emoji}
+                    </button>
+                  );
+                })
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px', justifyContent: 'center' }}>
+              <button onClick={handleSaveLevel} style={{ padding: '10px 20px', background: '#44aa44', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: '700' }}>
+                💾 Save
+              </button>
+              <button onClick={handleClearLevel} style={{ padding: '10px 20px', background: '#aa4444', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: '700' }}>
+                🗑️ Clear
+              </button>
+              <button onClick={handleExportLevel} style={{ padding: '10px 20px', background: '#aa8800', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: '700' }}>
+                📋 Export
+              </button>
+              <button onClick={handleTestLevel} style={{ padding: '10px 20px', background: '#4080e0', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: '700' }}>
+                ▶️ Test Play
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Level Code Preview */}
+        <div style={{
+          marginTop: '20px',
+          background: 'rgba(0,0,0,0.3)',
+          padding: '15px',
+          borderRadius: '10px',
+          border: '1px solid #4a4a6e',
+          maxWidth: '700px',
+          width: '100%',
+        }}>
+          <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#aaa' }}>Level Code Preview</h3>
+          <pre style={{
+            background: '#1a1a2e',
+            padding: '10px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            color: '#88ff88',
+            overflow: 'auto',
+          }}>
+            {`[\n${editorLevel.map(row => `  '${row}'`).join(',\n')},\n]`}
+          </pre>
+        </div>
+
+        {/* Instructions */}
+        <div style={{
+          marginTop: '20px',
+          color: '#666',
+          fontSize: '11px',
+          textAlign: 'center',
+        }}>
+          Click palette items to select, then click grid cells to place • Save stores to local storage • Export copies code to clipboard
+        </div>
       </div>
     );
   };
@@ -8429,6 +9480,7 @@ const BreakoutGame = () => {
       {gameState === 'select' && renderEnemySelect()}
       {gameState === 'shop' && renderShop()}
       {gameState === 'levelSelect' && renderLevelSelect()}
+      {gameState === 'levelEditor' && renderLevelEditor()}
       {gameState === 'playing' && renderGame()}
       {gameState === 'gameover' && renderGameOver()}
     </div>
