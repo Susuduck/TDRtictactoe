@@ -977,16 +977,16 @@ const BreakoutGame = () => {
 
   // World-themed color variants for enemies
   const ENEMY_THEME_COLORS = {
-    brick_goblin: { primary: '#44dd44', secondary: '#22aa22' },  // Green
-    magnet_mage: { primary: '#4488ff', secondary: '#2266dd' },   // Blue
-    wind_witch: { primary: '#88ddaa', secondary: '#55aa77' },    // Teal
-    shadow_smith: { primary: '#aa66cc', secondary: '#7744aa' },  // Purple
-    fire_phoenix: { primary: '#ff6644', secondary: '#dd4422' },  // Orange
-    frost_fairy: { primary: '#66ddff', secondary: '#44aadd' },   // Cyan
-    chaos_clown: { primary: '#ff66aa', secondary: '#dd4488' },   // Pink
-    portal_wizard: { primary: '#aa66ff', secondary: '#8844dd' }, // Violet
-    titan_king: { primary: '#ffdd44', secondary: '#ddaa22' },    // Gold
-    cosmic_dragon: { primary: '#ff44ff', secondary: '#dd22dd' }, // Magenta
+    brick_goblin: { primary: '#44dd44', secondary: '#22aa22', brick1: '#44dd44', brick2: '#66ff66', alien: '#33cc33' },
+    magnet_mage: { primary: '#4488ff', secondary: '#2266dd', brick1: '#4488ff', brick2: '#66aaff', alien: '#3377ee' },
+    wind_witch: { primary: '#88ddaa', secondary: '#55aa77', brick1: '#88ddaa', brick2: '#aaffcc', alien: '#77cc99' },
+    shadow_smith: { primary: '#aa66cc', secondary: '#7744aa', brick1: '#aa66cc', brick2: '#cc88ee', alien: '#9955bb' },
+    fire_phoenix: { primary: '#ff6644', secondary: '#dd4422', brick1: '#ff6644', brick2: '#ff8866', alien: '#ee5533' },
+    frost_fairy: { primary: '#66ddff', secondary: '#44aadd', brick1: '#66ddff', brick2: '#88eeff', alien: '#55ccee' },
+    chaos_clown: { primary: '#ff66aa', secondary: '#dd4488', brick1: '#ff66aa', brick2: '#ff88cc', alien: '#ee5599' },
+    portal_wizard: { primary: '#aa66ff', secondary: '#8844dd', brick1: '#aa66ff', brick2: '#cc88ff', alien: '#9955ee' },
+    titan_king: { primary: '#ffdd44', secondary: '#ddaa22', brick1: '#ffdd44', brick2: '#ffee66', alien: '#eecc33' },
+    cosmic_dragon: { primary: '#ff44ff', secondary: '#dd22dd', brick1: '#ff44ff', brick2: '#ff66ff', alien: '#ee33ee' },
   };
 
   // Level definitions - hand-crafted layouts for each enemy
@@ -2267,6 +2267,19 @@ const BreakoutGame = () => {
   const SHIP_FIRE_COOLDOWN = 180; // ms between shots
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
+  // Invasion sequence phases:
+  // 'normal' - Regular breakout gameplay
+  // 'ball_grabbed' - Alien flying in to grab ball
+  // 'alert' - UH OH alert showing
+  // 'shoot_alien' - Paddle transforms to ship, player shoots alien
+  // 'transform' - Bricks transform into aliens
+  // 'invasion' - Full invasion mode gameplay
+  // 'boss_intro' - Boss appearing after invasion
+  const [invasionPhase, setInvasionPhase] = useState('normal');
+  const [ballGrabber, setBallGrabber] = useState(null); // The alien grabbing the ball
+  const [invasionTimer, setInvasionTimer] = useState(0); // Timer for phase transitions
+  const [transformProgress, setTransformProgress] = useState(0); // 0-1 for transformation animations
+
   // Stats with unlocks and upgrades
   const [stats, setStats] = useState(() => {
     const saved = localStorage.getItem('teddyball_stats');
@@ -2710,6 +2723,48 @@ const BreakoutGame = () => {
 
   }, [activeWeapon, weaponAmmo, addFloatingText]);
 
+  // === INVASION SEQUENCE FUNCTIONS ===
+
+  // Trigger the invasion sequence when ball is launched on boss level
+  const triggerInvasionSequence = useCallback(() => {
+    if (invasionPhase !== 'normal' || !pendingBossLevel) return;
+
+    const themeColor = ENEMY_THEME_COLORS[selectedEnemy?.id] || ENEMY_THEME_COLORS.brick_goblin;
+
+    // Create the alien that will grab the ball
+    setBallGrabber({
+      x: CANVAS_WIDTH + 50,
+      y: -50,
+      targetX: CANVAS_WIDTH / 2,
+      targetY: 150,
+      phase: 'flying_in', // flying_in -> grabbing -> flying_with_ball -> shot -> dying
+      health: 3,
+      color: themeColor.alien,
+      emoji: selectedEnemy?.emoji || '👾',
+      hasBall: false,
+      hitTimer: 0,
+    });
+
+    setInvasionPhase('ball_grabbed');
+    setInvasionTimer(0);
+
+    // Dramatic flash
+    setFlashColor('#ff4444');
+    setTimeout(() => setFlashColor(null), 200);
+
+  }, [invasionPhase, pendingBossLevel, selectedEnemy]);
+
+  // Ref for invasion phase checks in event handlers
+  const invasionPhaseRef = useRef(invasionPhase);
+  const pendingBossLevelRef = useRef(pendingBossLevel);
+  useEffect(() => { invasionPhaseRef.current = invasionPhase; }, [invasionPhase]);
+  useEffect(() => { pendingBossLevelRef.current = pendingBossLevel; }, [pendingBossLevel]);
+
+  // Check if ball launch should trigger invasion
+  const shouldTriggerInvasion = useCallback(() => {
+    return invasionPhaseRef.current === 'normal' && pendingBossLevelRef.current !== null;
+  }, []);
+
   // Keyboard controls with Teddy abilities - stable event handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -2901,6 +2956,27 @@ const BreakoutGame = () => {
         // Launch attached ball on click - use paddle position
         const currentPaddle = paddleRef.current;
         if (!currentPaddle) return;
+
+        // Check if this is a boss level that should trigger invasion
+        if (shouldTriggerInvasion()) {
+          // Launch ball normally first, then trigger invasion
+          setBalls(prev => prev.map(ball => {
+            if (ball.attached) {
+              return {
+                ...ball,
+                x: currentPaddle.x + currentPaddle.width / 2,
+                attached: false,
+                vy: -ball.baseSpeed,
+                vx: 0, // Straight up so alien can intercept
+              };
+            }
+            return ball;
+          }));
+          // Trigger invasion after a short delay
+          setTimeout(() => triggerInvasionSequence(), 800);
+          return;
+        }
+
         setBalls(prev => prev.map(ball => {
           if (ball.attached) {
             return {
@@ -2937,7 +3013,7 @@ const BreakoutGame = () => {
         canvas.removeEventListener('touchstart', handleClick);
       }
     };
-  }, [gameState, isPaused, activeEffects, paddleDebuffs]);
+  }, [gameState, isPaused, activeEffects, paddleDebuffs, shouldTriggerInvasion, triggerInvasionSequence]);
 
   // Teddy Ability activation
   const activateTeddyAbility = useCallback((ability) => {
@@ -3710,8 +3786,191 @@ const BreakoutGame = () => {
         // When no keys pressed, mouse controls take over (handled in separate useEffect)
       }
 
+      // === INVASION SEQUENCE PHASES ===
+      if (invasionPhase !== 'normal' && invasionPhase !== 'invasion') {
+        setInvasionTimer(t => t + deltaTime);
+
+        // Phase: ball_grabbed - Alien flying in to grab the ball
+        if (invasionPhase === 'ball_grabbed' && ballGrabber) {
+          setBallGrabber(prev => {
+            if (!prev) return null;
+            let grabber = { ...prev };
+
+            if (grabber.phase === 'flying_in') {
+              // Fly toward center-top of screen
+              const dx = grabber.targetX - grabber.x;
+              const dy = grabber.targetY - grabber.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const speed = 8;
+
+              if (dist < speed * deltaTime) {
+                grabber.x = grabber.targetX;
+                grabber.y = grabber.targetY;
+                grabber.phase = 'grabbing';
+              } else {
+                grabber.x += (dx / dist) * speed * deltaTime;
+                grabber.y += (dy / dist) * speed * deltaTime;
+              }
+            } else if (grabber.phase === 'grabbing') {
+              // Find and grab the ball
+              const ball = ballsRef.current[0];
+              if (ball) {
+                const dx = ball.x - grabber.x;
+                const dy = ball.y - grabber.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 40 || grabber.hasBall) {
+                  grabber.hasBall = true;
+                  // Move ball with grabber
+                  setBalls(prev => prev.map(b => ({
+                    ...b,
+                    x: grabber.x,
+                    y: grabber.y + 20,
+                    vx: 0,
+                    vy: 0,
+                    attached: false,
+                    grabbedByAlien: true,
+                  })));
+
+                  // After grabbing, show alert
+                  if (invasionTimer > 60) {
+                    setInvasionPhase('alert');
+                    setInvasionTimer(0);
+                  }
+                } else {
+                  // Chase the ball
+                  grabber.x += (dx / dist) * 6 * deltaTime;
+                  grabber.y += (dy / dist) * 6 * deltaTime;
+                }
+              }
+            }
+
+            return grabber;
+          });
+        }
+
+        // Phase: alert - Show UH OH! alert
+        if (invasionPhase === 'alert') {
+          if (invasionTimer > 120) { // Show alert for 2 seconds
+            setInvasionPhase('shoot_alien');
+            setInvasionTimer(0);
+            // Transform paddle to ship mode
+            setInvasionMode(true);
+          }
+        }
+
+        // Phase: shoot_alien - Player must shoot the alien to free the ball
+        if (invasionPhase === 'shoot_alien') {
+          // Ship fires projectiles when space is pressed
+          if (keysRef.current.space && now - lastShipFire > SHIP_FIRE_COOLDOWN) {
+            const currentPaddle = paddleRef.current;
+            setShipProjectiles(prev => [...prev, {
+              id: now + Math.random(),
+              x: currentPaddle.x + currentPaddle.width / 2,
+              y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 10,
+              speed: 12,
+            }]);
+            setLastShipFire(now);
+          }
+
+          // Move projectiles upward
+          setShipProjectiles(prev => prev
+            .map(p => ({ ...p, y: p.y - p.speed * deltaTime }))
+            .filter(p => p.y > -20)
+          );
+
+          // Check if projectiles hit the ball grabber
+          if (ballGrabber) {
+            setShipProjectiles(prevProj => {
+              let hit = false;
+              const remaining = prevProj.filter(p => {
+                const dx = p.x - ballGrabber.x;
+                const dy = p.y - ballGrabber.y;
+                if (Math.sqrt(dx * dx + dy * dy) < 40) {
+                  hit = true;
+                  return false;
+                }
+                return true;
+              });
+
+              if (hit) {
+                setBallGrabber(prev => {
+                  if (!prev) return null;
+                  const newHealth = prev.health - 1;
+                  if (newHealth <= 0) {
+                    // Alien destroyed! Free the ball
+                    setInvasionPhase('transform');
+                    setInvasionTimer(0);
+                    setTransformProgress(0);
+                    // Release ball back to paddle
+                    setBalls(prev => prev.map(b => ({
+                      ...b,
+                      x: paddleRef.current.x + paddleRef.current.width / 2,
+                      y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20,
+                      vx: 0,
+                      vy: 0,
+                      attached: true,
+                      grabbedByAlien: false,
+                    })));
+                    createParticles(prev.x, prev.y, prev.color, 20);
+                    addFloatingText(prev.x, prev.y, 'FREED!', '#44ff44');
+                    return null;
+                  }
+                  createParticles(prev.x, prev.y, prev.color, 8);
+                  return { ...prev, health: newHealth, hitTimer: 10 };
+                });
+              }
+
+              return remaining;
+            });
+
+            // Update hit timer
+            setBallGrabber(prev => {
+              if (!prev) return null;
+              return { ...prev, hitTimer: Math.max(0, prev.hitTimer - deltaTime) };
+            });
+
+            // Move ball with grabber
+            if (ballGrabber.hasBall) {
+              // Alien moves erratically while being shot at
+              setBallGrabber(prev => {
+                if (!prev) return null;
+                const wobbleX = Math.sin(now * 0.01) * 2;
+                const wobbleY = Math.cos(now * 0.008) * 1;
+                return {
+                  ...prev,
+                  x: Math.max(50, Math.min(CANVAS_WIDTH - 50, prev.x + wobbleX)),
+                  y: Math.max(80, Math.min(250, prev.y + wobbleY)),
+                };
+              });
+              setBalls(prev => prev.map(b => ({
+                ...b,
+                x: ballGrabber.x,
+                y: ballGrabber.y + 25,
+              })));
+            }
+          }
+        }
+
+        // Phase: transform - Bricks transform into aliens
+        if (invasionPhase === 'transform') {
+          setTransformProgress(p => Math.min(1, p + 0.02 * deltaTime));
+
+          if (transformProgress >= 1) {
+            // Transform complete - create invasion bricks
+            setBricks(createInvasionBricks(pendingBossLevel, selectedEnemy));
+            setInvasionPhase('invasion');
+            setInvasionTimer(0);
+            // Ball stays attached, player can launch it
+          }
+        }
+
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+
       // === INVASION MODE LOGIC ===
-      if (invasionMode) {
+      if (invasionMode && invasionPhase === 'invasion') {
         // Ship fires projectiles when space is pressed
         if (keysRef.current.space && now - lastShipFire > SHIP_FIRE_COOLDOWN) {
           const currentPaddle = paddleRef.current;
@@ -5014,7 +5273,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -5844,21 +6103,25 @@ const BreakoutGame = () => {
     setPaddleDebuffs({ petrified: 0, confused: 0, webbed: 0 });
     setLastEnemySpawn(Date.now());
 
-    if (isBossLevel && !invasionMode) {
-      // Start invasion mode before boss level
-      setInvasionMode(true);
+    if (isBossLevel) {
+      // Boss level: Start normally but prepare for invasion sequence
+      // The invasion triggers when the ball is launched
+      setInvasionMode(false);
+      setInvasionPhase('normal');
       setPendingBossLevel(level);
-      setCurrentLevel(level); // Show the boss level number
-      setBricks(createInvasionBricks(level, selectedEnemy));
+      setCurrentLevel(level);
+      setBricks(createBricks(level, selectedEnemy));
+      setBalls([createBall(level, enemyIndex)]);
       setShipProjectiles([]);
+      setBallGrabber(null);
+      setInvasionTimer(0);
+      setTransformProgress(0);
       setInvasionFormation({
         offsetX: 0,
         direction: 1,
         descendAmount: 0,
-        speed: level === 12 ? 1.2 : 0.8, // Faster for final boss invasion
+        speed: level === 12 ? 1.2 : 0.8,
       });
-      // No ball in invasion mode
-      setBalls([]);
     } else {
       // Normal level start
       setInvasionMode(false);
@@ -6289,6 +6552,125 @@ const BreakoutGame = () => {
             }}>
               BRICKINOID INVASION!
             </span>
+          </div>
+        )}
+
+        {/* Ball Grabber Alien */}
+        {ballGrabber && (
+          <div style={{
+            position: 'absolute',
+            left: ballGrabber.x - 25,
+            top: ballGrabber.y - 25,
+            width: 50,
+            height: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '40px',
+            filter: ballGrabber.hitTimer > 0
+              ? 'brightness(2) drop-shadow(0 0 20px #ff0000)'
+              : `drop-shadow(0 0 15px ${ballGrabber.color})`,
+            animation: 'invasionPulse 0.5s ease-in-out infinite',
+            zIndex: 30,
+            transition: 'filter 0.1s',
+          }}>
+            {ballGrabber.emoji}
+            {/* Health indicator */}
+            <div style={{
+              position: 'absolute',
+              bottom: -10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              gap: '3px',
+            }}>
+              {[...Array(3)].map((_, i) => (
+                <div key={i} style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: i < ballGrabber.health ? '#ff4444' : '#333',
+                  border: '1px solid #ff6666',
+                }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* UH OH! Alert during alert phase */}
+        {invasionPhase === 'alert' && (
+          <div style={{
+            position: 'absolute',
+            top: '40%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            zIndex: 100,
+            animation: 'alertShake 0.1s ease-in-out infinite',
+          }}>
+            <div style={{
+              fontSize: '72px',
+              fontWeight: '900',
+              color: '#ff0000',
+              textShadow: '0 0 30px #ff0000, 0 0 60px #ff4444, 4px 4px 0 #800000',
+              animation: 'alertPulse 0.3s ease-in-out infinite',
+            }}>
+              UH OH!
+            </div>
+            <div style={{
+              fontSize: '24px',
+              fontWeight: '700',
+              color: '#ffaa00',
+              textShadow: '0 0 10px #ff6600',
+              marginTop: '10px',
+            }}>
+              ALIEN STOLE YOUR BALL!
+            </div>
+            <div style={{
+              fontSize: '16px',
+              color: '#fff',
+              marginTop: '15px',
+              opacity: 0.8,
+            }}>
+              SHOOT IT DOWN! (SPACE to fire)
+            </div>
+          </div>
+        )}
+
+        {/* Transformation progress */}
+        {invasionPhase === 'transform' && (
+          <div style={{
+            position: 'absolute',
+            top: '45%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            zIndex: 50,
+          }}>
+            <div style={{
+              fontSize: '28px',
+              fontWeight: '700',
+              color: '#ff6644',
+              textShadow: '0 0 20px #ff4422',
+              marginBottom: '15px',
+            }}>
+              BRICKS TRANSFORMING...
+            </div>
+            <div style={{
+              width: 200,
+              height: 12,
+              background: 'rgba(0,0,0,0.5)',
+              borderRadius: 6,
+              overflow: 'hidden',
+              border: '2px solid #ff6644',
+            }}>
+              <div style={{
+                width: `${transformProgress * 100}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #ff6644, #ffaa00)',
+                transition: 'width 0.1s',
+              }} />
+            </div>
           </div>
         )}
 
@@ -7685,6 +8067,14 @@ const BreakoutGame = () => {
         @keyframes invasionPulse {
           0%, 100% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        @keyframes alertShake {
+          0%, 100% { transform: translate(-50%, -50%) rotate(-2deg); }
+          50% { transform: translate(-50%, -50%) rotate(2deg); }
+        }
+        @keyframes alertPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
         }
       `}</style>
     </div>
