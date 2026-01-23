@@ -3071,8 +3071,8 @@ const BreakoutGame = () => {
     };
 
     if (crackPattern.length > 0) {
-      // Create 2-4 chunky pieces total (not one per segment)
-      const numPieces = 2 + Math.floor(Math.random() * 2);
+      // Create 4-7 chunky pieces
+      const numPieces = 4 + Math.floor(Math.random() * 4);
 
       // Gather all crack points to distribute pieces along them
       const allPoints = [];
@@ -3095,23 +3095,23 @@ const BreakoutGame = () => {
         const dy = pieceY - centerY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-        const speed = 1.5 + Math.random() * 1.5; // Slower, heavier feel
+        const speed = 1.2 + Math.random() * 1.3; // Slower, heavier feel
 
         newParticles.push({
           id: now + Math.random() + i,
           x: pieceX,
           y: pieceY,
-          vx: (dx / dist) * speed + (Math.random() - 0.5) * 1.5,
-          vy: (dy / dist) * speed - 0.5, // Less upward, more gravity-dominated
+          vx: (dx / dist) * speed + (Math.random() - 0.5) * 1.2,
+          vy: (dy / dist) * speed - 0.3, // Minimal upward, gravity takes over
           color,
-          size: 18 + Math.random() * 14, // Bigger: 18-32px
+          size: 22 + Math.random() * 16, // Bigger: 22-38px
           life: 1.8,
           createdAt: now,
           isArmorShard: true,
           clipPath: randomJaggedPoly(),
           rotation: Math.random() * 40 - 20,
-          rotationSpeed: (Math.random() - 0.5) * 12, // Slower rotation
-          gravity: 0.35, // Much heavier
+          rotationSpeed: (Math.random() - 0.5) * 10, // Slower rotation
+          gravity: 0.5, // Very heavy
         });
       }
 
@@ -3132,30 +3132,30 @@ const BreakoutGame = () => {
       }
 
     } else {
-      // Fallback: 2-3 chunky random pieces
-      const numPieces = 2 + Math.floor(Math.random() * 2);
+      // Fallback: 4-7 chunky random pieces
+      const numPieces = 4 + Math.floor(Math.random() * 4);
       for (let i = 0; i < numPieces; i++) {
         const angle = (Math.PI * 2 * i) / numPieces + Math.random() * 0.5;
         const spawnDist = Math.min(width, height) * 0.25;
         const spawnX = centerX + Math.cos(angle) * spawnDist;
         const spawnY = centerY + Math.sin(angle) * spawnDist;
-        const speed = 1.5 + Math.random() * 1.5;
+        const speed = 1.2 + Math.random() * 1.3;
 
         newParticles.push({
           id: now + Math.random() + i,
           x: spawnX,
           y: spawnY,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 0.5,
+          vy: Math.sin(angle) * speed - 0.3,
           color,
-          size: 18 + Math.random() * 14,
+          size: 22 + Math.random() * 16,
           life: 1.8,
           createdAt: now,
           isArmorShard: true,
           clipPath: randomJaggedPoly(),
           rotation: Math.random() * 40 - 20,
-          rotationSpeed: (Math.random() - 0.5) * 12,
-          gravity: 0.35,
+          rotationSpeed: (Math.random() - 0.5) * 10,
+          gravity: 0.5,
         });
       }
     }
