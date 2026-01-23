@@ -21,6 +21,41 @@ const BreakoutGame = () => {
   const TEDDY_METER_MAX = 100;
   const KEYBOARD_SPEED = 12;
 
+  // === PIXEL ART SPRITES (CC0 from Superpowers Asset Pack) ===
+  const SPRITES = {
+    // Player ships
+    ship1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/1.png',
+    ship2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/2.png',
+    ship3: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/3.png',
+    ship4: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/4.png',
+    ship5: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/5.png',
+    // Projectiles
+    shot1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/shots/1.png',
+    shot2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/shots/2.png',
+    shot3: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/shots/3.png',
+    shot4: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/shots/4.png',
+    // Effects
+    fx1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/effects/fx-1.png',
+    fx2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/effects/fx-2.png',
+    fx3: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/effects/fx-3.png',
+    shield1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/effects/shield-1.png',
+    shield2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/effects/shield-2.png',
+    // Power-ups
+    powerUp1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/power-up-1.png',
+    powerUp2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/power-up-2.png',
+    powerUp3: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/power-up-3.png',
+    gem1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/gem-1.png',
+    gem2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/gem-2.png',
+    bomb: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/bomb.png',
+    rocket: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/items/rocket-1.png',
+    // Enemy ships (using different ships as enemies)
+    enemy1: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/6.png',
+    enemy2: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/7.png',
+    enemy3: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/8.png',
+    enemy4: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/9.png',
+    enemy5: 'https://raw.githubusercontent.com/sparklinlabs/superpowers-asset-packs/master/space-shooter/ships/10.png',
+  };
+
   // === DIFFICULTY SCALING SYSTEM ===
   // Global level = enemyIndex * 10 + levelNumber (1-100)
   const getDifficulty = (enemyIndex, level) => {
@@ -6165,6 +6200,8 @@ const BreakoutGame = () => {
           color,
           type,
           hitFlash: 0,
+          isInvader: true, // Flag for pixel art rendering
+          spriteIndex: (row + col) % 5, // Which enemy sprite to use
         });
       }
     }
@@ -6719,8 +6756,17 @@ const BreakoutGame = () => {
               zIndex: 30,
               transition: 'filter 0.1s',
             }}>
-              {/* UFO emoji */}
-              <span style={{ fontSize: '50px' }}>{ballGrabber.emoji}</span>
+              {/* Pixel art UFO */}
+              <img
+                src={SPRITES.enemy1}
+                alt="UFO"
+                style={{
+                  width: 60,
+                  height: 60,
+                  imageRendering: 'pixelated',
+                  transform: 'rotate(180deg)', // Flip to face downward
+                }}
+              />
               {/* Health indicator */}
               <div style={{
                 position: 'absolute',
@@ -6985,19 +7031,54 @@ const BreakoutGame = () => {
               pointerEvents: brick.dying ? 'none' : 'auto',
             }}
           >
-            {/* Morphing alien emoji during transformation */}
+            {/* Morphing pixel art alien during transformation */}
             {invasionPhase === 'transform' && transformProgress > 0.4 && (
-              <span style={{
+              <div style={{
                 position: 'absolute',
-                fontSize: `${10 + transformProgress * 8}px`,
+                width: `${16 + transformProgress * 16}px`,
+                height: `${16 + transformProgress * 16}px`,
                 opacity: (transformProgress - 0.4) / 0.6,
                 transform: `scale(${0.5 + transformProgress * 0.5}) rotate(${Math.sin(brickIndex + transformProgress * 10) * 10}deg)`,
                 filter: `drop-shadow(0 0 ${5 + transformProgress * 10}px hsl(${120 + brickIndex * 10}, 80%, 60%))`,
                 animation: 'invasionPulse 0.3s infinite',
                 zIndex: 5,
               }}>
-                {brickIndex % 3 === 0 ? '🛸' : brickIndex % 3 === 1 ? '👾' : '👽'}
-              </span>
+                <img
+                  src={[SPRITES.enemy1, SPRITES.enemy2, SPRITES.enemy3, SPRITES.enemy4, SPRITES.enemy5][brickIndex % 5]}
+                  alt="Alien"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    imageRendering: 'pixelated',
+                    transform: 'rotate(180deg)',
+                  }}
+                />
+              </div>
+            )}
+            {/* Pixel art alien for invasion bricks */}
+            {brick.isInvader && invasionPhase === 'invasion' && !brick.dying && (
+              <div style={{
+                position: 'absolute',
+                width: brick.width - 8,
+                height: brick.height + 8,
+                top: -4,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <img
+                  src={[SPRITES.enemy1, SPRITES.enemy2, SPRITES.enemy3, SPRITES.enemy4, SPRITES.enemy5][brick.spriteIndex || 0]}
+                  alt="Invader"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    imageRendering: 'pixelated',
+                    transform: 'rotate(180deg)',
+                    filter: brick.hitFlash > 0 ? 'brightness(2) drop-shadow(0 0 8px #fff)' : 'none',
+                    transition: 'filter 0.1s',
+                  }}
+                />
+              </div>
             )}
             {brick.type === 'boss' && (
               <div style={{
@@ -7561,99 +7642,40 @@ const BreakoutGame = () => {
 
         {/* Ship (Invasion Mode) or Paddle (Normal Mode) or Transformation Animation */}
         {invasionMode ? (
-          // Ship for invasion mode - triangular with thrusters
+          // Pixel art ship for invasion mode
           <div style={{
             position: 'absolute',
-            left: paddle.x + paddle.width / 2 - 25,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 18,
-            width: 50,
-            height: 45,
+            left: paddle.x + paddle.width / 2 - 32,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 32,
+            width: 64,
+            height: 64,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            filter: 'drop-shadow(0 0 12px #60ff80)',
+            justifyContent: 'center',
           }}>
-            {/* Ship body - sleek design */}
-            <div style={{
-              position: 'relative',
-              width: 50,
-              height: 40,
-            }}>
-              {/* Main hull */}
-              <div style={{
-                position: 'absolute',
-                top: 5,
-                left: 10,
-                width: 30,
-                height: 25,
-                background: 'linear-gradient(180deg, #80ffaa 0%, #40cc60 50%, #209940 100%)',
-                clipPath: 'polygon(50% 0%, 100% 70%, 85% 100%, 15% 100%, 0% 70%)',
-                boxShadow: 'inset 0 -5px 10px rgba(0,0,0,0.3)',
-              }} />
-              {/* Wings */}
-              <div style={{
-                position: 'absolute',
-                top: 18,
-                left: 0,
-                width: 15,
-                height: 18,
-                background: 'linear-gradient(90deg, #209940, #40cc60)',
-                clipPath: 'polygon(100% 0%, 100% 100%, 0% 80%)',
-              }} />
-              <div style={{
-                position: 'absolute',
-                top: 18,
-                right: 0,
-                width: 15,
-                height: 18,
-                background: 'linear-gradient(-90deg, #209940, #40cc60)',
-                clipPath: 'polygon(0% 0%, 0% 100%, 100% 80%)',
-              }} />
-              {/* Cockpit */}
-              <div style={{
-                position: 'absolute',
-                top: 10,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 12,
-                height: 12,
-                background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff, #40a0ff)',
-                borderRadius: '50% 50% 40% 40%',
-                boxShadow: '0 0 8px #80ffff',
-              }} />
-              {/* Cannon */}
-              <div style={{
-                position: 'absolute',
-                top: -2,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 6,
-                height: 10,
-                background: 'linear-gradient(180deg, #ffcc00, #ff8800)',
-                borderRadius: '3px 3px 0 0',
-                boxShadow: '0 0 6px #ffcc00',
-              }} />
-            </div>
-            {/* Thrusters */}
+            {/* Pixel art spaceship sprite */}
+            <img
+              src={SPRITES.ship1}
+              alt="Player Ship"
+              style={{
+                width: 64,
+                height: 64,
+                imageRendering: 'pixelated',
+                filter: 'drop-shadow(0 0 12px #60ff80) drop-shadow(0 0 6px #40cc60)',
+                transform: 'rotate(0deg)',
+                animation: 'shipReady 1s ease-in-out infinite',
+              }}
+            />
+            {/* Thruster flame effect below ship */}
             <div style={{
               position: 'absolute',
-              bottom: -5,
-              left: 12,
-              width: 10,
-              height: 15,
-              background: 'linear-gradient(180deg, #ff8800 0%, #ff4400 40%, #ff2200 70%, transparent 100%)',
-              borderRadius: '0 0 5px 5px',
-              animation: 'thrusterFlicker 0.1s infinite',
-              opacity: 0.9,
-            }} />
-            <div style={{
-              position: 'absolute',
-              bottom: -5,
-              right: 12,
-              width: 10,
-              height: 15,
-              background: 'linear-gradient(180deg, #ff8800 0%, #ff4400 40%, #ff2200 70%, transparent 100%)',
-              borderRadius: '0 0 5px 5px',
+              bottom: -8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 20,
+              height: 18,
+              background: 'linear-gradient(180deg, #ff8800 0%, #ff4400 30%, #ff2200 60%, transparent 100%)',
+              clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 50% 70%, 0% 100%)',
               animation: 'thrusterFlicker 0.1s infinite',
               opacity: 0.9,
             }} />
@@ -7863,18 +7885,26 @@ const BreakoutGame = () => {
           }} />
         )}
 
-        {/* Ship projectiles */}
+        {/* Ship projectiles - pixel art */}
         {invasionMode && shipProjectiles.map(proj => (
           <div key={proj.id} style={{
             position: 'absolute',
-            left: proj.x - 3,
-            top: proj.y - 8,
-            width: 6,
-            height: 16,
-            background: 'linear-gradient(180deg, #80ffff, #40ff80)',
-            borderRadius: '3px',
-            boxShadow: '0 0 8px #80ffff, 0 0 4px #40ff80',
-          }} />
+            left: proj.x - 8,
+            top: proj.y - 12,
+            width: 16,
+            height: 24,
+          }}>
+            <img
+              src={SPRITES.shot1}
+              alt="Projectile"
+              style={{
+                width: '100%',
+                height: '100%',
+                imageRendering: 'pixelated',
+                filter: 'drop-shadow(0 0 6px #80ffff) drop-shadow(0 0 3px #40ff80)',
+              }}
+            />
+          </div>
         ))}
 
         {/* Twin Paddle (Teddy Split ability) */}
