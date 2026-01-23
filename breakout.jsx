@@ -3047,169 +3047,115 @@ const BreakoutGame = () => {
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create cracking armor particles - jagged pieces that match the actual crack regions
+  // Create cracking armor particles - chunky jagged pieces
   const createCrackingParticles = useCallback((x, y, width, height, color, crackPattern = []) => {
     const now = Date.now();
     const newParticles = [];
     const centerX = x + width / 2;
     const centerY = y + height / 2;
 
-    if (crackPattern.length > 0) {
-      // For each crack, create pieces along the crack line
-      // These will be small jagged shards that follow the crack path
-
-      crackPattern.forEach((crack, crackIdx) => {
-        if (!crack.points || crack.points.length < 2) return;
-
-        const points = crack.points;
-
-        // Create shards along the crack - each shard is a small piece
-        // that spans from one crack point to the next
-        for (let i = 0; i < points.length - 1; i++) {
-          const p1 = points[i];
-          const p2 = points[i + 1];
-
-          // Calculate shard position and size
-          const shardCenterX = x + ((p1.x + p2.x) / 2 / 100) * width;
-          const shardCenterY = y + ((p1.y + p2.y) / 2 / 100) * height;
-
-          // Calculate shard dimensions based on crack segment
-          const segWidth = Math.abs(p2.x - p1.x) / 100 * width;
-          const segHeight = Math.abs(p2.y - p1.y) / 100 * height;
-          const shardSize = Math.max(8, Math.min(width * 0.4, segWidth + segHeight + 10));
-
-          // Direction from brick center
-          const dx = shardCenterX - centerX;
-          const dy = shardCenterY - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const dirX = dx / dist;
-          const dirY = dy / dist;
-
-          const speed = 2 + Math.random() * 2.5;
-
-          // Create a jagged polygon for this shard
-          // Offset perpendicular to the crack direction for jagged look
-          const crackAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-          const perpX = Math.sin(crackAngle) * 15;
-          const perpY = -Math.cos(crackAngle) * 15;
-
-          const poly = [
-            { x: 10, y: 50 - perpY },
-            { x: 50, y: 10 },
-            { x: 90, y: 50 + perpY },
-            { x: 50, y: 90 },
-          ];
-          const clipPath = `polygon(${poly.map(pt => `${pt.x}% ${pt.y}%`).join(', ')})`;
-
-          newParticles.push({
-            id: now + Math.random() + crackIdx * 100 + i,
-            x: shardCenterX,
-            y: shardCenterY,
-            vx: dirX * speed + (Math.random() - 0.5) * 2,
-            vy: dirY * speed - 1.5 + Math.random(),
-            color,
-            size: shardSize,
-            life: 1.5,
-            createdAt: now,
-            isArmorShard: true,
-            clipPath,
-            rotation: crackAngle * (180 / Math.PI) + (Math.random() - 0.5) * 30,
-            rotationSpeed: (Math.random() - 0.5) * 20,
-            gravity: 0.18,
-          });
-        }
-
-        // Also spawn from crack endpoints (where crack meets brick edge)
-        [points[0], points[points.length - 1]].forEach((pt, idx) => {
-          const ptX = x + (pt.x / 100) * width;
-          const ptY = y + (pt.y / 100) * height;
-
-          const dx = ptX - centerX;
-          const dy = ptY - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const speed = 2.5 + Math.random() * 2;
-
-          // Corner/edge piece - triangular
-          const cornerPoly = [
-            { x: 0, y: 50 },
-            { x: 50, y: 0 },
-            { x: 100, y: 50 },
-            { x: 50, y: 100 },
-          ];
-
-          newParticles.push({
-            id: now + Math.random() + crackIdx * 200 + idx,
-            x: ptX,
-            y: ptY,
-            vx: (dx / dist) * speed + (Math.random() - 0.5),
-            vy: (dy / dist) * speed - 1,
-            color,
-            size: 12 + Math.random() * 8,
-            life: 1.6,
-            createdAt: now,
-            isArmorShard: true,
-            clipPath: `polygon(${cornerPoly.map(p => `${p.x}% ${p.y}%`).join(', ')})`,
-            rotation: Math.atan2(dy, dx) * (180 / Math.PI),
-            rotationSpeed: (Math.random() - 0.5) * 25,
-            gravity: 0.2,
-          });
+    // Generate a random asymmetric jagged polygon
+    const randomJaggedPoly = () => {
+      // 5-7 points, irregularly placed
+      const numPoints = 5 + Math.floor(Math.random() * 3);
+      const points = [];
+      for (let i = 0; i < numPoints; i++) {
+        const angle = (Math.PI * 2 * i) / numPoints + (Math.random() - 0.5) * 0.8;
+        const radius = 30 + Math.random() * 20; // Vary the radius for jagged look
+        points.push({
+          x: 50 + Math.cos(angle) * radius,
+          y: 50 + Math.sin(angle) * radius,
         });
-      });
+      }
+      return `polygon(${points.map(p => `${p.x}% ${p.y}%`).join(', ')})`;
+    };
 
-      // Fine crack dust debris
+    if (crackPattern.length > 0) {
+      // Create 2-4 chunky pieces total (not one per segment)
+      const numPieces = 2 + Math.floor(Math.random() * 2);
+
+      // Gather all crack points to distribute pieces along them
+      const allPoints = [];
       crackPattern.forEach(crack => {
         if (crack.points) {
-          crack.points.forEach((p, i) => {
-            if (Math.random() < 0.5) {
-              newParticles.push({
-                id: now + Math.random() + 3000 + i,
-                x: x + (p.x / 100) * width,
-                y: y + (p.y / 100) * height,
-                vx: (Math.random() - 0.5) * 4,
-                vy: -1 + Math.random() * 2,
-                color: '#777777',
-                size: 1.5 + Math.random() * 2,
-                life: 0.6,
-                createdAt: now,
-              });
-            }
-          });
+          crack.points.forEach(p => allPoints.push(p));
         }
       });
 
+      // Pick evenly spaced points for our pieces
+      for (let i = 0; i < numPieces; i++) {
+        const pointIdx = Math.floor((i / numPieces) * allPoints.length);
+        const pt = allPoints[pointIdx] || { x: 50, y: 50 };
+
+        const pieceX = x + (pt.x / 100) * width;
+        const pieceY = y + (pt.y / 100) * height;
+
+        // Direction from brick center
+        const dx = pieceX - centerX;
+        const dy = pieceY - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+        const speed = 1.5 + Math.random() * 1.5; // Slower, heavier feel
+
+        newParticles.push({
+          id: now + Math.random() + i,
+          x: pieceX,
+          y: pieceY,
+          vx: (dx / dist) * speed + (Math.random() - 0.5) * 1.5,
+          vy: (dy / dist) * speed - 0.5, // Less upward, more gravity-dominated
+          color,
+          size: 18 + Math.random() * 14, // Bigger: 18-32px
+          life: 1.8,
+          createdAt: now,
+          isArmorShard: true,
+          clipPath: randomJaggedPoly(),
+          rotation: Math.random() * 40 - 20,
+          rotationSpeed: (Math.random() - 0.5) * 12, // Slower rotation
+          gravity: 0.35, // Much heavier
+        });
+      }
+
+      // Just a few tiny debris particles (not many)
+      for (let i = 0; i < 3; i++) {
+        const pt = allPoints[Math.floor(Math.random() * allPoints.length)] || { x: 50, y: 50 };
+        newParticles.push({
+          id: now + Math.random() + 1000 + i,
+          x: x + (pt.x / 100) * width + (Math.random() - 0.5) * 10,
+          y: y + (pt.y / 100) * height + (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 3,
+          vy: -0.5 + Math.random(),
+          color: '#666666',
+          size: 2 + Math.random() * 2,
+          life: 0.5,
+          createdAt: now,
+        });
+      }
+
     } else {
-      // Fallback: simple shards flying outward if no crack pattern
-      const shardCount = 5 + Math.floor(Math.random() * 3);
-      for (let i = 0; i < shardCount; i++) {
-        const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
-        const spawnDist = Math.min(width, height) * 0.3;
+      // Fallback: 2-3 chunky random pieces
+      const numPieces = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < numPieces; i++) {
+        const angle = (Math.PI * 2 * i) / numPieces + Math.random() * 0.5;
+        const spawnDist = Math.min(width, height) * 0.25;
         const spawnX = centerX + Math.cos(angle) * spawnDist;
         const spawnY = centerY + Math.sin(angle) * spawnDist;
-        const speed = 2 + Math.random() * 2.5;
-
-        // Diamond shape for generic shards
-        const diamondPoly = [
-          { x: 50, y: 0 },
-          { x: 100, y: 50 },
-          { x: 50, y: 100 },
-          { x: 0, y: 50 },
-        ];
+        const speed = 1.5 + Math.random() * 1.5;
 
         newParticles.push({
           id: now + Math.random() + i,
           x: spawnX,
           y: spawnY,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 1.5,
+          vy: Math.sin(angle) * speed - 0.5,
           color,
-          size: 10 + Math.random() * 8,
-          life: 1.5,
+          size: 18 + Math.random() * 14,
+          life: 1.8,
           createdAt: now,
           isArmorShard: true,
-          clipPath: `polygon(${diamondPoly.map(p => `${p.x}% ${p.y}%`).join(', ')})`,
-          rotation: angle * (180 / Math.PI),
-          rotationSpeed: (Math.random() - 0.5) * 20,
-          gravity: 0.18,
+          clipPath: randomJaggedPoly(),
+          rotation: Math.random() * 40 - 20,
+          rotationSpeed: (Math.random() - 0.5) * 12,
+          gravity: 0.35,
         });
       }
     }
