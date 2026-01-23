@@ -1076,7 +1076,25 @@ const BreakoutGame = () => {
         '22...22...22',
         '#2#2#..#2#2#',
       ],
-      // Level 10: Boss - The Goblin King
+      // Level 10: Goblin Maze
+      [
+        '3#3#3#3#3#3#',
+        '3..3..3..3.3',
+        '3#.3#.3#.3#3',
+        '3..3..3..3.3',
+        '3#3#3#3#3#3#',
+        '333333333333',
+      ],
+      // Level 11: Goblin Gauntlet
+      [
+        '#3#3#3#3#3#3',
+        '3*3333333*33',
+        '333#33#33333',
+        '33333333##33',
+        'X333333333X3',
+        '333333333333',
+      ],
+      // Level 12: Boss - The Goblin King
       [
         '333#3333#333',
         '3*33333333*3',
@@ -1170,7 +1188,25 @@ const BreakoutGame = () => {
         '#.222222222.',
         '.#.#.#.#.#.#',
       ],
-      // Level 10: Magnet Mage Boss
+      // Level 10: Magnetic Storm
+      [
+        '33O33..33O33',
+        '3333333333..',
+        'O.33##33..O.',
+        '..33##33..O.',
+        '3333333333..',
+        '33O33..33O33',
+      ],
+      // Level 11: Polarity Shift
+      [
+        '#3#3O3#3#3#3',
+        '3*33333333*3',
+        '33O3333333O3',
+        '333333333333',
+        '3*33O33O33*3',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Magnet Mage Boss
       [
         '33#3333#3333',
         '333*3333*333',
@@ -1264,7 +1300,25 @@ const BreakoutGame = () => {
         '3X3.3X3.3X3.',
         '............',
       ],
-      // Level 10: Wind Witch Boss
+      // Level 10: Cyclone
+      [
+        '@133333333@1',
+        '33.333333.33',
+        '333..33..333',
+        '333..33..333',
+        '33.333333.33',
+        '@233333333@2',
+      ],
+      // Level 11: Hurricane
+      [
+        '#3@13333@13#',
+        '3*33333333*3',
+        '@233333333@2',
+        '333333333333',
+        '3*33@13@13*3',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Wind Witch Boss
       [
         '..3333333...',
         '.33*3333*33.',
@@ -1358,7 +1412,25 @@ const BreakoutGame = () => {
         '333333333333',
         '3#3#3#3#3#3#',
       ],
-      // Level 10: Shadow Smith Boss
+      // Level 10: Shadow Forge
+      [
+        'S33333333S33',
+        '33#333#33333',
+        '333333333333',
+        '333333333333',
+        '33#333#33333',
+        'S33333333S33',
+      ],
+      // Level 11: Umbral Depths
+      [
+        '#3S3#3#3S3#3',
+        '3*33333333*3',
+        '33S333333S33',
+        '333333333333',
+        '3*33S33S33*3',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Shadow Smith Boss
       [
         '#33#33#33#33',
         '3333333333*3',
@@ -1452,7 +1524,25 @@ const BreakoutGame = () => {
         '#333333333#.',
         '############',
       ],
-      // Level 10: Fire Phoenix Boss
+      // Level 10: Inferno
+      [
+        'X33O33O33X33',
+        '333333333333',
+        '@133X33X33@1',
+        '333333333333',
+        'S333333333S3',
+        'X33X33X33X33',
+      ],
+      // Level 11: Pyre
+      [
+        '#3X3#3#3X3#3',
+        '3*33333333*3',
+        '33X3O3O3X333',
+        '333333333333',
+        '3*33X33X33*3',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Fire Phoenix Boss
       [
         '..*3333*33..',
         '..33333333..',
@@ -1546,7 +1636,25 @@ const BreakoutGame = () => {
         '#.333333333.',
         '.#.#.#.#.#S.',
       ],
-      // Level 10: Frost Fairy Boss - The Frozen Heart
+      // Level 10: Blizzard
+      [
+        'FF33O33O33FF',
+        '333333333333',
+        'F3333333333F',
+        '333333333333',
+        'FF333333FF33',
+        '#F#F#FF#F#F#',
+      ],
+      // Level 11: Absolute Zero
+      [
+        '#3F3#3#3F3#3',
+        '3*33F33F33*3',
+        '33F3O3O3F333',
+        '33333F333333',
+        '3*33F33F33*3',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Frost Fairy Boss - The Frozen Heart
       [
         '@1..4444..@1',
         '..44444444..',
@@ -1640,7 +1748,25 @@ const BreakoutGame = () => {
         '#.333333333.',
         '.#.#.#.#.#S.',
       ],
-      // Level 10: Chaos Clown Boss
+      // Level 10: Madhouse
+      [
+        'X33O33O33X33',
+        '333S33S33333',
+        '@133333333@1',
+        '333333333333',
+        'X333S33S333X',
+        '@233O33O33@2',
+      ],
+      // Level 11: Pandemonium
+      [
+        '#3X3S3S3X3#3',
+        '3*33O33O33*3',
+        '@1X333333X@1',
+        '333333333333',
+        '3*@233S3@2*3',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Chaos Clown Boss
       [
         '@1.4*44*4.@1',
         '.O44444444O.',
@@ -1734,7 +1860,25 @@ const BreakoutGame = () => {
         '.333.O.333.O',
         '#.#@4#.#@3#.',
       ],
-      // Level 10: Portal Wizard Boss
+      // Level 10: Tesseract
+      [
+        '@1@2333333@3',
+        '33333@43333.',
+        '@3333333@1..',
+        '..@133333@3.',
+        '3333@433333.',
+        '@4@33333@2@1',
+      ],
+      // Level 11: Multiverse
+      [
+        '#3@13@23@33#',
+        '3*@43333@4*3',
+        '@1@2333@3@43',
+        '333333333333',
+        '3*@13@23@33*',
+        '#3#3#3#3#3#3',
+      ],
+      // Level 12: Portal Wizard Boss
       [
         '@1@24*44*4@3',
         '@3O44##44O@4',
@@ -1828,7 +1972,25 @@ const BreakoutGame = () => {
         '#*44XXXX44*#',
         '@2#########@2',
       ],
-      // Level 10: Titan King Boss
+      // Level 10: Throne Room
+      [
+        '#44O44O44#33',
+        '444444444444',
+        '@1444##444@1',
+        '444444444444',
+        'S4444444444S',
+        '#44X44X44#33',
+      ],
+      // Level 11: Titan's Wrath
+      [
+        '#3#4S4S4#3#3',
+        '4*44O44O44*4',
+        '@144444444@1',
+        '444444444444',
+        '4*44X44X44*4',
+        '#4#4#4#4#4#4',
+      ],
+      // Level 12: Titan King Boss
       [
         '###5555###..',
         '#*5555555*#.',
@@ -1922,7 +2084,25 @@ const BreakoutGame = () => {
         '5555555555..',
         '#S@3#S@2#S@1',
       ],
-      // Level 10: Cosmic Dragon Boss - THE FINAL BATTLE
+      // Level 10: Event Horizon
+      [
+        'S@15555555@2S',
+        '555555555555',
+        '@3O55##55O@4',
+        '555555555555',
+        'X555XX555X55',
+        '@4@35555@1@2#',
+      ],
+      // Level 11: Supernova
+      [
+        '#5@15@25@3#5',
+        '5*55O55O55*5',
+        '@4X555555X@1',
+        '555555555555',
+        '5*@255S5@35*',
+        '#5#5#5#5#5#5',
+      ],
+      // Level 12: Cosmic Dragon Boss - THE FINAL BATTLE
       [
         '@1@2@1@2@3@4',
         'S*555555*S..',
@@ -2006,6 +2186,19 @@ const BreakoutGame = () => {
 
   // Twin paddle for Teddy Split ability
   const [twinPaddle, setTwinPaddle] = useState(null);
+
+  // === INVASION MODE (Space Invaders style before bosses) ===
+  const [invasionMode, setInvasionMode] = useState(false);
+  const [shipProjectiles, setShipProjectiles] = useState([]);
+  const [invasionFormation, setInvasionFormation] = useState({
+    offsetX: 0,           // Formation horizontal offset
+    direction: 1,         // 1 = right, -1 = left
+    descendAmount: 0,     // How far formation has descended
+    speed: 0.8,           // Movement speed
+  });
+  const [lastShipFire, setLastShipFire] = useState(0);
+  const SHIP_FIRE_COOLDOWN = 180; // ms between shots
+  const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
   // Stats with unlocks and upgrades
   const [stats, setStats] = useState(() => {
@@ -2269,7 +2462,7 @@ const BreakoutGame = () => {
   const isEnemyComplete = (enemyId) => getEnemyStars(enemyId) >= STARS_TO_UNLOCK;
 
   // Level star thresholds - score needed for 1/2/3 stars (scales with level)
-  const MAX_LEVELS = 10;
+  const MAX_LEVELS = 12;
   const calculateLevelStars = (score, level) => {
     const baseThresholds = [150, 350, 600]; // Base thresholds for level 1
     const multiplier = 1 + (level - 1) * 0.3; // 30% harder per level
@@ -2826,69 +3019,262 @@ const BreakoutGame = () => {
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create brick shatter particles - brick fragments that tumble and fade
+  // Create brick shatter particles - SUBTLE: quick, minimal particles
+  // Normal bricks should die quietly so armor cracks can be the star
   const createBrickShatterParticles = useCallback((x, y, width, height, color) => {
     const now = Date.now();
     const newParticles = [];
-    // Create brick fragment particles (reduced count for cleaner look)
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
-      const speed = 1.5 + Math.random() * 3;
+
+    // Just a few small particles - subtle puff, not a celebration
+    const particleCount = 4 + Math.floor(Math.random() * 3); // 4-6 particles
+    for (let i = 0; i < particleCount; i++) {
+      const spawnX = x + (Math.random() - 0.5) * width * 0.6;
+      const spawnY = y + (Math.random() - 0.5) * height * 0.6;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.3 + Math.random() * 1.2; // Very gentle drift
       newParticles.push({
         id: now + Math.random(),
-        x: x + (Math.random() - 0.5) * width * 0.5,
-        y: y + (Math.random() - 0.5) * height * 0.5,
+        x: spawnX,
+        y: spawnY,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1,
+        vy: Math.sin(angle) * speed - 0.3,
         color,
-        size: 3 + Math.random() * 4,
-        life: 1.0,
+        size: 1.5 + Math.random() * 2, // Tiny particles
+        life: 0.3 + Math.random() * 0.2, // Short life - quick fade
         createdAt: now,
-        isBrickShard: true,
-        rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 10,
+        isDissolve: true,
       });
     }
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
-  // Create cracking armor particles - dramatic crack and explosion effect
-  const createCrackingParticles = useCallback((x, y, width, height, color) => {
+  // Create cracking armor particles - pieces with ACTUAL jagged crack edges fly off
+  const createCrackingParticles = useCallback((x, y, width, height, color, crackPattern = []) => {
     const now = Date.now();
     const newParticles = [];
-    // Create crack line particles that shoot outward then fall
-    const crackCount = 10 + Math.floor(Math.random() * 5);
-    for (let i = 0; i < crackCount; i++) {
-      const angle = (Math.PI * 2 * i) / crackCount + Math.random() * 0.3;
-      const speed = 3 + Math.random() * 5;
-      newParticles.push({
-        id: now + Math.random(),
-        x: x + Math.random() * width,
-        y: y + Math.random() * height,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        color,
-        size: 5 + Math.random() * 7,
-        life: 1.5,
-        createdAt: now,
-        isShard: true,
-        rotation: angle * (180 / Math.PI),
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    if (crackPattern.length > 0) {
+      // Build polygon regions with actual jagged crack edges
+      const regions = [];
+
+      // Helper: determine which edge a point is on (0=top, 1=right, 2=bottom, 3=left, -1=interior)
+      const getEdge = (p) => {
+        if (p.y <= 5) return 0; // top
+        if (p.x >= 95) return 1; // right
+        if (p.y >= 95) return 2; // bottom
+        if (p.x <= 5) return 3; // left
+        return -1; // interior (nexus)
+      };
+
+      // Helper: get corner points between two edges (going clockwise)
+      const getCornersBetween = (edge1, edge2) => {
+        const corners = [
+          { x: 100, y: 0 },   // between top(0) and right(1)
+          { x: 100, y: 100 }, // between right(1) and bottom(2)
+          { x: 0, y: 100 },   // between bottom(2) and left(3)
+          { x: 0, y: 0 },     // between left(3) and top(0)
+        ];
+        const result = [];
+        let e = edge1;
+        while (e !== edge2) {
+          result.push(corners[e]);
+          e = (e + 1) % 4;
+        }
+        return result;
+      };
+
+      // Process each crack line
+      crackPattern.forEach((crack, crackIdx) => {
+        if (!crack.points || crack.points.length < 2) return;
+
+        const points = crack.points;
+        const startPt = points[0];
+        const endPt = points[points.length - 1];
+        const startEdge = getEdge(startPt);
+        const endEdge = getEdge(endPt);
+
+        // Only process through-cracks (edge to edge) for now
+        if (startEdge === -1 || endEdge === -1) return;
+
+        // Create two polygon regions - one on each side of the crack
+
+        // Region 1: Go clockwise from crack start, along edges, to crack end, then back along crack
+        const poly1 = [];
+        poly1.push({ x: startPt.x, y: startPt.y }); // Start at crack beginning
+
+        // Add corners between start edge and end edge (clockwise)
+        const corners1 = getCornersBetween(startEdge, endEdge);
+        corners1.forEach(c => poly1.push(c));
+
+        poly1.push({ x: endPt.x, y: endPt.y }); // End at crack end
+
+        // Follow crack backwards (this is the jagged edge!)
+        for (let i = points.length - 2; i >= 1; i--) {
+          poly1.push({ x: points[i].x, y: points[i].y });
+        }
+
+        // Region 2: The other side - go the other way around
+        const poly2 = [];
+        poly2.push({ x: endPt.x, y: endPt.y }); // Start at crack end
+
+        // Add corners between end edge and start edge (clockwise)
+        const corners2 = getCornersBetween(endEdge, startEdge);
+        corners2.forEach(c => poly2.push(c));
+
+        poly2.push({ x: startPt.x, y: startPt.y }); // Back to crack start
+
+        // Follow crack forwards (jagged edge)
+        for (let i = 1; i < points.length - 1; i++) {
+          poly2.push({ x: points[i].x, y: points[i].y });
+        }
+
+        // Calculate centroids
+        const calcCentroid = (poly) => {
+          const cx = poly.reduce((sum, p) => sum + p.x, 0) / poly.length;
+          const cy = poly.reduce((sum, p) => sum + p.y, 0) / poly.length;
+          return { x: cx, y: cy };
+        };
+
+        if (poly1.length >= 3) {
+          regions.push({ polyPoints: poly1, centroid: calcCentroid(poly1) });
+        }
+        if (poly2.length >= 3) {
+          regions.push({ polyPoints: poly2, centroid: calcCentroid(poly2) });
+        }
+      });
+
+      // If no valid regions were created, fall back to simple split
+      if (regions.length === 0) {
+        regions.push({ centroid: { x: 25, y: 50 }, polyPoints: [{x:0,y:0},{x:50,y:0},{x:50,y:100},{x:0,y:100}] });
+        regions.push({ centroid: { x: 75, y: 50 }, polyPoints: [{x:50,y:0},{x:100,y:0},{x:100,y:100},{x:50,y:100}] });
+      }
+
+      // Create armor chunk particles for each region
+      regions.forEach((region, i) => {
+        const centroidPx = {
+          x: x + (region.centroid.x / 100) * width,
+          y: y + (region.centroid.y / 100) * height
+        };
+
+        // Direction from brick center to region centroid
+        const dx = centroidPx.x - centerX;
+        const dy = centroidPx.y - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+
+        const speed = 2.5 + Math.random() * 2;
+
+        // Convert polygon points to clip-path string WITH the jagged edges
+        let clipPath = null;
+        if (region.polyPoints && region.polyPoints.length >= 3) {
+          const pathStr = region.polyPoints.map(p => `${p.x}% ${p.y}%`).join(', ');
+          clipPath = `polygon(${pathStr})`;
+        }
+
+        // Main chunk particle - the actual armor piece with jagged edge
+        newParticles.push({
+          id: now + Math.random() + i,
+          x: centroidPx.x,
+          y: centroidPx.y,
+          vx: dirX * speed + (Math.random() - 0.5) * 1.5,
+          vy: dirY * speed - 2,
+          color,
+          size: width, // Use brick width as base
+          chunkWidth: width,
+          chunkHeight: height,
+          life: 2.0,
+          createdAt: now,
+          isArmorShard: true,
+          isChunk: true,
+          clipPath,
+          rotation: (Math.random() - 0.5) * 15, // Less initial rotation to show shape
+          rotationSpeed: (Math.random() - 0.5) * 15,
+          gravity: 0.22,
+        });
+
+        // Small debris from this chunk
+        for (let j = 0; j < 2; j++) {
+          newParticles.push({
+            id: now + Math.random() + i * 100 + j,
+            x: centroidPx.x + (Math.random() - 0.5) * 8,
+            y: centroidPx.y + (Math.random() - 0.5) * 5,
+            vx: dirX * (speed * 0.6) + (Math.random() - 0.5) * 3,
+            vy: dirY * (speed * 0.6) - 1 + Math.random(),
+            color,
+            size: 3 + Math.random() * 3,
+            life: 1.0,
+            createdAt: now,
+            isArmorShard: true,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 25,
+            gravity: 0.15,
+          });
+        }
+      });
+
+      // Add fine debris along the crack lines themselves
+      crackPattern.forEach(crack => {
+        if (crack.points) {
+          crack.points.forEach((p, i) => {
+            if (Math.random() < 0.6) {
+              newParticles.push({
+                id: now + Math.random() + 2000 + i,
+                x: x + (p.x / 100) * width,
+                y: y + (p.y / 100) * height,
+                vx: (Math.random() - 0.5) * 5,
+                vy: -1.5 + Math.random() * 2,
+                color: '#888888',
+                size: 1.5 + Math.random() * 2,
+                life: 0.8,
+                createdAt: now,
+              });
+            }
+          });
+        }
+      });
+
+    } else {
+      // Fallback: 4 quadrant pieces if no crack pattern
+      const quadrants = [
+        { cx: 25, cy: 25, poly: [{x:0,y:0},{x:50,y:0},{x:50,y:50},{x:0,y:50}] },
+        { cx: 75, cy: 25, poly: [{x:50,y:0},{x:100,y:0},{x:100,y:50},{x:50,y:50}] },
+        { cx: 25, cy: 75, poly: [{x:0,y:50},{x:50,y:50},{x:50,y:100},{x:0,y:100}] },
+        { cx: 75, cy: 75, poly: [{x:50,y:50},{x:100,y:50},{x:100,y:100},{x:50,y:100}] }
+      ];
+      quadrants.forEach((q, i) => {
+        const px = x + (q.cx / 100) * width;
+        const py = y + (q.cy / 100) * height;
+        const dx = px - centerX;
+        const dy = py - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const speed = 2 + Math.random() * 2;
+        const clipPath = `polygon(${q.poly.map(p => `${p.x}% ${p.y}%`).join(', ')})`;
+
+        newParticles.push({
+          id: now + Math.random() + i,
+          x: px,
+          y: py,
+          vx: (dx / dist) * speed,
+          vy: (dy / dist) * speed - 1.5,
+          color,
+          size: width,
+          chunkWidth: width,
+          chunkHeight: height,
+          life: 1.8,
+          createdAt: now,
+          isArmorShard: true,
+          isChunk: true,
+          clipPath,
+          rotation: Math.random() * 20 - 10,
+          rotationSpeed: (Math.random() - 0.5) * 18,
+          gravity: 0.2,
+        });
       });
     }
-    // Add small explosion particles
-    for (let i = 0; i < 6; i++) {
-      newParticles.push({
-        id: now + Math.random() + 100,
-        x: x + width / 2,
-        y: y + height / 2,
-        vx: (Math.random() - 0.5) * 12,
-        vy: (Math.random() - 0.5) * 12,
-        color: '#ffffff',
-        size: 2 + Math.random() * 2,
-        life: 0.5,
-        createdAt: now,
-      });
-    }
+
     setParticles(p => [...p, ...newParticles].slice(-MAX_PARTICLES));
   }, []);
 
@@ -3101,6 +3487,125 @@ const BreakoutGame = () => {
           }
         }
         // When no keys pressed, mouse controls take over (handled in separate useEffect)
+      }
+
+      // === INVASION MODE LOGIC ===
+      if (invasionMode) {
+        // Ship fires projectiles when space is pressed
+        if (keysRef.current.space && now - lastShipFire > SHIP_FIRE_COOLDOWN) {
+          const currentPaddle = paddleRef.current;
+          setShipProjectiles(prev => [...prev, {
+            id: now + Math.random(),
+            x: currentPaddle.x + currentPaddle.width / 2,
+            y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 10,
+            speed: 12,
+          }]);
+          setLastShipFire(now);
+        }
+
+        // Move projectiles upward
+        setShipProjectiles(prev => prev
+          .map(p => ({ ...p, y: p.y - p.speed * deltaTime }))
+          .filter(p => p.y > -20)
+        );
+
+        // Move brickinoid formation (Space Invaders style)
+        setInvasionFormation(prev => {
+          let newOffsetX = prev.offsetX + prev.direction * prev.speed * deltaTime;
+          let newDirection = prev.direction;
+          let newDescend = prev.descendAmount;
+
+          // Check if formation hit edges - need to reverse and descend
+          const FORMATION_MARGIN = 30;
+          if (newOffsetX > FORMATION_MARGIN || newOffsetX < -FORMATION_MARGIN) {
+            newDirection = -prev.direction;
+            newOffsetX = Math.max(-FORMATION_MARGIN, Math.min(FORMATION_MARGIN, newOffsetX));
+            newDescend = prev.descendAmount + 8; // Descend a bit
+          }
+
+          return {
+            ...prev,
+            offsetX: newOffsetX,
+            direction: newDirection,
+            descendAmount: newDescend,
+          };
+        });
+
+        // Check projectile-brick collisions
+        setShipProjectiles(prevProjectiles => {
+          let remainingProjectiles = [...prevProjectiles];
+
+          setBricks(prevBricks => {
+            return prevBricks.map(brick => {
+              if (brick.health <= 0 || brick.type === 'obstacle') return brick;
+
+              // Calculate brick position with formation offset
+              const brickX = brick.x + invasionFormation.offsetX;
+              const brickY = brick.y + invasionFormation.descendAmount;
+
+              // Check each projectile
+              for (let i = remainingProjectiles.length - 1; i >= 0; i--) {
+                const proj = remainingProjectiles[i];
+                if (
+                  proj.x >= brickX &&
+                  proj.x <= brickX + brick.width &&
+                  proj.y >= brickY &&
+                  proj.y <= brickY + brick.height
+                ) {
+                  // Hit! Remove projectile
+                  remainingProjectiles.splice(i, 1);
+
+                  // Damage brick
+                  const newHealth = brick.health - 1;
+                  const points = brick.type === 'gold' ? 50 : 10;
+                  setScore(s => s + points);
+
+                  // Create hit particles
+                  createParticles(brickX + brick.width / 2, brickY + brick.height / 2, brick.color, 4);
+
+                  if (newHealth <= 0) {
+                    // Brick destroyed
+                    createBrickShatterParticles(brickX, brickY, brick.width, brick.height, brick.color);
+                    addFloatingText(brickX + brick.width / 2, brickY, `+${points}`, brick.color);
+
+                    // Chance to drop power-up
+                    if (Math.random() < 0.1) {
+                      spawnPowerUp(brickX + brick.width / 2, brickY + brick.height / 2);
+                    }
+                  }
+
+                  return { ...brick, health: newHealth, hitFlash: 1 };
+                }
+              }
+              return brick;
+            });
+          });
+
+          return remainingProjectiles;
+        });
+
+        // Check if invasion complete (all bricks destroyed)
+        // This is handled in the normal level complete check below
+
+        // Check if brickinoids reached the bottom (player loses)
+        const lowestBrick = bricks.reduce((lowest, b) => {
+          if (b.health <= 0 || b.type === 'obstacle') return lowest;
+          const brickBottom = b.y + b.height + invasionFormation.descendAmount;
+          return brickBottom > lowest ? brickBottom : lowest;
+        }, 0);
+
+        if (lowestBrick >= CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20) {
+          // Brickinoids reached the ship! Lose a life
+          setLives(l => l - 1);
+          setInvasionFormation(prev => ({ ...prev, descendAmount: 0 })); // Reset descent
+          if (lives <= 1) {
+            setGameState('gameover');
+          }
+        }
+
+        // Skip normal ball physics in invasion mode
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+        return;
       }
 
       // Move balls
@@ -3621,14 +4126,28 @@ const BreakoutGame = () => {
 
       // Update particles (uses 'now' from top of game loop for age check)
       setParticles(prev => prev
-        .map(p => ({
-          ...p,
-          x: p.x + p.vx * deltaTime,
-          y: p.y + p.vy * deltaTime,
-          vy: p.vy + (p.isSparkle ? 0.1 : 0.3) * deltaTime, // Sparkles float more, others fall faster
-          life: p.life - 0.025 * deltaTime,
-          rotation: p.rotationSpeed ? (p.rotation || 0) + p.rotationSpeed * deltaTime : p.rotation,
-        }))
+        .map(p => {
+          // Different gravity for different particle types
+          const gravity = p.isArmorShard ? (p.gravity || 0.15)
+            : p.isDissolve ? 0.02  // Very gentle
+            : p.isSparkle ? 0.1
+            : 0.3;
+
+          // Different life decay rates
+          const lifeDecay = p.isArmorShard ? 0.018
+            : p.isDissolve ? 0.04
+            : 0.025;
+
+          return {
+            ...p,
+            x: p.x + p.vx * deltaTime,
+            y: p.y + p.vy * deltaTime,
+            vx: p.isArmorShard ? p.vx * 0.99 : p.vx, // Air resistance for armor
+            vy: p.vy + gravity * deltaTime,
+            life: p.life - lifeDecay * deltaTime,
+            rotation: p.rotationSpeed ? (p.rotation || 0) + p.rotationSpeed * deltaTime : p.rotation,
+          };
+        })
         .filter(p => p.life > 0 && (now - (p.createdAt || 0)) < MAX_PARTICLE_AGE)
       );
 
@@ -3669,8 +4188,8 @@ const BreakoutGame = () => {
           if (b.armorCracking && b.armorCrackTimer > 0) {
             const newTimer = b.armorCrackTimer - 0.04 * deltaTime;
             if (newTimer <= 0) {
-              // Armor crack animation complete - break off the armor
-              createCrackingParticles(b.x, b.y, b.width, b.height, b.color);
+              // Armor crack animation complete - break off the armor pieces along crack lines
+              createCrackingParticles(b.x, b.y, b.width, b.height, b.color, b.crackPattern);
               updated = {
                 ...updated,
                 armorCracking: false,
@@ -4123,7 +4642,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -4751,6 +5270,31 @@ const BreakoutGame = () => {
   }, [addFloatingText, createParticles]);
 
   const handleLevelComplete = () => {
+    // Check if this was invasion mode completion
+    if (invasionMode && pendingBossLevel) {
+      // Invasion cleared! Now start the actual boss level
+      setFlashColor('#00ff00');
+      setTimeout(() => setFlashColor(null), 300);
+
+      // Brief celebration then start boss level
+      setTimeout(() => {
+        // Calculate difficulty for boss level
+        const enemyIndex = enemyDefs.findIndex(e => e.id === selectedEnemy?.id) || 0;
+        const diff = getDifficulty(enemyIndex, pendingBossLevel);
+
+        // Exit invasion mode and start boss level
+        setInvasionMode(false);
+        setBricks(createBricks(pendingBossLevel, selectedEnemy));
+        setBalls([createBall(pendingBossLevel, enemyIndex)]);
+        setShipProjectiles([]);
+        setPendingBossLevel(null);
+
+        // Keep current score, lives, etc. - continuous from invasion
+      }, 600);
+
+      return;
+    }
+
     const completedLevel = currentLevel;
     const nextLevel = currentLevel + 1;
 
@@ -4802,12 +5346,78 @@ const BreakoutGame = () => {
     }, 800);
   };
 
+  // Create invasion mode bricks (brickinoid formation)
+  const createInvasionBricks = useCallback((bossLevel, enemy) => {
+    const newBricks = [];
+    const themeColor = ENEMY_THEME_COLORS[enemy?.id] || ENEMY_THEME_COLORS.brick_goblin;
+
+    // Invasion layout - dense formation of enemies
+    // 5 rows, 10 columns, varied types based on row
+    const rows = 5;
+    const cols = 10;
+    const startX = (CANVAS_WIDTH - cols * (BRICK_WIDTH + BRICK_PADDING)) / 2;
+    const startY = 60;
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        // Determine brick type based on position
+        // Top rows are tougher, edges have special types
+        let health = 1;
+        let type = 'normal';
+        let color = themeColor.brick1;
+
+        if (row === 0) {
+          // Top row: armored (2 health)
+          health = 2;
+          color = themeColor.brick2;
+        } else if (row === 1 && (col === 0 || col === cols - 1)) {
+          // Second row edges: gold bricks
+          type = 'gold';
+          color = '#ffd700';
+          health = 1;
+        } else if (row === 2 && col === Math.floor(cols / 2)) {
+          // Center of third row: explosive
+          type = 'explosive';
+          color = '#ff6644';
+          health = 1;
+        }
+
+        // Level 12 invasion is harder
+        if (bossLevel === 12) {
+          health += 1;
+          if (row <= 1) health += 1;
+        }
+
+        const x = startX + col * (BRICK_WIDTH + BRICK_PADDING);
+        const y = startY + row * (BRICK_HEIGHT + BRICK_PADDING + 2);
+
+        newBricks.push({
+          id: `invasion-${row}-${col}`,
+          x,
+          y,
+          width: BRICK_WIDTH,
+          height: BRICK_HEIGHT,
+          health,
+          maxHealth: health,
+          color,
+          type,
+          hitFlash: 0,
+        });
+      }
+    }
+
+    return newBricks;
+  }, []);
+
   // Start a specific level
   const startLevel = (level, fresh = false) => {
     // Calculate difficulty based on enemy and level
     const enemyIndex = enemyDefs.findIndex(e => e.id === selectedEnemy?.id) || 0;
     const diff = getDifficulty(enemyIndex, level);
     setDifficulty(diff);
+
+    // Check if this is a boss level that needs invasion first
+    const isBossLevel = level === 6 || level === 12;
 
     // If fresh start (from level select, not continuing), reset everything
     if (fresh || !victoryInfo) {
@@ -4824,26 +5434,51 @@ const BreakoutGame = () => {
       setDashCooldown(0);
     }
     setVictoryInfo(null);
-    setCurrentLevel(level);
-    setBricks(createBricks(level, selectedEnemy));
-    setPowerUps([]);
-    setActiveEffects([]);
+
     // Clear particles and floating texts from previous level
     setParticles([]);
     setFloatingTexts([]);
+    setPowerUps([]);
+    setActiveEffects([]);
+
     // Paddle width scales with difficulty (smaller at higher levels)
     const baseWidth = Math.round(diff.basePaddleWidth);
     const startingWidth = baseWidth + (stats.upgrades.paddleSize * 10);
     const nextPaddle = { x: CANVAS_WIDTH / 2 - startingWidth / 2, width: startingWidth, vx: 0 };
     setPaddle(nextPaddle);
     paddleRef.current = nextPaddle;
-    // Create ball AFTER paddle is positioned so it spawns in correct location
-    setBalls([createBall(level, enemyIndex)]);
+
     // Reset enemy system
     setEnemies([]);
     setEnemyProjectiles([]);
     setPaddleDebuffs({ petrified: 0, confused: 0, webbed: 0 });
     setLastEnemySpawn(Date.now());
+
+    if (isBossLevel && !invasionMode) {
+      // Start invasion mode before boss level
+      setInvasionMode(true);
+      setPendingBossLevel(level);
+      setCurrentLevel(level); // Show the boss level number
+      setBricks(createInvasionBricks(level, selectedEnemy));
+      setShipProjectiles([]);
+      setInvasionFormation({
+        offsetX: 0,
+        direction: 1,
+        descendAmount: 0,
+        speed: level === 12 ? 1.2 : 0.8, // Faster for final boss invasion
+      });
+      // No ball in invasion mode
+      setBalls([]);
+    } else {
+      // Normal level start
+      setInvasionMode(false);
+      setPendingBossLevel(null);
+      setCurrentLevel(level);
+      setBricks(createBricks(level, selectedEnemy));
+      // Create ball AFTER paddle is positioned so it spawns in correct location
+      setBalls([createBall(level, enemyIndex)]);
+    }
+
     // Prevent click that started the game from also launching the ball
     launchDelayRef.current = Date.now() + 200;
     setGameState('playing');
@@ -5240,8 +5875,35 @@ const BreakoutGame = () => {
           </div>
         </div>
 
+        {/* Invasion mode banner */}
+        {invasionMode && (
+          <div style={{
+            position: 'absolute',
+            top: 45,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '8px 24px',
+            background: 'linear-gradient(180deg, rgba(255,60,60,0.9), rgba(180,40,40,0.9))',
+            borderRadius: '4px',
+            border: '2px solid #ff8080',
+            boxShadow: '0 0 20px rgba(255,60,60,0.5), inset 0 1px 0 rgba(255,255,255,0.3)',
+            animation: 'invasionPulse 1s ease-in-out infinite',
+            zIndex: 20,
+          }}>
+            <span style={{
+              fontSize: '16px',
+              fontWeight: '900',
+              color: '#fff',
+              textShadow: '0 0 10px #ff0000, 2px 2px 0 #800000',
+              letterSpacing: '4px',
+            }}>
+              BRICKINOID INVASION!
+            </span>
+          </div>
+        )}
+
         {/* Danger zone indicator - glows when ball is low */}
-        {balls.some(b => !b.attached && b.y > CANVAS_HEIGHT - 120) && (
+        {!invasionMode && balls.some(b => !b.attached && b.y > CANVAS_HEIGHT - 120) && (
           <div style={{
             position: 'absolute',
             bottom: 0,
@@ -5299,14 +5961,14 @@ const BreakoutGame = () => {
           />
         ))}
 
-        {/* Bricks */}
+        {/* Bricks (Brickinoids in invasion mode - move with formation) */}
         {bricks.map(brick => (brick.health > 0 || brick.dying) && (
           <div
             key={brick.id}
             style={{
               position: 'absolute',
-              left: brick.x,
-              top: brick.y,
+              left: brick.x + (invasionMode ? invasionFormation.offsetX : 0),
+              top: brick.y + (invasionMode ? invasionFormation.descendAmount : 0),
               width: brick.width,
               height: brick.height,
               background: brick.invisible ? 'transparent' :
@@ -5330,25 +5992,35 @@ const BreakoutGame = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              // Dying bricks: explosive shatter animation
+              // Dying bricks: special types get dramatic death, normal bricks fade quietly
               opacity: brick.dying
-                ? Math.max(0, brick.deathTimer * brick.deathTimer) // Faster fade (quadratic)
+                ? Math.max(0, brick.deathTimer * brick.deathTimer) // Quick quadratic fade
                 : brick.invisible ? 0.2 : 1,
               transform: brick.dying
                 ? (() => {
-                    const t = 1 - brick.deathTimer; // 0 to 1 as brick dies
-                    const shake = Math.sin(t * 50) * (1 - t) * 8; // Violent shake that decays
-                    const scale = t < 0.1 ? 1 + t * 3 : 1.3 - t * 0.5; // Quick pop then shrink
-                    const rotate = shake * 2; // Rotation from shake
-                    const skewX = Math.sin(t * 30) * (1 - t) * 5; // Distortion
-                    return `scale(${scale}) rotate(${rotate}deg) skewX(${skewX}deg) translate(${shake}px, ${shake * 0.5}px)`;
+                    const isSpecial = brick.type === 'explosive' || brick.type === 'boss' || brick.type === 'gold';
+                    if (isSpecial) {
+                      // Dramatic death for special bricks
+                      const t = 1 - brick.deathTimer;
+                      const shake = Math.sin(t * 50) * (1 - t) * 8;
+                      const scale = t < 0.1 ? 1 + t * 3 : 1.3 - t * 0.5;
+                      const rotate = shake * 2;
+                      const skewX = Math.sin(t * 30) * (1 - t) * 5;
+                      return `scale(${scale}) rotate(${rotate}deg) skewX(${skewX}deg) translate(${shake}px, ${shake * 0.5}px)`;
+                    } else {
+                      // Simple shrink for normal bricks - subtle
+                      const scale = 0.5 + brick.deathTimer * 0.5;
+                      return `scale(${scale})`;
+                    }
                   })()
                 : brick.armorCracking
                   ? `scale(${1 + Math.sin(brick.armorCrackTimer * 10) * 0.02})` // Subtle shake when cracking
                   : 'none',
               filter: brick.dying
-                ? `brightness(${1 + (1 - brick.deathTimer) * 2}) contrast(${1 + (1 - brick.deathTimer) * 0.5}) saturate(${1.5 - brick.deathTimer * 0.5})`
-                : 'none', // Intense bright flash that builds
+                ? (brick.type === 'explosive' || brick.type === 'boss' || brick.type === 'gold')
+                  ? `brightness(${1 + (1 - brick.deathTimer) * 2}) contrast(${1 + (1 - brick.deathTimer) * 0.5}) saturate(${1.5 - brick.deathTimer * 0.5})`
+                  : `brightness(${1 + (1 - brick.deathTimer) * 0.5})` // Subtle brightness for normal bricks
+                : 'none',
               pointerEvents: brick.dying ? 'none' : 'auto',
             }}
           >
@@ -5802,8 +6474,15 @@ const BreakoutGame = () => {
           }
 
           // Determine trail color based on ball state
-          const trailColor = ball.mega ? '#ffd700' : ball.burning ? '#ff6030' : ball.charged ? '#40ff40' : '#ffffff';
-          const trailIntensity = ball.mega ? 1 : ball.burning ? 0.8 : ball.charged ? 0.6 + (ball.chargedHits || 0) * 0.1 : 0.3;
+          // Charged ball: green (0 hits) -> yellow (1 hit) -> red (2 hits) -> white (3+ hits, discharged)
+          const chargedHits = ball.chargedHits || 0;
+          const trailColor = ball.mega ? '#ffd700'
+            : ball.burning ? '#ff6030'
+            : ball.charged && chargedHits === 0 ? '#40ff40'  // Green - full charge
+            : ball.charged && chargedHits === 1 ? '#ffff40'  // Yellow - after 1st hit
+            : ball.charged && chargedHits === 2 ? '#ff4040'  // Red - after 2nd hit
+            : '#ffffff';
+          const trailIntensity = ball.mega ? 1 : ball.burning ? 0.8 : ball.charged ? 0.7 - chargedHits * 0.1 : 0.3;
           const speed = Math.sqrt((ball.vx || 0) ** 2 + (ball.vy || 0) ** 2);
           const showTrail = !isAttached && speed > 3;
 
@@ -5836,6 +6515,7 @@ const BreakoutGame = () => {
             )}
 
             {/* Main ball */}
+            {/* Charged ball colors: green (0 hits) -> yellow (1 hit) -> red (2 hits) -> white (3+ hits) */}
             <div
               style={{
                 position: 'absolute',
@@ -5847,25 +6527,25 @@ const BreakoutGame = () => {
                   ? 'radial-gradient(circle, #ffd700 0%, #ff8800 50%, #ff4400 100%)'
                   : ball.burning
                     ? 'radial-gradient(circle, #ff6030 0%, #ff3000 100%)'
-                    : ball.charged && ball.chargedHits >= 3
+                    : ball.charged && (ball.chargedHits || 0) === 0
                       ? 'radial-gradient(circle, #40ff40 0%, #20cc20 100%)' // Green - full charge
-                      : ball.charged && ball.chargedHits === 2
-                        ? 'radial-gradient(circle, #80ff40 0%, #60cc20 100%)' // Lime green
-                        : ball.charged && ball.chargedHits === 1
-                          ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow
-                          : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal
+                      : ball.charged && ball.chargedHits === 1
+                        ? 'radial-gradient(circle, #ffff40 0%, #cccc20 100%)' // Yellow - after 1st hit
+                        : ball.charged && ball.chargedHits === 2
+                          ? 'radial-gradient(circle, #ff4040 0%, #cc2020 100%)' // Red - after 2nd hit
+                          : 'radial-gradient(circle, #ffffff 0%, #c0c0c0 100%)', // White - normal or discharged
                 borderRadius: '50%',
                 boxShadow: ball.mega
                   ? '0 0 20px #ffd700, 0 0 40px #ff8800, 0 0 60px #ff4400'
                   : ball.burning
                     ? '0 0 15px #ff6030, 0 0 30px #ff3000'
-                    : ball.charged && ball.chargedHits >= 3
-                    ? '0 0 20px #40ff40, 0 0 10px #20cc20'
-                    : ball.charged && ball.chargedHits === 2
-                      ? '0 0 15px #80ff40'
+                    : ball.charged && (ball.chargedHits || 0) === 0
+                      ? '0 0 20px #40ff40, 0 0 10px #20cc20'
                       : ball.charged && ball.chargedHits === 1
-                        ? '0 0 12px #ffff40'
-                        : '0 0 10px rgba(255,255,255,0.5)',
+                        ? '0 0 15px #ffff40, 0 0 8px #cccc20'
+                        : ball.charged && ball.chargedHits === 2
+                          ? '0 0 12px #ff4040, 0 0 6px #cc2020'
+                          : '0 0 10px rgba(255,255,255,0.5)',
                 transform: ball.mega ? 'scale(1.5)' : 'scale(1)',
                 transition: 'transform 0.2s',
               }}
@@ -5874,37 +6554,106 @@ const BreakoutGame = () => {
         );
         })}
 
-        {/* Paddle - color changes based on health (width) */}
-        {(() => {
+        {/* Ship (Invasion Mode) or Paddle (Normal Mode) */}
+        {invasionMode ? (
+          // Ship for invasion mode - triangular with thrusters
+          <div style={{
+            position: 'absolute',
+            left: paddle.x + paddle.width / 2 - 20,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 15,
+            width: 40,
+            height: 35,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}>
+            {/* Ship body - triangle pointing up */}
+            <div style={{
+              width: 0,
+              height: 0,
+              borderLeft: '20px solid transparent',
+              borderRight: '20px solid transparent',
+              borderBottom: '25px solid #60ff80',
+              filter: 'drop-shadow(0 0 8px #60ff80)',
+            }} />
+            {/* Ship cockpit */}
+            <div style={{
+              position: 'absolute',
+              top: 12,
+              width: 10,
+              height: 10,
+              background: 'radial-gradient(circle, #80ffff, #40c0c0)',
+              borderRadius: '50%',
+              boxShadow: '0 0 6px #80ffff',
+            }} />
+            {/* Left thruster */}
+            <div style={{
+              position: 'absolute',
+              bottom: -8,
+              left: 5,
+              width: 8,
+              height: 12,
+              background: 'linear-gradient(180deg, #ff8800, #ff4400, transparent)',
+              borderRadius: '0 0 4px 4px',
+              animation: 'thrusterFlicker 0.1s infinite',
+            }} />
+            {/* Right thruster */}
+            <div style={{
+              position: 'absolute',
+              bottom: -8,
+              right: 5,
+              width: 8,
+              height: 12,
+              background: 'linear-gradient(180deg, #ff8800, #ff4400, transparent)',
+              borderRadius: '0 0 4px 4px',
+              animation: 'thrusterFlicker 0.1s infinite',
+            }} />
+          </div>
+        ) : (
+        // Normal paddle
+        (() => {
           // Calculate paddle health ratio (30px = dead, 120px = full, 200px = max)
           const healthRatio = Math.min(1, (paddle.width - 30) / 90); // 0-1 scale
           const isLowHealth = healthRatio < 0.33;
           const isMedHealth = healthRatio < 0.66;
 
-          // Health-based colors
-          const healthGradient = activeEffects.includes('frozen')
-            ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
-            : activeEffects.includes('laser')
-              ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
-              : isDashing
-                ? 'linear-gradient(180deg, #ffd700, #ff8800)'
-                : isLowHealth
-                  ? 'linear-gradient(180deg, #ff6060, #dd4040)'
-                  : isMedHealth
-                    ? 'linear-gradient(180deg, #ffcc60, #ddaa40)'
-                    : 'linear-gradient(180deg, #60ff80, #40dd60)';
+          // Charging shrink effect (up to 8% smaller at full charge)
+          const chargeShrink = isCharging && balls.some(b => b.attached)
+            ? 1 - (chargeLevel / 100) * 0.08
+            : 1;
 
-          const healthGlow = activeEffects.includes('frozen')
-            ? '0 0 20px #80e0ff'
-            : activeEffects.includes('laser')
-              ? '0 0 20px #ff60ff'
-              : isDashing
-                ? '0 0 25px #ffd700'
-                : isLowHealth
-                  ? '0 0 20px #ff6060'
-                  : isMedHealth
-                    ? '0 0 15px #ffcc60'
-                    : '0 0 15px #60ff80';
+          // Health-based colors (override with charge color when charging)
+          const healthGradient = isCharging && balls.some(b => b.attached)
+            ? chargeLevel > 50
+              ? 'linear-gradient(180deg, #ffd700, #ff8800)' // Gold when high charge
+              : 'linear-gradient(180deg, #4080e0, #3060b0)' // Blue when charging
+            : activeEffects.includes('frozen')
+              ? 'linear-gradient(180deg, #80e0ff, #60c0e0)'
+              : activeEffects.includes('laser')
+                ? 'linear-gradient(180deg, #ff60ff, #c040c0)'
+                : isDashing
+                  ? 'linear-gradient(180deg, #ffd700, #ff8800)'
+                  : isLowHealth
+                    ? 'linear-gradient(180deg, #ff6060, #dd4040)'
+                    : isMedHealth
+                      ? 'linear-gradient(180deg, #ffcc60, #ddaa40)'
+                      : 'linear-gradient(180deg, #60ff80, #40dd60)';
+
+          const healthGlow = isCharging && balls.some(b => b.attached)
+            ? chargeLevel > 50
+              ? '0 0 20px #ffd700'
+              : '0 0 15px #4080e0'
+            : activeEffects.includes('frozen')
+              ? '0 0 20px #80e0ff'
+              : activeEffects.includes('laser')
+                ? '0 0 20px #ff60ff'
+                : isDashing
+                  ? '0 0 25px #ffd700'
+                  : isLowHealth
+                    ? '0 0 20px #ff6060'
+                    : isMedHealth
+                      ? '0 0 15px #ffcc60'
+                      : '0 0 15px #60ff80';
 
           return (
             <div style={{
@@ -5916,12 +6665,27 @@ const BreakoutGame = () => {
               background: healthGradient,
               borderRadius: '6px',
               boxShadow: healthGlow,
-              transform: `translateX(${paddle.x}px)`,
+              transform: `translateX(${paddle.x}px) scaleX(${chargeShrink})`,
+              transformOrigin: 'center',
               willChange: 'transform', // Hint to browser for GPU acceleration
-              transition: 'width 0.2s, background 0.3s',
+              transition: 'transform 0.1s, background 0.2s',
             }} />
           );
-        })()}
+        })())}
+
+        {/* Ship projectiles */}
+        {invasionMode && shipProjectiles.map(proj => (
+          <div key={proj.id} style={{
+            position: 'absolute',
+            left: proj.x - 3,
+            top: proj.y - 8,
+            width: 6,
+            height: 16,
+            background: 'linear-gradient(180deg, #80ffff, #40ff80)',
+            borderRadius: '3px',
+            boxShadow: '0 0 8px #80ffff, 0 0 4px #40ff80',
+          }} />
+        ))}
 
         {/* Twin Paddle (Teddy Split ability) */}
         {twinPaddle?.active && (
@@ -5992,30 +6756,66 @@ const BreakoutGame = () => {
         )}
 
         {/* Particles */}
-        {particles.map(p => (
+        {particles.map(p => {
+          // For chunks, use actual brick dimensions so clip-path works correctly
+          const pWidth = p.isChunk && p.chunkWidth ? p.chunkWidth : p.size;
+          const pHeight = p.isChunk && p.chunkHeight ? p.chunkHeight
+            : p.isArmorShard ? p.size * 0.5
+            : p.isShard ? p.size * 0.6
+            : p.isBrickShard ? p.size * 0.7
+            : p.size;
+
+          return (
           <div
             key={p.id}
             style={{
               position: 'absolute',
-              left: p.x - p.size / 2,
-              top: p.y - p.size / 2,
-              width: p.size,
-              height: p.isShard ? p.size * 0.6 : p.isBrickShard ? p.size * 0.7 : p.size,
-              background: p.isSparkle
-                ? `radial-gradient(circle, ${p.color} 0%, transparent 70%)`
-                : p.color,
-              borderRadius: p.isShard ? '2px' : p.isBrickShard ? '3px' : '50%',
-              opacity: Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
+              left: p.x - pWidth / 2,
+              top: p.y - pHeight / 2,
+              width: pWidth,
+              height: pHeight,
+              background: p.isDissolve
+                ? `radial-gradient(circle, ${p.color} 0%, ${p.color}88 50%, transparent 100%)`
+                : p.isSparkle
+                  ? `radial-gradient(circle, ${p.color} 0%, transparent 70%)`
+                  : p.isChunk
+                    ? `linear-gradient(180deg, ${p.color}ee 0%, ${p.color} 50%, ${p.color}aa 100%)`
+                  : p.isArmorShard
+                    ? `linear-gradient(135deg, ${p.color} 0%, ${p.color}cc 50%, ${p.color}88 100%)`
+                    : p.color,
+              borderRadius: p.isChunk ? '4px'
+                : p.isArmorShard ? '2px'
+                : p.isShard ? '2px'
+                : p.isBrickShard ? '3px'
+                : p.isDissolve ? '50%'
+                : '50%',
+              clipPath: p.clipPath || 'none',
+              opacity: p.isDissolve
+                ? Math.min(p.life * 1.5, 1)
+                : p.isChunk
+                  ? Math.min(p.life * 0.6, 1)
+                  : p.isArmorShard
+                    ? Math.min(p.life * 0.8, 1)
+                    : Math.min(p.life, 1) * (p.isSparkle ? 1.5 : 1),
               pointerEvents: 'none',
-              transform: (p.isShard || p.isBrickShard) ? `rotate(${p.rotation || 0}deg)` : 'none',
+              transform: (p.isShard || p.isBrickShard || p.isArmorShard || p.isChunk)
+                ? `rotate(${p.rotation || 0}deg)`
+                : 'none',
               boxShadow: p.isSparkle
                 ? `0 0 ${p.size}px ${p.color}`
-                : p.isShard || p.isBrickShard
-                  ? '0 2px 4px rgba(0,0,0,0.3)'
-                  : 'none',
+                : p.isChunk
+                  ? `0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3)`
+                  : p.isArmorShard
+                    ? `0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)`
+                    : p.isShard || p.isBrickShard
+                      ? '0 2px 4px rgba(0,0,0,0.3)'
+                      : 'none',
+              border: p.isChunk ? `2px solid ${p.color}`
+                : p.isArmorShard ? `1px solid ${p.color}`
+                : 'none',
             }}
           />
-        ))}
+        );})}
 
         {/* Floating texts */}
         {floatingTexts.map(t => (
@@ -6307,6 +7107,14 @@ const BreakoutGame = () => {
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
           100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes thrusterFlicker {
+          0%, 100% { opacity: 1; height: 12px; }
+          50% { opacity: 0.7; height: 8px; }
+        }
+        @keyframes invasionPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.9; }
         }
       `}</style>
     </div>
