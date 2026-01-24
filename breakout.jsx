@@ -2312,9 +2312,9 @@ const BreakoutGame = () => {
   const [lastDiveSpawn, setLastDiveSpawn] = useState(0); // Cooldown for spawning divers
   const [lastShipFire, setLastShipFire] = useState(0);
   const wasFiringRef = useRef(false); // Track previous frame's firing state for edge detection
-  const SHIP_FIRE_COOLDOWN = 500; // ms between shots (0.5 sec delay)
+  const SHIP_FIRE_COOLDOWN = 320; // ms between shots (faster player shooting)
   const INVASION_BALL_SPEED = 9; // Speed of invasion balls
-  const ALIEN_SHOT_COOLDOWN = 640; // ms between alien shots (20% faster)
+  const ALIEN_SHOT_COOLDOWN = 800; // ms between alien shots
   const DIVE_SPAWN_COOLDOWN = 3000; // ms between dive attacks
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
