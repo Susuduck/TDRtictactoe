@@ -3908,10 +3908,12 @@ const BreakoutGame = () => {
                     grabbedByAlien: true,
                   })));
 
-                  // After grabbing, show alert
-                  if (invasionTimer > 60) {
-                    setInvasionPhase('alert');
+                  // After grabbing, immediately start ship transformation (no click needed)
+                  if (invasionTimer > 30) {
+                    setInvasionPhase('paddle_transform');
                     setInvasionTimer(0);
+                    setPaddleTransformProgress(0);
+                    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '⚠️ BALL STOLEN!', '#ff4444');
                   }
                 } else {
                   // Chase the ball
