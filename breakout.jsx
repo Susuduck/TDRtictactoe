@@ -4150,7 +4150,7 @@ const BreakoutGame = () => {
           createParticles(shipCenterX, shipY, '#ffffff', 4);
         }
 
-        // Update invasion balls physics
+        // Update invasion balls physics AND check brick collisions in one pass
         setInvasionBalls(prevBalls => {
           const survivingBalls = [];
 
@@ -4178,6 +4178,65 @@ const BreakoutGame = () => {
               vy = Math.abs(vy);
             }
 
+            // Check brick collisions BEFORE finalizing position
+            let hitBrick = false;
+            for (const brick of bricks) {
+              if (brick.health <= 0 || brick.type === 'obstacle') continue;
+
+              const brickX = brick.x + invasionFormation.offsetX;
+              const brickY = brick.y + invasionFormation.descendAmount;
+
+              // Check collision
+              if (
+                x >= brickX - BALL_RADIUS &&
+                x <= brickX + brick.width + BALL_RADIUS &&
+                y >= brickY - BALL_RADIUS &&
+                y <= brickY + brick.height + BALL_RADIUS
+              ) {
+                hitBrick = true;
+
+                // Determine bounce direction based on which side we hit
+                const ballCenterX = x;
+                const ballCenterY = y;
+                const brickCenterX = brickX + brick.width / 2;
+                const brickCenterY = brickY + brick.height / 2;
+
+                // Calculate overlap on each axis
+                const overlapX = (brick.width / 2 + BALL_RADIUS) - Math.abs(ballCenterX - brickCenterX);
+                const overlapY = (brick.height / 2 + BALL_RADIUS) - Math.abs(ballCenterY - brickCenterY);
+
+                if (overlapX < overlapY) {
+                  // Hit from side - bounce horizontally
+                  vx = ballCenterX < brickCenterX ? -Math.abs(vx) : Math.abs(vx);
+                  x = ballCenterX < brickCenterX ? brickX - BALL_RADIUS : brickX + brick.width + BALL_RADIUS;
+                } else {
+                  // Hit from top/bottom - bounce vertically
+                  vy = ballCenterY < brickCenterY ? -Math.abs(vy) : Math.abs(vy);
+                  y = ballCenterY < brickCenterY ? brickY - BALL_RADIUS : brickY + brick.height + BALL_RADIUS;
+                }
+
+                // Damage the brick
+                setBricks(prevBricks => prevBricks.map(b => {
+                  if (b.id !== brick.id) return b;
+                  const newHealth = b.health - 1;
+                  const points = b.type === 'gold' ? 50 : 10;
+                  setScore(s => s + points);
+                  createParticles(brickX + brick.width / 2, brickY + brick.height / 2, brick.color, 4);
+
+                  if (newHealth <= 0) {
+                    createBrickShatterParticles(brickX, brickY, brick.width, brick.height, brick.color);
+                    addFloatingText(brickX + brick.width / 2, brickY, `+${points}`, brick.color);
+                    if (Math.random() < 0.1) {
+                      spawnPowerUp(brickX + brick.width / 2, brickY + brick.height / 2);
+                    }
+                  }
+                  return { ...b, health: newHealth, hitFlash: 1 };
+                }));
+
+                break; // Only hit one brick per frame
+              }
+            }
+
             // Check if ball is in catch zone (at ship level)
             if (y >= catchZoneY - BALL_RADIUS && vy > 0) {
               // Ball is coming down to ship level
@@ -4185,8 +4244,7 @@ const BreakoutGame = () => {
                 // CAUGHT! Ball goes back to ship
                 setBallsInShip(prev => Math.min(3, prev + 1));
                 createParticles(x, catchZoneY, '#80ff80', 6);
-                addFloatingText(x, catchZoneY - 30, '✓ CAUGHT!', '#80ff80');
-                continue; // Don't add to surviving balls
+                continue; // Don't add to surviving balls - it's in the ship now
               } else if (y > CANVAS_HEIGHT + BALL_RADIUS) {
                 // MISSED! Ball is lost
                 createParticles(x, CANVAS_HEIGHT, '#ff4444', 4);
@@ -4233,72 +4291,6 @@ const BreakoutGame = () => {
             direction: newDirection,
             descendAmount: newDescend,
           };
-        });
-
-        // Check invasion ball - brick collisions
-        setInvasionBalls(prevBalls => {
-          return prevBalls.map(ball => {
-            if (!ball) return ball;
-
-            let hitBrick = false;
-            let bounceDirection = 0; // 1 = bounce down, -1 = bounce up
-
-            setBricks(prevBricks => {
-              return prevBricks.map(brick => {
-                if (brick.health <= 0 || brick.type === 'obstacle' || hitBrick) return brick;
-
-                // Calculate brick position with formation offset
-                const brickX = brick.x + invasionFormation.offsetX;
-                const brickY = brick.y + invasionFormation.descendAmount;
-
-                // Check collision
-                if (
-                  ball.x >= brickX - BALL_RADIUS &&
-                  ball.x <= brickX + brick.width + BALL_RADIUS &&
-                  ball.y >= brickY - BALL_RADIUS &&
-                  ball.y <= brickY + brick.height + BALL_RADIUS
-                ) {
-                  hitBrick = true;
-
-                  // Determine bounce direction
-                  const ballCenterY = ball.y;
-                  const brickCenterY = brickY + brick.height / 2;
-                  bounceDirection = ballCenterY < brickCenterY ? -1 : 1;
-
-                  // Damage brick
-                  const newHealth = brick.health - 1;
-                  const points = brick.type === 'gold' ? 50 : 10;
-                  setScore(s => s + points);
-
-                  // Create hit particles
-                  createParticles(brickX + brick.width / 2, brickY + brick.height / 2, brick.color, 4);
-
-                  if (newHealth <= 0) {
-                    // Brick destroyed
-                    createBrickShatterParticles(brickX, brickY, brick.width, brick.height, brick.color);
-                    addFloatingText(brickX + brick.width / 2, brickY, `+${points}`, brick.color);
-
-                    // Chance to drop power-up
-                    if (Math.random() < 0.1) {
-                      spawnPowerUp(brickX + brick.width / 2, brickY + brick.height / 2);
-                    }
-                  }
-
-                  return { ...brick, health: newHealth, hitFlash: 1 };
-                }
-                return brick;
-              });
-            });
-
-            // If hit a brick, bounce the ball
-            if (hitBrick) {
-              return {
-                ...ball,
-                vy: bounceDirection * Math.abs(ball.vy),
-              };
-            }
-            return ball;
-          });
         });
 
         // Check if invasion complete (all bricks destroyed)
@@ -7860,27 +7852,38 @@ const BreakoutGame = () => {
               }} />
             </div>
 
-            {/* Balls in ship - shows available ammo */}
+            {/* Ball bay - container showing balls inside ship */}
             <div style={{
               position: 'absolute',
-              bottom: 55,
+              bottom: 20,
               left: '50%',
               transform: 'translateX(-50%)',
+              width: 70,
+              height: 28,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(20,40,30,0.8) 100%)',
+              borderRadius: '8px',
+              border: '2px solid #40aa60',
+              boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.8)',
               display: 'flex',
-              gap: '6px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '3px',
             }}>
+              {/* Real balls sitting in the bay */}
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
-                  width: 12,
-                  height: 12,
+                  width: BALL_RADIUS * 2,
+                  height: BALL_RADIUS * 2,
                   background: i < ballsInShip
-                    ? 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)'
-                    : 'radial-gradient(circle, #333, #222)',
+                    ? 'radial-gradient(circle at 35% 35%, #ffffff 0%, #e8e8e8 20%, #c0c0c0 60%, #888888 100%)'
+                    : 'transparent',
                   borderRadius: '50%',
-                  boxShadow: i < ballsInShip ? '0 0 8px #fff, 0 0 4px #80ffff' : 'none',
-                  border: i < ballsInShip ? '2px solid #fff' : '2px solid #444',
-                  opacity: i < ballsInShip ? 1 : 0.3,
-                  transition: 'all 0.2s',
+                  boxShadow: i < ballsInShip
+                    ? '0 2px 4px rgba(0,0,0,0.5), 0 0 8px rgba(255,255,255,0.3), inset 0 -2px 4px rgba(0,0,0,0.2)'
+                    : 'none',
+                  transition: 'all 0.15s ease-out',
+                  transform: i < ballsInShip ? 'scale(1)' : 'scale(0)',
                 }} />
               ))}
             </div>
