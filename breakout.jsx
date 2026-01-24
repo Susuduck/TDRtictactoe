@@ -2291,7 +2291,9 @@ const BreakoutGame = () => {
 
   // === INVASION MODE (Space Invaders style before bosses) ===
   const [invasionMode, setInvasionMode] = useState(false);
-  const [shipProjectiles, setShipProjectiles] = useState([]);
+  const [shipProjectiles, setShipProjectiles] = useState([]); // Legacy projectiles for shoot_alien phase
+  const [invasionBalls, setInvasionBalls] = useState([]); // Bouncing balls that return to ship
+  const [invasionShootingEnabled, setInvasionShootingEnabled] = useState(false); // Enabled after first brick kill
   const [invasionFormation, setInvasionFormation] = useState({
     offsetX: 0,           // Formation horizontal offset
     direction: 1,         // 1 = right, -1 = left
@@ -2299,7 +2301,8 @@ const BreakoutGame = () => {
     speed: 0.8,           // Movement speed
   });
   const [lastShipFire, setLastShipFire] = useState(0);
-  const SHIP_FIRE_COOLDOWN = 180; // ms between shots
+  const SHIP_FIRE_COOLDOWN = 400; // ms between ball volleys
+  const INVASION_BALL_SPEED = 10; // Speed of invasion balls
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
   // Invasion sequence phases:
@@ -4102,41 +4105,87 @@ const BreakoutGame = () => {
 
       // === INVASION MODE LOGIC ===
       if (invasionMode && invasionPhase === 'invasion') {
-        // Ship fires projectiles when space or mouse is pressed
+        const currentPaddle = paddleRef.current;
+        const shipCenterX = currentPaddle.x + currentPaddle.width / 2;
+        const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
+
+        // Fire bouncing balls when shooting is enabled (after first brick kill)
+        // Or when clicking/pressing space to launch the first ball
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
-        if (isFiring && now - lastShipFire > SHIP_FIRE_COOLDOWN) {
-          const currentPaddle = paddleRef.current;
-          // Twin projectiles for better firepower
-          setShipProjectiles(prev => [
-            ...prev,
-            {
-              id: now + Math.random(),
-              x: currentPaddle.x + currentPaddle.width / 2 - 8,
-              y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20,
-              speed: 14,
-            },
-            {
-              id: now + Math.random() + 0.1,
-              x: currentPaddle.x + currentPaddle.width / 2 + 8,
-              y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20,
-              speed: 14,
-            }
-          ]);
+
+        // Check if any invasion balls are out - if not, allow firing
+        const canFire = invasionBalls.length === 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
+
+        if (isFiring && canFire) {
+          // Launch 3 balls in a spread pattern
+          const newBalls = [];
+          const angles = [-0.3, 0, 0.3]; // Spread angles
+          for (let i = 0; i < 3; i++) {
+            newBalls.push({
+              id: now + Math.random() + i,
+              x: shipCenterX + (i - 1) * 15,
+              y: shipY,
+              vx: Math.sin(angles[i]) * INVASION_BALL_SPEED,
+              vy: -Math.cos(angles[i]) * INVASION_BALL_SPEED,
+              bounces: 0,
+              maxBounces: 5, // Return after this many bounces
+              returning: false,
+              trail: [],
+            });
+          }
+          setInvasionBalls(newBalls);
           setLastShipFire(now);
-          // Visual feedback
-          createParticles(
-            currentPaddle.x + currentPaddle.width / 2,
-            CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 15,
-            '#80ffff',
-            3
-          );
+          // Visual feedback - launch particles
+          createParticles(shipCenterX, shipY, '#80ffff', 6);
+          addFloatingText(shipCenterX, shipY - 20, '🎱🎱🎱', '#fff');
         }
 
-        // Move projectiles upward
-        setShipProjectiles(prev => prev
-          .map(p => ({ ...p, y: p.y - p.speed * deltaTime }))
-          .filter(p => p.y > -20)
-        );
+        // Update invasion balls (bouncing ball physics)
+        setInvasionBalls(prevBalls => {
+          return prevBalls.map(ball => {
+            let { x, y, vx, vy, bounces, maxBounces, returning, trail } = ball;
+
+            // Add trail
+            trail = [...trail, { x, y }].slice(-8);
+
+            if (returning) {
+              // Return to ship
+              const dx = shipCenterX - x;
+              const dy = shipY - y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 20) {
+                // Ball returned - remove it
+                return null;
+              }
+              const returnSpeed = 15;
+              vx = (dx / dist) * returnSpeed;
+              vy = (dy / dist) * returnSpeed;
+            } else {
+              // Bounce off walls
+              if (x <= BALL_RADIUS || x >= CANVAS_WIDTH - BALL_RADIUS) {
+                vx = -vx;
+                x = Math.max(BALL_RADIUS, Math.min(CANVAS_WIDTH - BALL_RADIUS, x));
+                bounces++;
+              }
+              if (y <= BALL_RADIUS) {
+                vy = -vy;
+                y = BALL_RADIUS;
+                bounces++;
+              }
+
+              // Start returning after max bounces or if going too low
+              if (bounces >= maxBounces || y > CANVAS_HEIGHT - 100) {
+                returning = true;
+              }
+            }
+
+            // Move ball
+            x += vx * deltaTime;
+            y += vy * deltaTime;
+
+            return { ...ball, x, y, vx, vy, bounces, returning, trail };
+          }).filter(b => b !== null);
+        });
 
         // Move brickinoid formation (Space Invaders style)
         setInvasionFormation(prev => {
@@ -4160,29 +4209,35 @@ const BreakoutGame = () => {
           };
         });
 
-        // Check projectile-brick collisions
-        setShipProjectiles(prevProjectiles => {
-          let remainingProjectiles = [...prevProjectiles];
+        // Check invasion ball - brick collisions
+        setInvasionBalls(prevBalls => {
+          return prevBalls.map(ball => {
+            if (!ball || ball.returning) return ball;
 
-          setBricks(prevBricks => {
-            return prevBricks.map(brick => {
-              if (brick.health <= 0 || brick.type === 'obstacle') return brick;
+            let hitBrick = false;
 
-              // Calculate brick position with formation offset
-              const brickX = brick.x + invasionFormation.offsetX;
-              const brickY = brick.y + invasionFormation.descendAmount;
+            setBricks(prevBricks => {
+              return prevBricks.map(brick => {
+                if (brick.health <= 0 || brick.type === 'obstacle' || hitBrick) return brick;
 
-              // Check each projectile
-              for (let i = remainingProjectiles.length - 1; i >= 0; i--) {
-                const proj = remainingProjectiles[i];
+                // Calculate brick position with formation offset
+                const brickX = brick.x + invasionFormation.offsetX;
+                const brickY = brick.y + invasionFormation.descendAmount;
+
+                // Check collision
                 if (
-                  proj.x >= brickX &&
-                  proj.x <= brickX + brick.width &&
-                  proj.y >= brickY &&
-                  proj.y <= brickY + brick.height
+                  ball.x >= brickX - BALL_RADIUS &&
+                  ball.x <= brickX + brick.width + BALL_RADIUS &&
+                  ball.y >= brickY - BALL_RADIUS &&
+                  ball.y <= brickY + brick.height + BALL_RADIUS
                 ) {
-                  // Hit! Remove projectile
-                  remainingProjectiles.splice(i, 1);
+                  hitBrick = true;
+
+                  // Enable shooting after first brick kill
+                  if (!invasionShootingEnabled) {
+                    setInvasionShootingEnabled(true);
+                    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🎯 SHOOTING ENABLED!', '#80ff80');
+                  }
 
                   // Damage brick
                   const newHealth = brick.health - 1;
@@ -4205,12 +4260,20 @@ const BreakoutGame = () => {
 
                   return { ...brick, health: newHealth, hitFlash: 1 };
                 }
-              }
-              return brick;
+                return brick;
+              });
             });
-          });
 
-          return remainingProjectiles;
+            // If hit a brick, bounce the ball
+            if (hitBrick) {
+              return {
+                ...ball,
+                vy: -ball.vy,
+                bounces: ball.bounces + 1,
+              };
+            }
+            return ball;
+          });
         });
 
         // Check if invasion complete (all bricks destroyed)
@@ -5422,7 +5485,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, invasionShootingEnabled]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -7695,166 +7758,301 @@ const BreakoutGame = () => {
 
         {/* Ship (Invasion Mode) or Paddle (Normal Mode) or Transformation Animation */}
         {invasionMode ? (
-          // Pixel art ship for invasion mode
+          // Ship made of PADDLES for invasion mode!
           <div style={{
             position: 'absolute',
-            left: paddle.x + paddle.width / 2 - 32,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 32,
-            width: 64,
-            height: 64,
+            left: paddle.x + paddle.width / 2 - 60,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 50,
+            width: 120,
+            height: 70,
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-end',
             justifyContent: 'center',
           }}>
-            {/* Pixel art spaceship sprite */}
-            <img
-              src={SPRITES.ship1}
-              alt="Player Ship"
-              style={{
-                width: 64,
-                height: 64,
-                imageRendering: 'pixelated',
-                filter: 'drop-shadow(0 0 12px #60ff80) drop-shadow(0 0 6px #40cc60)',
-                transform: 'rotate(0deg)',
-                animation: 'shipReady 1s ease-in-out infinite',
-              }}
-            />
-            {/* Thruster flame effect below ship */}
+            {/* Main hull paddle */}
             <div style={{
               position: 'absolute',
-              bottom: -8,
+              bottom: 15,
               left: '50%',
               transform: 'translateX(-50%)',
-              width: 20,
-              height: 18,
-              background: 'linear-gradient(180deg, #ff8800 0%, #ff4400 30%, #ff2200 60%, transparent 100%)',
-              clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 50% 70%, 0% 100%)',
-              animation: 'thrusterFlicker 0.1s infinite',
-              opacity: 0.9,
+              width: 80,
+              height: PADDLE_HEIGHT,
+              background: 'linear-gradient(180deg, #80ffaa 0%, #40cc60 100%)',
+              borderRadius: '6px',
+              boxShadow: '0 0 20px #60ff80',
             }} />
-          </div>
-        ) : invasionPhase === 'paddle_transform' ? (
-          // Paddle-to-ship transformation animation
-          <div style={{
-            position: 'absolute',
-            left: paddle.x,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - (paddleTransformProgress * 10),
-            width: paddle.width,
-            height: PADDLE_HEIGHT + (paddleTransformProgress * 15),
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            {/* Morphing paddle/ship hybrid */}
-            <div style={{
-              position: 'relative',
-              width: `${paddle.width * (1 - paddleTransformProgress * 0.5)}px`,
-              height: `${PADDLE_HEIGHT + paddleTransformProgress * 20}px`,
-              background: `linear-gradient(180deg,
-                ${paddleTransformProgress > 0.3 ? '#80ffaa' : '#6080ff'} 0%,
-                ${paddleTransformProgress > 0.5 ? '#40cc60' : '#4060cc'} 50%,
-                ${paddleTransformProgress > 0.7 ? '#209940' : '#304090'} 100%)`,
-              borderRadius: paddleTransformProgress < 0.5
-                ? '6px'
-                : `${6 + paddleTransformProgress * 10}px ${6 + paddleTransformProgress * 10}px 4px 4px`,
-              transform: `scaleY(${1 + paddleTransformProgress * 0.3}) perspective(100px) rotateX(${paddleTransformProgress * 10}deg)`,
-              boxShadow: `0 0 ${10 + paddleTransformProgress * 20}px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#6080ff'}`,
-              transition: 'background 0.1s',
-              clipPath: paddleTransformProgress > 0.6
-                ? `polygon(50% 0%, ${100 - paddleTransformProgress * 15}% 60%, 100% 100%, 0% 100%, ${paddleTransformProgress * 15}% 60%)`
-                : 'none',
-            }}>
-              {/* Emerging cockpit */}
-              {paddleTransformProgress > 0.4 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '20%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: `${8 + paddleTransformProgress * 6}px`,
-                  height: `${8 + paddleTransformProgress * 6}px`,
-                  background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff)',
-                  borderRadius: '50%',
-                  opacity: (paddleTransformProgress - 0.4) / 0.6,
-                  boxShadow: '0 0 10px #80ffff',
-                }} />
-              )}
-              {/* Emerging wings */}
-              {paddleTransformProgress > 0.5 && (
-                <>
-                  <div style={{
-                    position: 'absolute',
-                    top: '40%',
-                    left: -5 - paddleTransformProgress * 10,
-                    width: 10 + paddleTransformProgress * 8,
-                    height: 12,
-                    background: 'linear-gradient(90deg, #209940, #40cc60)',
-                    opacity: (paddleTransformProgress - 0.5) / 0.5,
-                    clipPath: 'polygon(100% 0%, 100% 100%, 0% 70%)',
-                  }} />
-                  <div style={{
-                    position: 'absolute',
-                    top: '40%',
-                    right: -5 - paddleTransformProgress * 10,
-                    width: 10 + paddleTransformProgress * 8,
-                    height: 12,
-                    background: 'linear-gradient(-90deg, #209940, #40cc60)',
-                    opacity: (paddleTransformProgress - 0.5) / 0.5,
-                    clipPath: 'polygon(0% 0%, 0% 100%, 100% 70%)',
-                  }} />
-                </>
-              )}
-              {/* Emerging cannon */}
-              {paddleTransformProgress > 0.7 && (
-                <div style={{
-                  position: 'absolute',
-                  top: -paddleTransformProgress * 8,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 5,
-                  height: paddleTransformProgress * 10,
-                  background: 'linear-gradient(180deg, #ffcc00, #ff8800)',
-                  borderRadius: '3px 3px 0 0',
-                  opacity: (paddleTransformProgress - 0.7) / 0.3,
-                  boxShadow: '0 0 8px #ffcc00',
-                }} />
-              )}
-            </div>
-            {/* Transformation particles */}
+
+            {/* Left wing paddle */}
             <div style={{
               position: 'absolute',
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
+              bottom: 25,
+              left: 5,
+              transform: 'rotate(-35deg)',
+              width: 45,
+              height: PADDLE_HEIGHT - 4,
+              background: 'linear-gradient(180deg, #60dd80 0%, #30aa50 100%)',
+              borderRadius: '4px',
+              boxShadow: '0 0 12px #60ff80',
+            }} />
+
+            {/* Right wing paddle */}
+            <div style={{
+              position: 'absolute',
+              bottom: 25,
+              right: 5,
+              transform: 'rotate(35deg)',
+              width: 45,
+              height: PADDLE_HEIGHT - 4,
+              background: 'linear-gradient(180deg, #60dd80 0%, #30aa50 100%)',
+              borderRadius: '4px',
+              boxShadow: '0 0 12px #60ff80',
+            }} />
+
+            {/* Nose/cockpit paddle */}
+            <div style={{
+              position: 'absolute',
+              bottom: 40,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 35,
+              height: PADDLE_HEIGHT + 4,
+              background: 'linear-gradient(180deg, #aaffcc 0%, #60cc80 100%)',
+              borderRadius: '12px 12px 6px 6px',
+              boxShadow: '0 0 15px #80ffaa',
             }}>
-              {[...Array(8)].map((_, i) => (
+              {/* Cockpit window */}
+              <div style={{
+                position: 'absolute',
+                top: 6,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 14,
+                height: 10,
+                background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff)',
+                borderRadius: '50%',
+                boxShadow: '0 0 10px #80ffff, inset 0 0 5px rgba(255,255,255,0.8)',
+              }} />
+            </div>
+
+            {/* Ball launchers (where balls shoot from) */}
+            <div style={{
+              position: 'absolute',
+              bottom: 55,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              gap: '8px',
+            }}>
+              {[0, 1, 2].map(i => (
                 <div key={i} style={{
-                  position: 'absolute',
-                  left: `${10 + (i * 12)}%`,
-                  top: `${50 + Math.sin(paddleTransformProgress * Math.PI * 4 + i) * 30}%`,
-                  width: 4,
-                  height: 4,
-                  background: i % 2 === 0 ? '#60ff80' : '#80ffff',
+                  width: 10,
+                  height: 10,
+                  background: 'radial-gradient(circle, #fff, #ddd)',
                   borderRadius: '50%',
-                  opacity: Math.sin(paddleTransformProgress * Math.PI) * 0.8,
-                  boxShadow: `0 0 6px ${i % 2 === 0 ? '#60ff80' : '#80ffff'}`,
+                  boxShadow: '0 0 8px #fff',
+                  border: '2px solid #aaa',
                 }} />
               ))}
             </div>
-            {/* "TRANSFORMING" text */}
+
+            {/* Thruster flames */}
             <div style={{
               position: 'absolute',
-              top: -30,
+              bottom: 0,
+              left: '30%',
+              width: 18,
+              height: 15,
+              background: 'linear-gradient(180deg, #ff8800 0%, #ff4400 40%, transparent 100%)',
+              borderRadius: '0 0 6px 6px',
+              animation: 'thrusterFlicker 0.1s infinite',
+            }} />
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              right: '30%',
+              width: 18,
+              height: 15,
+              background: 'linear-gradient(180deg, #ff8800 0%, #ff4400 40%, transparent 100%)',
+              borderRadius: '0 0 6px 6px',
+              animation: 'thrusterFlicker 0.1s infinite',
+            }} />
+          </div>
+        ) : invasionPhase === 'paddle_transform' ? (
+          // Epic paddle-to-ship transformation - MADE OF PADDLES!
+          <div style={{
+            position: 'absolute',
+            left: paddle.x + paddle.width / 2 - 80,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 60,
+            width: 160,
+            height: 80,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-end',
+          }}>
+            {/* Main body paddle - rises and tilts to become hull */}
+            <div style={{
+              position: 'absolute',
+              bottom: paddleTransformProgress < 0.3 ? 0 : (paddleTransformProgress - 0.3) * 50,
+              left: '50%',
+              transform: `translateX(-50%) rotate(${paddleTransformProgress > 0.5 ? 0 : 0}deg) scaleX(${1 - paddleTransformProgress * 0.3})`,
+              width: paddle.width,
+              height: PADDLE_HEIGHT,
+              background: `linear-gradient(180deg,
+                ${paddleTransformProgress > 0.5 ? '#80ffaa' : '#6080ff'} 0%,
+                ${paddleTransformProgress > 0.5 ? '#40cc60' : '#4060cc'} 100%)`,
+              borderRadius: '6px',
+              boxShadow: `0 0 ${15 + paddleTransformProgress * 20}px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#6080ff'}`,
+            }} />
+
+            {/* Left wing paddle - slides out and tilts */}
+            <div style={{
+              position: 'absolute',
+              bottom: 15 + paddleTransformProgress * 20,
+              left: paddleTransformProgress < 0.2 ? '50%' : `${50 - paddleTransformProgress * 40}%`,
+              transform: `translateX(-50%) rotate(${-paddleTransformProgress * 45}deg) scaleX(${0.3 + paddleTransformProgress * 0.5})`,
+              width: 60,
+              height: PADDLE_HEIGHT - 4,
+              background: `linear-gradient(180deg,
+                ${paddleTransformProgress > 0.4 ? '#60dd80' : '#5070dd'} 0%,
+                ${paddleTransformProgress > 0.4 ? '#30aa50' : '#3050aa'} 100%)`,
+              borderRadius: '4px',
+              opacity: paddleTransformProgress > 0.1 ? 1 : paddleTransformProgress * 10,
+              boxShadow: `0 0 10px ${paddleTransformProgress > 0.4 ? '#60ff80' : '#6080ff'}`,
+            }} />
+
+            {/* Right wing paddle - slides out and tilts */}
+            <div style={{
+              position: 'absolute',
+              bottom: 15 + paddleTransformProgress * 20,
+              right: paddleTransformProgress < 0.2 ? '50%' : `${50 - paddleTransformProgress * 40}%`,
+              transform: `translateX(50%) rotate(${paddleTransformProgress * 45}deg) scaleX(${0.3 + paddleTransformProgress * 0.5})`,
+              width: 60,
+              height: PADDLE_HEIGHT - 4,
+              background: `linear-gradient(180deg,
+                ${paddleTransformProgress > 0.4 ? '#60dd80' : '#5070dd'} 0%,
+                ${paddleTransformProgress > 0.4 ? '#30aa50' : '#3050aa'} 100%)`,
+              borderRadius: '4px',
+              opacity: paddleTransformProgress > 0.1 ? 1 : paddleTransformProgress * 10,
+              boxShadow: `0 0 10px ${paddleTransformProgress > 0.4 ? '#60ff80' : '#6080ff'}`,
+            }} />
+
+            {/* Top paddle - becomes the nose/cockpit */}
+            <div style={{
+              position: 'absolute',
+              bottom: 20 + paddleTransformProgress * 45,
+              left: '50%',
+              transform: `translateX(-50%) scaleX(${0.4 - paddleTransformProgress * 0.2}) scaleY(${1 + paddleTransformProgress * 0.5})`,
+              width: 50,
+              height: PADDLE_HEIGHT,
+              background: `linear-gradient(180deg,
+                ${paddleTransformProgress > 0.6 ? '#aaffcc' : '#80a0ff'} 0%,
+                ${paddleTransformProgress > 0.6 ? '#60cc80' : '#5070cc'} 100%)`,
+              borderRadius: paddleTransformProgress > 0.5 ? '12px 12px 6px 6px' : '6px',
+              opacity: paddleTransformProgress > 0.2 ? 1 : paddleTransformProgress * 5,
+              boxShadow: `0 0 15px ${paddleTransformProgress > 0.6 ? '#80ffaa' : '#80a0ff'}`,
+            }}>
+              {/* Cockpit window */}
+              {paddleTransformProgress > 0.6 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '30%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 12 + paddleTransformProgress * 4,
+                  height: 8 + paddleTransformProgress * 2,
+                  background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff)',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 10px #80ffff, inset 0 0 5px rgba(255,255,255,0.8)',
+                  opacity: (paddleTransformProgress - 0.6) * 2.5,
+                }} />
+              )}
+            </div>
+
+            {/* Thruster paddles - small paddles at the back */}
+            {paddleTransformProgress > 0.4 && (
+              <>
+                <div style={{
+                  position: 'absolute',
+                  bottom: -5 + paddleTransformProgress * 10,
+                  left: '30%',
+                  width: 20,
+                  height: 8,
+                  background: 'linear-gradient(180deg, #ff8800, #ff4400)',
+                  borderRadius: '0 0 4px 4px',
+                  opacity: (paddleTransformProgress - 0.4) * 1.6,
+                  animation: 'thrusterFlicker 0.1s infinite',
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  bottom: -5 + paddleTransformProgress * 10,
+                  right: '30%',
+                  width: 20,
+                  height: 8,
+                  background: 'linear-gradient(180deg, #ff8800, #ff4400)',
+                  borderRadius: '0 0 4px 4px',
+                  opacity: (paddleTransformProgress - 0.4) * 1.6,
+                  animation: 'thrusterFlicker 0.1s infinite',
+                }} />
+              </>
+            )}
+
+            {/* Energy particles flying around */}
+            {[...Array(12)].map((_, i) => {
+              const angle = (i / 12) * Math.PI * 2 + paddleTransformProgress * Math.PI * 3;
+              const radius = 40 + Math.sin(paddleTransformProgress * Math.PI * 2 + i) * 20;
+              return (
+                <div key={i} style={{
+                  position: 'absolute',
+                  left: 80 + Math.cos(angle) * radius * (1 - paddleTransformProgress * 0.5),
+                  top: 40 + Math.sin(angle) * radius * 0.5,
+                  width: 4 + paddleTransformProgress * 2,
+                  height: 4 + paddleTransformProgress * 2,
+                  background: i % 3 === 0 ? '#60ff80' : i % 3 === 1 ? '#80ffff' : '#ffff80',
+                  borderRadius: '50%',
+                  opacity: Math.sin(paddleTransformProgress * Math.PI) * 0.9,
+                  boxShadow: `0 0 8px ${i % 3 === 0 ? '#60ff80' : i % 3 === 1 ? '#80ffff' : '#ffff80'}`,
+                }} />
+              );
+            })}
+
+            {/* "PADDLES UNITING!" text */}
+            <div style={{
+              position: 'absolute',
+              top: -45,
               left: '50%',
               transform: 'translateX(-50%)',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 'bold',
-              color: '#60ff80',
-              textShadow: '0 0 10px #60ff80',
+              color: paddleTransformProgress > 0.5 ? '#60ff80' : '#80a0ff',
+              textShadow: `0 0 15px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#80a0ff'}`,
               whiteSpace: 'nowrap',
               animation: 'pulse 0.3s infinite',
+              letterSpacing: '2px',
             }}>
-              ⚡ TRANSFORMING ⚡
+              {paddleTransformProgress < 0.3 ? '⚡ PADDLES SEPARATING ⚡' :
+               paddleTransformProgress < 0.6 ? '🔄 RECONFIGURING 🔄' :
+               '🚀 SHIP FORMING! 🚀'}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{
+              position: 'absolute',
+              bottom: -25,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 100,
+              height: 6,
+              background: 'rgba(0,0,0,0.5)',
+              borderRadius: 3,
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${paddleTransformProgress * 100}%`,
+                height: '100%',
+                background: `linear-gradient(90deg, #80a0ff, #60ff80)`,
+                borderRadius: 3,
+                boxShadow: '0 0 10px #60ff80',
+              }} />
             </div>
           </div>
         ) : (
@@ -7938,8 +8136,8 @@ const BreakoutGame = () => {
           }} />
         )}
 
-        {/* Ship projectiles - pixel art */}
-        {invasionMode && shipProjectiles.map(proj => (
+        {/* Legacy ship projectiles for shoot_alien phase */}
+        {invasionMode && invasionPhase === 'shoot_alien' && shipProjectiles.map(proj => (
           <div key={proj.id} style={{
             position: 'absolute',
             left: proj.x - 8,
@@ -7958,6 +8156,48 @@ const BreakoutGame = () => {
               }}
             />
           </div>
+        ))}
+
+        {/* Invasion bouncing balls */}
+        {invasionMode && invasionPhase === 'invasion' && invasionBalls.map(ball => (
+          <React.Fragment key={ball.id}>
+            {/* Ball trail */}
+            {ball.trail && ball.trail.map((pos, i) => (
+              <div
+                key={`trail-${ball.id}-${i}`}
+                style={{
+                  position: 'absolute',
+                  left: pos.x - BALL_RADIUS * (0.3 + i * 0.08),
+                  top: pos.y - BALL_RADIUS * (0.3 + i * 0.08),
+                  width: BALL_RADIUS * 2 * (0.3 + i * 0.08),
+                  height: BALL_RADIUS * 2 * (0.3 + i * 0.08),
+                  background: ball.returning
+                    ? `radial-gradient(circle, rgba(128, 255, 128, ${0.1 + i * 0.05}) 0%, transparent 70%)`
+                    : `radial-gradient(circle, rgba(255, 255, 255, ${0.1 + i * 0.05}) 0%, transparent 70%)`,
+                  borderRadius: '50%',
+                  pointerEvents: 'none',
+                }}
+              />
+            ))}
+            {/* Main ball */}
+            <div
+              style={{
+                position: 'absolute',
+                left: ball.x - BALL_RADIUS,
+                top: ball.y - BALL_RADIUS,
+                width: BALL_RADIUS * 2,
+                height: BALL_RADIUS * 2,
+                background: ball.returning
+                  ? 'radial-gradient(circle at 30% 30%, #80ff80, #40cc40, #208820)'
+                  : 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)',
+                borderRadius: '50%',
+                boxShadow: ball.returning
+                  ? '0 0 15px #80ff80, 0 0 30px rgba(128, 255, 128, 0.5)'
+                  : '0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4)',
+                border: ball.returning ? '2px solid #60ff60' : '2px solid #fff',
+              }}
+            />
+          </React.Fragment>
         ))}
 
         {/* Twin Paddle (Teddy Split ability) */}
