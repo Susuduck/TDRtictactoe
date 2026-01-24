@@ -6189,6 +6189,19 @@ const BreakoutGame = () => {
         const x = startX + col * (BRICK_WIDTH + BRICK_PADDING);
         const y = startY + row * (BRICK_HEIGHT + BRICK_PADDING + 2);
 
+        // Assign alien type based on brick characteristics
+        // Different aliens for different brick types
+        let alienType = 'grunt'; // Default grunt alien
+        if (type === 'gold') {
+          alienType = 'elite'; // Gold bricks = elite aliens
+        } else if (type === 'explosive') {
+          alienType = 'bomber'; // Explosive bricks = bomber aliens
+        } else if (health >= 3) {
+          alienType = 'heavy'; // High health = heavy aliens
+        } else if (row === 0) {
+          alienType = 'commander'; // Top row = commanders
+        }
+
         newBricks.push({
           id: `invasion-${row}-${col}`,
           x,
@@ -6201,7 +6214,8 @@ const BreakoutGame = () => {
           type,
           hitFlash: 0,
           isInvader: true, // Flag for pixel art rendering
-          spriteIndex: (row + col) % 5, // Which enemy sprite to use
+          alienType, // Type of alien (determines sprite)
+          spriteIndex: (row + col) % 5, // Variety within type
         });
       }
     }
@@ -6964,7 +6978,8 @@ const BreakoutGame = () => {
               top: brick.y + (invasionMode ? invasionFormation.descendAmount : 0),
               width: brick.width,
               height: brick.height,
-              background: invasionPhase === 'transform' ? (
+              background: (brick.isInvader && invasionPhase === 'invasion') ? 'transparent' : (
+                invasionPhase === 'transform' ? (
                 // Morphing gradient - bricks turning into alien colors
                 transformProgress > 0.5
                   ? `linear-gradient(180deg,
@@ -6977,25 +6992,28 @@ const BreakoutGame = () => {
                 brick.type === 'spawner' ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #002200 100%)' :
                 brick.type === 'frozen' ? `linear-gradient(180deg, #aaeeff 0%, ${brick.cracked ? '#6699aa' : '#88ddff'} 50%, #66bbdd 100%)` :
                 brick.dying ? `linear-gradient(180deg, ${brick.deathColor || brick.color}ee 0%, ${brick.deathColor || brick.color} 50%, ${brick.deathColor || brick.color}aa 100%)` :
-                `linear-gradient(180deg, ${brick.color}ee 0%, ${brick.color} 50%, ${brick.color}aa 100%)`,
-              borderRadius: invasionPhase === 'transform' && transformProgress > 0.7
+                `linear-gradient(180deg, ${brick.color}ee 0%, ${brick.color} 50%, ${brick.color}aa 100%)`),
+              borderRadius: (brick.isInvader && invasionPhase === 'invasion') ? '0' : (
+                invasionPhase === 'transform' && transformProgress > 0.7
                 ? `${8 + transformProgress * 10}px` // Become more rounded like UFOs
-                : brick.type === 'spawner' ? '8px' : '4px',
-              border: invasionPhase === 'transform' ? (
+                : brick.type === 'spawner' ? '8px' : '4px'),
+              border: (brick.isInvader && invasionPhase === 'invasion') ? 'none' : (
+                invasionPhase === 'transform' ? (
                 `2px solid hsl(${120 + brickIndex * 10}, 80%, ${60 + transformProgress * 20}%)`
               ) : brick.invisible ? '1px dashed rgba(255,255,255,0.1)' :
                 brick.type === 'obstacle' ? '2px solid #4a4a6e' :
                 brick.type === 'spawner' ? '3px solid #44ff44' :
                 brick.type === 'frozen' ? `2px solid ${brick.cracked ? '#88aacc' : '#aaeeff'}` :
                 brick.dying ? `2px solid ${brick.deathColor || brick.color}` :
-                `2px solid ${brick.color}`,
-              boxShadow: invasionPhase === 'transform' ? (
+                `2px solid ${brick.color}`),
+              boxShadow: (brick.isInvader && invasionPhase === 'invasion') ? 'none' : (
+                invasionPhase === 'transform' ? (
                 `0 0 ${10 + transformProgress * 20}px hsl(${120 + brickIndex * 10}, 80%, 50%)`
               ) : brick.invisible ? 'none' :
                 brick.type === 'obstacle' ? 'inset 0 -2px 4px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)' :
                 brick.type === 'spawner' ? '0 0 15px #44ff44, inset 0 0 10px rgba(68,255,68,0.3)' :
                 brick.type === 'frozen' ? '0 0 10px #88ddff, inset 0 1px 0 rgba(255,255,255,0.5)' :
-                `0 2px 8px ${brick.color}44, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                `0 2px 8px ${brick.color}44, inset 0 1px 0 rgba(255,255,255,0.3)`),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -7055,29 +7073,64 @@ const BreakoutGame = () => {
                 />
               </div>
             )}
-            {/* Pixel art alien for invasion bricks */}
-            {brick.isInvader && invasionPhase === 'invasion' && !brick.dying && (
+            {/* Pixel art alien for invasion bricks - fully replaces brick appearance */}
+            {brick.isInvader && invasionPhase === 'invasion' && (
               <div style={{
                 position: 'absolute',
-                width: brick.width - 8,
-                height: brick.height + 8,
-                top: -4,
+                width: brick.width,
+                height: brick.height + 16,
+                top: -8,
+                left: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
                 <img
-                  src={[SPRITES.enemy1, SPRITES.enemy2, SPRITES.enemy3, SPRITES.enemy4, SPRITES.enemy5][brick.spriteIndex || 0]}
-                  alt="Invader"
+                  src={(() => {
+                    // Different sprites based on alien type
+                    switch (brick.alienType) {
+                      case 'commander': return SPRITES.enemy1; // Top row commanders
+                      case 'elite': return SPRITES.enemy2; // Gold/elite aliens
+                      case 'bomber': return SPRITES.enemy3; // Explosive bombers
+                      case 'heavy': return SPRITES.enemy4; // High-health heavies
+                      default: return SPRITES.enemy5; // Regular grunts
+                    }
+                  })()}
+                  alt={brick.alienType || 'Invader'}
                   style={{
-                    width: '100%',
-                    height: '100%',
+                    width: brick.width - 4,
+                    height: brick.height + 12,
                     imageRendering: 'pixelated',
                     transform: 'rotate(180deg)',
-                    filter: brick.hitFlash > 0 ? 'brightness(2) drop-shadow(0 0 8px #fff)' : 'none',
-                    transition: 'filter 0.1s',
+                    filter: brick.hitFlash > 0
+                      ? 'brightness(2) drop-shadow(0 0 10px #fff)'
+                      : `drop-shadow(0 0 4px ${brick.color || '#88ff88'})`,
+                    transition: 'filter 0.15s',
+                    opacity: brick.dying ? 0.5 : 1,
                   }}
                 />
+                {/* Health indicator for multi-hit aliens */}
+                {brick.maxHealth > 1 && !brick.dying && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    gap: '2px',
+                  }}>
+                    {[...Array(brick.maxHealth)].map((_, i) => (
+                      <div key={i} style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: i < brick.health ? '#ff4444' : '#333',
+                        border: '1px solid #ff6666',
+                        boxShadow: i < brick.health ? '0 0 4px #ff0000' : 'none',
+                      }} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {brick.type === 'boss' && (
