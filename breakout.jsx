@@ -4297,6 +4297,27 @@ const BreakoutGame = () => {
               }
             }
 
+            // Check collision with diving aliens - ball bounces off them
+            for (const diver of divingAliens) {
+              const dx = x - diver.x;
+              const dy = y - diver.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 25) {
+                // Bounce off the diver
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  vx = dx > 0 ? Math.abs(vx) : -Math.abs(vx);
+                } else {
+                  vy = dy > 0 ? Math.abs(vy) : -Math.abs(vy);
+                }
+                // Push ball out of collision
+                const pushDist = 25 - dist + 2;
+                const angle = Math.atan2(dy, dx);
+                x += Math.cos(angle) * pushDist;
+                y += Math.sin(angle) * pushDist;
+                createParticles(diver.x, diver.y, '#ffaa00', 6);
+              }
+            }
+
             // Check if ball is in catch zone (at ship level)
             if (y >= catchZoneY - BALL_RADIUS && vy > 0) {
               // Ball is coming down to ship level
@@ -4434,6 +4455,7 @@ const BreakoutGame = () => {
               x: startX,
               y: startY,
               alienType: diver.alienType,
+              spriteIndex: diver.spriteIndex, // Preserve sprite variety
               health: diver.health,
               // Swooping path parameters
               startX,
@@ -7414,13 +7436,14 @@ const BreakoutGame = () => {
                 }}>
                   <img
                     src={(() => {
-                      // Different sprites based on alien type
+                      // Different sprites based on alien type + spriteIndex for variety
+                      const sprites = [SPRITES.enemy1, SPRITES.enemy2, SPRITES.enemy3, SPRITES.enemy4, SPRITES.enemy5];
                       switch (brick.alienType) {
                         case 'commander': return SPRITES.enemy1; // Top row commanders
                         case 'elite': return SPRITES.enemy2; // Gold/elite aliens
                         case 'bomber': return SPRITES.enemy3; // Explosive bombers
                         case 'heavy': return SPRITES.enemy4; // High-health heavies
-                        default: return SPRITES.enemy5; // Regular grunts
+                        default: return sprites[brick.spriteIndex % 5]; // Regular grunts - use variety!
                       }
                     })()}
                     alt={brick.alienType || 'Invader'}
@@ -8608,12 +8631,13 @@ const BreakoutGame = () => {
           >
             <img
               src={(() => {
+                const sprites = [SPRITES.enemy1, SPRITES.enemy2, SPRITES.enemy3, SPRITES.enemy4, SPRITES.enemy5];
                 switch (diver.alienType) {
                   case 'commander': return SPRITES.enemy1;
                   case 'elite': return SPRITES.enemy2;
                   case 'bomber': return SPRITES.enemy3;
                   case 'heavy': return SPRITES.enemy4;
-                  default: return SPRITES.enemy5;
+                  default: return sprites[(diver.spriteIndex || 0) % 5]; // Grunt variety!
                 }
               })()}
               alt={diver.alienType || 'Diver'}
