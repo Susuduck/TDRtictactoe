@@ -3944,122 +3944,139 @@ const BreakoutGame = () => {
               setInvasionPhase('shoot_alien');
               setInvasionTimer(0);
               setInvasionMode(true);
+              // Ship starts with 2 balls (will get 3rd when rescuing stolen ball)
+              setBallsInShip(2);
+              setInvasionBalls([]);
               addFloatingText(
                 paddleRef.current.x + paddleRef.current.width / 2,
                 CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 40,
                 '⚔️ ARMED!',
                 '#60ff80'
               );
-              // Flash effect
-              setFlashColor('#60ff80');
-              setTimeout(() => setFlashColor(null), 150);
+              // No flash - keep ship visible
             }
             return newProgress;
           });
         }
 
-        // Phase: shoot_alien - Player must shoot the alien to free the ball
+        // Phase: shoot_alien - Player shoots ball at UFO to rescue stolen ball
         if (invasionPhase === 'shoot_alien') {
-          // Ship fires projectiles when space or mouse is pressed
+          const currentPaddle = paddleRef.current;
+          const shipCenterX = currentPaddle.x + currentPaddle.width / 2;
+          const shipLeft = currentPaddle.x;
+          const shipRight = currentPaddle.x + currentPaddle.width;
+          const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
+          const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
+
+          // Fire ONE ball at a time at the UFO
           const isFiring = keysRef.current.space || keysRef.current.mouseDown;
-          if (isFiring && now - lastShipFire > SHIP_FIRE_COOLDOWN) {
-            const currentPaddle = paddleRef.current;
-            // Create twin projectiles for more dramatic effect
-            setShipProjectiles(prev => [
-              ...prev,
-              {
-                id: now + Math.random(),
-                x: currentPaddle.x + currentPaddle.width / 2 - 8,
-                y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20,
-                speed: 14,
-              },
-              {
-                id: now + Math.random() + 0.1,
-                x: currentPaddle.x + currentPaddle.width / 2 + 8,
-                y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20,
-                speed: 14,
-              }
-            ]);
+          const noBallsOut = invasionBalls.length === 0;
+          const canFire = ballsInShip > 0 && noBallsOut && now - lastShipFire > SHIP_FIRE_COOLDOWN;
+
+          if (isFiring && canFire) {
+            const newBall = {
+              id: now + Math.random(),
+              x: shipCenterX,
+              y: shipY,
+              vx: (Math.random() - 0.5) * 2,
+              vy: -INVASION_BALL_SPEED,
+              trail: [],
+            };
+            setInvasionBalls([newBall]);
+            setBallsInShip(prev => prev - 1);
             setLastShipFire(now);
-            // Visual feedback - small flash
-            createParticles(
-              currentPaddle.x + currentPaddle.width / 2,
-              CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 15,
-              '#80ffff',
-              3
-            );
+            createParticles(shipCenterX, shipY, '#ffffff', 4);
           }
 
-          // Move projectiles upward
-          setShipProjectiles(prev => prev
-            .map(p => ({ ...p, y: p.y - p.speed * deltaTime }))
-            .filter(p => p.y > -20)
-          );
+          // Update ball physics for shoot_alien phase
+          setInvasionBalls(prevBalls => {
+            const survivingBalls = [];
 
-          // Check if projectiles hit the ball grabber
-          if (ballGrabber) {
-            setShipProjectiles(prevProj => {
-              let hit = false;
-              const remaining = prevProj.filter(p => {
-                const dx = p.x - ballGrabber.x;
-                const dy = p.y - ballGrabber.y;
-                if (Math.sqrt(dx * dx + dy * dy) < 40) {
-                  hit = true;
-                  return false;
+            for (const ball of prevBalls) {
+              let { x, y, vx, vy, trail } = ball;
+              trail = [...trail, { x, y }].slice(-6);
+
+              x += vx * deltaTime;
+              y += vy * deltaTime;
+
+              // Bounce off walls
+              if (x <= BALL_RADIUS) { x = BALL_RADIUS; vx = Math.abs(vx); }
+              if (x >= CANVAS_WIDTH - BALL_RADIUS) { x = CANVAS_WIDTH - BALL_RADIUS; vx = -Math.abs(vx); }
+              if (y <= BALL_RADIUS) { y = BALL_RADIUS; vy = Math.abs(vy); }
+
+              // Check if ball hit the UFO
+              if (ballGrabber) {
+                const dx = x - ballGrabber.x;
+                const dy = y - ballGrabber.y;
+                if (Math.sqrt(dx * dx + dy * dy) < 45) {
+                  // Hit the UFO!
+                  createParticles(ballGrabber.x, ballGrabber.y, ballGrabber.color, 12);
+
+                  setBallGrabber(prev => {
+                    if (!prev) return null;
+                    const newHealth = prev.health - 1;
+                    if (newHealth <= 0) {
+                      // UFO destroyed! Get stolen ball back
+                      setInvasionPhase('transform');
+                      setInvasionTimer(0);
+                      setTransformProgress(0);
+                      // Player gets stolen ball back (add to ship)
+                      setBallsInShip(prev => Math.min(3, prev + 2)); // +1 for caught ball, +1 for stolen ball
+                      setBalls([]); // Clear the grabbed ball display
+                      createParticles(prev.x, prev.y, '#44ff44', 20);
+                      addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED!', '#44ff44');
+                      return null;
+                    }
+                    addFloatingText(prev.x, prev.y - 30, `HIT! ${newHealth} left`, '#ffaa00');
+                    return { ...prev, health: newHealth, hitTimer: 15 };
+                  });
+
+                  // Ball bounces off UFO
+                  vy = Math.abs(vy);
+                  survivingBalls.push({ ...ball, x, y, vx, vy: vy, trail });
+                  continue;
                 }
-                return true;
-              });
-
-              if (hit) {
-                setBallGrabber(prev => {
-                  if (!prev) return null;
-                  const newHealth = prev.health - 1;
-                  if (newHealth <= 0) {
-                    // Alien destroyed! Free the ball
-                    setInvasionPhase('transform');
-                    setInvasionTimer(0);
-                    setTransformProgress(0);
-                    // Release ball back to paddle
-                    setBalls(prev => prev.map(b => ({
-                      ...b,
-                      x: paddleRef.current.x + paddleRef.current.width / 2,
-                      y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 20,
-                      vx: 0,
-                      vy: 0,
-                      attached: true,
-                      grabbedByAlien: false,
-                    })));
-                    createParticles(prev.x, prev.y, prev.color, 20);
-                    addFloatingText(prev.x, prev.y, 'FREED!', '#44ff44');
-                    return null;
-                  }
-                  createParticles(prev.x, prev.y, prev.color, 8);
-                  return { ...prev, health: newHealth, hitTimer: 10 };
-                });
               }
 
-              return remaining;
-            });
+              // Catch zone - ball returns to ship
+              if (y >= catchZoneY - BALL_RADIUS && vy > 0) {
+                if (x >= shipLeft - 10 && x <= shipRight + 10) {
+                  setBallsInShip(prev => Math.min(3, prev + 1));
+                  createParticles(x, catchZoneY, '#80ff80', 6);
+                  addFloatingText(x, catchZoneY - 30, '✓ CAUGHT!', '#80ff80');
+                  continue;
+                } else if (y > CANVAS_HEIGHT + BALL_RADIUS) {
+                  createParticles(x, CANVAS_HEIGHT, '#ff4444', 4);
+                  addFloatingText(x, CANVAS_HEIGHT - 50, '✗ LOST!', '#ff4444');
+                  if (ballsInShip === 0) {
+                    setLives(l => l - 1);
+                    setBallsInShip(2);
+                    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '💀 BALL LOST!', '#ff4444');
+                  }
+                  continue;
+                }
+              }
 
-            // Update hit timer
+              survivingBalls.push({ ...ball, x, y, vx, vy, trail });
+            }
+            return survivingBalls;
+          });
+
+          // Update UFO hit timer and wobble
+          if (ballGrabber) {
             setBallGrabber(prev => {
               if (!prev) return null;
-              return { ...prev, hitTimer: Math.max(0, prev.hitTimer - deltaTime) };
+              const wobbleX = Math.sin(now * 0.01) * 2;
+              const wobbleY = Math.cos(now * 0.008) * 1;
+              return {
+                ...prev,
+                x: Math.max(50, Math.min(CANVAS_WIDTH - 50, prev.x + wobbleX)),
+                y: Math.max(80, Math.min(200, prev.y + wobbleY)),
+                hitTimer: Math.max(0, prev.hitTimer - deltaTime),
+              };
             });
-
-            // Move ball with grabber
+            // Keep stolen ball with UFO
             if (ballGrabber.hasBall) {
-              // Alien moves erratically while being shot at
-              setBallGrabber(prev => {
-                if (!prev) return null;
-                const wobbleX = Math.sin(now * 0.01) * 2;
-                const wobbleY = Math.cos(now * 0.008) * 1;
-                return {
-                  ...prev,
-                  x: Math.max(50, Math.min(CANVAS_WIDTH - 50, prev.x + wobbleX)),
-                  y: Math.max(80, Math.min(250, prev.y + wobbleY)),
-                };
-              });
               setBalls(prev => prev.map(b => ({
                 ...b,
                 x: ballGrabber.x,
@@ -4092,11 +4109,9 @@ const BreakoutGame = () => {
             setInvasionPhase('invasion');
             setInvasionTimer(0);
             setBrickMorphProgress(0);
-            // Reset invasion balls for new invasion mode
-            setBallsInShip(3);
+            // Clear any balls in flight, keep balls in ship (should be 3 after rescuing)
             setInvasionBalls([]);
-            addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 INVASION! 🛸', '#ff6644');
-            // No screen flash - keep the transformed ship visible
+            addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 DESTROY THE ALIENS! 🛸', '#ff6644');
           }
         }
 
@@ -8209,8 +8224,8 @@ const BreakoutGame = () => {
           </div>
         ))}
 
-        {/* Invasion bouncing balls */}
-        {invasionMode && invasionPhase === 'invasion' && invasionBalls.map(ball => (
+        {/* Invasion bouncing balls (shown during shoot_alien and invasion phases) */}
+        {invasionMode && (invasionPhase === 'invasion' || invasionPhase === 'shoot_alien') && invasionBalls.map(ball => (
           <React.Fragment key={ball.id}>
             {/* Ball trail */}
             {ball.trail && ball.trail.map((pos, i) => (
