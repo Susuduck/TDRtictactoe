@@ -3986,12 +3986,14 @@ const BreakoutGame = () => {
           const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
           const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-          // Fire with 0.5 sec delay - can have multiple balls out
+          // Fire with 0.5 sec delay - each shot requires release and re-press
           const isFiring = keysRef.current.space || keysRef.current.mouseDown;
 
-          // Track when fire button is released (required before first shot)
-          if (!isFiring && !fireReleased) {
-            setFireReleased(true);
+          // Track when fire button is released (required before EACH shot)
+          if (!isFiring) {
+            if (!fireReleased) {
+              setFireReleased(true);
+            }
           }
 
           const canFire = ballsInShip > 0 && fireReleased && now - lastShipFire > SHIP_FIRE_COOLDOWN;
@@ -4008,6 +4010,7 @@ const BreakoutGame = () => {
             setInvasionBalls(prev => [...prev, newBall]);
             setBallsInShip(prev => prev - 1);
             setLastShipFire(now);
+            setFireReleased(false); // Must release before next shot
             createParticles(shipCenterX, shipY, '#ffffff', 4);
           }
 
@@ -4167,12 +4170,14 @@ const BreakoutGame = () => {
         const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
         const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-        // Fire with 0.5 sec delay - can have multiple balls out at once
+        // Fire with 0.5 sec delay - each shot requires release and re-press
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
 
-        // Track when fire button is released (required before first shot)
-        if (!isFiring && !fireReleased) {
-          setFireReleased(true);
+        // Track when fire button is released (required before EACH shot)
+        if (!isFiring) {
+          if (!fireReleased) {
+            setFireReleased(true);
+          }
         }
 
         const canFire = ballsInShip > 0 && fireReleased && now - lastShipFire > SHIP_FIRE_COOLDOWN;
@@ -4190,6 +4195,7 @@ const BreakoutGame = () => {
           setInvasionBalls(prev => [...prev, newBall]);
           setBallsInShip(prev => prev - 1);
           setLastShipFire(now);
+          setFireReleased(false); // Must release before next shot
           // Visual feedback
           createParticles(shipCenterX, shipY, '#ffffff', 4);
         }
