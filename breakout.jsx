@@ -3949,6 +3949,7 @@ const BreakoutGame = () => {
               // Ship starts with 2 balls (will get 3rd when rescuing stolen ball)
               setBallsInShip(2);
               setInvasionBalls([]);
+              setLastShipFire(Date.now()); // Prevent auto-fire on transition
               addFloatingText(
                 paddleRef.current.x + paddleRef.current.width / 2,
                 CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 40,
@@ -7777,13 +7778,13 @@ const BreakoutGame = () => {
 
         {/* Ship (Invasion Mode) or Paddle (Normal Mode) or Transformation Animation */}
         {invasionMode ? (
-          // Ship made of PADDLES for invasion mode!
+          // Ship made of PADDLES for invasion mode! (matches transformation size: 160x80)
           <div style={{
             position: 'absolute',
-            left: paddle.x + paddle.width / 2 - 60,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 50,
-            width: 120,
-            height: 70,
+            left: paddle.x + paddle.width / 2 - 80,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 60,
+            width: 160,
+            height: 80,
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
@@ -7793,48 +7794,48 @@ const BreakoutGame = () => {
               position: 'absolute',
               bottom: 15,
               left: '50%',
-              transform: 'translateX(-50%)',
-              width: 80,
+              transform: 'translateX(-50%) scaleX(0.7)',
+              width: paddle.width,
               height: PADDLE_HEIGHT,
               background: 'linear-gradient(180deg, #80ffaa 0%, #40cc60 100%)',
               borderRadius: '6px',
-              boxShadow: '0 0 20px #60ff80',
+              boxShadow: '0 0 35px #60ff80',
             }} />
 
             {/* Left wing paddle */}
             <div style={{
               position: 'absolute',
-              bottom: 25,
-              left: 5,
-              transform: 'rotate(-35deg)',
-              width: 45,
+              bottom: 35,
+              left: '10%',
+              transform: 'translateX(-50%) rotate(-45deg) scaleX(0.8)',
+              width: 60,
               height: PADDLE_HEIGHT - 4,
               background: 'linear-gradient(180deg, #60dd80 0%, #30aa50 100%)',
               borderRadius: '4px',
-              boxShadow: '0 0 12px #60ff80',
+              boxShadow: '0 0 10px #60ff80',
             }} />
 
             {/* Right wing paddle */}
             <div style={{
               position: 'absolute',
-              bottom: 25,
-              right: 5,
-              transform: 'rotate(35deg)',
-              width: 45,
+              bottom: 35,
+              right: '10%',
+              transform: 'translateX(50%) rotate(45deg) scaleX(0.8)',
+              width: 60,
               height: PADDLE_HEIGHT - 4,
               background: 'linear-gradient(180deg, #60dd80 0%, #30aa50 100%)',
               borderRadius: '4px',
-              boxShadow: '0 0 12px #60ff80',
+              boxShadow: '0 0 10px #60ff80',
             }} />
 
             {/* Nose/cockpit paddle */}
             <div style={{
               position: 'absolute',
-              bottom: 40,
+              bottom: 65,
               left: '50%',
-              transform: 'translateX(-50%)',
-              width: 35,
-              height: PADDLE_HEIGHT + 4,
+              transform: 'translateX(-50%) scaleX(0.2) scaleY(1.5)',
+              width: 50,
+              height: PADDLE_HEIGHT,
               background: 'linear-gradient(180deg, #aaffcc 0%, #60cc80 100%)',
               borderRadius: '12px 12px 6px 6px',
               boxShadow: '0 0 15px #80ffaa',
@@ -7842,10 +7843,10 @@ const BreakoutGame = () => {
               {/* Cockpit window */}
               <div style={{
                 position: 'absolute',
-                top: 6,
+                top: '30%',
                 left: '50%',
-                transform: 'translateX(-50%)',
-                width: 14,
+                transform: 'translateX(-50%) scaleX(5)',
+                width: 16,
                 height: 10,
                 background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff)',
                 borderRadius: '50%',
@@ -7856,20 +7857,20 @@ const BreakoutGame = () => {
             {/* Ball bay - container showing balls inside ship */}
             <div style={{
               position: 'absolute',
-              bottom: 20,
+              bottom: 18,
               left: '50%',
               transform: 'translateX(-50%)',
-              width: 70,
-              height: 28,
-              background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(20,40,30,0.8) 100%)',
-              borderRadius: '8px',
+              width: 80,
+              height: 30,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(20,40,30,0.9) 100%)',
+              borderRadius: '10px',
               border: '2px solid #40aa60',
-              boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.8)',
+              boxShadow: 'inset 0 4px 10px rgba(0,0,0,0.9), 0 0 8px rgba(96, 255, 128, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
-              padding: '3px',
+              gap: '6px',
+              padding: '4px',
             }}>
               {/* Real balls sitting in the bay */}
               {[0, 1, 2].map(i => (
@@ -7881,7 +7882,7 @@ const BreakoutGame = () => {
                     : 'transparent',
                   borderRadius: '50%',
                   boxShadow: i < ballsInShip
-                    ? '0 2px 4px rgba(0,0,0,0.5), 0 0 8px rgba(255,255,255,0.3), inset 0 -2px 4px rgba(0,0,0,0.2)'
+                    ? '0 2px 4px rgba(0,0,0,0.5), 0 0 10px rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.2)'
                     : 'none',
                   transition: 'all 0.15s ease-out',
                   transform: i < ballsInShip ? 'scale(1)' : 'scale(0)',
