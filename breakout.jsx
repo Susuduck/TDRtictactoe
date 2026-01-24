@@ -3968,10 +3968,9 @@ const BreakoutGame = () => {
           const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
           const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-          // Fire ONE ball at a time at the UFO
+          // Fire with 0.5 sec delay - can have multiple balls out
           const isFiring = keysRef.current.space || keysRef.current.mouseDown;
-          const noBallsOut = invasionBalls.length === 0;
-          const canFire = ballsInShip > 0 && noBallsOut && now - lastShipFire > SHIP_FIRE_COOLDOWN;
+          const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
           if (isFiring && canFire) {
             const newBall = {
@@ -3982,7 +3981,7 @@ const BreakoutGame = () => {
               vy: -INVASION_BALL_SPEED,
               trail: [],
             };
-            setInvasionBalls([newBall]);
+            setInvasionBalls(prev => [...prev, newBall]);
             setBallsInShip(prev => prev - 1);
             setLastShipFire(now);
             createParticles(shipCenterX, shipY, '#ffffff', 4);
@@ -4038,12 +4037,12 @@ const BreakoutGame = () => {
                 }
               }
 
-              // Catch zone - ball returns to ship
+              // Catch zone - ball returns to ship and STAYS there
               if (y >= catchZoneY - BALL_RADIUS && vy > 0) {
                 if (x >= shipLeft - 10 && x <= shipRight + 10) {
                   setBallsInShip(prev => Math.min(3, prev + 1));
+                  setLastShipFire(now); // Reset timer so ball stays in ship
                   createParticles(x, catchZoneY, '#80ff80', 6);
-                  addFloatingText(x, catchZoneY - 30, '✓ CAUGHT!', '#80ff80');
                   continue;
                 } else if (y > CANVAS_HEIGHT + BALL_RADIUS) {
                   createParticles(x, CANVAS_HEIGHT, '#ff4444', 4);
@@ -4128,10 +4127,9 @@ const BreakoutGame = () => {
         const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
         const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-        // Fire ONE ball at a time - can only fire if no balls are currently out
+        // Fire with 0.5 sec delay - can have multiple balls out at once
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
-        const noBallsOut = invasionBalls.length === 0;
-        const canFire = ballsInShip > 0 && noBallsOut && now - lastShipFire > SHIP_FIRE_COOLDOWN;
+        const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
         if (isFiring && canFire) {
           // Fire one ball from ship
@@ -4241,8 +4239,9 @@ const BreakoutGame = () => {
             if (y >= catchZoneY - BALL_RADIUS && vy > 0) {
               // Ball is coming down to ship level
               if (x >= shipLeft - 10 && x <= shipRight + 10) {
-                // CAUGHT! Ball goes back to ship
+                // CAUGHT! Ball goes back to ship and STAYS there
                 setBallsInShip(prev => Math.min(3, prev + 1));
+                setLastShipFire(now); // Reset fire timer so it doesn't immediately re-fire
                 createParticles(x, catchZoneY, '#80ff80', 6);
                 continue; // Don't add to surviving balls - it's in the ship now
               } else if (y > CANVAS_HEIGHT + BALL_RADIUS) {
@@ -7888,8 +7887,8 @@ const BreakoutGame = () => {
               ))}
             </div>
 
-            {/* "CLICK TO FIRE" hint when ball ready and none out */}
-            {ballsInShip > 0 && invasionBalls.length === 0 && (
+            {/* Warning when no balls left in ship and balls are out */}
+            {ballsInShip === 0 && invasionBalls.length > 0 && (
               <div style={{
                 position: 'absolute',
                 bottom: 72,
@@ -7897,30 +7896,12 @@ const BreakoutGame = () => {
                 transform: 'translateX(-50%)',
                 fontSize: '10px',
                 fontWeight: 'bold',
-                color: '#80ffff',
-                textShadow: '0 0 8px #80ffff',
+                color: '#ff4444',
+                textShadow: '0 0 8px #ff4444',
                 whiteSpace: 'nowrap',
-                animation: 'pulse 0.8s infinite',
+                animation: 'pulse 0.3s infinite',
               }}>
-                CLICK TO FIRE
-              </div>
-            )}
-
-            {/* "CATCH IT!" hint when ball is out */}
-            {invasionBalls.length > 0 && (
-              <div style={{
-                position: 'absolute',
-                bottom: 72,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                color: ballsInShip === 0 ? '#ff4444' : '#ffaa00',
-                textShadow: `0 0 8px ${ballsInShip === 0 ? '#ff4444' : '#ffaa00'}`,
-                whiteSpace: 'nowrap',
-                animation: ballsInShip === 0 ? 'pulse 0.3s infinite' : 'pulse 0.5s infinite',
-              }}>
-                {ballsInShip === 0 ? '⚠️ CATCH IT! LAST BALL! ⚠️' : 'CATCH THE BALL!'}
+                ⚠️ CATCH THE {invasionBalls.length === 1 ? 'BALL' : 'BALLS'}! ⚠️
               </div>
             )}
 
