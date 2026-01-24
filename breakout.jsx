@@ -4021,26 +4021,35 @@ const BreakoutGame = () => {
                   // Hit the UFO!
                   createParticles(ballGrabber.x, ballGrabber.y, ballGrabber.color, 12);
 
+                  let ufoDestroyed = false;
                   setBallGrabber(prev => {
                     if (!prev) return null;
                     const newHealth = prev.health - 1;
                     if (newHealth <= 0) {
+                      ufoDestroyed = true;
                       // UFO destroyed! Get stolen ball back
                       setInvasionPhase('transform');
                       setInvasionTimer(0);
                       setTransformProgress(0);
-                      // Player gets stolen ball back (add to ship)
-                      setBallsInShip(prev => Math.min(3, prev + 2)); // +1 for caught ball, +1 for stolen ball
+                      // Player gets: current balls in ship + this ball + stolen ball = 3 total
+                      setBallsInShip(3);
+                      setInvasionBalls([]); // Clear all balls in flight
                       setBalls([]); // Clear the grabbed ball display
+                      setFireReleased(true); // Allow shooting in next phase
                       createParticles(prev.x, prev.y, '#44ff44', 20);
-                      addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED!', '#44ff44');
+                      addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED! +1', '#44ff44');
                       return null;
                     }
                     addFloatingText(prev.x, prev.y - 30, `HIT! ${newHealth} left`, '#ffaa00');
                     return { ...prev, health: newHealth, hitTimer: 15 };
                   });
 
-                  // Ball bounces off UFO
+                  if (ufoDestroyed) {
+                    // Ball goes back to ship, don't keep it in play
+                    continue;
+                  }
+
+                  // Ball bounces off UFO (UFO still alive)
                   vy = Math.abs(vy);
                   survivingBalls.push({ ...ball, x, y, vx, vy: vy, trail });
                   continue;
@@ -4118,9 +4127,9 @@ const BreakoutGame = () => {
             setInvasionPhase('invasion');
             setInvasionTimer(0);
             setBrickMorphProgress(0);
-            // Clear any balls in flight, keep balls in ship (should be 3 after rescuing)
+            // Balls should already be set to 3 from UFO destruction, just clear any stragglers
             setInvasionBalls([]);
-            setFireReleased(false); // Must release fire button before shooting
+            // fireReleased was set to true when UFO was destroyed, don't reset it
             addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 DESTROY THE ALIENS! 🛸', '#ff6644');
           }
         }
@@ -7792,103 +7801,100 @@ const BreakoutGame = () => {
 
         {/* Ship (Invasion Mode) or Paddle (Normal Mode) or Transformation Animation */}
         {invasionMode ? (
-          // Ship made of PADDLES - cohesive spaceship design
+          // Ship with cargo bay for balls and cannon barrel
           <div style={{
             position: 'absolute',
             left: paddle.x + paddle.width / 2 - 70,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 55,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 65,
             width: 140,
-            height: 75,
+            height: 85,
           }}>
-            {/* Left wing paddle - angled, connected to hull */}
+            {/* Left wing paddle */}
             <div style={{
               position: 'absolute',
-              bottom: 12,
+              bottom: 8,
               left: 0,
-              transform: 'rotate(-25deg)',
+              transform: 'rotate(-20deg)',
               transformOrigin: 'right center',
-              width: 50,
+              width: 45,
               height: PADDLE_HEIGHT,
               background: 'linear-gradient(180deg, #60dd80 0%, #30aa50 100%)',
               borderRadius: '4px 4px 4px 8px',
               boxShadow: '0 0 12px #60ff80',
             }} />
 
-            {/* Right wing paddle - angled, connected to hull */}
+            {/* Right wing paddle */}
             <div style={{
               position: 'absolute',
-              bottom: 12,
+              bottom: 8,
               right: 0,
-              transform: 'rotate(25deg)',
+              transform: 'rotate(20deg)',
               transformOrigin: 'left center',
-              width: 50,
+              width: 45,
               height: PADDLE_HEIGHT,
               background: 'linear-gradient(180deg, #60dd80 0%, #30aa50 100%)',
               borderRadius: '4px 4px 8px 4px',
               boxShadow: '0 0 12px #60ff80',
             }} />
 
-            {/* Main hull paddle - center body */}
+            {/* Cargo bay box - left wall */}
             <div style={{
               position: 'absolute',
-              bottom: 8,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 80,
-              height: PADDLE_HEIGHT + 4,
-              background: 'linear-gradient(180deg, #80ffaa 0%, #40cc60 100%)',
-              borderRadius: '8px',
-              boxShadow: '0 0 20px #60ff80',
+              bottom: 5,
+              left: 30,
+              width: PADDLE_HEIGHT - 2,
+              height: 35,
+              background: 'linear-gradient(90deg, #80ffaa 0%, #50cc70 100%)',
+              borderRadius: '4px 0 0 4px',
+              boxShadow: '0 0 10px #60ff80',
             }} />
 
-            {/* Nose paddle - vertical, forms the front */}
+            {/* Cargo bay box - right wall */}
             <div style={{
               position: 'absolute',
-              bottom: 22,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 30,
-              height: 45,
-              background: 'linear-gradient(180deg, #aaffcc 0%, #70dd90 50%, #50bb70 100%)',
-              borderRadius: '50% 50% 30% 30%',
-              boxShadow: '0 0 15px #80ffaa',
-            }}>
-              {/* Cockpit window */}
-              <div style={{
-                position: 'absolute',
-                top: 8,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 14,
-                height: 14,
-                background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff, #40cccc)',
-                borderRadius: '50%',
-                boxShadow: '0 0 10px #80ffff, inset 0 0 5px rgba(255,255,255,0.8)',
-              }} />
-            </div>
+              bottom: 5,
+              right: 30,
+              width: PADDLE_HEIGHT - 2,
+              height: 35,
+              background: 'linear-gradient(90deg, #50cc70 0%, #80ffaa 100%)',
+              borderRadius: '0 4px 4px 0',
+              boxShadow: '0 0 10px #60ff80',
+            }} />
 
-            {/* Ball bay - visible through hull window */}
+            {/* Cargo bay box - bottom */}
             <div style={{
               position: 'absolute',
-              bottom: 10,
+              bottom: 5,
               left: '50%',
               transform: 'translateX(-50%)',
-              width: 70,
+              width: 80 - PADDLE_HEIGHT * 2 + 4,
+              height: PADDLE_HEIGHT - 2,
+              background: 'linear-gradient(180deg, #50cc70 0%, #40aa60 100%)',
+              borderRadius: '0 0 4px 4px',
+              boxShadow: '0 0 10px #60ff80',
+            }} />
+
+            {/* Cargo bay interior - dark empty space */}
+            <div style={{
+              position: 'absolute',
+              bottom: 5 + PADDLE_HEIGHT - 2,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 80 - PADDLE_HEIGHT * 2,
               height: 22,
-              background: 'linear-gradient(180deg, rgba(0,20,10,0.9) 0%, rgba(10,30,20,0.95) 100%)',
-              borderRadius: '6px',
-              border: '2px solid #50cc70',
-              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.8)',
+              background: 'linear-gradient(180deg, rgba(0,15,5,0.95) 0%, rgba(0,25,10,0.9) 100%)',
+              borderRadius: '2px',
+              boxShadow: 'inset 0 0 15px rgba(0,0,0,0.9)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '3px',
             }}>
-              {/* Real balls sitting in the bay */}
+              {/* Balls sitting in the cargo bay */}
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
-                  width: BALL_RADIUS * 1.6,
-                  height: BALL_RADIUS * 1.6,
+                  width: BALL_RADIUS * 1.5,
+                  height: BALL_RADIUS * 1.5,
                   background: i < ballsInShip
                     ? 'radial-gradient(circle at 35% 35%, #ffffff 0%, #e0e0e0 30%, #a0a0a0 70%, #666666 100%)'
                     : 'transparent',
@@ -7900,6 +7906,51 @@ const BreakoutGame = () => {
                   transform: i < ballsInShip ? 'scale(1)' : 'scale(0)',
                 }} />
               ))}
+            </div>
+
+            {/* Cannon barrel - balls shoot through this */}
+            <div style={{
+              position: 'absolute',
+              bottom: 40,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 22,
+              height: 35,
+              background: 'linear-gradient(90deg, #70cc90 0%, #a0ffbb 30%, #a0ffbb 70%, #70cc90 100%)',
+              borderRadius: '6px 6px 2px 2px',
+              boxShadow: '0 0 12px #80ffaa, inset 0 0 8px rgba(0,0,0,0.3)',
+            }}>
+              {/* Cannon bore - dark hole */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 14,
+                height: 14,
+                background: 'radial-gradient(circle, #001005 0%, #002010 60%, #103020 100%)',
+                borderRadius: '50%',
+                boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.9)',
+              }} />
+              {/* Cannon rings */}
+              <div style={{
+                position: 'absolute',
+                top: 8,
+                left: 0,
+                right: 0,
+                height: 3,
+                background: '#50aa70',
+                borderRadius: '1px',
+              }} />
+              <div style={{
+                position: 'absolute',
+                top: 18,
+                left: 0,
+                right: 0,
+                height: 3,
+                background: '#50aa70',
+                borderRadius: '1px',
+              }} />
             </div>
 
             {/* Warning when no balls left in ship and balls are out */}
@@ -7945,22 +7996,22 @@ const BreakoutGame = () => {
             }} />
           </div>
         ) : invasionPhase === 'paddle_transform' ? (
-          // Paddle-to-ship transformation - matches final ship design
+          // Paddle-to-ship transformation - cargo bay and cannon
           <div style={{
             position: 'absolute',
             left: paddle.x + paddle.width / 2 - 70,
-            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 55,
+            top: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 65,
             width: 140,
-            height: 75,
+            height: 85,
           }}>
             {/* Left wing paddle - extends outward */}
             <div style={{
               position: 'absolute',
-              bottom: 12,
+              bottom: 8,
               left: paddleTransformProgress < 0.3 ? '50%' : `${50 - paddleTransformProgress * 50}%`,
-              transform: `translateX(-50%) rotate(${-paddleTransformProgress * 25}deg)`,
+              transform: `translateX(-50%) rotate(${-paddleTransformProgress * 20}deg)`,
               transformOrigin: 'right center',
-              width: 20 + paddleTransformProgress * 30,
+              width: 15 + paddleTransformProgress * 30,
               height: PADDLE_HEIGHT,
               background: `linear-gradient(180deg,
                 ${paddleTransformProgress > 0.4 ? '#60dd80' : '#5070dd'} 0%,
@@ -7973,11 +8024,11 @@ const BreakoutGame = () => {
             {/* Right wing paddle - extends outward */}
             <div style={{
               position: 'absolute',
-              bottom: 12,
+              bottom: 8,
               right: paddleTransformProgress < 0.3 ? '50%' : `${50 - paddleTransformProgress * 50}%`,
-              transform: `translateX(50%) rotate(${paddleTransformProgress * 25}deg)`,
+              transform: `translateX(50%) rotate(${paddleTransformProgress * 20}deg)`,
               transformOrigin: 'left center',
-              width: 20 + paddleTransformProgress * 30,
+              width: 15 + paddleTransformProgress * 30,
               height: PADDLE_HEIGHT,
               background: `linear-gradient(180deg,
                 ${paddleTransformProgress > 0.4 ? '#60dd80' : '#5070dd'} 0%,
@@ -7987,53 +8038,89 @@ const BreakoutGame = () => {
               boxShadow: `0 0 12px ${paddleTransformProgress > 0.4 ? '#60ff80' : '#6080ff'}`,
             }} />
 
-            {/* Main hull paddle - the original paddle, shrinks slightly */}
+            {/* Cargo bay walls forming - left */}
+            {paddleTransformProgress > 0.3 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 5,
+                left: 30,
+                width: PADDLE_HEIGHT - 2,
+                height: (paddleTransformProgress - 0.3) * 50,
+                background: `linear-gradient(90deg,
+                  ${paddleTransformProgress > 0.5 ? '#80ffaa' : '#6090dd'} 0%,
+                  ${paddleTransformProgress > 0.5 ? '#50cc70' : '#4070bb'} 100%)`,
+                borderRadius: '4px 0 0 4px',
+                opacity: (paddleTransformProgress - 0.3) * 1.4,
+                boxShadow: `0 0 10px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#6080ff'}`,
+              }} />
+            )}
+
+            {/* Cargo bay walls forming - right */}
+            {paddleTransformProgress > 0.3 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 5,
+                right: 30,
+                width: PADDLE_HEIGHT - 2,
+                height: (paddleTransformProgress - 0.3) * 50,
+                background: `linear-gradient(90deg,
+                  ${paddleTransformProgress > 0.5 ? '#50cc70' : '#4070bb'} 0%,
+                  ${paddleTransformProgress > 0.5 ? '#80ffaa' : '#6090dd'} 100%)`,
+                borderRadius: '0 4px 4px 0',
+                opacity: (paddleTransformProgress - 0.3) * 1.4,
+                boxShadow: `0 0 10px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#6080ff'}`,
+              }} />
+            )}
+
+            {/* Cargo bay bottom - original paddle transforms */}
             <div style={{
               position: 'absolute',
-              bottom: 8,
+              bottom: 5,
               left: '50%',
-              transform: `translateX(-50%) scaleX(${1 - paddleTransformProgress * 0.2})`,
-              width: 80,
-              height: PADDLE_HEIGHT + paddleTransformProgress * 4,
+              transform: `translateX(-50%) scaleX(${1 - paddleTransformProgress * 0.4})`,
+              width: 80 - PADDLE_HEIGHT * 2 + 4,
+              height: PADDLE_HEIGHT - 2,
               background: `linear-gradient(180deg,
-                ${paddleTransformProgress > 0.5 ? '#80ffaa' : '#6080ff'} 0%,
-                ${paddleTransformProgress > 0.5 ? '#40cc60' : '#4060cc'} 100%)`,
-              borderRadius: '8px',
-              boxShadow: `0 0 ${15 + paddleTransformProgress * 10}px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#6080ff'}`,
+                ${paddleTransformProgress > 0.5 ? '#50cc70' : '#5070dd'} 0%,
+                ${paddleTransformProgress > 0.5 ? '#40aa60' : '#4060cc'} 100%)`,
+              borderRadius: '0 0 4px 4px',
+              boxShadow: `0 0 ${10 + paddleTransformProgress * 5}px ${paddleTransformProgress > 0.5 ? '#60ff80' : '#6080ff'}`,
             }} />
 
-            {/* Nose paddle - grows upward from hull */}
-            <div style={{
-              position: 'absolute',
-              bottom: 22,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 20 + paddleTransformProgress * 10,
-              height: paddleTransformProgress * 45,
-              background: `linear-gradient(180deg,
-                ${paddleTransformProgress > 0.5 ? '#aaffcc' : '#80a0ff'} 0%,
-                ${paddleTransformProgress > 0.5 ? '#70dd90' : '#6090dd'} 50%,
-                ${paddleTransformProgress > 0.5 ? '#50bb70' : '#4070bb'} 100%)`,
-              borderRadius: paddleTransformProgress > 0.5 ? '50% 50% 30% 30%' : '6px',
-              opacity: paddleTransformProgress > 0.2 ? 1 : paddleTransformProgress * 5,
-              boxShadow: `0 0 15px ${paddleTransformProgress > 0.5 ? '#80ffaa' : '#80a0ff'}`,
-            }}>
-              {/* Cockpit window */}
-              {paddleTransformProgress > 0.6 && (
-                <div style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 10 + paddleTransformProgress * 4,
-                  height: 10 + paddleTransformProgress * 4,
-                  background: 'radial-gradient(circle at 30% 30%, #ffffff, #80ffff, #40cccc)',
-                  borderRadius: '50%',
-                  boxShadow: '0 0 10px #80ffff',
-                  opacity: (paddleTransformProgress - 0.6) * 2.5,
-                }} />
-              )}
-            </div>
+            {/* Cannon barrel - grows upward */}
+            {paddleTransformProgress > 0.4 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 40,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 18 + paddleTransformProgress * 4,
+                height: (paddleTransformProgress - 0.4) * 58,
+                background: `linear-gradient(90deg,
+                  ${paddleTransformProgress > 0.6 ? '#70cc90' : '#6090cc'} 0%,
+                  ${paddleTransformProgress > 0.6 ? '#a0ffbb' : '#90c0ff'} 50%,
+                  ${paddleTransformProgress > 0.6 ? '#70cc90' : '#6090cc'} 100%)`,
+                borderRadius: '6px 6px 2px 2px',
+                opacity: (paddleTransformProgress - 0.4) * 1.6,
+                boxShadow: `0 0 12px ${paddleTransformProgress > 0.6 ? '#80ffaa' : '#80a0ff'}`,
+              }}>
+                {/* Cannon bore - dark hole */}
+                {paddleTransformProgress > 0.7 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 10 + (paddleTransformProgress - 0.7) * 13,
+                    height: 10 + (paddleTransformProgress - 0.7) * 13,
+                    background: 'radial-gradient(circle, #001005 0%, #002010 60%, #103020 100%)',
+                    borderRadius: '50%',
+                    boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.9)',
+                    opacity: (paddleTransformProgress - 0.7) * 3.3,
+                  }} />
+                )}
+              </div>
+            )}
 
             {/* Thruster flames appear near end */}
             {paddleTransformProgress > 0.7 && (
