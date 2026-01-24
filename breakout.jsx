@@ -2298,12 +2298,19 @@ const BreakoutGame = () => {
     offsetX: 0,           // Formation horizontal offset
     direction: 1,         // 1 = right, -1 = left
     descendAmount: 0,     // How far formation has descended
-    speed: 0.8,           // Movement speed
+    speed: 0.5,           // Base movement speed (slower start)
+    animFrame: 0,         // Animation frame for alien sprites
   });
+  const [alienProjectiles, setAlienProjectiles] = useState([]); // Bullets aliens shoot at player
+  const [divingAliens, setDivingAliens] = useState([]); // Aliens doing Galaga-style dive attacks
+  const [lastAlienShot, setLastAlienShot] = useState(0); // Cooldown for alien shooting
+  const [lastDiveSpawn, setLastDiveSpawn] = useState(0); // Cooldown for spawning divers
   const [lastShipFire, setLastShipFire] = useState(0);
   const wasFiringRef = useRef(false); // Track previous frame's firing state for edge detection
   const SHIP_FIRE_COOLDOWN = 500; // ms between shots (0.5 sec delay)
   const INVASION_BALL_SPEED = 9; // Speed of invasion balls
+  const ALIEN_SHOT_COOLDOWN = 800; // ms between alien shots
+  const DIVE_SPAWN_COOLDOWN = 3000; // ms between dive attacks
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
   // Invasion sequence phases:
@@ -4145,6 +4152,18 @@ const BreakoutGame = () => {
             setBrickMorphProgress(0);
             // Balls should already be set to 3 from UFO destruction, just clear any stragglers
             setInvasionBalls([]);
+            // Reset invasion combat state
+            setAlienProjectiles([]);
+            setDivingAliens([]);
+            setLastAlienShot(0);
+            setLastDiveSpawn(0);
+            setInvasionFormation({
+              offsetX: 0,
+              direction: 1,
+              descendAmount: 0,
+              speed: 0.5,
+              animFrame: 0,
+            });
             // Force clean firing state - player must release and press to fire
             wasFiringRef.current = true; // Prevent immediate fire if button held
             keysRef.current.space = false;
@@ -4313,18 +4332,28 @@ const BreakoutGame = () => {
           return survivingBalls;
         });
 
+        // Count alive aliens for speed scaling
+        const aliveAliens = bricks.filter(b => b.health > 0 && b.type !== 'obstacle').length;
+        const totalAliens = 50; // 5 rows x 10 cols
+        const killRatio = 1 - (aliveAliens / totalAliens);
+
         // Move brickinoid formation (Space Invaders style)
         setInvasionFormation(prev => {
-          let newOffsetX = prev.offsetX + prev.direction * prev.speed * deltaTime;
+          // Speed increases as more aliens die (0.5 base, up to 2.5 when few remain)
+          const dynamicSpeed = 0.5 + killRatio * 2.0;
+
+          let newOffsetX = prev.offsetX + prev.direction * dynamicSpeed * deltaTime;
           let newDirection = prev.direction;
           let newDescend = prev.descendAmount;
+          let newAnimFrame = prev.animFrame;
 
-          // Check if formation hit edges - need to reverse and descend
-          const FORMATION_MARGIN = 30;
+          // Wider movement range for more dramatic side-to-side motion
+          const FORMATION_MARGIN = 80;
           if (newOffsetX > FORMATION_MARGIN || newOffsetX < -FORMATION_MARGIN) {
             newDirection = -prev.direction;
             newOffsetX = Math.max(-FORMATION_MARGIN, Math.min(FORMATION_MARGIN, newOffsetX));
-            newDescend = prev.descendAmount + 8; // Descend a bit
+            newDescend = prev.descendAmount + 12; // Drop down on direction change
+            newAnimFrame = (prev.animFrame + 1) % 2; // Toggle animation frame on direction change
           }
 
           return {
@@ -4332,14 +4361,160 @@ const BreakoutGame = () => {
             offsetX: newOffsetX,
             direction: newDirection,
             descendAmount: newDescend,
+            speed: dynamicSpeed,
+            animFrame: newAnimFrame,
           };
+        });
+
+        // === ALIEN SHOOTING ===
+        if (aliveAliens > 0 && now - lastAlienShot > ALIEN_SHOT_COOLDOWN) {
+          // Pick a random alive alien from bottom rows to shoot
+          const shooters = bricks.filter(b => b.health > 0 && b.type !== 'obstacle');
+          if (shooters.length > 0) {
+            // Prefer bottom aliens (more likely to shoot)
+            const sortedByY = [...shooters].sort((a, b) => b.y - a.y);
+            const bottomHalf = sortedByY.slice(0, Math.ceil(sortedByY.length / 2));
+            const shooter = bottomHalf[Math.floor(Math.random() * bottomHalf.length)];
+
+            const projectile = {
+              id: now + Math.random(),
+              x: shooter.x + shooter.width / 2 + invasionFormation.offsetX,
+              y: shooter.y + shooter.height + invasionFormation.descendAmount,
+              vy: 4 + killRatio * 2, // Faster shots as game progresses
+              type: shooter.alienType === 'bomber' ? 'bomb' : 'bullet',
+            };
+            setAlienProjectiles(prev => [...prev, projectile]);
+            setLastAlienShot(now);
+          }
+        }
+
+        // Update alien projectiles
+        setAlienProjectiles(prev => {
+          const currentPaddle = paddleRef.current;
+          const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
+
+          return prev.filter(proj => {
+            proj.y += proj.vy * deltaTime;
+
+            // Check if hit player ship
+            if (proj.y >= shipY - 10 && proj.y <= shipY + 20) {
+              if (proj.x >= currentPaddle.x - 10 && proj.x <= currentPaddle.x + currentPaddle.width + 10) {
+                // Hit the ship!
+                createParticles(proj.x, proj.y, '#ff4444', 8);
+                setBallsInShip(b => Math.max(0, b - 1)); // Lose a ball
+                if (ballsInShip <= 1) {
+                  setLives(l => l - 1);
+                  setBallsInShip(2); // Reset balls
+                  addFloatingText(proj.x, proj.y, '💥 HIT!', '#ff4444');
+                }
+                return false;
+              }
+            }
+
+            // Remove if off screen
+            return proj.y < CANVAS_HEIGHT + 20;
+          });
+        });
+
+        // === DIVING ALIENS (Galaga-style) ===
+        if (aliveAliens > 3 && now - lastDiveSpawn > DIVE_SPAWN_COOLDOWN && divingAliens.length < 2) {
+          // Pick a random alien to dive
+          const divers = bricks.filter(b => b.health > 0 && b.type !== 'obstacle' && !b.isDiving);
+          if (divers.length > 0) {
+            const diver = divers[Math.floor(Math.random() * divers.length)];
+            const startX = diver.x + diver.width / 2 + invasionFormation.offsetX;
+            const startY = diver.y + diver.height / 2 + invasionFormation.descendAmount;
+
+            // Mark brick as diving (temporarily remove from formation)
+            setBricks(prev => prev.map(b => b.id === diver.id ? { ...b, isDiving: true } : b));
+
+            setDivingAliens(prev => [...prev, {
+              id: diver.id,
+              brickId: diver.id,
+              x: startX,
+              y: startY,
+              alienType: diver.alienType,
+              health: diver.health,
+              // Swooping path parameters
+              startX,
+              startY,
+              targetX: paddleRef.current.x + paddleRef.current.width / 2,
+              phase: 0, // 0-1 for dive, 1-2 for return
+              speed: 3 + Math.random(),
+            }]);
+            setLastDiveSpawn(now);
+          }
+        }
+
+        // Update diving aliens
+        setDivingAliens(prev => {
+          const currentPaddle = paddleRef.current;
+          const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
+
+          return prev.map(diver => {
+            let { x, y, phase, startX, startY, targetX, speed } = diver;
+
+            phase += 0.02 * speed * deltaTime;
+
+            if (phase < 1) {
+              // Diving down - swooping curve toward player
+              const t = phase;
+              const curveX = startX + (targetX - startX) * t + Math.sin(t * Math.PI * 2) * 50;
+              const curveY = startY + (shipY - startY) * t * t; // Accelerate downward
+              x = curveX;
+              y = curveY;
+            } else if (phase < 2) {
+              // Returning to formation - loop back up
+              const t = phase - 1;
+              const returnY = shipY - (shipY - startY) * t;
+              const returnX = targetX + (startX - targetX) * t + Math.sin(t * Math.PI) * 80;
+              x = returnX;
+              y = returnY;
+            } else {
+              // Dive complete - return to formation
+              setBricks(bricks => bricks.map(b => b.id === diver.brickId ? { ...b, isDiving: false } : b));
+              return null; // Remove from diving list
+            }
+
+            // Check collision with player balls
+            for (const ball of invasionBalls) {
+              const dx = ball.x - x;
+              const dy = ball.y - y;
+              if (Math.sqrt(dx * dx + dy * dy) < 25) {
+                // Hit! Damage the diver
+                diver.health--;
+                createParticles(x, y, '#ffaa00', 10);
+                if (diver.health <= 0) {
+                  // Diver destroyed
+                  setBricks(bricks => bricks.map(b => b.id === diver.brickId ? { ...b, health: 0, isDiving: false } : b));
+                  addFloatingText(x, y, '💀 +200', '#ff6644');
+                  createParticles(x, y, '#ff4444', 15);
+                  return null;
+                }
+              }
+            }
+
+            // Check if diver hit the player ship
+            if (y >= shipY - 15 && y <= shipY + 15) {
+              if (x >= currentPaddle.x - 10 && x <= currentPaddle.x + currentPaddle.width + 10) {
+                // Kamikaze hit!
+                createParticles(x, y, '#ff0000', 20);
+                setLives(l => l - 1);
+                addFloatingText(x, y, '💥 KAMIKAZE!', '#ff0000');
+                setBricks(bricks => bricks.map(b => b.id === diver.brickId ? { ...b, health: 0, isDiving: false } : b));
+                return null;
+              }
+            }
+
+            return { ...diver, x, y, phase };
+          }).filter(d => d !== null);
         });
 
         // Check if invasion complete (all bricks destroyed)
         // This is handled in the normal level complete check below
 
         // Check if brickinoids reached the bottom (player loses)
-        const lowestBrick = bricks.reduce((lowest, b) => {
+        const lowestBrick = bricks.filter(b => !b.isDiving).reduce((lowest, b) => {
           if (b.health <= 0 || b.type === 'obstacle') return lowest;
           const brickBottom = b.y + b.height + invasionFormation.descendAmount;
           return brickBottom > lowest ? brickBottom : lowest;
@@ -4349,6 +4524,7 @@ const BreakoutGame = () => {
           // Brickinoids reached the ship! Lose a life
           setLives(l => l - 1);
           setInvasionFormation(prev => ({ ...prev, descendAmount: 0 })); // Reset descent
+          addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '👾 INVADED!', '#ff4444');
           if (lives <= 1) {
             setGameState('gameover');
           }
@@ -5544,7 +5720,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, ballsInShip]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, ballsInShip, alienProjectiles, divingAliens, lastAlienShot, lastDiveSpawn]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -7197,7 +7373,7 @@ const BreakoutGame = () => {
               </div>
             )}
             {/* Pixel art alien for invasion bricks - fully replaces brick appearance */}
-            {brick.isInvader && invasionPhase === 'invasion' && (
+            {brick.isInvader && invasionPhase === 'invasion' && !brick.isDiving && (
               <div style={{
                 position: 'absolute',
                 width: brick.width,
@@ -7224,11 +7400,12 @@ const BreakoutGame = () => {
                     width: brick.width - 4,
                     height: brick.height + 12,
                     imageRendering: 'pixelated',
-                    transform: 'rotate(180deg)',
+                    // Animation: rotate 180 + slight tilt based on formation movement
+                    transform: `rotate(180deg) scaleX(${invasionFormation.animFrame === 0 ? 1 : -1})`,
                     filter: brick.hitFlash > 0
                       ? 'brightness(2) drop-shadow(0 0 10px #fff)'
                       : `drop-shadow(0 0 4px ${brick.color || '#88ff88'})`,
-                    transition: 'filter 0.15s',
+                    transition: 'transform 0.15s, filter 0.15s',
                     opacity: brick.dying ? 0.5 : 1,
                   }}
                 />
@@ -8363,6 +8540,51 @@ const BreakoutGame = () => {
               }}
             />
           </React.Fragment>
+        ))}
+
+        {/* Alien Projectiles (bullets/bombs shooting down at player) */}
+        {invasionMode && invasionPhase === 'invasion' && alienProjectiles.map(proj => (
+          <div
+            key={proj.id}
+            style={{
+              position: 'absolute',
+              left: proj.x - (proj.type === 'bomb' ? 8 : 4),
+              top: proj.y - (proj.type === 'bomb' ? 8 : 8),
+              width: proj.type === 'bomb' ? 16 : 8,
+              height: proj.type === 'bomb' ? 16 : 16,
+              background: proj.type === 'bomb'
+                ? 'radial-gradient(circle, #ff6600, #ff0000)'
+                : 'linear-gradient(180deg, #ff0 0%, #f80 50%, #f00 100%)',
+              borderRadius: proj.type === 'bomb' ? '50%' : '2px',
+              boxShadow: proj.type === 'bomb'
+                ? '0 0 10px #ff4400, 0 0 20px #ff0000'
+                : '0 0 8px #ff6600, 0 0 4px #ffff00',
+              animation: proj.type === 'bomb' ? 'pulse 0.2s infinite' : 'none',
+            }}
+          />
+        ))}
+
+        {/* Diving Aliens (Galaga-style attack) */}
+        {invasionMode && invasionPhase === 'invasion' && divingAliens.map(diver => (
+          <div
+            key={diver.id}
+            style={{
+              position: 'absolute',
+              left: diver.x - 20,
+              top: diver.y - 15,
+              width: 40,
+              height: 30,
+              fontSize: '28px',
+              textAlign: 'center',
+              lineHeight: '30px',
+              filter: `drop-shadow(0 0 10px ${diver.alienType === 'commander' ? '#ff0' : '#f60'})`,
+              transform: `rotate(${diver.phase < 1 ? 180 : 0}deg)`,
+              transition: 'transform 0.3s',
+              animation: 'shake 0.1s infinite',
+            }}
+          >
+            {diver.alienType === 'commander' ? '👾' : diver.alienType === 'bomber' ? '💣' : '👽'}
+          </div>
         ))}
 
         {/* Twin Paddle (Teddy Split ability) */}
