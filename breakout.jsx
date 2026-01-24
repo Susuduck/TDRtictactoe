@@ -2301,7 +2301,7 @@ const BreakoutGame = () => {
     speed: 0.8,           // Movement speed
   });
   const [lastShipFire, setLastShipFire] = useState(0);
-  const SHIP_FIRE_COOLDOWN = 150; // ms between shots (fast fire rate)
+  const SHIP_FIRE_COOLDOWN = 500; // ms between shots (0.5 sec delay)
   const INVASION_BALL_SPEED = 9; // Speed of invasion balls
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
@@ -4096,8 +4096,7 @@ const BreakoutGame = () => {
             setBallsInShip(3);
             setInvasionBalls([]);
             addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 INVASION! 🛸', '#ff6644');
-            setFlashColor('#ff6644');
-            setTimeout(() => setFlashColor(null), 200);
+            // No screen flash - keep the transformed ship visible
           }
         }
 
@@ -4114,9 +4113,10 @@ const BreakoutGame = () => {
         const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
         const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-        // Fire ONE ball when clicking (if we have balls in ship)
+        // Fire ONE ball at a time - can only fire if no balls are currently out
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
-        const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
+        const noBallsOut = invasionBalls.length === 0;
+        const canFire = ballsInShip > 0 && noBallsOut && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
         if (isFiring && canFire) {
           // Fire one ball from ship
@@ -7870,7 +7870,7 @@ const BreakoutGame = () => {
               ))}
             </div>
 
-            {/* "CLICK TO FIRE" hint when balls available */}
+            {/* "CLICK TO FIRE" hint when ball ready and none out */}
             {ballsInShip > 0 && invasionBalls.length === 0 && (
               <div style={{
                 position: 'absolute',
@@ -7888,8 +7888,8 @@ const BreakoutGame = () => {
               </div>
             )}
 
-            {/* Warning when low on balls */}
-            {ballsInShip === 1 && invasionBalls.length >= 2 && (
+            {/* "CATCH IT!" hint when ball is out */}
+            {invasionBalls.length > 0 && (
               <div style={{
                 position: 'absolute',
                 bottom: 72,
@@ -7897,30 +7897,12 @@ const BreakoutGame = () => {
                 transform: 'translateX(-50%)',
                 fontSize: '10px',
                 fontWeight: 'bold',
-                color: '#ffaa00',
-                textShadow: '0 0 8px #ffaa00',
+                color: ballsInShip === 0 ? '#ff4444' : '#ffaa00',
+                textShadow: `0 0 8px ${ballsInShip === 0 ? '#ff4444' : '#ffaa00'}`,
                 whiteSpace: 'nowrap',
-                animation: 'pulse 0.5s infinite',
+                animation: ballsInShip === 0 ? 'pulse 0.3s infinite' : 'pulse 0.5s infinite',
               }}>
-                ⚠️ LAST BALL!
-              </div>
-            )}
-
-            {/* Danger when no balls left */}
-            {ballsInShip === 0 && (
-              <div style={{
-                position: 'absolute',
-                bottom: 72,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                color: '#ff4444',
-                textShadow: '0 0 8px #ff4444',
-                whiteSpace: 'nowrap',
-                animation: 'pulse 0.3s infinite',
-              }}>
-                ⚠️ CATCH THE BALLS! ⚠️
+                {ballsInShip === 0 ? '⚠️ CATCH IT! LAST BALL! ⚠️' : 'CATCH THE BALL!'}
               </div>
             )}
 
