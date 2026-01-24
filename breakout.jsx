@@ -4530,6 +4530,24 @@ const BreakoutGame = () => {
           }
         }
 
+        // Update particles during invasion mode (so they don't freeze)
+        setParticles(prev => prev
+          .map(p => ({
+            ...p,
+            x: p.x + p.vx * deltaTime,
+            y: p.y + p.vy * deltaTime,
+            vy: p.vy + 0.3 * deltaTime,
+            life: p.life - 0.025 * deltaTime,
+          }))
+          .filter(p => p.life > 0)
+        );
+
+        // Update floating texts during invasion mode
+        setFloatingTexts(prev => prev
+          .map(t => ({ ...t, y: t.y - 1 * deltaTime, life: t.life - 0.02 * deltaTime }))
+          .filter(t => t.life > 0)
+        );
+
         // Skip normal ball physics in invasion mode
         gameLoopRef.current = requestAnimationFrame(gameLoop);
         return;
@@ -8582,20 +8600,32 @@ const BreakoutGame = () => {
             key={diver.id}
             style={{
               position: 'absolute',
-              left: diver.x - 20,
-              top: diver.y - 15,
-              width: 40,
-              height: 30,
-              fontSize: '28px',
-              textAlign: 'center',
-              lineHeight: '30px',
-              filter: `drop-shadow(0 0 10px ${diver.alienType === 'commander' ? '#ff0' : '#f60'})`,
-              transform: `rotate(${diver.phase < 1 ? 180 : 0}deg)`,
-              transition: 'transform 0.3s',
-              animation: 'shake 0.1s infinite',
+              left: diver.x - 14,
+              top: diver.y - 14,
+              width: 28,
+              height: 28,
             }}
           >
-            {diver.alienType === 'commander' ? '👾' : diver.alienType === 'bomber' ? '💣' : '👽'}
+            <img
+              src={(() => {
+                switch (diver.alienType) {
+                  case 'commander': return SPRITES.enemy1;
+                  case 'elite': return SPRITES.enemy2;
+                  case 'bomber': return SPRITES.enemy3;
+                  case 'heavy': return SPRITES.enemy4;
+                  default: return SPRITES.enemy5;
+                }
+              })()}
+              alt={diver.alienType || 'Diver'}
+              style={{
+                width: 28,
+                height: 28,
+                imageRendering: 'pixelated',
+                transform: `rotate(${diver.phase < 1 ? 180 : 0}deg)`,
+                filter: `drop-shadow(0 0 8px #ff6600) brightness(1.2)`,
+                transition: 'transform 0.2s',
+              }}
+            />
           </div>
         ))}
 
