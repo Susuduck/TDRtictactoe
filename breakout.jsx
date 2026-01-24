@@ -4440,7 +4440,7 @@ const BreakoutGame = () => {
               startY,
               targetX: paddleRef.current.x + paddleRef.current.width / 2,
               phase: 0, // 0-1 for dive, 1-2 for return
-              speed: 3 + Math.random(),
+              speed: 0.6 + Math.random() * 0.3, // Slow swooping speed
             }]);
             setLastDiveSpawn(now);
           }
@@ -4454,7 +4454,7 @@ const BreakoutGame = () => {
           return prev.map(diver => {
             let { x, y, phase, startX, startY, targetX, speed } = diver;
 
-            phase += 0.02 * speed * deltaTime;
+            phase += 0.012 * speed * deltaTime; // Slower dive speed
 
             if (phase < 1) {
               // Diving down - swooping curve toward player
@@ -7349,23 +7349,27 @@ const BreakoutGame = () => {
             }}
           >
             {/* Morphing pixel art alien during transformation */}
-            {invasionPhase === 'transform' && transformProgress > 0.4 && (
+            {invasionPhase === 'transform' && transformProgress > 0.3 && (
               <div style={{
                 position: 'absolute',
-                width: `${16 + transformProgress * 16}px`,
-                height: `${16 + transformProgress * 16}px`,
-                opacity: (transformProgress - 0.4) / 0.6,
-                transform: `scale(${0.5 + transformProgress * 0.5}) rotate(${Math.sin(brickIndex + transformProgress * 10) * 10}deg)`,
-                filter: `drop-shadow(0 0 ${5 + transformProgress * 10}px hsl(${120 + brickIndex * 10}, 80%, 60%))`,
-                animation: 'invasionPulse 0.3s infinite',
+                width: 28,
+                height: 28,
+                top: '50%',
+                left: '50%',
+                marginTop: -14,
+                marginLeft: -14,
+                opacity: Math.min(1, (transformProgress - 0.3) / 0.4),
+                transform: `scale(${0.3 + transformProgress * 0.7}) rotate(${Math.sin(brickIndex * 0.5 + transformProgress * 8) * 8}deg)`,
+                filter: `drop-shadow(0 0 ${5 + transformProgress * 8}px hsl(${120 + brickIndex * 15}, 70%, 50%))`,
+                animation: 'invasionPulse 0.4s infinite',
                 zIndex: 5,
               }}>
                 <img
                   src={[SPRITES.enemy1, SPRITES.enemy2, SPRITES.enemy3, SPRITES.enemy4, SPRITES.enemy5][brickIndex % 5]}
                   alt="Alien"
                   style={{
-                    width: '100%',
-                    height: '100%',
+                    width: 28,
+                    height: 28,
                     imageRendering: 'pixelated',
                     transform: 'rotate(180deg)',
                   }}
@@ -7383,32 +7387,40 @@ const BreakoutGame = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                overflow: 'visible',
               }}>
-                <img
-                  src={(() => {
-                    // Different sprites based on alien type
-                    switch (brick.alienType) {
-                      case 'commander': return SPRITES.enemy1; // Top row commanders
-                      case 'elite': return SPRITES.enemy2; // Gold/elite aliens
-                      case 'bomber': return SPRITES.enemy3; // Explosive bombers
-                      case 'heavy': return SPRITES.enemy4; // High-health heavies
-                      default: return SPRITES.enemy5; // Regular grunts
-                    }
-                  })()}
-                  alt={brick.alienType || 'Invader'}
-                  style={{
-                    width: brick.width - 4,
-                    height: brick.height + 12,
-                    imageRendering: 'pixelated',
-                    // Animation: rotate 180 + slight tilt based on formation movement
-                    transform: `rotate(180deg) scaleX(${invasionFormation.animFrame === 0 ? 1 : -1})`,
-                    filter: brick.hitFlash > 0
-                      ? 'brightness(2) drop-shadow(0 0 10px #fff)'
-                      : `drop-shadow(0 0 4px ${brick.color || '#88ff88'})`,
-                    transition: 'transform 0.15s, filter 0.15s',
-                    opacity: brick.dying ? 0.5 : 1,
-                  }}
-                />
+                <div style={{
+                  // Subtle random pulsing via CSS animation with random delay
+                  animation: `alienPulse 1.5s ease-in-out infinite`,
+                  animationDelay: `${(brickIndex * 0.1) % 1.5}s`,
+                }}>
+                  <img
+                    src={(() => {
+                      // Different sprites based on alien type
+                      switch (brick.alienType) {
+                        case 'commander': return SPRITES.enemy1; // Top row commanders
+                        case 'elite': return SPRITES.enemy2; // Gold/elite aliens
+                        case 'bomber': return SPRITES.enemy3; // Explosive bombers
+                        case 'heavy': return SPRITES.enemy4; // High-health heavies
+                        default: return SPRITES.enemy5; // Regular grunts
+                      }
+                    })()}
+                    alt={brick.alienType || 'Invader'}
+                    style={{
+                      // Fixed size - don't stretch to brick dimensions
+                      width: 28,
+                      height: 28,
+                      imageRendering: 'pixelated',
+                      // Animation: rotate 180 + flip on direction change
+                      transform: `rotate(180deg) scaleX(${invasionFormation.animFrame === 0 ? 1 : -1})`,
+                      filter: brick.hitFlash > 0
+                        ? 'brightness(2) drop-shadow(0 0 10px #fff)'
+                        : `drop-shadow(0 0 4px ${brick.color || '#88ff88'})`,
+                      transition: 'filter 0.15s',
+                      opacity: brick.dying ? 0.5 : 1,
+                    }}
+                  />
+                </div>
                 {/* Health indicator for multi-hit aliens */}
                 {brick.maxHealth > 1 && !brick.dying && (
                   <div style={{
@@ -9148,6 +9160,10 @@ const BreakoutGame = () => {
         @keyframes invasionPulse {
           0%, 100% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        @keyframes alienPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
         }
         @keyframes alertShake {
           0%, 100% { transform: translate(-50%, -50%) rotate(-2deg); }
