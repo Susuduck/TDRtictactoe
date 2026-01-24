@@ -2301,7 +2301,7 @@ const BreakoutGame = () => {
     speed: 0.8,           // Movement speed
   });
   const [lastShipFire, setLastShipFire] = useState(0);
-  const [fireReleased, setFireReleased] = useState(true); // Must release fire button before shooting
+  const wasFiringRef = useRef(false); // Track previous frame's firing state for edge detection
   const SHIP_FIRE_COOLDOWN = 500; // ms between shots (0.5 sec delay)
   const INVASION_BALL_SPEED = 9; // Speed of invasion balls
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
@@ -3964,7 +3964,7 @@ const BreakoutGame = () => {
               // Ship starts with 2 balls (will get 3rd when rescuing stolen ball)
               setBallsInShip(2);
               setInvasionBalls([]);
-              setFireReleased(false); // Must release fire button before shooting
+              wasFiringRef.current = true; // Prevent immediate fire if button held
               addFloatingText(
                 paddleRef.current.x + paddleRef.current.width / 2,
                 CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 40,
@@ -3986,17 +3986,15 @@ const BreakoutGame = () => {
           const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
           const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-          // Fire with 0.5 sec delay - can have multiple balls out
+          // Fire only on button PRESS (not hold) - edge detection
           const isFiring = keysRef.current.space || keysRef.current.mouseDown;
+          const wasFireing = wasFiringRef.current;
+          const justPressed = isFiring && !wasFireing; // Rising edge: just pressed this frame
+          wasFiringRef.current = isFiring;
 
-          // Track when fire button is released (required before first shot)
-          if (!isFiring && !fireReleased) {
-            setFireReleased(true);
-          }
+          const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
-          const canFire = ballsInShip > 0 && fireReleased && now - lastShipFire > SHIP_FIRE_COOLDOWN;
-
-          if (isFiring && canFire) {
+          if (justPressed && canFire) {
             const newBall = {
               id: now + Math.random(),
               x: shipCenterX,
@@ -4049,7 +4047,8 @@ const BreakoutGame = () => {
                       setBallsInShip(3);
                       setInvasionBalls([]); // Clear all balls in flight
                       setBalls([]); // Clear the grabbed ball display
-                      // fireReleased stays as-is, player must release button
+                      // Edge detection: set wasFiring to prevent immediate auto-fire
+                      wasFiringRef.current = true;
                       createParticles(prev.x, prev.y, '#44ff44', 20);
                       addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED! +1', '#44ff44');
                       return null;
@@ -4147,7 +4146,7 @@ const BreakoutGame = () => {
             // Balls should already be set to 3 from UFO destruction, just clear any stragglers
             setInvasionBalls([]);
             // Force clean firing state - player must release and press to fire
-            setFireReleased(false);
+            wasFiringRef.current = true; // Prevent immediate fire if button held
             keysRef.current.space = false;
             keysRef.current.mouseDown = false;
             addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 DESTROY THE ALIENS! 🛸', '#ff6644');
@@ -4167,17 +4166,15 @@ const BreakoutGame = () => {
         const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
         const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-        // Fire with 0.5 sec delay - can have multiple balls out at once
+        // Fire only on button PRESS (not hold) - edge detection
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
+        const wasFireing = wasFiringRef.current;
+        const justPressed = isFiring && !wasFireing; // Rising edge: just pressed this frame
+        wasFiringRef.current = isFiring;
 
-        // Track when fire button is released (required before first shot)
-        if (!isFiring && !fireReleased) {
-          setFireReleased(true);
-        }
+        const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
-        const canFire = ballsInShip > 0 && fireReleased && now - lastShipFire > SHIP_FIRE_COOLDOWN;
-
-        if (isFiring && canFire) {
+        if (justPressed && canFire) {
           // Fire one ball from ship
           const newBall = {
             id: now + Math.random(),
@@ -5547,7 +5544,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, ballsInShip, fireReleased]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, ballsInShip]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
