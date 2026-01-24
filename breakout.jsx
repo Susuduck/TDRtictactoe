@@ -2928,11 +2928,25 @@ const BreakoutGame = () => {
       if (e.key === 'e' || e.key === 'E') keysRef.current.e = false;
     };
 
+    // Reset all keys when window loses focus (prevents stuck keys)
+    const handleBlur = () => {
+      keysRef.current.left = false;
+      keysRef.current.right = false;
+      keysRef.current.space = false;
+      keysRef.current.shift = false;
+      keysRef.current.mouseDown = false;
+      keysRef.current.q = false;
+      keysRef.current.w = false;
+      keysRef.current.e = false;
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, [activateTeddyAbility, fireWeapon]); // Minimal dependencies - refs handle the rest
 
@@ -2997,9 +3011,9 @@ const BreakoutGame = () => {
       if (clientX >= rect.left && clientX <= rect.right &&
           clientY >= rect.top && clientY <= rect.bottom) {
 
-        // In invasion mode (shoot_alien or invasion phase), click fires the ship
+        // In invasion mode, mousedown/mouseup handles firing - don't set here
+        // (click fires AFTER mouseup, so setting mouseDown here would leave it stuck)
         if (invasionPhaseRef.current === 'shoot_alien' || invasionPhaseRef.current === 'invasion') {
-          keysRef.current.mouseDown = true;
           return;
         }
 
@@ -4031,11 +4045,11 @@ const BreakoutGame = () => {
                       setInvasionPhase('transform');
                       setInvasionTimer(0);
                       setTransformProgress(0);
-                      // Player gets: current balls in ship + this ball + stolen ball = 3 total
+                      // Player gets all 3 balls back
                       setBallsInShip(3);
                       setInvasionBalls([]); // Clear all balls in flight
                       setBalls([]); // Clear the grabbed ball display
-                      setFireReleased(true); // Allow shooting in next phase
+                      // fireReleased stays as-is, player must release button
                       createParticles(prev.x, prev.y, '#44ff44', 20);
                       addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED! +1', '#44ff44');
                       return null;
@@ -4046,6 +4060,9 @@ const BreakoutGame = () => {
 
                   if (ufoDestroyed) {
                     // Ball goes back to ship, don't keep it in play
+                    // Reset firing state to prevent auto-fire
+                    keysRef.current.space = false;
+                    keysRef.current.mouseDown = false;
                     continue;
                   }
 
@@ -4129,7 +4146,10 @@ const BreakoutGame = () => {
             setBrickMorphProgress(0);
             // Balls should already be set to 3 from UFO destruction, just clear any stragglers
             setInvasionBalls([]);
-            // fireReleased was set to true when UFO was destroyed, don't reset it
+            // Force clean firing state - player must release and press to fire
+            setFireReleased(false);
+            keysRef.current.space = false;
+            keysRef.current.mouseDown = false;
             addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 DESTROY THE ALIENS! 🛸', '#ff6644');
           }
         }
