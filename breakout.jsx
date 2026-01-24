@@ -2190,6 +2190,7 @@ const BreakoutGame = () => {
     return saved ? JSON.parse(saved) : {};
   }); // { levelNum: { projectileAmount: 0.5-1.0 } }
   const [editorInvasionProjectileAmount, setEditorInvasionProjectileAmount] = useState(1.0); // 0.5-1.0 (50%-100%)
+  const [editorInvasionShootingRate, setEditorInvasionShootingRate] = useState(0.5); // 0.1-1.0 - percentage of enemies that can shoot
 
   // === WEAPONS SYSTEM ===
   // Unconventional weapons that use ammo - ball goes into containment field while using
@@ -2312,6 +2313,9 @@ const BreakoutGame = () => {
   const [lastDiveSpawn, setLastDiveSpawn] = useState(0); // Cooldown for spawning divers
   const [lastShipFire, setLastShipFire] = useState(0);
   const wasFiringRef = useRef(false); // Track previous frame's firing state for edge detection
+  const [chargeStartTime, setChargeStartTime] = useState(null); // When charging began
+  const [chargeLevel, setChargeLevel] = useState(0); // 0 = not charging, 1-3 = charge level
+  const CHARGE_TIME_PER_LEVEL = 400; // ms to charge each level
   const SHIP_FIRE_COOLDOWN = 320; // ms between shots (faster player shooting)
   const INVASION_BALL_SPEED = 9; // Speed of invasion balls
   const ALIEN_SHOT_COOLDOWN = 800; // ms between alien shots
@@ -2789,7 +2793,7 @@ const BreakoutGame = () => {
       x: CANVAS_WIDTH + 50,
       y: -50,
       targetX: CANVAS_WIDTH / 2,
-      targetY: 150,
+      targetY: 300, // Position UFO in front of bricks (below the brick area)
       phase: 'flying_in', // flying_in -> grabbing -> flying_with_ball -> shot -> dying
       health: 3,
       color: themeColor.alien,
@@ -3998,27 +4002,69 @@ const BreakoutGame = () => {
           const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
           const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-          // Fire only on button PRESS (not hold) - edge detection
+          // Charge shot mechanic - hold to charge, release to fire
           const isFiring = keysRef.current.space || keysRef.current.mouseDown;
           const wasFireing = wasFiringRef.current;
-          const justPressed = isFiring && !wasFireing; // Rising edge: just pressed this frame
+          const justPressed = isFiring && !wasFireing;
+          const justReleased = !isFiring && wasFireing;
           wasFiringRef.current = isFiring;
 
           const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
+          // Start charging when button pressed
           if (justPressed && canFire) {
+            setChargeStartTime(now);
+            setChargeLevel(1);
+          }
+
+          // Update charge level while holding
+          if (isFiring && chargeStartTime && canFire) {
+            const chargeTime = now - chargeStartTime;
+            const maxChargeLevel = Math.min(ballsInShip, 3);
+            const newChargeLevel = Math.min(maxChargeLevel, 1 + Math.floor(chargeTime / CHARGE_TIME_PER_LEVEL));
+            if (newChargeLevel !== chargeLevel) {
+              setChargeLevel(newChargeLevel);
+              if (newChargeLevel > 1) {
+                createParticles(shipCenterX, shipY, newChargeLevel === 3 ? '#ffff00' : '#88ff88', 6);
+                addFloatingText(shipCenterX, shipY - 20, `CHARGE ${newChargeLevel}!`, newChargeLevel === 3 ? '#ffff00' : '#88ff88');
+              }
+            }
+          }
+
+          // Fire charged shot when button released
+          if (justReleased && chargeStartTime && canFire) {
+            const finalChargeLevel = chargeLevel;
+            const penetration = finalChargeLevel === 1 ? 1 : (finalChargeLevel === 2 ? 3 : 4);
+            const ballSize = finalChargeLevel === 1 ? 1 : (finalChargeLevel === 2 ? 1.5 : 2);
+
             const newBall = {
               id: now + Math.random(),
               x: shipCenterX,
               y: shipY,
-              vx: (Math.random() - 0.5) * 2,
+              vx: (Math.random() - 0.5) * 1,
               vy: -INVASION_BALL_SPEED,
               trail: [],
+              penetration: penetration,
+              chargeLevel: finalChargeLevel,
+              size: ballSize,
             };
             setInvasionBalls(prev => [...prev, newBall]);
-            setBallsInShip(prev => prev - 1);
+            setBallsInShip(prev => prev - finalChargeLevel);
             setLastShipFire(now);
-            createParticles(shipCenterX, shipY, '#ffffff', 4);
+            setChargeStartTime(null);
+            setChargeLevel(0);
+
+            const color = finalChargeLevel === 3 ? '#ffff00' : (finalChargeLevel === 2 ? '#88ff88' : '#ffffff');
+            createParticles(shipCenterX, shipY, color, 4 + finalChargeLevel * 4);
+            if (finalChargeLevel > 1) {
+              addFloatingText(shipCenterX, shipY - 30, finalChargeLevel === 3 ? '🔥 MEGA SHOT!' : '⚡ POWER SHOT!', color);
+            }
+          }
+
+          // Cancel charge if can't fire anymore
+          if (chargeStartTime && !canFire) {
+            setChargeStartTime(null);
+            setChargeLevel(0);
           }
 
           // Update ball physics for shoot_alien phase
@@ -4190,29 +4236,72 @@ const BreakoutGame = () => {
         const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
         const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-        // Fire only on button PRESS (not hold) - edge detection
+        // Charge shot mechanic - hold to charge, release to fire
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
         const wasFireing = wasFiringRef.current;
-        const justPressed = isFiring && !wasFireing; // Rising edge: just pressed this frame
+        const justPressed = isFiring && !wasFireing;
+        const justReleased = !isFiring && wasFireing;
         wasFiringRef.current = isFiring;
 
         const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
+        // Start charging when button pressed
         if (justPressed && canFire) {
-          // Fire one ball from ship
+          setChargeStartTime(now);
+          setChargeLevel(1);
+        }
+
+        // Update charge level while holding
+        if (isFiring && chargeStartTime && canFire) {
+          const chargeTime = now - chargeStartTime;
+          const maxChargeLevel = Math.min(ballsInShip, 3); // Can only charge up to balls available
+          const newChargeLevel = Math.min(maxChargeLevel, 1 + Math.floor(chargeTime / CHARGE_TIME_PER_LEVEL));
+          if (newChargeLevel !== chargeLevel) {
+            setChargeLevel(newChargeLevel);
+            // Visual feedback for charging up
+            if (newChargeLevel > 1) {
+              createParticles(shipCenterX, shipY, newChargeLevel === 3 ? '#ffff00' : '#88ff88', 6);
+              addFloatingText(shipCenterX, shipY - 20, `CHARGE ${newChargeLevel}!`, newChargeLevel === 3 ? '#ffff00' : '#88ff88');
+            }
+          }
+        }
+
+        // Fire charged shot when button released
+        if (justReleased && chargeStartTime && canFire) {
+          const finalChargeLevel = chargeLevel;
+          // Penetration: 1 ball = 1 penetration, 2 balls = 3 penetration, 3 balls = 4 penetration
+          const penetration = finalChargeLevel === 1 ? 1 : (finalChargeLevel === 2 ? 3 : 4);
+          const ballSize = finalChargeLevel === 1 ? 1 : (finalChargeLevel === 2 ? 1.5 : 2); // Visual size multiplier
+
           const newBall = {
             id: now + Math.random(),
             x: shipCenterX,
             y: shipY,
-            vx: (Math.random() - 0.5) * 2, // Slight random angle
+            vx: (Math.random() - 0.5) * 1, // Less random angle for charged shots
             vy: -INVASION_BALL_SPEED,
             trail: [],
+            penetration: penetration, // How many enemies it can hit
+            chargeLevel: finalChargeLevel, // For visual rendering
+            size: ballSize, // Visual size
           };
           setInvasionBalls(prev => [...prev, newBall]);
-          setBallsInShip(prev => prev - 1);
+          setBallsInShip(prev => prev - finalChargeLevel); // Use up charged balls
           setLastShipFire(now);
-          // Visual feedback
-          createParticles(shipCenterX, shipY, '#ffffff', 4);
+          setChargeStartTime(null);
+          setChargeLevel(0);
+
+          // Visual feedback based on charge level
+          const color = finalChargeLevel === 3 ? '#ffff00' : (finalChargeLevel === 2 ? '#88ff88' : '#ffffff');
+          createParticles(shipCenterX, shipY, color, 4 + finalChargeLevel * 4);
+          if (finalChargeLevel > 1) {
+            addFloatingText(shipCenterX, shipY - 30, finalChargeLevel === 3 ? '🔥 MEGA SHOT!' : '⚡ POWER SHOT!', color);
+          }
+        }
+
+        // Cancel charge if can't fire anymore
+        if (chargeStartTime && !canFire) {
+          setChargeStartTime(null);
+          setChargeLevel(0);
         }
 
         // Update invasion balls physics AND check brick collisions in one pass
@@ -4220,7 +4309,7 @@ const BreakoutGame = () => {
           const survivingBalls = [];
 
           for (const ball of prevBalls) {
-            let { x, y, vx, vy, trail } = ball;
+            let { x, y, vx, vy, trail, penetration = 1, chargeLevel = 1, size = 1 } = ball;
 
             // Add trail
             trail = [...trail, { x, y }].slice(-6);
@@ -4243,10 +4332,14 @@ const BreakoutGame = () => {
               vy = Math.abs(vy);
             }
 
+            // Track bricks hit this frame (for penetration)
+            const bricksHitThisFrame = new Set();
+
             // Check brick collisions BEFORE finalizing position
             let hitBrick = false;
             for (const brick of bricks) {
               if (brick.health <= 0 || brick.type === 'obstacle') continue;
+              if (bricksHitThisFrame.has(brick.id)) continue; // Already hit this brick
 
               const brickX = brick.x + invasionFormation.offsetX;
               const brickY = brick.y + invasionFormation.descendAmount;
@@ -4259,6 +4352,7 @@ const BreakoutGame = () => {
                 y <= brickY + brick.height + BALL_RADIUS
               ) {
                 hitBrick = true;
+                bricksHitThisFrame.add(brick.id);
 
                 // Determine bounce direction based on which side we hit
                 const ballCenterX = x;
@@ -4270,14 +4364,20 @@ const BreakoutGame = () => {
                 const overlapX = (brick.width / 2 + BALL_RADIUS) - Math.abs(ballCenterX - brickCenterX);
                 const overlapY = (brick.height / 2 + BALL_RADIUS) - Math.abs(ballCenterY - brickCenterY);
 
-                if (overlapX < overlapY) {
-                  // Hit from side - bounce horizontally
-                  vx = ballCenterX < brickCenterX ? -Math.abs(vx) : Math.abs(vx);
-                  x = ballCenterX < brickCenterX ? brickX - BALL_RADIUS : brickX + brick.width + BALL_RADIUS;
+                // Only bounce if no penetration left, otherwise power through
+                if (penetration <= 1) {
+                  if (overlapX < overlapY) {
+                    vx = ballCenterX < brickCenterX ? -Math.abs(vx) : Math.abs(vx);
+                    x = ballCenterX < brickCenterX ? brickX - BALL_RADIUS : brickX + brick.width + BALL_RADIUS;
+                  } else {
+                    vy = ballCenterY < brickCenterY ? -Math.abs(vy) : Math.abs(vy);
+                    y = ballCenterY < brickCenterY ? brickY - BALL_RADIUS : brickY + brick.height + BALL_RADIUS;
+                  }
                 } else {
-                  // Hit from top/bottom - bounce vertically
-                  vy = ballCenterY < brickCenterY ? -Math.abs(vy) : Math.abs(vy);
-                  y = ballCenterY < brickCenterY ? brickY - BALL_RADIUS : brickY + brick.height + BALL_RADIUS;
+                  // Penetrating shot - reduce penetration and continue through
+                  penetration--;
+                  // Small visual effect for penetration
+                  createParticles(brickX + brick.width / 2, brickY + brick.height / 2, '#ffff00', 8);
                 }
 
                 // Damage the brick
@@ -4298,28 +4398,54 @@ const BreakoutGame = () => {
                   return { ...b, health: newHealth, hitFlash: 1 };
                 }));
 
-                break; // Only hit one brick per frame
+                // If still penetrating, continue checking more bricks
+                if (penetration <= 1) break;
               }
             }
 
-            // Check collision with diving aliens - ball bounces off them
+            // Check collision with diving aliens - ball bounces off them from ANY direction
             for (const diver of divingAliens) {
               const dx = x - diver.x;
               const dy = y - diver.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist < 25) {
-                // Bounce off the diver
-                if (Math.abs(dx) > Math.abs(dy)) {
-                  vx = dx > 0 ? Math.abs(vx) : -Math.abs(vx);
+              const collisionRadius = 30; // Slightly larger radius for better detection
+              if (dist < collisionRadius && dist > 0) {
+                // Use normalized direction vector
+                const nx = dx / dist;
+                const ny = dy / dist;
+
+                // Calculate the relative velocity toward the diver
+                const relVelTowardDiver = -(vx * nx + vy * ny);
+
+                // Only bounce if no penetration left, otherwise power through
+                if (penetration <= 1) {
+                  // Bounce off - only if ball is moving toward the diver
+                  if (relVelTowardDiver > 0) {
+                    vx = vx + 2 * relVelTowardDiver * nx;
+                    vy = vy + 2 * relVelTowardDiver * ny;
+
+                    const speed = Math.sqrt(vx * vx + vy * vy);
+                    if (speed < INVASION_BALL_SPEED) {
+                      vx = (vx / speed) * INVASION_BALL_SPEED;
+                      vy = (vy / speed) * INVASION_BALL_SPEED;
+                    }
+                  }
+                  // Push ball out of collision
+                  const pushDist = collisionRadius - dist + 3;
+                  x += nx * pushDist;
+                  y += ny * pushDist;
                 } else {
-                  vy = dy > 0 ? Math.abs(vy) : -Math.abs(vy);
+                  // Penetrating shot - reduce penetration and continue through
+                  penetration--;
+                  createParticles(diver.x, diver.y, '#ffff00', 10);
                 }
-                // Push ball out of collision
-                const pushDist = 25 - dist + 2;
-                const angle = Math.atan2(dy, dx);
-                x += Math.cos(angle) * pushDist;
-                y += Math.sin(angle) * pushDist;
+
                 createParticles(diver.x, diver.y, '#ffaa00', 6);
+
+                // Damage the diver
+                setDivingAliens(prev => prev.map(d =>
+                  d.brickId === diver.brickId ? { ...d, health: d.health - 1, hitByBall: true } : d
+                ));
               }
             }
 
@@ -4352,7 +4478,7 @@ const BreakoutGame = () => {
               }
             }
 
-            survivingBalls.push({ ...ball, x, y, vx, vy, trail });
+            survivingBalls.push({ ...ball, x, y, vx, vy, trail, penetration, chargeLevel, size });
           }
 
           return survivingBalls;
@@ -4396,9 +4522,14 @@ const BreakoutGame = () => {
         // Get projectile amount from saved invasion settings, or use defaults (level 6 = 50%, level 12 = 100%)
         const savedProjectileAmount = invasionSettings[pendingBossLevel]?.projectileAmount;
         const projectileChance = savedProjectileAmount !== undefined ? savedProjectileAmount : (pendingBossLevel === 6 ? 0.5 : 1.0);
+        // Get shooting rate (what % of enemies can shoot) - default 50%
+        const savedShootingRate = invasionSettings[pendingBossLevel]?.shootingRate;
+        const shootingRate = savedShootingRate !== undefined ? savedShootingRate : 0.5;
         if (aliveAliens > 0 && now - lastAlienShot > ALIEN_SHOT_COOLDOWN && Math.random() < projectileChance) {
           // Pick a random alive alien from bottom rows to shoot
-          const shooters = bricks.filter(b => b.health > 0 && b.type !== 'obstacle');
+          const allAlive = bricks.filter(b => b.health > 0 && b.type !== 'obstacle');
+          // Only a percentage of aliens can shoot based on shootingRate
+          const shooters = allAlive.filter((_, i) => i < Math.ceil(allAlive.length * shootingRate));
           if (shooters.length > 0) {
             // Prefer bottom aliens (more likely to shoot)
             const sortedByY = [...shooters].sort((a, b) => b.y - a.y);
@@ -4506,21 +4637,18 @@ const BreakoutGame = () => {
               return null; // Remove from diving list
             }
 
-            // Check collision with player balls
-            for (const ball of invasionBalls) {
-              const dx = ball.x - x;
-              const dy = ball.y - y;
-              if (Math.sqrt(dx * dx + dy * dy) < 25) {
-                // Hit! Damage the diver
-                diver.health--;
-                createParticles(x, y, '#ffaa00', 10);
-                if (diver.health <= 0) {
-                  // Diver destroyed
-                  setBricks(bricks => bricks.map(b => b.id === diver.brickId ? { ...b, health: 0, isDiving: false } : b));
-                  addFloatingText(x, y, '💀 +200', '#ff6644');
-                  createParticles(x, y, '#ff4444', 15);
-                  return null;
-                }
+            // Check if diver was already hit by ball (from ball update) and handle destruction
+            // The ball update section handles damaging divers, so we just check if destroyed
+            if (diver.hitByBall) {
+              diver.hitByBall = false; // Reset flag
+              createParticles(x, y, '#ffaa00', 10);
+              if (diver.health <= 0) {
+                // Diver destroyed
+                setBricks(bricks => bricks.map(b => b.id === diver.brickId ? { ...b, health: 0, isDiving: false } : b));
+                addFloatingText(x, y, '💀 +200', '#ff6644');
+                createParticles(x, y, '#ff4444', 15);
+                setScore(s => s + 200);
+                return null;
               }
             }
 
@@ -8208,6 +8336,54 @@ const BreakoutGame = () => {
               }} />
             </div>
 
+            {/* Charging bar - shows when holding fire button */}
+            {chargeStartTime && ballsInShip > 0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 82,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 60,
+                height: 10,
+                background: 'rgba(0,0,0,0.7)',
+                borderRadius: '5px',
+                border: '2px solid #666',
+                overflow: 'hidden',
+              }}>
+                {/* Charge level segments */}
+                <div style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: `${Math.min(100, (chargeLevel / 3) * 100)}%`,
+                  height: '100%',
+                  background: chargeLevel === 3 ? 'linear-gradient(90deg, #ffff00, #ffaa00)' : (chargeLevel === 2 ? 'linear-gradient(90deg, #88ff88, #44cc44)' : 'linear-gradient(90deg, #ffffff, #aaaaaa)'),
+                  boxShadow: chargeLevel === 3 ? '0 0 10px #ffff00' : (chargeLevel === 2 ? '0 0 10px #88ff88' : '0 0 5px #ffffff'),
+                  transition: 'width 0.1s ease-out',
+                }} />
+                {/* Segment markers */}
+                <div style={{ position: 'absolute', left: '33%', top: 0, width: '1px', height: '100%', background: '#333' }} />
+                <div style={{ position: 'absolute', left: '66%', top: 0, width: '1px', height: '100%', background: '#333' }} />
+              </div>
+            )}
+
+            {/* Charge level indicator text */}
+            {chargeStartTime && chargeLevel > 1 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 95,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: chargeLevel === 3 ? '#ffff00' : '#88ff88',
+                textShadow: `0 0 8px ${chargeLevel === 3 ? '#ffaa00' : '#44cc44'}`,
+                whiteSpace: 'nowrap',
+              }}>
+                {chargeLevel === 3 ? '🔥 MEGA SHOT' : '⚡ POWER SHOT'}
+              </div>
+            )}
+
             {/* Warning when no balls left in ship and balls are out */}
             {ballsInShip === 0 && invasionBalls.length > 0 && (
               <div style={{
@@ -8568,40 +8744,70 @@ const BreakoutGame = () => {
         ))}
 
         {/* Invasion bouncing balls (shown during shoot_alien and invasion phases) */}
-        {invasionMode && (invasionPhase === 'invasion' || invasionPhase === 'shoot_alien') && invasionBalls.map(ball => (
-          <React.Fragment key={ball.id}>
-            {/* Ball trail */}
-            {ball.trail && ball.trail.map((pos, i) => (
+        {invasionMode && (invasionPhase === 'invasion' || invasionPhase === 'shoot_alien') && invasionBalls.map(ball => {
+          const ballSize = ball.size || 1;
+          const isCharged = (ball.chargeLevel || 1) > 1;
+          const ballColor = (ball.chargeLevel || 1) === 3 ? '#ffff00' : ((ball.chargeLevel || 1) === 2 ? '#88ff88' : '#ffffff');
+          return (
+            <React.Fragment key={ball.id}>
+              {/* Ball trail */}
+              {ball.trail && ball.trail.map((pos, i) => (
+                <div
+                  key={`trail-${ball.id}-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: pos.x - BALL_RADIUS * ballSize * (0.3 + i * 0.08),
+                    top: pos.y - BALL_RADIUS * ballSize * (0.3 + i * 0.08),
+                    width: BALL_RADIUS * 2 * ballSize * (0.3 + i * 0.08),
+                    height: BALL_RADIUS * 2 * ballSize * (0.3 + i * 0.08),
+                    background: `radial-gradient(circle, ${isCharged ? ballColor : 'rgba(255, 255, 255, ' + (0.1 + i * 0.05) + ')'} 0%, transparent 70%)`,
+                    borderRadius: '50%',
+                    pointerEvents: 'none',
+                    opacity: isCharged ? 0.5 : 1,
+                  }}
+                />
+              ))}
+              {/* Main ball - larger for charged shots */}
               <div
-                key={`trail-${ball.id}-${i}`}
                 style={{
                   position: 'absolute',
-                  left: pos.x - BALL_RADIUS * (0.3 + i * 0.08),
-                  top: pos.y - BALL_RADIUS * (0.3 + i * 0.08),
-                  width: BALL_RADIUS * 2 * (0.3 + i * 0.08),
-                  height: BALL_RADIUS * 2 * (0.3 + i * 0.08),
-                  background: `radial-gradient(circle, rgba(255, 255, 255, ${0.1 + i * 0.05}) 0%, transparent 70%)`,
+                  left: ball.x - BALL_RADIUS * ballSize,
+                  top: ball.y - BALL_RADIUS * ballSize,
+                  width: BALL_RADIUS * 2 * ballSize,
+                  height: BALL_RADIUS * 2 * ballSize,
+                  background: isCharged
+                    ? `radial-gradient(circle at 30% 30%, ${ballColor}, ${ballColor}aa, ${ballColor}66)`
+                    : 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)',
                   borderRadius: '50%',
-                  pointerEvents: 'none',
+                  boxShadow: isCharged
+                    ? `0 0 15px ${ballColor}, 0 0 30px ${ballColor}88, 0 0 45px ${ballColor}44`
+                    : '0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4)',
+                  border: `2px solid ${ballColor}`,
                 }}
               />
-            ))}
-            {/* Main ball - looks like regular breakout ball */}
-            <div
-              style={{
-                position: 'absolute',
-                left: ball.x - BALL_RADIUS,
-                top: ball.y - BALL_RADIUS,
-                width: BALL_RADIUS * 2,
-                height: BALL_RADIUS * 2,
-                background: 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)',
-                borderRadius: '50%',
-                boxShadow: '0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4)',
-                border: '2px solid #fff',
-              }}
-            />
-          </React.Fragment>
-        ))}
+              {/* Show penetration count for charged balls */}
+              {isCharged && (ball.penetration || 0) > 1 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: ball.x - 6,
+                    top: ball.y - 6,
+                    width: 12,
+                    height: 12,
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    color: '#000',
+                    textAlign: 'center',
+                    lineHeight: '12px',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {ball.penetration}
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
 
         {/* Alien Projectiles (bullets/bombs shooting down at player) */}
         {invasionMode && invasionPhase === 'invasion' && alienProjectiles.map(proj => (
@@ -10176,6 +10382,7 @@ const BreakoutGame = () => {
           ...invasionSettings,
           [editorLevelNumber]: {
             projectileAmount: editorInvasionProjectileAmount,
+            shootingRate: editorInvasionShootingRate,
           }
         };
         setInvasionSettings(newInvasionSettings);
@@ -10202,9 +10409,11 @@ const BreakoutGame = () => {
         const savedInvasionSettings = invasionSettings[editorLevelNumber];
         if (savedInvasionSettings) {
           setEditorInvasionProjectileAmount(savedInvasionSettings.projectileAmount || 1.0);
+          setEditorInvasionShootingRate(savedInvasionSettings.shootingRate !== undefined ? savedInvasionSettings.shootingRate : 0.5);
         } else {
           // Default: level 6 has 50% projectiles, level 12 has 100%
           setEditorInvasionProjectileAmount(editorLevelNumber === 6 ? 0.5 : 1.0);
+          setEditorInvasionShootingRate(0.5); // Default 50% of enemies can shoot
         }
       }
     };
@@ -10475,6 +10684,32 @@ const BreakoutGame = () => {
             </div>
             <p style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
               Controls how often aliens fire projectiles. Lower = easier invasion.
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '15px' }}>
+              <label style={{ fontSize: '13px', color: '#ddd' }}>
+                Shooting Rate:
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.1"
+                value={editorInvasionShootingRate}
+                onChange={(e) => setEditorInvasionShootingRate(parseFloat(e.target.value))}
+                style={{ flex: 1, maxWidth: '200px' }}
+              />
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '700',
+                color: editorInvasionShootingRate <= 0.3 ? '#44ff44' : editorInvasionShootingRate <= 0.6 ? '#ffaa00' : '#ff6644',
+                minWidth: '50px',
+              }}>
+                {Math.round(editorInvasionShootingRate * 100)}%
+              </span>
+            </div>
+            <p style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
+              Percentage of aliens that can shoot. Lower = fewer shooters (default 50%).
             </p>
           </div>
         )}
