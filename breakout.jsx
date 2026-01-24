@@ -2185,6 +2185,11 @@ const BreakoutGame = () => {
     const saved = localStorage.getItem('teddyball_custom_levels');
     return saved ? JSON.parse(saved) : {};
   }); // { enemyId: { levelNum: [...rows] } }
+  const [invasionSettings, setInvasionSettings] = useState(() => {
+    const saved = localStorage.getItem('teddyball_invasion_settings');
+    return saved ? JSON.parse(saved) : {};
+  }); // { levelNum: { projectileAmount: 0.5-1.0 } }
+  const [editorInvasionProjectileAmount, setEditorInvasionProjectileAmount] = useState(1.0); // 0.5-1.0 (50%-100%)
 
   // === WEAPONS SYSTEM ===
   // Unconventional weapons that use ammo - ball goes into containment field while using
@@ -2307,7 +2312,7 @@ const BreakoutGame = () => {
   const [lastDiveSpawn, setLastDiveSpawn] = useState(0); // Cooldown for spawning divers
   const [lastShipFire, setLastShipFire] = useState(0);
   const wasFiringRef = useRef(false); // Track previous frame's firing state for edge detection
-  const SHIP_FIRE_COOLDOWN = 500; // ms between shots (0.5 sec delay)
+  const SHIP_FIRE_COOLDOWN = 320; // ms between shots (faster player shooting)
   const INVASION_BALL_SPEED = 9; // Speed of invasion balls
   const ALIEN_SHOT_COOLDOWN = 800; // ms between alien shots
   const DIVE_SPAWN_COOLDOWN = 3000; // ms between dive attacks
@@ -4388,7 +4393,10 @@ const BreakoutGame = () => {
         });
 
         // === ALIEN SHOOTING ===
-        if (aliveAliens > 0 && now - lastAlienShot > ALIEN_SHOT_COOLDOWN) {
+        // Get projectile amount from saved invasion settings, or use defaults (level 6 = 50%, level 12 = 100%)
+        const savedProjectileAmount = invasionSettings[pendingBossLevel]?.projectileAmount;
+        const projectileChance = savedProjectileAmount !== undefined ? savedProjectileAmount : (pendingBossLevel === 6 ? 0.5 : 1.0);
+        if (aliveAliens > 0 && now - lastAlienShot > ALIEN_SHOT_COOLDOWN && Math.random() < projectileChance) {
           // Pick a random alive alien from bottom rows to shoot
           const shooters = bricks.filter(b => b.health > 0 && b.type !== 'obstacle');
           if (shooters.length > 0) {
@@ -10161,6 +10169,18 @@ const BreakoutGame = () => {
       };
       setCustomLevels(newCustomLevels);
       localStorage.setItem('teddyball_custom_levels', JSON.stringify(newCustomLevels));
+
+      // Save invasion settings for boss levels (6 and 12)
+      if (editorLevelNumber === 6 || editorLevelNumber === 12) {
+        const newInvasionSettings = {
+          ...invasionSettings,
+          [editorLevelNumber]: {
+            projectileAmount: editorInvasionProjectileAmount,
+          }
+        };
+        setInvasionSettings(newInvasionSettings);
+        localStorage.setItem('teddyball_invasion_settings', JSON.stringify(newInvasionSettings));
+      }
       addFloatingText(CANVAS_WIDTH / 2, 100, '✓ Level Saved!', '#44ff44');
     };
 
@@ -10175,6 +10195,17 @@ const BreakoutGame = () => {
         const defaultLevel = defaultLevels[editorLevelNumber - 1] || Array(6).fill('.'.repeat(12));
         setEditorLevel(defaultLevel);
         addFloatingText(CANVAS_WIDTH / 2, 100, '✓ Default Level Loaded', '#ffaa00');
+      }
+
+      // Load invasion settings for boss levels (6 and 12)
+      if (editorLevelNumber === 6 || editorLevelNumber === 12) {
+        const savedInvasionSettings = invasionSettings[editorLevelNumber];
+        if (savedInvasionSettings) {
+          setEditorInvasionProjectileAmount(savedInvasionSettings.projectileAmount || 1.0);
+        } else {
+          // Default: level 6 has 50% projectiles, level 12 has 100%
+          setEditorInvasionProjectileAmount(editorLevelNumber === 6 ? 0.5 : 1.0);
+        }
       }
     };
 
@@ -10405,6 +10436,48 @@ const BreakoutGame = () => {
             </div>
           </div>
         </div>
+
+        {/* Invasion Settings - only show for boss levels (6 and 12) */}
+        {(editorLevelNumber === 6 || editorLevelNumber === 12) && (
+          <div style={{
+            marginTop: '20px',
+            background: 'rgba(100,60,0,0.3)',
+            padding: '15px',
+            borderRadius: '10px',
+            border: '1px solid #aa6600',
+            maxWidth: '700px',
+            width: '100%',
+          }}>
+            <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#ffaa00' }}>
+              Invasion Settings (Level {editorLevelNumber} is a boss level)
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <label style={{ fontSize: '13px', color: '#ddd' }}>
+                Projectile Amount:
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.1"
+                value={editorInvasionProjectileAmount}
+                onChange={(e) => setEditorInvasionProjectileAmount(parseFloat(e.target.value))}
+                style={{ flex: 1, maxWidth: '200px' }}
+              />
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '700',
+                color: editorInvasionProjectileAmount <= 0.5 ? '#44ff44' : editorInvasionProjectileAmount <= 0.7 ? '#ffaa00' : '#ff6644',
+                minWidth: '50px',
+              }}>
+                {Math.round(editorInvasionProjectileAmount * 100)}%
+              </span>
+            </div>
+            <p style={{ fontSize: '11px', color: '#888', marginTop: '8px' }}>
+              Controls how often aliens fire projectiles. Lower = easier invasion.
+            </p>
+          </div>
+        )}
 
         {/* Level Code Preview */}
         <div style={{
