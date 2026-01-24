@@ -2292,8 +2292,8 @@ const BreakoutGame = () => {
   // === INVASION MODE (Space Invaders style before bosses) ===
   const [invasionMode, setInvasionMode] = useState(false);
   const [shipProjectiles, setShipProjectiles] = useState([]); // Legacy projectiles for shoot_alien phase
-  const [invasionBalls, setInvasionBalls] = useState([]); // Bouncing balls that return to ship
-  const [invasionShootingEnabled, setInvasionShootingEnabled] = useState(false); // Enabled after first brick kill
+  const [invasionBalls, setInvasionBalls] = useState([]); // Balls currently in flight
+  const [ballsInShip, setBallsInShip] = useState(3); // Balls ready to fire (max 3)
   const [invasionFormation, setInvasionFormation] = useState({
     offsetX: 0,           // Formation horizontal offset
     direction: 1,         // 1 = right, -1 = left
@@ -2301,8 +2301,8 @@ const BreakoutGame = () => {
     speed: 0.8,           // Movement speed
   });
   const [lastShipFire, setLastShipFire] = useState(0);
-  const SHIP_FIRE_COOLDOWN = 400; // ms between ball volleys
-  const INVASION_BALL_SPEED = 10; // Speed of invasion balls
+  const SHIP_FIRE_COOLDOWN = 150; // ms between shots (fast fire rate)
+  const INVASION_BALL_SPEED = 9; // Speed of invasion balls
   const [pendingBossLevel, setPendingBossLevel] = useState(null); // Level to start after invasion clears
 
   // Invasion sequence phases:
@@ -4092,7 +4092,9 @@ const BreakoutGame = () => {
             setInvasionPhase('invasion');
             setInvasionTimer(0);
             setBrickMorphProgress(0);
-            // Ball stays attached, player can launch it
+            // Reset invasion balls for new invasion mode
+            setBallsInShip(3);
+            setInvasionBalls([]);
             addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 INVASION! 🛸', '#ff6644');
             setFlashColor('#ff6644');
             setTimeout(() => setFlashColor(null), 200);
@@ -4107,84 +4109,93 @@ const BreakoutGame = () => {
       if (invasionMode && invasionPhase === 'invasion') {
         const currentPaddle = paddleRef.current;
         const shipCenterX = currentPaddle.x + currentPaddle.width / 2;
+        const shipLeft = currentPaddle.x;
+        const shipRight = currentPaddle.x + currentPaddle.width;
         const shipY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - 30;
+        const catchZoneY = CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM;
 
-        // Fire bouncing balls when shooting is enabled (after first brick kill)
-        // Or when clicking/pressing space to launch the first ball
+        // Fire ONE ball when clicking (if we have balls in ship)
         const isFiring = keysRef.current.space || keysRef.current.mouseDown;
-
-        // Check if any invasion balls are out - if not, allow firing
-        const canFire = invasionBalls.length === 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
+        const canFire = ballsInShip > 0 && now - lastShipFire > SHIP_FIRE_COOLDOWN;
 
         if (isFiring && canFire) {
-          // Launch 3 balls in a spread pattern
-          const newBalls = [];
-          const angles = [-0.3, 0, 0.3]; // Spread angles
-          for (let i = 0; i < 3; i++) {
-            newBalls.push({
-              id: now + Math.random() + i,
-              x: shipCenterX + (i - 1) * 15,
-              y: shipY,
-              vx: Math.sin(angles[i]) * INVASION_BALL_SPEED,
-              vy: -Math.cos(angles[i]) * INVASION_BALL_SPEED,
-              bounces: 0,
-              maxBounces: 5, // Return after this many bounces
-              returning: false,
-              trail: [],
-            });
-          }
-          setInvasionBalls(newBalls);
+          // Fire one ball from ship
+          const newBall = {
+            id: now + Math.random(),
+            x: shipCenterX,
+            y: shipY,
+            vx: (Math.random() - 0.5) * 2, // Slight random angle
+            vy: -INVASION_BALL_SPEED,
+            trail: [],
+          };
+          setInvasionBalls(prev => [...prev, newBall]);
+          setBallsInShip(prev => prev - 1);
           setLastShipFire(now);
-          // Visual feedback - launch particles
-          createParticles(shipCenterX, shipY, '#80ffff', 6);
-          addFloatingText(shipCenterX, shipY - 20, '🎱🎱🎱', '#fff');
+          // Visual feedback
+          createParticles(shipCenterX, shipY, '#ffffff', 4);
         }
 
-        // Update invasion balls (bouncing ball physics)
+        // Update invasion balls physics
         setInvasionBalls(prevBalls => {
-          return prevBalls.map(ball => {
-            let { x, y, vx, vy, bounces, maxBounces, returning, trail } = ball;
+          const survivingBalls = [];
+
+          for (const ball of prevBalls) {
+            let { x, y, vx, vy, trail } = ball;
 
             // Add trail
-            trail = [...trail, { x, y }].slice(-8);
-
-            if (returning) {
-              // Return to ship
-              const dx = shipCenterX - x;
-              const dy = shipY - y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist < 20) {
-                // Ball returned - remove it
-                return null;
-              }
-              const returnSpeed = 15;
-              vx = (dx / dist) * returnSpeed;
-              vy = (dy / dist) * returnSpeed;
-            } else {
-              // Bounce off walls
-              if (x <= BALL_RADIUS || x >= CANVAS_WIDTH - BALL_RADIUS) {
-                vx = -vx;
-                x = Math.max(BALL_RADIUS, Math.min(CANVAS_WIDTH - BALL_RADIUS, x));
-                bounces++;
-              }
-              if (y <= BALL_RADIUS) {
-                vy = -vy;
-                y = BALL_RADIUS;
-                bounces++;
-              }
-
-              // Start returning after max bounces or if going too low
-              if (bounces >= maxBounces || y > CANVAS_HEIGHT - 100) {
-                returning = true;
-              }
-            }
+            trail = [...trail, { x, y }].slice(-6);
 
             // Move ball
             x += vx * deltaTime;
             y += vy * deltaTime;
 
-            return { ...ball, x, y, vx, vy, bounces, returning, trail };
-          }).filter(b => b !== null);
+            // Bounce off walls
+            if (x <= BALL_RADIUS) {
+              x = BALL_RADIUS;
+              vx = Math.abs(vx);
+            }
+            if (x >= CANVAS_WIDTH - BALL_RADIUS) {
+              x = CANVAS_WIDTH - BALL_RADIUS;
+              vx = -Math.abs(vx);
+            }
+            if (y <= BALL_RADIUS) {
+              y = BALL_RADIUS;
+              vy = Math.abs(vy);
+            }
+
+            // Check if ball is in catch zone (at ship level)
+            if (y >= catchZoneY - BALL_RADIUS && vy > 0) {
+              // Ball is coming down to ship level
+              if (x >= shipLeft - 10 && x <= shipRight + 10) {
+                // CAUGHT! Ball goes back to ship
+                setBallsInShip(prev => Math.min(3, prev + 1));
+                createParticles(x, catchZoneY, '#80ff80', 6);
+                addFloatingText(x, catchZoneY - 30, '✓ CAUGHT!', '#80ff80');
+                continue; // Don't add to surviving balls
+              } else if (y > CANVAS_HEIGHT + BALL_RADIUS) {
+                // MISSED! Ball is lost
+                createParticles(x, CANVAS_HEIGHT, '#ff4444', 4);
+                addFloatingText(x, CANVAS_HEIGHT - 50, '✗ LOST!', '#ff4444');
+
+                // Check if all balls are lost
+                const ballsLeft = ballsInShip + survivingBalls.length;
+                if (ballsLeft === 0) {
+                  // All balls lost! Lose a life and reset
+                  setLives(l => l - 1);
+                  setBallsInShip(3); // Restore balls
+                  addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '💀 ALL BALLS LOST!', '#ff4444');
+                  if (lives <= 1) {
+                    setGameState('gameover');
+                  }
+                }
+                continue; // Don't add to surviving balls
+              }
+            }
+
+            survivingBalls.push({ ...ball, x, y, vx, vy, trail });
+          }
+
+          return survivingBalls;
         });
 
         // Move brickinoid formation (Space Invaders style)
@@ -4212,9 +4223,10 @@ const BreakoutGame = () => {
         // Check invasion ball - brick collisions
         setInvasionBalls(prevBalls => {
           return prevBalls.map(ball => {
-            if (!ball || ball.returning) return ball;
+            if (!ball) return ball;
 
             let hitBrick = false;
+            let bounceDirection = 0; // 1 = bounce down, -1 = bounce up
 
             setBricks(prevBricks => {
               return prevBricks.map(brick => {
@@ -4233,11 +4245,10 @@ const BreakoutGame = () => {
                 ) {
                   hitBrick = true;
 
-                  // Enable shooting after first brick kill
-                  if (!invasionShootingEnabled) {
-                    setInvasionShootingEnabled(true);
-                    addFloatingText(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🎯 SHOOTING ENABLED!', '#80ff80');
-                  }
+                  // Determine bounce direction
+                  const ballCenterY = ball.y;
+                  const brickCenterY = brickY + brick.height / 2;
+                  bounceDirection = ballCenterY < brickCenterY ? -1 : 1;
 
                   // Damage brick
                   const newHealth = brick.health - 1;
@@ -4268,8 +4279,7 @@ const BreakoutGame = () => {
             if (hitBrick) {
               return {
                 ...ball,
-                vy: -ball.vy,
-                bounces: ball.bounces + 1,
+                vy: bounceDirection * Math.abs(ball.vy),
               };
             }
             return ball;
@@ -5485,7 +5495,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, invasionShootingEnabled]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, invasionShootingEnabled, ballsInShip]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
@@ -6148,6 +6158,7 @@ const BreakoutGame = () => {
         setBricks(createBricks(pendingBossLevel, selectedEnemy));
         setBalls([createBall(pendingBossLevel, enemyIndex)]);
         setShipProjectiles([]);
+        setInvasionBalls([]);
         setPendingBossLevel(null);
 
         // Keep current score, lives, etc. - continuous from invasion
@@ -7834,26 +7845,84 @@ const BreakoutGame = () => {
               }} />
             </div>
 
-            {/* Ball launchers (where balls shoot from) */}
+            {/* Balls in ship - shows available ammo */}
             <div style={{
               position: 'absolute',
               bottom: 55,
               left: '50%',
               transform: 'translateX(-50%)',
               display: 'flex',
-              gap: '8px',
+              gap: '6px',
             }}>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
-                  width: 10,
-                  height: 10,
-                  background: 'radial-gradient(circle, #fff, #ddd)',
+                  width: 12,
+                  height: 12,
+                  background: i < ballsInShip
+                    ? 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)'
+                    : 'radial-gradient(circle, #333, #222)',
                   borderRadius: '50%',
-                  boxShadow: '0 0 8px #fff',
-                  border: '2px solid #aaa',
+                  boxShadow: i < ballsInShip ? '0 0 8px #fff, 0 0 4px #80ffff' : 'none',
+                  border: i < ballsInShip ? '2px solid #fff' : '2px solid #444',
+                  opacity: i < ballsInShip ? 1 : 0.3,
+                  transition: 'all 0.2s',
                 }} />
               ))}
             </div>
+
+            {/* "CLICK TO FIRE" hint when balls available */}
+            {ballsInShip > 0 && invasionBalls.length === 0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 72,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                color: '#80ffff',
+                textShadow: '0 0 8px #80ffff',
+                whiteSpace: 'nowrap',
+                animation: 'pulse 0.8s infinite',
+              }}>
+                CLICK TO FIRE
+              </div>
+            )}
+
+            {/* Warning when low on balls */}
+            {ballsInShip === 1 && invasionBalls.length >= 2 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 72,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                color: '#ffaa00',
+                textShadow: '0 0 8px #ffaa00',
+                whiteSpace: 'nowrap',
+                animation: 'pulse 0.5s infinite',
+              }}>
+                ⚠️ LAST BALL!
+              </div>
+            )}
+
+            {/* Danger when no balls left */}
+            {ballsInShip === 0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 72,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                color: '#ff4444',
+                textShadow: '0 0 8px #ff4444',
+                whiteSpace: 'nowrap',
+                animation: 'pulse 0.3s infinite',
+              }}>
+                ⚠️ CATCH THE BALLS! ⚠️
+              </div>
+            )}
 
             {/* Thruster flames */}
             <div style={{
@@ -8171,15 +8240,13 @@ const BreakoutGame = () => {
                   top: pos.y - BALL_RADIUS * (0.3 + i * 0.08),
                   width: BALL_RADIUS * 2 * (0.3 + i * 0.08),
                   height: BALL_RADIUS * 2 * (0.3 + i * 0.08),
-                  background: ball.returning
-                    ? `radial-gradient(circle, rgba(128, 255, 128, ${0.1 + i * 0.05}) 0%, transparent 70%)`
-                    : `radial-gradient(circle, rgba(255, 255, 255, ${0.1 + i * 0.05}) 0%, transparent 70%)`,
+                  background: `radial-gradient(circle, rgba(255, 255, 255, ${0.1 + i * 0.05}) 0%, transparent 70%)`,
                   borderRadius: '50%',
                   pointerEvents: 'none',
                 }}
               />
             ))}
-            {/* Main ball */}
+            {/* Main ball - looks like regular breakout ball */}
             <div
               style={{
                 position: 'absolute',
@@ -8187,14 +8254,10 @@ const BreakoutGame = () => {
                 top: ball.y - BALL_RADIUS,
                 width: BALL_RADIUS * 2,
                 height: BALL_RADIUS * 2,
-                background: ball.returning
-                  ? 'radial-gradient(circle at 30% 30%, #80ff80, #40cc40, #208820)'
-                  : 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)',
+                background: 'radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0, #a0a0a0)',
                 borderRadius: '50%',
-                boxShadow: ball.returning
-                  ? '0 0 15px #80ff80, 0 0 30px rgba(128, 255, 128, 0.5)'
-                  : '0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4)',
-                border: ball.returning ? '2px solid #60ff60' : '2px solid #fff',
+                boxShadow: '0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4)',
+                border: '2px solid #fff',
               }}
             />
           </React.Fragment>
