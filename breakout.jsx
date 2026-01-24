@@ -5495,7 +5495,7 @@ const BreakoutGame = () => {
     return () => {
       if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
     };
-  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, invasionShootingEnabled, ballsInShip]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
+  }, [gameState, isPaused, selectedEnemy, activeEffects, applyGimmick, gimmickData, combo, maxCombo, spawnPowerUp, createParticles, createPaddleBounceParticles, createBrickShatterParticles, createCrackingParticles, addFloatingText, currentLevel, difficulty, enemies, lastEnemySpawn, spawnEnemy, updateEnemies, damageEnemy, bumpers, portals, spawners, paddleDebuffs, invasionMode, invasionFormation, lastShipFire, bricks, lives, invasionPhase, ballGrabber, invasionTimer, transformProgress, pendingBossLevel, createInvasionBricks, paddleTransformProgress, brickMorphProgress, invasionBalls, ballsInShip]); // NOTE: paddle intentionally omitted - use paddleRef to avoid restarting game loop on every paddle move
 
   const applyPowerUp = (type) => {
     // Handle character-specific rare power-ups
