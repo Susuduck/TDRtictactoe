@@ -4021,26 +4021,35 @@ const BreakoutGame = () => {
                   // Hit the UFO!
                   createParticles(ballGrabber.x, ballGrabber.y, ballGrabber.color, 12);
 
+                  let ufoDestroyed = false;
                   setBallGrabber(prev => {
                     if (!prev) return null;
                     const newHealth = prev.health - 1;
                     if (newHealth <= 0) {
+                      ufoDestroyed = true;
                       // UFO destroyed! Get stolen ball back
                       setInvasionPhase('transform');
                       setInvasionTimer(0);
                       setTransformProgress(0);
-                      // Player gets stolen ball back (add to ship)
-                      setBallsInShip(prev => Math.min(3, prev + 2)); // +1 for caught ball, +1 for stolen ball
+                      // Player gets: current balls in ship + this ball + stolen ball = 3 total
+                      setBallsInShip(3);
+                      setInvasionBalls([]); // Clear all balls in flight
                       setBalls([]); // Clear the grabbed ball display
+                      setFireReleased(true); // Allow shooting in next phase
                       createParticles(prev.x, prev.y, '#44ff44', 20);
-                      addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED!', '#44ff44');
+                      addFloatingText(prev.x, prev.y, '🎱 BALL RESCUED! +1', '#44ff44');
                       return null;
                     }
                     addFloatingText(prev.x, prev.y - 30, `HIT! ${newHealth} left`, '#ffaa00');
                     return { ...prev, health: newHealth, hitTimer: 15 };
                   });
 
-                  // Ball bounces off UFO
+                  if (ufoDestroyed) {
+                    // Ball goes back to ship, don't keep it in play
+                    continue;
+                  }
+
+                  // Ball bounces off UFO (UFO still alive)
                   vy = Math.abs(vy);
                   survivingBalls.push({ ...ball, x, y, vx, vy: vy, trail });
                   continue;
@@ -4118,9 +4127,9 @@ const BreakoutGame = () => {
             setInvasionPhase('invasion');
             setInvasionTimer(0);
             setBrickMorphProgress(0);
-            // Clear any balls in flight, keep balls in ship (should be 3 after rescuing)
+            // Balls should already be set to 3 from UFO destruction, just clear any stragglers
             setInvasionBalls([]);
-            setFireReleased(false); // Must release fire button before shooting
+            // fireReleased was set to true when UFO was destroyed, don't reset it
             addFloatingText(CANVAS_WIDTH / 2, 100, '🛸 DESTROY THE ALIENS! 🛸', '#ff6644');
           }
         }
