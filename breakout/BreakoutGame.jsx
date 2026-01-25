@@ -40,6 +40,10 @@ import {
   powerUpTypes,
 } from './data.js';
 
+// Unique ID generator to avoid React key collisions
+let _idCounter = 0;
+const uid = () => `${Date.now()}-${_idCounter++}`;
+
 const BreakoutGame = () => {
 
   // === DIFFICULTY SCALING SYSTEM ===
@@ -325,7 +329,7 @@ const BreakoutGame = () => {
     const paddleTop = CANVAS_HEIGHT - PADDLE_OFFSET_BOTTOM - PADDLE_HEIGHT;
 
     const projectile = {
-      id: Date.now() + Math.random(),
+      id: uid(),
       type: activeWeapon,
       x: paddleCenterX,
       y: paddleTop - 10,
@@ -344,7 +348,7 @@ const BreakoutGame = () => {
         for (let i = 0; i < 3; i++) {
           bubbles.push({
             ...projectile,
-            id: Date.now() + Math.random() + i,
+            id: uid() + i,
             x: paddleCenterX + (i - 1) * 30,
             vx: (i - 1) * 0.5,
             vy: -3 - Math.random(),
@@ -1322,7 +1326,7 @@ const BreakoutGame = () => {
   const MAX_FLOATING_TEXTS = 30;
   const addFloatingText = useCallback((x, y, text, color) => {
     setFloatingTexts(prev => [...prev, {
-      id: Date.now() + Math.random(),
+      id: uid(),
       x, y, text, color,
       life: 1,
     }].slice(-MAX_FLOATING_TEXTS));
@@ -1330,7 +1334,7 @@ const BreakoutGame = () => {
 
   // Show prominent powerup announcement
   const showPowerUpAnnouncement = useCallback((emoji, name, color, isGood = true) => {
-    setPowerUpAnnouncement({ emoji, name, color, isGood, id: Date.now() });
+    setPowerUpAnnouncement({ emoji, name, color, isGood, id: uid() });
     // Auto-hide after animation
     setTimeout(() => setPowerUpAnnouncement(null), 1500);
   }, []);
@@ -1341,7 +1345,7 @@ const BreakoutGame = () => {
     const charRare = selectedEnemy ? characterRares[selectedEnemy.id] : null;
     if (charRare && (forceRare || Math.random() < 0.02)) {
       setPowerUps(prev => [...prev, {
-        id: Date.now(),
+        id: uid(),
         x, y,
         type: 'rare_' + charRare.id,
         vy: 2,
@@ -1384,7 +1388,7 @@ const BreakoutGame = () => {
     if (!puType) return;
 
     setPowerUps(prev => [...prev, {
-      id: Date.now(),
+      id: uid(),
       x, y,
       type: selectedType,
       vy: 2,
@@ -1398,7 +1402,7 @@ const BreakoutGame = () => {
     if (!puType) return;
 
     setPowerUps(prev => [...prev, {
-      id: Date.now() + Math.random(),
+      id: uid(),
       x, y,
       type: powerUpId,
       vy: 2,
@@ -2982,14 +2986,14 @@ const BreakoutGame = () => {
                     // Split into two beams going diagonally
                     updatedProjectiles.push({
                       ...p,
-                      id: Date.now() + Math.random(),
+                      id: uid(),
                       vx: -4,
                       vy: p.vy,
                       splits: p.splits - 1,
                     });
                     updatedProjectiles.push({
                       ...p,
-                      id: Date.now() + Math.random() + 1,
+                      id: uid() + 1,
                       vx: 4,
                       vy: p.vy,
                       splits: p.splits - 1,
@@ -3382,7 +3386,7 @@ const BreakoutGame = () => {
           // Spider shoots webs every 4 seconds
           if (enemy.special === 'web' && timeSinceSpecial > 4000 && currentPaddle) {
             setEnemyProjectiles(prev => [...prev, {
-              id: Date.now() + Math.random(),
+              id: uid(),
               type: 'web',
               x: enemy.x + enemy.width / 2,
               y: enemy.y + enemy.height,
@@ -3402,7 +3406,7 @@ const BreakoutGame = () => {
               currentPaddle.x + currentPaddle.width/2 - enemy.x
             );
             setEnemyProjectiles(prev => [...prev, {
-              id: Date.now() + Math.random(),
+              id: uid(),
               type: 'eyeray',
               x: enemy.x + enemy.width / 2,
               y: enemy.y + enemy.height,
@@ -3421,7 +3425,7 @@ const BreakoutGame = () => {
             // Create 3 fire projectiles in a spread
             for (let i = -1; i <= 1; i++) {
               setEnemyProjectiles(prev => [...prev, {
-                id: Date.now() + Math.random() + i,
+                id: uid() + i,
                 type: 'fire',
                 x: enemy.x + enemy.width / 2 + i * 15,
                 y: enemy.y + enemy.height,
@@ -3725,7 +3729,7 @@ const BreakoutGame = () => {
     const ballX = currentPaddle ? currentPaddle.x + currentPaddle.width / 2 : CANVAS_WIDTH / 2;
 
     return {
-      id: Date.now(),
+      id: uid(),
       x: ballX,
       y: CANVAS_HEIGHT - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS,
       vx: (Math.random() - 0.5) * 8,
@@ -3769,7 +3773,7 @@ const BreakoutGame = () => {
     const heartX = CANVAS_WIDTH / 2;
     const heartY = 60;
     setFallingHearts(prev => [...prev, {
-      id: Date.now(),
+      id: uid(),
       x: heartX,
       y: heartY,
       vy: 0,
@@ -3867,7 +3871,7 @@ const BreakoutGame = () => {
     }
 
     return {
-      id: Date.now() + Math.random(),
+      id: uid(),
       type,
       tier,
       behavior: sprite.behavior || 'bounce',
@@ -4156,7 +4160,7 @@ const BreakoutGame = () => {
               // Spawn a skeleton minion
               const minionSprite = ENEMY_SPRITES.skeleton;
               const minion = {
-                id: Date.now() + Math.random(),
+                id: uid(),
                 type: 'skeleton',
                 tier: 1,
                 behavior: 'bounce',
