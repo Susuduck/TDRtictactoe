@@ -40,6 +40,7 @@ import {
   powerUpTypes,
 } from './data.js';
 import { getDifficulty, calculateLevelStars } from './gameLogic.js';
+import { updateEnemyBehavior } from './enemies.js';
 
 // Unique ID generator to avoid React key collisions
 let _idCounter = 0;
