@@ -2285,7 +2285,6 @@ const BreakoutGame = () => {
   const [isDashing, setIsDashing] = useState(false);
 
   // Charge shot system
-  const [chargeLevel, setChargeLevel] = useState(0);
   const [isCharging, setIsCharging] = useState(false);
 
   // Teddy Meter system
